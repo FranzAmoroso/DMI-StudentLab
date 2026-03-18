@@ -1,11 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from models.filter import Filter,Answer
-from services.filter import shuffle_filter,validation
+from services.filter import shuffle_filter,validate_answer
 
-app = FastAPI()
+router = APIRouter()
 
-@app.post("/{filter.dipartimento}{filter.corso}{filter.materia}")
+@router.post("/send")
 async def send_quest(filter: Filter):
     try:
         question = shuffle_filter(filter.dipartimento, filter.corso, filter.materia)
@@ -13,9 +13,9 @@ async def send_quest(filter: Filter):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/{filter.dipartimento}{filter.corso}{filter.materia}")
+@router.post("/validate")
 async def validate_quest(id : Answer):
-        outcome = validation(id.id_domanda, id.id_scelta)
+        outcome = validate_answer(id.id_domanda, id.id_scelta)
         if outcome is None:
             raise HTTPException(status_code=404,detail="Domanda non trovata")
         return {
