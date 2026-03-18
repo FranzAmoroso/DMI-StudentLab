@@ -12,7 +12,7 @@ class QuizPage extends StatefulWidget{
   _QuizPageState createState() => _QuizPageState();
 }
 
-class _QuizPageState extends State<QuizPage {
+class _QuizPageState extends State<QuizPage> {
   List<dynamic> question = [];
   bool load = true;
   int idx = 0;
@@ -25,7 +25,7 @@ class _QuizPageState extends State<QuizPage {
 
 
   void takeData() async {
-    var result = await ApiService().takeQuestion(widget.dip, widget.cor, widget.mat);
+    var result = await ApiService().shuffle_filter(widget.dip, widget.cor, widget.mat);
     setState(() {
       question = result;
       load = false;
