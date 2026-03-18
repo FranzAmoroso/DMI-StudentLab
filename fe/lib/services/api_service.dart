@@ -6,13 +6,13 @@ class ApiService {
   final String baseUrl = "http://127.0.0.1:8000";
 
   Future<List<QuizModel>> shuffle_filter(String dip, String cor, String mat) async {
-    final url = Uri.parse('$baseUrl/send');
+    final url = Uri.parse('$baseUrl');
 
-      final response = await http.post (
+      final response = await http.post(
         url,
         headers : {
           "Content-Type":"application/json",
-          "X-Custom-Secret":"ChiaveAcesso",
+          // "X-Custom-Secret":"ChiaveAcesso",
         },
         body: jsonEncode ({
           "dipartimento":dip,

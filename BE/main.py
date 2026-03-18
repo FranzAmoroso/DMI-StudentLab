@@ -1,6 +1,6 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
-from core import route
+from core.route import router 
 app = FastAPI()
 
 app.add_middleware(
@@ -11,7 +11,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-app.include_router(route.router, prefix="/api/v1")
+app.include_router(router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
