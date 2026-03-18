@@ -1,0 +1,22 @@
+[
+    {
+        "id_domanda": "0",
+        "metadata":{
+            "Città":"unict",
+            "dipartimento":"DMI",
+            "corso":"L-31",
+            "materia":"Interazione e Multimedia",
+            "argomento":"Leggi della Gestalt",
+            "professore":"Dario Allegra-Filippo stanco",
+            "anno_validità":"attuale"
+        },
+        "testo":"Quali di questi non rientra nelle leggi della gestalt?",
+        "opzioni": [
+            {"id":"a", "testo": "Legge della vicinanza"},
+            {"id":"b","testo":"Legge della somiglianza"},
+            {"id":"c","testo":"Legge della frequenza"},
+            {"id":"d","testo":"Legge della Buona forma"}
+        ],
+        "id_corretta":"c"
+    }
+]
