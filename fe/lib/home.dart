@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'quiz.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -250,6 +251,10 @@ class _HomePageState extends State<HomePage> {
                     onPressed: () {
                       // Azione del bottone (da modificare)
                       print('Card ${index + 1} premuta: ${card.title}');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => QuizPage()),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white.withOpacity(0.15),
