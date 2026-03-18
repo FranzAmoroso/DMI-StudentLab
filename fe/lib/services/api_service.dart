@@ -3,10 +3,10 @@ import 'package:http/http.dart' as http;
 import '../models/quiz_model.dart';
 
 class ApiService {
-  final String baseUrl = "http://127.0.0.2:8000";
+  final String baseUrl = "http://127.0.0.1:8000";
 
-  Future<List<QuizModel>> takeQuestion(String dip, String cor, String mat) async {
-    final url = Uri.parse('$baseUrl/$dip$cor$mat');
+  Future<List<QuizModel>> shuffle_filter(String dip, String cor, String mat) async {
+    final url = Uri.parse('$baseUrl/send');
 
       final response = await http.post (
         url,
@@ -27,6 +27,13 @@ class ApiService {
       } else {
         throw Exception("Impossibile caricare le domande");
       }
-    
+  }
+    Future<bool> validate_quest(String idQuesition, String idChoice) async {
+    final response = await http.post(
+    Uri.parse('$baseUrl/validate'),
+    body: jsonEncode({"id_domanda":idQuesition,"id_scelta":idChoice}),
+    );
+
+    return jsonDecode(response.body)['corretto'];
   }
 }
