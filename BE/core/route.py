@@ -8,19 +8,20 @@ router = APIRouter()
 @router.post("/send")
 async def send_quest(filter: Filter):
     try:
-        question = shuffle_filter(filter.dipartimento, filter.corso, filter.materia)
+        print(filter)
+        question = shuffle_filter(filter.department, filter.course, filter.sub)
         return {"success":True,"question":question}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/validate")
 async def validate_quest(id : Answer):
-        outcome = validate_answer(id.id_domanda, id.id_scelta)
+        outcome = validate_answer(id.idQuestion, id.idChoice)
         if outcome is None:
-            raise HTTPException(status_code=404,detail="Domanda non trovata")
+            raise HTTPException(status_code=404,detail="Question not founded")
         return {
-            "corretto":outcome,
-            "messaggio":"Ottimo lavoro!" if outcome else "Risposta errata."
+            "correct":outcome,
+            "message":"Ottimo lavoro!" if outcome else "Risposta errata."
         }
 
 

@@ -3,37 +3,43 @@ import 'package:http/http.dart' as http;
 import '../models/quiz_model.dart';
 
 class ApiService {
-  final String baseUrl = "http://127.0.0.1:8000";
+  final String baseUrl = 'http://127.0.0.1:8000';
 
-  Future<List<QuizModel>> shuffle_filter(String dip, String cor, String mat) async {
-    final url = Uri.parse('$baseUrl');
+  Future<List<QuizModel>> shuffle_filter(String department, String course, String sub) async {
+    final url = Uri.parse('$baseUrl/send');
 
       final response = await http.post(
         url,
         headers : {
-          "Content-Type":"application/json",
-          // "X-Custom-Secret":"ChiaveAcesso",
+          'Content-Type':'application/json',
+          // 'X-Custom-Secret':'ChiaveAcesso',
         },
         body: jsonEncode ({
-          "dipartimento":dip,
-          "corso":cor,
-          "materia":mat
+          'department':department,
+          'course':course,
+          'sub':sub
         }),
       );
 
       if (response.statusCode == 200) {
-        List<dynamic> body = jsonDecode(response.body)['domande'];
+        List<dynamic> body = jsonDecode(response.body)['question'];
         return body.map((dynamic item) => QuizModel.fromJson(item)).toList();
       } else {
-        throw Exception("Impossibile caricare le domande");
+        throw Exception('Impossibile caricare le domande');
       }
   }
-    Future<bool> validate_quest(String idQuesition, String idChoice) async {
+    Future<bool> validate_quest(String idQuestion, String idChoice) async {
     final response = await http.post(
     Uri.parse('$baseUrl/validate'),
-    body: jsonEncode({"id_domanda":idQuesition,"id_scelta":idChoice}),
+    headers :{
+      'content-Type':'application/json'
+    },
+    body: jsonEncode({'id_question':idQuestion,'id_choice':idChoice}),
     );
-
-    return jsonDecode(response.body)['corretto'];
+    if(response.statusCode == 200) {
+          return jsonDecode(response.body)['correct'];
+    } else {
+      throw Exception('Errore validate: ${response.body}');
+    }
   }
 }

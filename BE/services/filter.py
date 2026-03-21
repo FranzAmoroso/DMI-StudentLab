@@ -1,28 +1,31 @@
 import json
 import random
 import os
-def shuffle_filter(dipartimento, corso, materia):
+def shuffle_filter(department, course, sub):
     path = os.path.join("data","questions.json")
     with open (path, "r") as file:
         all = json.load(file)
 
-        filtered = {
+        filtered = [
             d for d in all
-            if d['metadata']['dipartimento'] == dipartimento
-            and d['metadata']['corso'] == corso
-            and d['metadata']['materia'] == materia
-        }
+            if d['metadata']['department'] == department
+            and d['metadata']['course'] == course
+            and d['metadata']['sub'] == sub
+        ]
 
         for d in filtered:
-            random.shuffle(d['opzioni'])
+            random.shuffle(d['option'])
         return filtered
 
-def validate_answer(id_domanda, id_scelta):
+def validate_answer(idQuestion, idChoice):
     path = os.path.join("data","questions.json")
     with open(path, "r") as file:
         all = json.load(file)
 
         for d in all:
-            if str(d['id_domanda']) == str(id_domanda):
-                return d['id_corretta'] == id_scelta
-            return None
+            if str(d['id_question']) == str(idQuestion):
+                return d['id_correct'] == idChoice
+        
+        return {
+            "correct": bool(outcome)
+        }

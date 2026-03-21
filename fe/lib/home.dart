@@ -253,7 +253,7 @@ class _HomePageState extends State<HomePage> {
                       print('Card ${index + 1} premuta: ${card.title}');
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => QuizPage(dip:"DMI",cor:"L-31",mat:"Interazione e Multimedia")),
+                        MaterialPageRoute(builder: (context) => QuizPage(department:"DMI",course:"L-31",sub:"Interazione e Multimedia")),
                       );
                     },
                     style: ElevatedButton.styleFrom(

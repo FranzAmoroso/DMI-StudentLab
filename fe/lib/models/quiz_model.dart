@@ -7,12 +7,12 @@ class QuizModel {
   QuizModel({required this.idQuestion, required this.text, required this.option, required this.metadata});
 
   factory QuizModel.fromJson(Map<String, dynamic> json) {
-    var list = json['opzioni'] as List;
+    var list = json['option'] as List;
     List<Option> optionList = list.map((i) => Option.fromJson(i)).toList();
 
     return QuizModel (
-      idQuestion: json['id_domanda'].toString(),
-      text: json['testo'],
+      idQuestion: json['id_question'].toString(),
+      text: json['text'],
       option: optionList,
       metadata: json['metadata'],
     );
@@ -26,6 +26,6 @@ class Option {
   Option({required this.id, required this.text});
 
   factory Option.fromJson(Map<String,dynamic> json) {
-    return Option(id: json['id'], text: json['testo']);
+    return Option(id: json['id'], text: json['text']);
   }
 }
