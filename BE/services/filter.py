@@ -25,7 +25,4 @@ def validate_answer(idQuestion, idChoice):
         for d in all:
             if str(d['id_question']) == str(idQuestion):
                 return d['id_correct'] == idChoice
-        
-        return {
-            "correct": bool(outcome)
-        }
+        return None

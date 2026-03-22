@@ -34,7 +34,7 @@ class ApiService {
     headers :{
       'content-Type':'application/json'
     },
-    body: jsonEncode({'id_question':idQuestion,'id_choice':idChoice}),
+    body: jsonEncode({'idQuestion':idQuestion,'idChoice':idChoice}),
     );
     if(response.statusCode == 200) {
           return jsonDecode(response.body)['correct'];
