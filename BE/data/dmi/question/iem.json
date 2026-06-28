@@ -17,7 +17,9 @@
       {"id":"c","text":"L'MSE tra l1 e l2 è in generale diverso da 0, mentre quello tra l1 e l3 è sicuramente uguale a 0."},
       {"id":"d","text":"L'MSE tra l1 e l2 e l'MSE tra l1 e l3 sono entrambi sicuramente uguali a 0."}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"2",
@@ -37,7 +39,9 @@
       {"id":"c","text":"Per ottimizzare la decorrelazione introdotta dalla trasformata del coseno."},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"3",
@@ -57,7 +61,9 @@
       {"id":"c","text":"Deve presentare eventi equiprobabili."},
       {"id":"d","text":"Nessuna delle altre tre risposte è corretta."}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"4",
@@ -77,7 +83,9 @@
       {"id":"c","text":"La maggior parte delle fotocamere acquisisce immagini in formato vettoriale."},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"5",
@@ -97,7 +105,9 @@
       {"id":"c","text":"L*a*b*"},
       {"id":"d","text":"Nessuna delle altre tre risposte è corretta."}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"6",
@@ -117,7 +127,9 @@
       {"id":"c","text":"Se si usa l'equalizzazione su l1 e su l2 gli istogrammi dei due output saranno sicuramente uguali."},
       {"id":"d","text":"L'MSE tra l1 e l2 è sicuramente uguale a 0."}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"7",
@@ -137,7 +149,9 @@
       {"id":"c","text":"Spettro"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"8",
@@ -157,7 +171,9 @@
       {"id":"c","text":"10 m"},
       {"id":"d","text":"9 m"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"9",
@@ -177,7 +193,9 @@
       {"id":"c","text":"Strategia tramite interpolazione per ottenere un'immagine a colori da una fotocamera che usa un CFA."},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"10",
@@ -197,7 +215,9 @@
       {"id":"c","text":"A:1%; B:1%; C:1%; D:94%"},
       {"id":"d","text":"A:10%; B:20%; C:30%; D:40%"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"11",
@@ -217,7 +237,9 @@
       {"id":"c","text":"È verosimilmente più rapida da eseguire rispetto all'interpolazione bilineare."},
       {"id":"d","text":"L'immagine di output non contiene colori non presenti nell'immagine di input."}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"12",
@@ -237,7 +259,9 @@
       {"id":"c","text":"Y=0.3*x+0.6*y+0.1*z"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"13",
@@ -257,7 +281,9 @@
       {"id":"c","text":"È causato dall'utilizzo della trasformata di Fourier."},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"14",
@@ -277,7 +303,9 @@
       {"id":"c","text":"Fase e spettro."},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"15",
@@ -297,7 +325,9 @@
       {"id":"c","text":"Strategia per migliorare il rapporto di compressione sotto campionando i canali di crominanza."},
       {"id":"d","text":"Strategia per migliorare il rapporto di compressione applicando la codifica di Huffman."}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"16",
@@ -317,7 +347,9 @@
       {"id":"c","text":"Sobel Y"},
       {"id":"d","text":"Prewitt X"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"17",
@@ -337,7 +369,9 @@
       {"id":"c","text":"Convoluzione"},
       {"id":"d","text":"Spettro"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"18",
@@ -357,7 +391,9 @@
       {"id":"c","text":"Sono concentrati principalmente nella fovea"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"19",
@@ -377,7 +413,9 @@
       {"id":"c","text":"Scaling di fattore tre lungo x e y"},
       {"id":"d","text":"Scaling di fattore due lungo x e y"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"20",
@@ -397,7 +435,9 @@
       {"id":"c","text":"Dipende dal fuoco della lente sottile"},
       {"id":"d","text":"Dipende dalla scelta errata dello spazio di colore"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"21",
@@ -417,7 +457,9 @@
       {"id":"c","text":"Sintesi additiva"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"22",
@@ -437,7 +479,9 @@
       {"id":"c","text":"Non potrei scattare foto a colori"},
       {"id":"d","text":"Non potrei scattare foto messe a fuoco"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"23",
@@ -457,7 +501,9 @@
       {"id":"c","text":"È legata al teorema sulla compressione di Shannon"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"24",
@@ -477,7 +523,9 @@
       {"id":"c","text":"Laplaciano"},
       {"id":"d","text":"Massimo"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"25",
@@ -497,7 +545,9 @@
       {"id":"c","text":"Logaritmo"},
       {"id":"d","text":"Operatore potenza con y=3"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"26",
@@ -517,7 +567,9 @@
       {"id":"c","text":"2:111 3:110 4:010 5:011"},
       {"id":"d","text":"2:111 3:011 4:010 5:000"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"27",
@@ -537,7 +589,9 @@
       {"id":"c","text":"Testo"},
       {"id":"d","text":"Video"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"28",
@@ -557,7 +611,9 @@
       {"id":"c","text":"Calcolo della trasformata di Fourier"},
       {"id":"d","text":"Suddivisione in blocchi 8x8"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"29",
@@ -577,7 +633,9 @@
       {"id":"c","text":"Sharpening"},
       {"id":"d","text":"Mediano"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"30",
@@ -597,7 +655,9 @@
       {"id":"c","text":"Una strategia di demosaicking"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"31",
@@ -617,7 +677,9 @@
       {"id":"c","text":"L'immagine di output non contiene colori non presenti nell'immagine di input"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"32",
@@ -637,7 +699,9 @@
       {"id":"c","text":"1/f=(1/u)*(1/m)"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"33",
@@ -657,7 +721,9 @@
       {"id":"c","text":"Le componenti U e V sono anche correlate alla componente Y"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"34",
@@ -677,7 +743,9 @@
       {"id":"c","text":"Viene utilizzata nel formato JPEG"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"35",
@@ -697,7 +765,9 @@
       {"id":"c","text":"Il suo utilizzo produce un’immagine in falsi colori"},
       {"id":"d","text":"Il suo utilizzo è necessario quando si usa un CFA"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"36",
@@ -717,7 +787,9 @@
       {"id":"c","text":"12"},
       {"id":"d","text":"25"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"37",
@@ -737,7 +809,9 @@
       {"id":"c","text":"Minimo"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"38",
@@ -757,7 +831,9 @@
       {"id":"c","text":"Cartoncino verde"},
       {"id":"d","text":"Gesso bianco"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"39",
@@ -777,7 +853,9 @@
       {"id":"c","text":"000100000101000"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"40",
@@ -797,7 +875,9 @@
       {"id":"c","text":"La distanza tra lente e piano di formazione dell’immagine"},
       {"id":"d","text":"La dimensione dell’oggetto osservato attraverso la lente"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"41",
@@ -817,7 +897,9 @@
       {"id":"c","text":"N-Binomiale"},
       {"id":"d","text":"Sharpening"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"42",
@@ -857,7 +939,9 @@
       {"id":"c","text":"Può essere descritto tramite una LUT"},
       {"id":"d","text":"Con parametro y compreso tra 0 e 1 il risultato è un’immagine incupita rispetto all’originale"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"44",
@@ -877,7 +961,9 @@
       {"id":"c","text":"Un valore tendente a infinito"},
       {"id":"d","text":"255*255"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"45",
@@ -897,7 +983,9 @@
       {"id":"c","text":"Ceramica nera"},
       {"id":"d","text":"Cartoncino blu"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"46",
@@ -917,7 +1005,9 @@
       {"id":"c","text":"255,255,255"},
       {"id":"d","text":"128,128,128"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"47",
@@ -937,7 +1027,9 @@
       {"id":"c","text":"L*a*b"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"48",
@@ -957,7 +1049,9 @@
       {"id":"c","text":"La dimensione dell’oggetto osservato"},
       {"id":"d","text":"La focale della lente"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"49",
@@ -977,7 +1071,9 @@
       {"id":"c","text":"RGB"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"50",
@@ -997,7 +1093,9 @@
       {"id":"c","text":"I coni sono responsabili della visione scotopica"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"51",
@@ -1017,7 +1115,9 @@
       {"id":"c","text":"97"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"52",
@@ -1037,7 +1137,9 @@
       {"id":"c","text":"Bianco"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"53",
@@ -1057,7 +1159,9 @@
       {"id":"c","text":"Basta che superi i 4Khz"},
       {"id":"d","text":"Non deve superare i 2Khz"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"54",
@@ -1077,7 +1181,9 @@
       {"id":"c","text":"È lineare"},
       {"id":"d","text":"È un operatore puntuale"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"55",
@@ -1097,7 +1203,9 @@
       {"id":"c","text":"Tende a -infinito"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"56",
@@ -1117,7 +1225,9 @@
       {"id":"c","text":"Filtro passa-basso Gaussiano"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"57",
@@ -1137,7 +1247,9 @@
       {"id":"c","text":"Vettoriale"},
       {"id":"d","text":"True Color"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"58",
@@ -1157,7 +1269,9 @@
       {"id":"c","text":"È shift invariant/invariante per traslazione"},
       {"id":"d","text":"Si può usare per ridurre efficacemente il rumore sale e pepe"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"59",
@@ -1177,7 +1291,9 @@
       {"id":"c","text":"Tra 0 e infinito per i(x,y) e tra 0 e 1 per r(x,y)"},
       {"id":"d","text":"Tra 0 e 1 per i(x,y) e tra 0 e 1 per r(x,y)"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"60",
@@ -1197,7 +1313,9 @@
       {"id":"c","text":"Demosaicking"},
       {"id":"d","text":"Color Filter Array"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"51",
@@ -1217,7 +1335,9 @@
       {"id":"c","text":"97"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"52",
@@ -1237,7 +1357,9 @@
       {"id":"c","text":"Bianco"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"53",
@@ -1257,7 +1379,9 @@
       {"id":"c","text":"Basta che superi i 4Khz"},
       {"id":"d","text":"Non deve superare i 2Khz"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"54",
@@ -1277,7 +1401,9 @@
       {"id":"c","text":"È lineare"},
       {"id":"d","text":"È un operatore puntuale"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"55",
@@ -1297,7 +1423,9 @@
       {"id":"c","text":"Tende a -infinito"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"56",
@@ -1317,7 +1445,9 @@
       {"id":"c","text":"Filtro passa-basso Gaussiano"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"57",
@@ -1337,7 +1467,9 @@
       {"id":"c","text":"Vettoriale"},
       {"id":"d","text":"True Color"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"58",
@@ -1357,7 +1489,9 @@
       {"id":"c","text":"È shift invariant/invariante per traslazione"},
       {"id":"d","text":"Si può usare per ridurre efficacemente il rumore sale e pepe"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"59",
@@ -1377,7 +1511,9 @@
       {"id":"c","text":"Tra 0 e infinito per i(x,y) e tra 0 e 1 per r(x,y)"},
       {"id":"d","text":"Tra 0 e 1 per i(x,y) e tra 0 e 1 per r(x,y)"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"60",
@@ -1397,7 +1533,9 @@
       {"id":"c","text":"Demosaicking"},
       {"id":"d","text":"Color Filter Array"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"61",
@@ -1417,7 +1555,9 @@
       {"id":"c","text":"N-Box"},
       {"id":"d","text":"Minimo"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"62",
@@ -1437,7 +1577,9 @@
       {"id":"c","text":"È un operatore locale"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"63",
@@ -1457,7 +1599,9 @@
       {"id":"c","text":"A:11 B:10 C:01"},
       {"id":"d","text":"A:0 B:10 C:01"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"64",
@@ -1477,7 +1621,9 @@
       {"id":"c","text":"Una immagine bianca (255) e l’altra è nera (0)"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"65",
@@ -1497,7 +1643,9 @@
       {"id":"c","text":"Perché luminanza e crominanza vengono separate e campionate diversamente"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"66",
@@ -1517,7 +1665,9 @@
       {"id":"c","text":"0"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"67",
@@ -1537,7 +1687,9 @@
       {"id":"c","text":"La massima frequenza di S è inferiore a 1KHz"},
       {"id":"d","text":"La massima frequenza di S è inferiore a 2.5KHz"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"68",
@@ -1557,7 +1709,9 @@
       {"id":"c","text":"Bianco"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"69",
@@ -1577,7 +1731,9 @@
       {"id":"c","text":"La messa a fuoco degli oggetti è regolata dal cristallino"},
       {"id":"d","text":"I coni sono responsabili della visione fototica"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"70",
@@ -1597,7 +1753,9 @@
       {"id":"c","text":"LUT"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"71",
@@ -1617,7 +1775,9 @@
       {"id":"c","text":"RGB"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"72",
@@ -1637,7 +1797,9 @@
       {"id":"c","text":"x*(X+Y+Z)=X"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"73",
@@ -1657,7 +1819,9 @@
       {"id":"c","text":"Dopo il Logaritmo avranno sicuramente lo stesso istogramma"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"74",
@@ -1677,7 +1841,9 @@
       {"id":"c","text":"L’effetto è simile a quello di un edge detector"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"75",
@@ -1697,7 +1863,9 @@
       {"id":"c","text":"Massimo"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"76",
@@ -1717,7 +1885,9 @@
       {"id":"c","text":"Si comporta come un filtro passa basso"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"77",
@@ -1737,7 +1907,9 @@
       {"id":"c","text":"Negativo"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"78",
@@ -1757,7 +1929,9 @@
       {"id":"c","text":"Dà risultati peggiori di bilineare o bicubica"},
       {"id":"d","text":"Non richiede operazioni aritmetiche"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"79",
@@ -1777,7 +1951,9 @@
       {"id":"c","text":"È normalizzato e velocizza tutte le operazioni"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"80",
@@ -1797,7 +1973,9 @@
       {"id":"c","text":"La pendenza è regolata dall’ordine"},
       {"id":"d","text":"La maschera contiene massimo quattro valori"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"81",
@@ -1817,7 +1995,9 @@
       {"id":"c","text":"Presenta una geometria sferica"},
       {"id":"d","text":"Si può ottenere da RGB mediante una trasformazione lineare"}
     ],
-    "id_correct":"d"
+    "id_correct":"d",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"82",
@@ -1837,7 +2017,9 @@
       {"id":"c","text":"Rotazione di 180°"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"83",
@@ -1857,7 +2039,9 @@
       {"id":"c","text":"Equalizzazione"},
       {"id":"d","text":"Inverse Mapping"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"84",
@@ -1877,7 +2061,9 @@
       {"id":"c","text":"(3,6)"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"c"
+    "id_correct":"c",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"85",
@@ -1897,7 +2083,9 @@
       {"id":"c","text":"La distanza tra lente e oggetto"},
       {"id":"d","text":"La dimensione dell’oggetto osservato"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"86",
@@ -1917,7 +2105,9 @@
       {"id":"c","text":"Matrice affine"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"a"
+    "id_correct":"a",
+    "formal_explanation": "",
+    "informal_explanation": ""
   },
   {
     "id_question":"87",
@@ -1937,6 +2127,8 @@
       {"id":"c","text":"Teoria del tristimolo"},
       {"id":"d","text":"Nessuna delle precedenti"}
     ],
-    "id_correct":"b"
+    "id_correct":"b",
+    "formal_explanation": "",
+    "informal_explanation": ""
   }
 ]
