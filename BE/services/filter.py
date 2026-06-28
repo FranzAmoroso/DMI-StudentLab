@@ -2,7 +2,7 @@ import json
 import random
 import os
 def shuffle_filter(department, course, sub):
-    path = os.path.join("data","questions.json")
+    path = os.path.join("data/dmi/question","iem.json")
     with open (path, "r") as file:
         all = json.load(file)
 
@@ -18,14 +18,11 @@ def shuffle_filter(department, course, sub):
         return filtered
 
 def validate_answer(idQuestion, idChoice):
-    path = os.path.join("data","questions.json")
+    path = os.path.join("data/dmi/question","iem.json")
     with open(path, "r") as file:
         all = json.load(file)
 
         for d in all:
             if str(d['id_question']) == str(idQuestion):
                 return d['id_correct'] == idChoice
-        
-        return {
-            "correct": bool(outcome)
-        }
+        return None

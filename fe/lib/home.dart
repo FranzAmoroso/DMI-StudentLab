@@ -1,5 +1,6 @@
+import 'package:fe/quiz/subjectSelection.dart';
 import 'package:flutter/material.dart';
-import 'quiz.dart';
+import 'quiz/quiz.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -251,10 +252,13 @@ class _HomePageState extends State<HomePage> {
                     onPressed: () {
                       // Azione del bottone (da modificare)
                       print('Card ${index + 1} premuta: ${card.title}');
+
+                      if(card.title == 'Quiz Interattivo') {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => QuizPage(department:"DMI",course:"L-31",sub:"Interazione e Multimedia")),
+                        MaterialPageRoute(builder: (context) => SubjectSelection(department:"DMI",course:"L-31")),
                       );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white.withOpacity(0.15),
