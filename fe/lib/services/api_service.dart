@@ -3,11 +3,11 @@ import 'package:http/http.dart' as http;
 import '../models/quiz_model.dart';
 
 class ApiService {
-  final String baseUrl = 'http://127.0.0.1:8000';
-  final String baseUrlAndroid = 'http://10.239.43.127:8000';
+
+  final String baseUrl = 'https://dmi-student-lab.vercel.app';
 
   Future<List<QuizModel>> shuffle_filter(String department, String course, String sub) async {
-    final url = Uri.parse('$baseUrlAndroid/send');
+    final url = Uri.parse('$baseUrl/send');
 
       final response = await http.post(
         url,
@@ -31,7 +31,7 @@ class ApiService {
   }
     Future<bool> validate_quest(String idQuestion, String idChoice) async {
     final response = await http.post(
-    Uri.parse('$baseUrlAndroid/validate'),
+    Uri.parse('$baseUrl/validate'),
     headers :{
       'content-Type':'application/json'
     },

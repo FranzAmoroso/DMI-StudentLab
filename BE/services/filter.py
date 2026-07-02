@@ -2,7 +2,7 @@ import json
 import random
 import os
 def shuffle_filter(department, course, sub):
-    path = os.path.join("data/dmi/question","iem.json")
+    path = os.path.join("data/dmi/question",sub)
     with open (path, "r") as file:
         all = json.load(file)
 
