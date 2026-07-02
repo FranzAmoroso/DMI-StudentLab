@@ -143,18 +143,31 @@ class _QuizPageState extends State<QuizPage> {
             IconButton(
               icon: const Icon(Icons.book),
               onPressed: () {
-                showDialog(
+                showModalBottomSheet(
                   context: context,
-                  builder: (context) {
-                    return AlertDialog(
-                      title: Text('${question[idx].metadata['argoment']}'),
-                      content: const Text('~o~\nspiegazione formale/infomale dell\'argomento\n~o~'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('chiudi'),
-                        )
-                      ],
+                  backgroundColor: const Color(0xFF1B263B),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (_) {
+                    final meta = question[idx].metadata;
+
+                    return Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Definizione Formale: ${meta['formal_explanation']}",
+                              style: const TextStyle(color: Colors.white)),
+                          const SizedBox(height: 10),
+                          Text("Definizione Informale: ${meta['informal_explanation']}",
+                              style: const TextStyle(color: Colors.white70)),
+                          const SizedBox(height: 10),
+                          Text("Capire la Risposta: ${meta['question_response_explanation']}",
+                              style: const TextStyle(color: Colors.white)),
+                        ],
+                      ),
                     );
                   },
                 );
