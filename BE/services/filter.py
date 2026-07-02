@@ -19,8 +19,7 @@ def shuffle_filter(department, course, sub):
         return filtered
 
 def validate_answer(idQuestion, idChoice, sub):
-    BASE_DIR = Path(__file__).resolve().parent
-    path = os.path.join(BASE_DIR, "data/dmi/question",f"{sub}.json")
+    path = os.path.join("data/dmi/question",f"{sub}.json")
     with open(path, "r") as file:
         all = json.load(file)
 
