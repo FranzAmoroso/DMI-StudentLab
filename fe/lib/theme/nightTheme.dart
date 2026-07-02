@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color midnightNavy = Color(0xFF0A2472);
+  static const Color brandNightBlue = Color(0xFF1C2841);
   static const Color deepOcean = Color(0xFF0F1C3F);
   static const Color darkElegance = Color(0xFF0C0F1A);
   
@@ -28,24 +28,25 @@ class AppColors {
   static const Color mistWhite = Color(0xFFF5F5F5);
   static const Color opaqueWhite = Color.fromRGBO(255, 255, 255, 0.9);
   static const Color translucentWhite = Color.fromRGBO(255, 255, 255, 0.15);
-  
+    
   static List<Color> get cardGradient => [
-    vividSapphire.withOpacity(0.9),
-    vividSapphire.withOpacity(0.7),
+    brandNightBlue.withOpacity(0.95),
+    brandNightBlue.withOpacity(0.8),
     slateGrey.withOpacity(0.8),
   ];
   
+  // Sfondo generale coordinato a partire dal blu di riferimento
   static List<Color> get backgroundGradient => [
-    midnightNavy,
+    brandNightBlue,
     deepOcean,
     darkElegance,
   ];
   
   static Color get elegantBorder => pureWhite.withOpacity(0.3);
-  static Color get elegantShadow => midnightNavy.withOpacity(0.3);
+  static Color get elegantShadow => brandNightBlue.withOpacity(0.4);
   
   static Map<String, Color> get colorMap => {
-    'midnightNavy': midnightNavy,
+    'brandNightBlue': brandNightBlue,
     'deepOcean': deepOcean,
     'darkElegance': darkElegance,
     'slateMidnight': slateMidnight,
@@ -67,10 +68,10 @@ class AppColors {
     'pearlWhite': pearlWhite,
     'mistWhite': mistWhite,
   };
-  
-  static CardTheme get elegantCardTheme => const CardTheme(
+    
+  static CardThemeData get elegantCardTheme => const CardThemeData(
     elevation: 12,
-    color: vividSapphire,
+    color: brandNightBlue, 
   );
   
   static ButtonStyle get elegantButtonStyle => ElevatedButton.styleFrom(
@@ -85,7 +86,7 @@ class AppColors {
   );
   
   static AppBarTheme get nightAppBarTheme => const AppBarTheme(
-    backgroundColor: midnightNavy,
+    backgroundColor: brandNightBlue, // AppBar coordinata
     elevation: 0,
     centerTitle: false,
     titleTextStyle: TextStyle(
@@ -97,7 +98,7 @@ class AppColors {
   
   static BottomNavigationBarThemeData get nightBottomNavTheme => 
     BottomNavigationBarThemeData(
-      backgroundColor: midnightNavy.withOpacity(0.9),
+      backgroundColor: brandNightBlue.withOpacity(0.95), // Navigazione coordinata
       selectedItemColor: diamondDust,
       unselectedItemColor: steelBlue,
       elevation: 0,
@@ -105,7 +106,7 @@ class AppColors {
       selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w100),
       unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w100),
     );
-  
+    
   static Color lighten(Color color, [double amount = 0.1]) {
     assert(amount >= 0 && amount <= 1);
     final hsl = HSLColor.fromColor(color);

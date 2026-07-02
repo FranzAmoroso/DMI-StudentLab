@@ -4,9 +4,10 @@ import '../models/quiz_model.dart';
 
 class ApiService {
   final String baseUrl = 'http://127.0.0.1:8000';
+  final String baseUrlAndroid = 'http://10.239.43.127:8000';
 
   Future<List<QuizModel>> shuffle_filter(String department, String course, String sub) async {
-    final url = Uri.parse('$baseUrl/send');
+    final url = Uri.parse('$baseUrlAndroid/send');
 
       final response = await http.post(
         url,
@@ -30,7 +31,7 @@ class ApiService {
   }
     Future<bool> validate_quest(String idQuestion, String idChoice) async {
     final response = await http.post(
-    Uri.parse('$baseUrl/validate'),
+    Uri.parse('$baseUrlAndroid/validate'),
     headers :{
       'content-Type':'application/json'
     },

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home.dart';
+import 'package:flutter/services.dart';
+import 'theme/nightTheme.dart';
+import 'layers/home.dart';
 
 void main() {
   runApp(const MyApp());
@@ -10,32 +12,28 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor : Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: AppColors.darkElegance,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ));
+
     return MaterialApp(
       title: 'StudentLab',
       debugShowCheckedModeBanner: false,
+
       theme: ThemeData.dark().copyWith(
+
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0A2472), 
+          seedColor: AppColors.brandNightBlue,
           brightness: Brightness.dark,
         ),
-        scaffoldBackgroundColor: const Color(0xFF0C0F1A), 
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0A2472),
-          elevation: 0,
-          centerTitle: true,
-          titleTextStyle: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w300,
-            letterSpacing: 1.2,
-          ),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 8,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          color: const Color(0xFF1A1F3A), 
-        ),
+
+        scaffoldBackgroundColor: AppColors.darkElegance,
+        appBarTheme: AppColors.nightAppBarTheme,
+        cardTheme: AppColors.elegantCardTheme,
+        bottomNavigationBarTheme: AppColors.nightBottomNavTheme
       ),
       home: const HomePage(),
     );

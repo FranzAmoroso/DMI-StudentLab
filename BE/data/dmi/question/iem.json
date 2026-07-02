@@ -6,7 +6,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Compressione immagini",
+      "argoment":"Compressione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -28,7 +28,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"JPEG e spazi colore",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -50,7 +50,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Compressione Shannon",
+      "argoment":"Compressione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -72,7 +72,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Immagini vettoriali",
+      "argoment":"Immagini",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -138,7 +138,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori puntuali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -182,7 +182,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Demosaicking",
+      "argoment":"Interpolazione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -248,7 +248,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Spazi colore XYZ",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -314,7 +314,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Compressione immagini",
+      "argoment":"Compressione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -336,7 +336,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori locali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -446,7 +446,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Spazi colore HSV",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -468,7 +468,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"CFA e fotocamere digitali",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -512,7 +512,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori locali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -534,7 +534,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori puntuali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -556,7 +556,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Gray code",
+      "argoment":"Codifiche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -578,7 +578,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Compressione Lossy",
+      "argoment":"Compressione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -600,7 +600,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"JPEG",
+      "argoment":"Compressione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -622,7 +622,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori locali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -644,7 +644,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Bayer Pattern",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -666,7 +666,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Interpolazione replication",
+      "argoment":"Interpolazione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -710,7 +710,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Spazi colore YUV RGB",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -732,7 +732,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Codifica Huffman",
+      "argoment":"Codifiche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -754,7 +754,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Demosaicking",
+      "argoment":"Interpolazione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -798,7 +798,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Filtri locali",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -820,7 +820,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Riflettanza",
+      "argoment":"Illuminazione e riflettanza",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -842,7 +842,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Run-length encoding",
+      "argoment":"Codifiche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -886,7 +886,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori locali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -928,7 +928,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori puntuali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -950,7 +950,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"MSE",
+      "argoment":"Metriche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -972,7 +972,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Riflettanza",
+      "argoment":"Illuminazione e riflettanza",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -994,7 +994,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Spazi colore CMY",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1016,7 +1016,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Spazi colore xyz",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1104,7 +1104,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Codifica differenziale",
+      "argoment":"Codifiche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1126,7 +1126,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Sintesi sottrattiva",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1148,7 +1148,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Campionamento Shannon-Nyquist",
+      "argoment":"Campionamento",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1170,7 +1170,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatore negativo",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1192,7 +1192,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"PSNR",
+      "argoment":"Metriche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1214,7 +1214,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Filtri frequenziali",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1236,7 +1236,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Bayer Pattern",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1258,7 +1258,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatore mediano",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1302,7 +1302,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Color Filter Array",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1324,7 +1324,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Codifica differenziale",
+      "argoment":"Codifiche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1346,7 +1346,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Sintesi sottrattiva",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1368,7 +1368,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Campionamento Shannon-Nyquist",
+      "argoment":"Campionamento",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1390,7 +1390,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatore negativo",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1412,7 +1412,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"PSNR",
+      "argoment":"Metriche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1434,7 +1434,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Filtri frequenziali",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1456,7 +1456,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Bayer Pattern",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1478,7 +1478,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatore mediano",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1522,7 +1522,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Color Filter Array",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1544,7 +1544,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori locali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1566,7 +1566,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatore negativo",
+      "argoment":"Operatore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1588,7 +1588,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Codifica Huffman",
+      "argoment":"Codifiche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1610,7 +1610,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"PSNR",
+      "argoment":"Metriche",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1632,7 +1632,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"JPEG",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1654,7 +1654,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Filtri frequenziali",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1698,7 +1698,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Sintesi additiva",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1786,7 +1786,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Spazio colore xyz",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1808,7 +1808,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Istogramma e operatori",
+      "argoment":"Istogrammi",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1830,7 +1830,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Filtro passa basso Gaussiano",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1852,7 +1852,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori locali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1874,7 +1874,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Laplaciano",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1896,7 +1896,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Operatori puntuali",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1918,7 +1918,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Interpolazione replication",
+      "argoment":"Interpolazione",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1940,7 +1940,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"JPEG YCbCr",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1962,7 +1962,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Filtro passa alto Gaussiano",
+      "argoment":"Filtri",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -1984,7 +1984,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Spazio colore L*a*b*",
+      "argoment":"Spazio colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -2028,7 +2028,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Equalizzazione e contrasto",
+      "argoment":"Immagini",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -2094,7 +2094,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Kernel",
+      "argoment":"Operatori",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
@@ -2116,7 +2116,7 @@
       "department":"DMI",
       "course":"L-31",
       "sub":"Interazione e Multimedia",
-      "argoment":"Spazio colore CMY",
+      "argoment":"Spazi colore",
       "teacher":"Dario Allegra-Filippo stanco",
       "year_of_validity":"attuale"
     },
