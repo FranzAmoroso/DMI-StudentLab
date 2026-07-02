@@ -38,20 +38,21 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void answerValidate(String idChoice) async {
+
+    setState(() => isLocked = true);
     String idQuestion = question[idx].idQuestion;
 
     bool isCorrect = await ApiService().validate_quest(idQuestion, idChoice, widget.sub);
     if (!mounted) return;
 
     setState(() {
-      isLocked = true;
       if (isCorrect) _choiceCorrect++;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isCorrect ? "Esatto! " : "Sbagliato! "),
-        backgroundColor: isCorrect ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+        content: Text(isCorrect ? "Genio! " : "Ripassa! "),
+        backgroundColor: isCorrect ? const Color.fromARGB(255, 4, 89, 8) : const Color.fromARGB(255, 68, 1, 1),
         duration: const Duration(seconds: 1),
       ),
     );
