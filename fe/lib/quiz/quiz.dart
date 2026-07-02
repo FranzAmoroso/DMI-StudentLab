@@ -38,20 +38,21 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void answerValidate(String idChoice) async {
+
+    setState(() => isLocked = true);
     String idQuestion = question[idx].idQuestion;
 
-    bool isCorrect = await ApiService().validate_quest(idQuestion, idChoice);
+    bool isCorrect = await ApiService().validate_quest(idQuestion, idChoice, widget.sub);
     if (!mounted) return;
 
     setState(() {
-      isLocked = true;
       if (isCorrect) _choiceCorrect++;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isCorrect ? "Esatto! " : "Sbagliato! "),
-        backgroundColor: isCorrect ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+        content: Text(isCorrect ? "Genio! " : "Ripassa! "),
+        backgroundColor: isCorrect ? const Color.fromARGB(255, 4, 89, 8) : const Color.fromARGB(255, 68, 1, 1),
         duration: const Duration(seconds: 1),
       ),
     );
@@ -142,18 +143,31 @@ class _QuizPageState extends State<QuizPage> {
             IconButton(
               icon: const Icon(Icons.book),
               onPressed: () {
-                showDialog(
+                showModalBottomSheet(
                   context: context,
-                  builder: (context) {
-                    return AlertDialog(
-                      title: Text('${question[idx].metadata['argoment']}'),
-                      content: const Text('~o~\nspiegazione formale/infomale dell\'argomento\n~o~'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('chiudi'),
-                        )
-                      ],
+                  backgroundColor: const Color(0xFF1B263B),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (_) {
+                    final meta = question[idx].metadata;
+
+                    return Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Definizione Formale: \n${question[idx].formalExplanation}',
+                              style: const TextStyle(color: Colors.white)),
+                          const SizedBox(height: 10),
+                          Text('Definizione Informale: \n${question[idx].informalExplanation}',
+                              style: const TextStyle(color: Colors.white70)),
+                          const SizedBox(height: 10),
+                          Text('Capire la Risposta: \n${question[idx].questionResponseExplanation}',
+                              style: const TextStyle(color: Colors.white)),
+                        ],
+                      ),
                     );
                   },
                 );
