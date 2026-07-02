@@ -23,6 +23,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
   int selectedQuiz = 10;
 
   final List<String> subjects = [
+    'Programmazione 1',
     'Interazione e Multimedia',
     // 'Ingegneria del software'
   ];
