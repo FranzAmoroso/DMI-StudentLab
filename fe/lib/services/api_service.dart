@@ -33,11 +33,12 @@ class ApiService {
     }
   }
 
-  Future<bool> validate_quest(String idQuestion, String idChoice) async {
+  Future<bool> validate_quest(String idQuestion, String idChoice, String sub) async {
     final url = Uri.parse('$baseUrl/validate_answer').replace(
       queryParameters: {
         'idQuestion': idQuestion,
         'idChoice': idChoice,
+        'sub': sub,
       },
     );
 

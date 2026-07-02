@@ -40,7 +40,7 @@ class _QuizPageState extends State<QuizPage> {
   void answerValidate(String idChoice) async {
     String idQuestion = question[idx].idQuestion;
 
-    bool isCorrect = await ApiService().validate_quest(idQuestion, idChoice);
+    bool isCorrect = await ApiService().validate_quest(idQuestion, idChoice, widget.sub);
     if (!mounted) return;
 
     setState(() {
