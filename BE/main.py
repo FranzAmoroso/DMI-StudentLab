@@ -23,5 +23,5 @@ def api_shuffle_filter(department: str, course: str, sub: str):
     return shuffle_filter(department, course, sub)
 
 @app.post("/validate_answer")
-def api_validate_answer(idQuestion: str, idChoice: str):
-    return validate_answer(idQuestion, idChoice)
+def api_validate_answer(idQuestion: str, idChoice: str, sub: str):
+    return validate_answer(idQuestion, idChoice, sub)
