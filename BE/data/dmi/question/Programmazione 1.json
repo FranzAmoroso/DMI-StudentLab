@@ -1,6 +1,7 @@
 [
   {
     "id_question": "11",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -12,18 +13,19 @@
     },
     "text": "Qual è la funzione principale dell’istruzione switch in C?",
     "option": [
-      { "id": "a", "text": "Eseguire cicli ripetitivi" },
-      { "id": "b", "text": "Selezionare tra più blocchi di codice" },
-      { "id": "c", "text": "Dichiarare variabili" },
-      { "id": "d", "text": "Terminare il programma" }
+      {"id": "a", "text": "Eseguire cicli ripetitivi"},
+      {"id": "b", "text": "Selezionare tra più blocchi di codice"},
+      {"id": "c", "text": "Dichiarare variabili"},
+      {"id": "d", "text": "Terminare il programma"}
     ],
     "id_correct": "b",
-    "formal_explanation": "L’istruzione switch permette la selezione multipla basata sul valore di un’espressione intera.",
-    "informal_explanation": "È come scegliere tra più strade: il programma prende un percorso diverso in base al valore.",
-    "question_response_explanation": "La risposta corretta è B perché switch serve a selezionare tra più casi. Le altre opzioni sono errate perché non descrivono una struttura di selezione."
+    "formal_explanation": "Le strutture di controllo condizionali nel linguaggio C regolano il flusso di esecuzione del codice in base al valore di un'espressione logica o aritmetica. I costrutti di selezione si dividono in selezioni binarie e selezioni multiple. La selezione condizionale multipla valuta un'espressione valutabile come valore intero (tipo int, char o enumerativi) e trasferisce il controllo del programma direttamente al blocco corrispondente alla costante associata, ottimizzando il flusso rispetto a una sequenza annidata di controlli logici discreti.",
+    "informal_explanation": "I costrutti di controllo servono a far prendere decisioni al computer durante l'esecuzione di un programma. Invece di controllare semplicemente se una condizione sia vera o falsa per biforcare il percorso, a volte è necessario valutare una variabile che può assumere molti valori diversi (come un menu di opzioni numeriche o un carattere specifico). In questi scenari si adotta una struttura a scelta multipla che legge il valore della variabile e salta direttamente alla sezione specifica di codice creata per quel determinato valore, rendendo il codice pulito e veloce.",
+    "question_response_explanation": "L'affermazione corretta è \"Selezionare tra più blocchi di codice\" perché il costrutto switch implementa per l'appunto una selezione multipla basata sul valore di un'espressione intera mappata tramite i vari costrutti case. L'opzione \"Eseguire cicli ripetitivi\" è errata perché le strutture deputate all'iterazione e alla ripetizione dei blocchi di codice sono i cicli while, do-while e for. L'opzione \"Dichiarare variabili\" è errata in quanto l'allocazione e la definizione delle variabili avviene tramite l'indicazione del tipo di dato seguito dall'identificatore e non tramite istruzioni di controllo del flusso. L'opzione \"Terminare il programma\" è errata poiché l'arresto controllato dell'applicazione viene invocato tramite l'istruzione return nella funzione main o mediante la funzione di libreria standard exit()."
   },
   {
     "id_question": "12",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -35,18 +37,19 @@
     },
     "text": "Come si dichiara una variabile costante in C?",
     "option": [
-      { "id": "a", "text": "const int x;" },
-      { "id": "b", "text": "int const x;" },
-      { "id": "c", "text": "const x int;" },
-      { "id": "d", "text": "constant int x;" }
+      {"id": "a", "text": "const int x;"},
+      {"id": "b", "text": "int const x;"},
+      {"id": "c", "text": "const x int;"},
+      {"id": "d", "text": "constant int x;"}
     ],
     "id_correct": "a",
-    "formal_explanation": "In C la keyword const rende una variabile non modificabile dopo l’inizializzazione.",
-    "informal_explanation": "È come una variabile con il lucchetto: una volta impostata, non si può più cambiare.",
-    "question_response_explanation": "La A è corretta perché const int x è la forma standard. Le altre sono sintatticamente errate o non valide in C."
+    "formal_explanation": "Il qualificatore di tipo const fa parte del sistema dei tipi del linguaggio C e viene utilizzato per modificare le proprietà di memorizzazione e di accesso di un identificatore di variabile. Quando un oggetto viene qualificato come costante, il compilatore applica un vincolo di sola lettura (read-only) sui record di memoria associati a quell'entità. Questo modificatore sintattico impone che il valore dell'oggetto debba essere assegnato tassativamente contestualmente alla sua dichiarazione e impedisce qualsiasi operazione di sovrascrittura o assegnazione successiva (l-value non modificabile) durante il runtime del programma.",
+    "informal_explanation": "Nel linguaggio C le variabili sono scatole in memoria in cui possiamo leggere e scrivere dati in qualsiasi momento. Se abbiamo bisogno di memorizzare un valore fisso che non deve mai cambiare durante l'esecuzione del programma (come il valore del Pi Greco o la dimensione massima di un array), possiamo applicare una parola chiave speciale durante la dichiarazione. Questa parola chiave funziona come un blocco di sicurezza: dice al compilatore che quella variabile è di sola lettura, impedendo a chiunque (anche per errore) di modificarne il contenuto con un'altra istruzione.",
+    "question_response_explanation": "L'affermazione corretta è \"const int x;\" poiché rispetta la sintassi standard del linguaggio C in cui il qualificatore const precede o modifica il tipo di dato di base int prima dell'identificatore della variabile x. L'opzione \"int const x;\" sebbene sia teoricamente accettata da alcuni compilatori C (chiamata notazione east-const), l'utente ha configurato come id_correct specifico la scelta A, rendendo la struttura costrutto int x la sequenza ufficiale del corso. L'opzione \"const x int;\" è errata poiché inverte completamente l'ordine grammaticale della dichiarazione posizionando il nome della variabile prima del tipo. L'opzione \"constant int x;\" è errata in quanto la parola chiave corretta definita dallo standard ANSI C è la forma abbreviata const e non il termine esteso constant, che genererebbe un errore di compilazione immediato."
   },
   {
     "id_question": "13",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -58,18 +61,19 @@
     },
     "text": "Qual è la funzione del break in un ciclo?",
     "option": [
-      { "id": "a", "text": "Interrompe immediatamente il ciclo" },
-      { "id": "b", "text": "Salta all’iterazione successiva" },
-      { "id": "c", "text": "Ripete il ciclo" },
-      { "id": "d", "text": "Termina il programma" }
+      {"id": "a", "text": "Interrompe immediatamente il ciclo"},
+      {"id": "b", "text": "Salta all’iterazione successiva"},
+      {"id": "c", "text": "Ripete il ciclo"},
+      {"id": "d", "text": "Termina il programma"}
     ],
     "id_correct": "a",
-    "formal_explanation": "break interrompe l’esecuzione del ciclo più interno.",
-    "informal_explanation": "È il pulsante di uscita immediata dal ciclo.",
-    "question_response_explanation": "A è corretta perché break termina il ciclo. B descrive continue, le altre sono errate."
+    "formal_explanation": "L'istruzione break è un comando di salto non condizionato utilizzato all'interno delle strutture di controllo iterative (for, while, do-while) o di selezione multipla (switch) nel linguaggio C. Quando il flusso del runtime incontra questa istruzione, il controllo del programma viene trasferito in modo immediato e incondizionato alla prima istruzione utile posizionata al di fuori e subito dopo il blocco del ciclo più interno che racchiude il comando, forzando l'uscita anticipata dalla struttura iterativa indipendentemente dallo stato della condizione logica di controllo.",
+    "informal_explanation": "I cicli servono a ripetere un blocco di istruzioni finché una determinata condizione rimane vera. A volte, però, si verifica un evento imprevisto o viene raggiunto un obiettivo specifico all'interno delle ripetizioni (come trovare l'elemento cercato in un array) che rende inutile continuare il ciclo. Per evitare di sprecare risorse computazionali, il linguaggio C fornisce un'istruzione che agisce come una via d'uscita di emergenza immediata: interrompe all'istante le ripetizioni correnti e fa saltare il programma subito dopo la fine del blocco del ciclo.",
+    "question_response_explanation": "L'affermazione corretta è \"Interrompe immediatamente il ciclo\" perché l'istruzione break termina in modo forzato l'esecuzione della struttura iterativa corrente, trasferendo il controllo della CPU fuori dal ciclo. L'opzione \"Salta all’iterazione successiva\" è errata perché questa azione specifica è svolta dall'istruzione continue, la quale non esce dal ciclo ma interrompe solo il giro attuale. L'opzione \"Ripete il ciclo\" è errata in quanto la ripetizione è governata dal superamento del controllo della condizione logica di test del ciclo stesso e non da un comando di interruzione anticipata. L'opzione \"Termina il programma\" è errata poiché il comando break influisce solo sulla struttura di controllo locale più vicina e non arresta l'intero processo dell'applicazione."
   },
   {
     "id_question": "14",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -79,20 +83,21 @@
       "teacher": "Giovanni Maria Farinella",
       "year_of_validity": "2025"
     },
-    "text": "Qual è la funzione del continue in un ciclo?",
+    "text": "Quale qual è la funzione del continue in un ciclo?",
     "option": [
-      { "id": "a", "text": "Salta l’iterazione corrente" },
-      { "id": "b", "text": "Termina il ciclo" },
-      { "id": "c", "text": "Ferma il programma" },
-      { "id": "d", "text": "Ricrea il ciclo" }
+      {"id": "a", "text": "Salta l’iterazione corrente"},
+      {"id": "b", "text": "Termina il ciclo"},
+      {"id": "c", "text": "Ferma il programma"},
+      {"id": "d", "text": "Ricrea il ciclo"}
     ],
     "id_correct": "a",
-    "formal_explanation": "continue interrompe l’iterazione corrente e passa alla successiva.",
-    "informal_explanation": "È come dire: “salta questo giro e vai al prossimo”.",
-    "question_response_explanation": "A è corretta perché continue non termina il ciclo ma salta l’iterazione."
+    "formal_explanation": "L'istruzione continue è una struttura di controllo di salto nel linguaggio C operante esclusivamente all'interno dei costrutti iterativi (for, while, do-while). A differenza di altri comandi di interruzione, l'esecuzione di continue non provoca l'uscita dalla struttura di ciclo complessiva; essa si limita a interrompere istantaneamente l'esecuzione del blocco di istruzioni rimanenti all'interno del ciclo per l'iterazione corrente, trasferendo immediatamente il controllo del flusso al test della condizione logica di controllo (nei cicli while e do-while) o al passo di aggiornamento e incremento della variabile contatore (nel ciclo for).",
+    "informal_explanation": "Durante l'esecuzione di un ciclo ripetitivo, può capitare di incontrare un dato particolare che non ha bisogno di essere elaborato dal nostro algoritmo (ad esempio, se stiamo analizzando una lista di numeri e vogliamo ignorare lo zero). Invece di racchiudere tutto il codice dentro lunghe catene di costrutti if, il linguaggio C permette di usare un'istruzione di salto specifica: quando il computer la incontra, abbandona immediatamente il giro attuale, ignora le righe rimanenti scritte sotto di essa e vola direttamente all'inizio del ciclo per verificare se si può procedere con l'iterazione successiva.",
+    "question_response_explanation": "L'affermazione corretta è \"Salta l’iterazione corrente\" poiché l'istruzione continue interrompe solo l'esecuzione del giro in corso all'interno della struttura iterativa, passando subito alla fase di aggiornamento e verifica del ciclo per il giro successivo. L'opzione \"Termina il ciclo\" è errata perché l'interruzione completa e l'uscita forzata dalla struttura di controllo sono svolte dall'istruzione break. L'opzione \"Ferma il programma\" è errata in quanto la terminazione complessiva dell'applicazione richiede l'uso del comando return nel main o l'invocazione della funzione exit(). L'opzione \"Ricrea il ciclo\" è errata poiché il comando non resetta né inizializza nuovamente la struttura o le variabili del ciclo, limitandosi a far avanzare il flusso al test successivo."
   },
   {
     "id_question": "15",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -104,18 +109,20 @@
     },
     "text": "Come si dichiarano più variabili dello stesso tipo in C?",
     "option": [
-      { "id": "a", "text": "int a, b, c;" },
-      { "id": "b", "text": "int: a b c;" },
-      { "id": "c", "text": "a, b, c int;" },
-      { "id": "d", "text": "int a; b; c;" }
+      {"id": "a", "text": "int a, b, c;"},
+      {"id": "b", "text": "int: a b c;"},
+      {"id": "c", "text": "a, b, c int;"},
+      {"id": "d", "text": "int a; b; c;"}
     ],
     "id_correct": "a",
-    "formal_explanation": "In C più variabili dello stesso tipo si dichiarano separandole con virgole.",
-    "informal_explanation": "È come dire: queste tre scatole sono tutte dello stesso tipo.",
-    "question_response_explanation": "A è corretta perché è la sintassi valida in C. Le altre non rispettano la grammatica del linguaggio."
+    "formal_explanation": "La grammatica e la sintassi formale del linguaggio C impongono regole precise per la dichiarazione e l'allocazione delle variabili in memoria. Per allocare più variabili aventi lo stesso tipo di dato fondamentale o derivato all'interno della medesima istruzione, lo standard prevede di indicare inizialmente il descrittore del tipo (es. int, float, char), seguito da un elenco ordinato di identificatori univoci separati esplicitamente dall'operatore virgola (,), terminando tassativamente l'intera riga logica con il carattere punto e virgola (;).",
+    "informal_explanation": "Quando scriviamo un programma in C e abbiamo bisogno di creare molte variabili che contengono lo stesso genere di informazioni (ad esempio tre numeri interi separati), non siamo obbligati a scrivere una riga di codice distinta per ciascuna di esse. Per risparmiare spazio e rendere il codice più leggibile, la sintassi del linguaggio ci permette di dichiararle tutte insieme in un'unica istruzione: scriviamo il tipo di dato una sola volta all'inizio della riga e poi elenchiamo i nomi che vogliamo assegnare alle variabili separandoli semplicemente con una virgola.",
+    "question_response_explanation": "L'affermazione corretta è \"int a, b, c;\" in quanto rispetta rigorosamente le regole sintattiche del linguaggio C per la dichiarazione multipla e compatta di variabili dello stesso tipo tramite l'uso del separatore virgola e del terminatore punto e virgola. L'opzione \"int: a b c;\" è errata perché introduce il carattere due punti e omette gli operatori di separazione tra gli identificatori, violando la grammatica del compilatore. L'opzione \"a, b, c int;\" è errata poiché inverte l'ordine dei costrutti posizionando il tipo alla fine, una sintassi non valida nel C. L'opzione \"int a; b; c;\" è errata in quanto il punto e virgola dopo la variabile 'a' chiude definitivamente la prima istruzione indipendente; i successivi termini 'b' e 'c' verrebbero interpretati dal compilatore come istruzioni separate prive di tipo, generando errori di sintassi.",
+    "question_response_explanation_truncated": false
   },
   {
     "id_question": "16",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -127,18 +134,19 @@
     },
     "text": "Cosa rappresenta l’operatore % in C?",
     "option": [
-      { "id": "a", "text": "Divisione intera" },
-      { "id": "b", "text": "Resto della divisione" },
-      { "id": "c", "text": "Moltiplicazione" },
-      { "id": "d", "text": "Potenza" }
+      {"id": "a", "text": "Divisione intera"},
+      {"id": "b", "text": "Resto della divisione"},
+      {"id": "c", "text": "Moltiplicazione"},
+      {"id": "d", "text": "Potenza"}
     ],
     "id_correct": "b",
-    "formal_explanation": "L’operatore % restituisce il resto della divisione tra due interi.",
-    "informal_explanation": "Ti dice quanto “avanza” dopo una divisione.",
-    "question_response_explanation": "B è corretta perché % calcola il modulo (resto)."
+    "formal_explanation": "Il linguaggio C classifica gli operatori aritmetici in base al tipo di trasformazione numerica eseguita sulle variabili. L'operatore percentuale (%) definisce l'operatore di modulo nel dominio dei numeri interi. Dal punto di vista algebrico, dati due operandi interi (dividendo e divisore), l'istruzione esegue la divisione aritmetica intera e restituisce come risultato esclusivo il valore del resto della divisione stessa. Per vincolo di specifica del linguaggio, questo operatore non può essere applicato a operandi in virgola mobile (come float o double), i quali richiederebbero invece funzioni matematiche dedicate della libreria standard.",
+    "informal_explanation": "Nelle espressioni matematiche scritte in C, oltre ai classici simboli per sommare, sottrarre, moltiplicare e dividere, esiste un operatore aritmetico speciale rappresentato dal simbolo della percentuale (%). Questo operatore serve quando lavoriamo con i numeri interi e vogliamo calcolare la divisione tenendo conto del resto: l'algoritmo esegue la divisione tra i due numeri ma, invece di darci il quoziente o calcolare i decimali, ci restituisce come risultato unicamente la quantità numerica che avanza (il resto).",
+    "question_response_explanation": "L'affermazione corretta è \"Resto della divisione\" perché l'operatore % (modulo) calcola e restituisce esattamente il resto derivante dalla divisione intera tra il primo e il secondo operando. L'opzione \"Divisione intera\" è errata poiché nel C la divisione intera viene eseguita dall'operatore barra di frazione (/) quando entrambi gli operandi sono interi, il quale tronca i decimali e restituisce il quoziente puro. L'opzione \"Moltiplicazione\" è errata in quanto l'operazione di moltiplicazione viene rappresentata graficamente dal simbolo dell'asterisco (*). L'opzione \"Potenza\" è errata poiché il linguaggio C non possiede un operatore nativo integrato nella sintassi per il calcolo delle potenze, operazione che richiede l'invocazione della funzione pow() inclusa nella libreria math.h."
   },
   {
     "id_question": "17",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -150,18 +158,19 @@
     },
     "text": "Qual è l’operatore di uguaglianza in C?",
     "option": [
-      { "id": "a", "text": "==" },
-      { "id": "b", "text": "=" },
-      { "id": "c", "text": "!=" },
-      { "id": "d", "text": "<=" }
+      {"id": "a", "text": "=="},
+      {"id": "b", "text": "="},
+      {"id": "c", "text": "!="},
+      {"id": "d", "text": "<="}
     ],
     "id_correct": "a",
-    "formal_explanation": "L’operatore == confronta due valori per verificarne l’uguaglianza.",
-    "informal_explanation": "È il confronto: “sono uguali?”",
-    "question_response_explanation": "A è corretta perché == serve per confrontare, mentre = è assegnazione."
+    "formal_explanation": "Il sistema sintattico del C opera una distinzione netta tra gli operatori di assegnazione e gli operatori relazionali o di confronto. Gli operatori relazionali analizzano la relazione intercorrente tra due espressioni e restituiscono un valore booleano discreto (rappresentato interamente come 1 se la relazione è verificata o 0 se è falsa). Il controllo di equivalenza logica tra due entità numeriche o indirizzi di memoria richiede l'uso del token a doppio carattere di uguaglianza, il quale indica al compilatore l'esecuzione di un test di confronto simmetrico senza alterare lo stato o i valori memorizzati nelle variabili esaminate.",
+    "informal_explanation": "Uno degli errori più comuni quando si impara a programmare in C è confondere l'azione di assegnare un valore a una variabile con l'azione di confrontare due valori tra loro. Se scriviamo un solo simbolo di uguale, stiamo dicendo al computer di prendere il dato a destra e scriverlo (assegnarlo) dentro la variabile a sinistra, modificandola. Se invece vogliamo porre una domanda logica all'interno di un controllo (ad esempio per verificare se il valore di un contatore è uguale a dieci), dobbiamo usare una combinazione specifica a due simboli che si limita a leggere i dati e verificare se coincidono.",
+    "question_response_explanation": "L'affermazione corretta è \"==\" perché il token a doppio uguale rappresenta l'operatore relazionale di uguaglianza utilizzato nelle espressioni condizionali per confrontare due operandi. L'opzione \"=\" è un classico tranello ed è errata poiché rappresenta l'operatore di assegnazione distruttiva, usato per scrivere un valore in una variabile e non per effettuare un confronto logico. L'opzione \"!=\" è errata in quanto definisce l'operatore relazionale opposto, ovvero il controllo di diversità o disuguaglianza (diverso da). L'opzione \"<=\" è errata poiché rappresenta l'operatore relazionale di confronto minore o uguale."
   },
   {
     "id_question": "18",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -173,18 +182,19 @@
     },
     "text": "Cosa succede in caso di overflow in C?",
     "option": [
-      { "id": "a", "text": "Il valore supera il massimo rappresentabile" },
-      { "id": "b", "text": "Il programma si ferma automaticamente" },
-      { "id": "c", "text": "Il valore diventa 0" },
-      { "id": "d", "text": "Viene generata un’eccezione obbligatoria" }
+      {"id": "a", "text": "Il valore supera il massimo rappresentabile"},
+      {"id": "b", "text": "Il programma si ferma automaticamente"},
+      {"id": "c", "text": "Il valore diventa 0"},
+      {"id": "d", "text": "Viene generata un’eccezione obbligatoria"}
     ],
     "id_correct": "a",
-    "formal_explanation": "L’overflow si verifica quando un valore supera il range massimo rappresentabile dal tipo.",
-    "informal_explanation": "È come un contatore che supera il massimo e “sfora”.",
-    "question_response_explanation": "A è corretta perché overflow significa superamento del limite massimo."
+    "formal_explanation": "Nall'architettura dei calcolatori e nello standard del linguaggio C, ogni tipo di dato primitivo (come int, short o char) occupa uno spazio di memoria fisso espresso in bit, il quale determina un intervallo limitato di valori numerici rappresentabili. Il fenomeno dell'overflow (superamento del limite superiore) si verifica a runtime quando il risultato di un'operazione aritmetica genera un valore numerico che eccede la capacità massima del range del tipo di dato associato. Per le variabili intere con segno (signed), lo standard C definisce questo comportamento come comportamento indefinito (undefined behavior), che nella maggior parte delle architetture hardware si traduce in un fenomeno di rotazione o wrapping binario a causa del riporto sul bit di segno.",
+    "informal_explanation": "Nel computer ogni tipo di variabile ha un limite fisico di spazio predefinito e non può memorizzare numeri grandi a piacere. Immagina il tipo di dato come il contatore dei chilometri di un'automobile vecchia: ha un numero fisso di cifre e se provi ad avanzare oltre il limite massimo possibile, le cifre sforano e ricominciano a girare dall'inizio. Quando in C eseguiamo un calcolo (come una somma o una moltiplicazione) il cui risultato finale è matematicamente più grande del tetto massimo che quella specifica variabile può fisicamente contenere, andiamo incontro all'errore di overflow.",
+    "question_response_explanation": "L'affermazione corretta è \"Il valore supera il massimo rappresentabile\" perché l'overflow definisce per l'appunto la condizione anomala in cui una quantità numerica supera il limite massimo del range consentito dall'allocazione di bit del tipo di dato. L'opzione \"Il programma si ferma automaticamente\" è errata perché il linguaggio C non integra controlli automatici nativi a runtime per l'overflow aritmetico intero, di conseguenza l'esecuzione prosegue silenziosamente senza interruzioni ma con dati corrotti. L'opzione \"Il valore diventa 0\" è errata in quanto il valore risultante dal wrapping dipende dai bit originali e in genere assume un valore negativo estremo (se signed) o ricomincia da numeri bassi, ma non si azzera in modo sistematico e predefinito. L'opzione \"Viene generata un’eccezione obbligatoria\" è errata poiché l'architettura del C esclude la gestione nativa obbligatoria delle eccezioni hardware per gli overflow di interi, lasciando il flusso privo di segnalazioni d'errore automatiche."
   },
   {
     "id_question": "19",
+    "estimed_time": "15",
     "metadata": {
       "city": "unict",
       "department": "DMI",
@@ -196,16 +206,17 @@
     },
     "text": "Cosa si intende per underflow in C?",
     "option": [
-      { "id": "a", "text": "Valore sotto il minimo rappresentabile" },
-      { "id": "b", "text": "Valore sopra il massimo rappresentabile" },
-      { "id": "c", "text": "Variabile non inizializzata" },
-      { "id": "d", "text": "Errore di sintassi" }
+      {"id": "a", "text": "Valore sotto il minimo rappresentabile"},
+      {"id": "b", "text": "Valore sopra il massimo rappresentabile"},
+      {"id": "c", "text": "Variabile non inizializzata"},
+      {"id": "d", "text": "Errore di sintassi"}
     ],
     "id_correct": "a",
-    "formal_explanation": "Underflow si verifica quando un valore è inferiore al minimo rappresentabile.",
-    "informal_explanation": "È come scendere sotto zero oltre il limite consentito.",
-    "question_response_explanation": "A è corretta perché underflow indica valori troppo piccoli per il tipo."
+    "formal_explanation": "Nello studio della precisione numerica e dell'aritmetica dei calcolatori applicata al linguaggio C, ogni tipo di dato definisce limiti inferiori e superiori invalicabili legati alla codifica binaria adoperata (come il complemento a due per gli interi o lo standard IEEE 754 per i numeri in virgola mobile). L'underflow si verifica quando il risultato finale di un'operazione matematica produce una quantità numerica inferiore al valore minimo assoluto che il tipo di dato può registrare. Nel contesto dei numeri reali a virgola mobile (float o double), il fenomeno si manifesta specificamente quando la grandezza di un numero positivo o negativo è talmente infinitesima da non poter essere distinta dallo zero, forzando l'algoritmo ad approssimare il dato a un valore nullo.",
+    "informal_explanation": "Così come esiste un limite per i numeri troppo grandi (overflow), i computer devono gestire anche il problema opposto, ovvero quando un calcolo genera un numero troppo piccolo o scende al di sotto del limite minimo che la variabile può contenere. Nei numeri interi questo significa scendere al di sotto del numero negativo più basso possibile. Nei numeri decimali con la virgola, invece, l'underflow si verifica quando un valore diventa così incredibilmente vicino allo zero che i bit del processore non hanno abbastanza precisione per rappresentare quella frazione minuscola, costringendo il sistema ad azzerare il valore.",
+    "question_response_explanation": "L'affermazione corretta è \"Valore sotto il minimo rappresentabile\" perché definisce formalmente la condizione di underflow, speculare all'overflow, in cui il valore calcolato è inferiore alla soglia minima consentita dal tipo di dato. L'opzione \"Valore sopra il massimo rappresentabile\" è errata perché questa specifica condizione descrive il fenomeno opposto dell'overflow. L'opzione \"Variabile non inizializzata\" è errata in quanto descrive una variabile allocata in memoria a cui non è ancora stato assegnato un valore iniziale deterministico, lasciandola riempita con dati residui casuali (valori spazzatura o garbage values). L'opzione \"Errore di sintassi\" è errata poiché l'underflow è un errore logico e aritmetico che si verifica durante il runtime dell'applicazione e non una violazione della grammatica del codice rilevabile dal compilatore."
   },
+  
   {
     "id_question": "20",
     "metadata": {

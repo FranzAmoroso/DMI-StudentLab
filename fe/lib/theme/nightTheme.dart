@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   static const Color brandNightBlue = Color(0xFF1C2841);
+  static const Color secondaryNightBlue = Color(0xFF1B263B);
   static const Color deepOcean = Color(0xFF0F1C3F);
   static const Color darkElegance = Color(0xFF0C0F1A);
   
@@ -28,6 +29,9 @@ class AppColors {
   static const Color mistWhite = Color(0xFFF5F5F5);
   static const Color opaqueWhite = Color.fromRGBO(255, 255, 255, 0.9);
   static const Color translucentWhite = Color.fromRGBO(255, 255, 255, 0.15);
+
+  static const Color correct = Color.fromARGB(255, 4, 89, 8);
+  static const Color wrong = Color.fromARGB(255, 68, 1, 1);
     
   static List<Color> get cardGradient => [
     brandNightBlue.withOpacity(0.95),

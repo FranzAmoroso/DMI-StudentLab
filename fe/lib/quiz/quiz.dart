@@ -2,6 +2,7 @@ import 'package:fe/layers/home.dart';
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../models/quiz_model.dart';
+import 'package:fe/theme/nightTheme.dart';
 
 class QuizPage extends StatefulWidget {
   final String department;
@@ -18,6 +19,7 @@ class _QuizPageState extends State<QuizPage> {
   List<QuizModel> question = [];
   bool load = true;
   bool isLocked = false;
+  bool modalIsOpen = false;
   int idx = 0;
   int _choiceCorrect = 0;
 
@@ -40,7 +42,7 @@ class _QuizPageState extends State<QuizPage> {
   void answerValidate(String idChoice) async {
 
     setState(() => isLocked = true);
-    String idQuestion = question[idx].idQuestion;
+    String idQuestion = question[idx].idQuestion; // Deve essere salvato nella sessione
 
     bool isCorrect = await ApiService().validate_quest(idQuestion, idChoice, widget.sub);
     if (!mounted) return;
@@ -49,16 +51,37 @@ class _QuizPageState extends State<QuizPage> {
       if (isCorrect) _choiceCorrect++;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isCorrect ? "Genio! " : "Ripassa! "),
-        backgroundColor: isCorrect ? const Color.fromARGB(255, 4, 89, 8) : const Color.fromARGB(255, 68, 1, 1),
-        duration: const Duration(seconds: 1),
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.secondaryNightBlue,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (_) {
+
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Definizione Formale: \n${question[idx].formalExplanation}',
+                  style: const TextStyle(color: AppColors.pureWhite)),
+              const SizedBox(height: 10),
+              Text('Definizione Informale: \n${question[idx].informalExplanation}',
+                  style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 10),
+              Text('Capire la Risposta: \n${question[idx].questionResponseExplanation}',
+                  style: const TextStyle(color: AppColors.pureWhite)),
+            ],
+          ),
+        );
+      },
     );
 
-    Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
+      
+      Future.delayed(const Duration(milliseconds: 300));
       if (idx < question.length - 1) {
         setState(() {
           idx++;
@@ -121,8 +144,6 @@ class _QuizPageState extends State<QuizPage> {
           },
         );
       }
-
-    });
   }
 
   @override
@@ -150,7 +171,6 @@ class _QuizPageState extends State<QuizPage> {
                     borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   builder: (_) {
-                    final meta = question[idx].metadata;
 
                     return Padding(
                       padding: const EdgeInsets.all(20),
@@ -164,8 +184,6 @@ class _QuizPageState extends State<QuizPage> {
                           Text('Definizione Informale: \n${question[idx].informalExplanation}',
                               style: const TextStyle(color: Colors.white70)),
                           const SizedBox(height: 10),
-                          Text('Capire la Risposta: \n${question[idx].questionResponseExplanation}',
-                              style: const TextStyle(color: Colors.white)),
                         ],
                       ),
                     );
@@ -203,7 +221,7 @@ class _QuizPageState extends State<QuizPage> {
                                 question[idx].text,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 20,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                   height: 1.3,
                                 ),
@@ -220,7 +238,7 @@ class _QuizPageState extends State<QuizPage> {
                                 '${idx + 1}/${question.length}',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

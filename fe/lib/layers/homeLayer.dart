@@ -23,17 +23,31 @@ class HomeLayer extends StatelessWidget {
   
   final List<FeatureCard> _featureCards = [
     FeatureCard(
-      title: 'Quiz',
-      description: 'Metti alla prova le tue conoscenze con domande a risposta multipla.',
+      title: 'Esercitazione',
+      description: 'Allena la tua mente senza lo stress del tempo, filtrando le domande per singoli argomenti della materia.',
       icon: Icons.quiz,
-      color: AppColors.royalIndigo, 
+      color: AppColors.slateMidnight, 
       isComingSoon: false,
+    ),
+    FeatureCard(
+      title: 'Simulazione Esame', 
+      description: 'Mettiti alla prova con i veri compiti d\'esame d\'appello, aggiornati in base al professore del tuo corso.',
+      icon: Icons.checklist,
+      color: AppColors.brandNightBlue, 
+      isComingSoon: true,
+    ),
+    FeatureCard(
+      title: 'Ripasso', 
+      description: 'Ripassa i concetti che non ti sono ancora chiari dove hai mancato la domanda', // da sistemare
+      icon: Icons.checklist,
+      color: AppColors.deepOcean, 
+      isComingSoon: true,
     ),
     FeatureCard(
       title: 'Definizioni',
       description: 'Glossario completo dei termini e concetti chiave del corso.',
       icon: Icons.menu_book,
-      color: AppColors.brandNightBlue, 
+      color: AppColors.darkElegance, 
       isComingSoon: true, 
     ),
     FeatureCard(
@@ -74,114 +88,184 @@ class HomeLayer extends StatelessWidget {
   }
 
   
-  Widget _buildGridCard(BuildContext context,FeatureCard card, int index) {
-    Widget cardContent = Card(
-      elevation: AppColors.elegantCardTheme.elevation,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              card.color,
-              card.color.withOpacity(0.8),
-              AppColors.darkElegance, 
-            ],
+Widget _buildGridCard(BuildContext context, FeatureCard card, int index) {
+  final ValueNotifier<double> shakeOffset = ValueNotifier<double>(0.0);
+  final ValueNotifier<double> cardScale = ValueNotifier<double>(1.0);
+
+  Widget cardBody = ValueListenableBuilder<double>(
+    valueListenable: cardScale,
+    builder: (context, scale, child) {
+      return AnimatedScale(
+        scale: scale,
+        duration: const Duration(milliseconds: 150), 
+        curve: Curves.easeOutCubic, 
+        child: Card(
+          elevation: AppColors.elegantCardTheme.elevation,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          
-          onTap: card.isComingSoon 
-              ? null 
-              : () {
-                  if (index == 0) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => SubjectSelection(department: "DMI", course: "L-31")),
-                    );
-                  }
-                },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.translucentWhite, 
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        card.icon,
-                        size: 26,
-                        color: AppColors.pureWhite,
-                      ),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        card.color,
+                        card.color.withOpacity(0.8),
+                        AppColors.darkElegance, 
+                      ],
                     ),
-                  ],
+                  ),
                 ),
                 
-                
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      card.title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.pureWhite,
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: AppColors.translucentWhite, 
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              card.icon,
+                              size: 26,
+                              color: AppColors.pureWhite,
+                            ),
+                          ),
+                        ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      card.description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.pureWhite.withOpacity(card.isComingSoon ? 0.4 : 0.7),
-                        fontWeight: FontWeight.w300,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            card.title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.pureWhite,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            card.description,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.pureWhite.withOpacity(card.isComingSoon ? 0.4 : 0.7),
+                              fontWeight: FontWeight.w300,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (_) {
+                      cardScale.value = 1.05; 
+                    },
+                    onTapUp: (_) {
+                      cardScale.value = 1.0;
+                    },
+                    onTapCancel: () {
+                      cardScale.value = 1.0;
+                    },
+                    onTap: () async {
+                      if (card.isComingSoon) {
+                        if (shakeOffset.value != 0.0) return;
+                        shakeOffset.value = 6.0;
+                        await Future.delayed(const Duration(milliseconds: 50));
+                        shakeOffset.value = -6.0;
+                        await Future.delayed(const Duration(milliseconds: 50));
+                        shakeOffset.value = 4.0;
+                        await Future.delayed(const Duration(milliseconds: 50));
+                        shakeOffset.value = -4.0;
+                        await Future.delayed(const Duration(milliseconds: 50));
+                        shakeOffset.value = 0.0;
+                      } else {
+                        if (index == 0) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const SubjectSelection(department: "DMI", course: "L-31")),
+                          );
+                        }
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
           ),
         ),
-      ),
-    );
-
-    if (card.isComingSoon) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(20), 
-        child: Banner(
-          message: "SOON",
-          location: BannerLocation.topEnd, 
-          color: AppColors.skyBlue, 
-          textStyle: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: AppColors.brandNightBlue, 
-            letterSpacing: 1.0,
-          ),
-          child: cardContent,
-        ),
       );
-    }
+    },
+  );
 
-    return cardContent;
+  if (!card.isComingSoon) {
+    return cardBody;
   }
+
+  return Stack(
+    children: [
+      cardBody,
+      
+      Positioned(
+        top: 0,
+        right: 0,
+        child: ValueListenableBuilder<double>(
+          valueListenable: shakeOffset,
+          builder: (context, offset, child) {
+            return TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: offset),
+              duration: const Duration(milliseconds: 40), 
+              builder: (context, value, child) {
+                return Transform.translate(
+                  offset: Offset(value, 0),
+                  child: child,
+                );
+              },
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(topRight: Radius.circular(20)),
+                child: CustomPaint(
+                  size: const Size(65, 65),
+                  painter: BannerPainter(
+                    message: "SOON",
+                    textDirection: TextDirection.ltr,
+                    location: BannerLocation.topEnd,
+                    layoutDirection: TextDirection.ltr,
+                    color: AppColors.skyBlue,
+                    textStyle: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.brandNightBlue,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  );
+}
+
 }
