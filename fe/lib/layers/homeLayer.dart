@@ -33,20 +33,27 @@ class HomeLayer extends StatelessWidget {
       title: 'Simulazione Esame', 
       description: 'Mettiti alla prova con i veri compiti d\'esame d\'appello, aggiornati in base al professore del tuo corso.',
       icon: Icons.checklist,
-      color: AppColors.brandNightBlue, 
+      color: AppColors.royalIndigo, 
       isComingSoon: true,
     ),
     FeatureCard(
       title: 'Ripasso', 
-      description: 'Ripassa i concetti che non ti sono ancora chiari dove hai mancato la domanda', // da sistemare
-      icon: Icons.checklist,
-      color: AppColors.deepOcean, 
+      description: 'Rivedi i concetti più difficili e approfondisci gli argomenti delle domande che hai sbagliato.', // da sistemare
+      icon: Icons.warning_amber_rounded,
+      color: AppColors.charcoalGrey, 
       isComingSoon: true,
     ),
     FeatureCard(
       title: 'Definizioni',
       description: 'Glossario completo dei termini e concetti chiave del corso.',
       icon: Icons.menu_book,
+      color: AppColors.eleganceDeepNavy, 
+      isComingSoon: true, 
+    ),
+    FeatureCard(
+      title: 'Materiale',
+      description: 'Accedi a dispense, slide e documenti utili per supportare il tuo studio.',
+      icon: Icons.cloud,
       color: AppColors.darkElegance, 
       isComingSoon: true, 
     ),

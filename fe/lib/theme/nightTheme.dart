@@ -5,6 +5,11 @@ class AppColors {
   static const Color secondaryNightBlue = Color(0xFF1B263B);
   static const Color deepOcean = Color(0xFF0F1C3F);
   static const Color darkElegance = Color(0xFF0C0F1A);
+  static const Color eleganceSoftNight = Color(0xFF0E1220); 
+  static const Color eleganceMidnight = Color(0xFF111526); 
+  static const Color eleganceDeepNavy = Color(0xFF14192D);
+  static const Color eleganceShadow = Color(0xFF070911); 
+  static const Color eleganceObsidian = Color(0xFF0B0D14); 
   
   static const Color slateMidnight = Color(0xFF1A237E);
   static const Color royalIndigo = Color(0xFF283593);
