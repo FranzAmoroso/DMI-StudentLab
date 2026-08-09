@@ -4,10 +4,11 @@ Future<void> userSession(Database db) async {
   await db.execute(
     '''
       CREATE TABLE IF NOT EXISTS user_session (
-      user_id INTEGER PRIMARY KEY AUTOINCREMENT, 
-      username TEXT DEFAULT 'StudentLab', 
+      session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL, 
       token TEXT UNIQUE, 
-      login_timestamp INTEGER
+      login_timestamp INTEGER,
+      FOREIGN KEY (user_id) REFERENCES user(id)
       )
     '''
   );
