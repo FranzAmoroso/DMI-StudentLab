@@ -4,7 +4,7 @@ class Filter(BaseModel):
     department: str
     course: str
     sub: str
-    argoment: str | Nonw = None
+    argoment: str | None = None
     tot: int | None = None
 
 class Answer(BaseModel):

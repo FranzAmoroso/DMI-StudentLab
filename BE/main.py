@@ -19,7 +19,7 @@ async def root():
     return {"status":"Server attivo."}
 
 @app.get("/shuffle_filter")
-def api_shuffle_filter(department: str, course: str, sub: str, argoment: str):
+def api_shuffle_filter(department: str, course: str, sub: str, argoment: str | None = None):
     return shuffle_filter(department, course, sub, argoment)
 
 @app.post("/validate_answer")
