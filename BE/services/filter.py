@@ -2,7 +2,7 @@ import json
 import random
 import os
 from pathlib import Path
-def shuffle_filter(department, course, sub):
+def shuffle_filter(department, course, sub, argoment= None):
     path = os.path.join("data/dmi/question",f"{sub}.json")
     with open (path, "r") as file:
         all = json.load(file)
@@ -12,6 +12,7 @@ def shuffle_filter(department, course, sub):
             if d['metadata']['department'] == department
             and d['metadata']['course'] == course
             and d['metadata']['sub'] == sub
+            and (argoment is None or d['metadata']['argoment'] == argoment)
         ]
 
         for d in filtered:

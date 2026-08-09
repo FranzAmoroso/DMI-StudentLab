@@ -42,7 +42,7 @@ class _QuizPageState extends State<QuizPage> {
   void answerValidate(String idChoice) async {
 
     setState(() => isLocked = true);
-    String idQuestion = question[idx].idQuestion; // Deve essere salvato nella sessione
+    String idQuestion = question[idx].idQuestion; 
 
     bool isCorrect = await ApiService().validate_quest(idQuestion, idChoice, widget.sub);
     if (!mounted) return;
@@ -54,30 +54,80 @@ class _QuizPageState extends State<QuizPage> {
     await showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.secondaryNightBlue,
+      isScrollControlled: true, 
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) {
+      builder: (modalContext) { 
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: 10, 
+                left: 20,
+                right: 20,
+                bottom: 20 + MediaQuery.of(modalContext).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min, 
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const SizedBox(width: 48), 
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 35, 17, 17).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      const SizedBox(height: 60), 
 
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Definizione Formale: \n${question[idx].formalExplanation}',
-                  style: const TextStyle(color: AppColors.pureWhite)),
-              const SizedBox(height: 10),
-              Text('Definizione Informale: \n${question[idx].informalExplanation}',
-                  style: const TextStyle(color: Colors.white70)),
-              const SizedBox(height: 10),
-              Text('Capire la Risposta: \n${question[idx].questionResponseExplanation}',
-                  style: const TextStyle(color: AppColors.pureWhite)),
-            ],
+
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  
+                  Text(
+                    'Definizione Formale: \n${question[idx].formalExplanation}',
+                    style: const TextStyle(color: AppColors.pureWhite, fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Definizione Informale: \n${question[idx].informalExplanation}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 15),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Capire la Risposta: \n${question[idx].questionResponseExplanation}',
+                    style: const TextStyle(color: AppColors.pureWhite, fontSize: 15),
+                  ),
+                  const SizedBox(height: 30), 
+                  
+                  SizedBox(
+                    width: double.infinity, 
+                    child: ElevatedButton(
+                      style: AppColors.elegantButtonStyle, 
+                      onPressed: () => Navigator.pop(modalContext),
+                      child: const Text(
+                        'Ho capito',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.pureWhite),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       },
     );
+
+
+
 
       if (!mounted) return;
       
