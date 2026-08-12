@@ -2,15 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fe/theme/nightTheme.dart';
 
 
-// ============================================================================
-// MODELLO RISULTATO DI UNA DOMANDA
-// ============================================================================
-//
-// Rappresenta tutte le informazioni necessarie per mostrare una domanda
-// nella schermata finale del quiz.
-//
-// In futuro questi dati verranno costruiti direttamente dal QuizPage.
-//
+
 
 class QuizQuestionResult {
   final String question;
@@ -42,9 +34,6 @@ class QuizQuestionResult {
 }
 
 
-// ============================================================================
-// LAYER RISULTATO QUIZ
-// ============================================================================
 
 class QuizResultLayer extends StatelessWidget {
   final List<QuizQuestionResult> results;
@@ -55,10 +44,7 @@ class QuizResultLayer extends StatelessWidget {
   });
 
 
-  // ==========================================================================
-  // NUMERO RISPOSTE CORRETTE
-  // ==========================================================================
-
+ 
   int get correctAnswers {
     return results
         .where((question) => question.isCorrect)
@@ -66,18 +52,11 @@ class QuizResultLayer extends StatelessWidget {
   }
 
 
-  // ==========================================================================
-  // NUMERO RISPOSTE ERRATE
-  // ==========================================================================
-
+ 
   int get wrongAnswers {
     return results.length - correctAnswers;
   }
 
-
-  // ==========================================================================
-  // PERCENTUALE
-  // ==========================================================================
 
   double get percentage {
     if (results.isEmpty) {
@@ -87,10 +66,6 @@ class QuizResultLayer extends StatelessWidget {
     return (correctAnswers / results.length) * 100;
   }
 
-
-  // ==========================================================================
-  // BUILD
-  // ==========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -135,27 +110,15 @@ class QuizResultLayer extends StatelessWidget {
 
                   children: [
 
-                    // ========================================================
-                    // PUNTEGGIO
-                    // ========================================================
 
                     _buildScoreCard(context),
 
                     const SizedBox(height: 16),
 
-
-                    // ========================================================
-                    // RIEPILOGO
-                    // ========================================================
-
                     _buildSummaryCard(context),
 
                     const SizedBox(height: 28),
 
-
-                    // ========================================================
-                    // TITOLO DOMANDE
-                    // ========================================================
 
                     const Text(
                       'Riepilogo delle domande',
@@ -168,10 +131,6 @@ class QuizResultLayer extends StatelessWidget {
 
                     const SizedBox(height: 12),
 
-
-                    // ========================================================
-                    // DOMANDE
-                    // ========================================================
 
                     if (results.isEmpty)
                       _buildEmptyResult()
@@ -203,9 +162,6 @@ class QuizResultLayer extends StatelessWidget {
   }
 
 
-  // ==========================================================================
-  // CARD PUNTEGGIO
-  // ==========================================================================
 
   Widget _buildScoreCard(BuildContext context) {
     return Container(
@@ -283,9 +239,6 @@ class QuizResultLayer extends StatelessWidget {
   }
 
 
-  // ==========================================================================
-  // MESSAGGIO RISULTATO
-  // ==========================================================================
 
   String _getResultMessage() {
     if (results.isEmpty) {
@@ -308,17 +261,9 @@ class QuizResultLayer extends StatelessWidget {
   }
 
 
-  // ==========================================================================
-  // CARD RIEPILOGO
-  // ==========================================================================
-
   Widget _buildSummaryCard(BuildContext context) {
     return Row(
       children: [
-
-        // ==============================================================
-        // CORRETTE
-        // ==============================================================
 
         Expanded(
           child: _SummaryItem(
@@ -330,10 +275,6 @@ class QuizResultLayer extends StatelessWidget {
         ),
 
         const SizedBox(width: 12),
-
-        // ==============================================================
-        // ERRATE
-        // ==============================================================
 
         Expanded(
           child: _SummaryItem(
@@ -347,10 +288,6 @@ class QuizResultLayer extends StatelessWidget {
     );
   }
 
-
-  // ==========================================================================
-  // NESSUN RISULTATO
-  // ==========================================================================
 
   Widget _buildEmptyResult() {
     return Container(
@@ -377,9 +314,6 @@ class QuizResultLayer extends StatelessWidget {
 }
 
 
-// ============================================================================
-// SUMMARY ITEM
-// ============================================================================
 
 class _SummaryItem extends StatelessWidget {
   final IconData icon;
@@ -458,9 +392,6 @@ class _SummaryItem extends StatelessWidget {
 }
 
 
-// ============================================================================
-// CARD SINGOLA DOMANDA
-// ============================================================================
 
 class _QuestionResultCard extends StatelessWidget {
   final int questionNumber;
@@ -517,10 +448,6 @@ class _QuestionResultCard extends StatelessWidget {
 
           children: [
 
-            // ==============================================================
-            // NUMERO + STATO
-            // ==============================================================
-
             Row(
               crossAxisAlignment:
                   CrossAxisAlignment.center,
@@ -549,10 +476,6 @@ class _QuestionResultCard extends StatelessWidget {
             const SizedBox(height: 16),
 
 
-            // ==============================================================
-            // DOMANDA
-            // ==============================================================
-
             Text(
               result.question,
 
@@ -567,10 +490,6 @@ class _QuestionResultCard extends StatelessWidget {
             const SizedBox(height: 18),
 
 
-            // ==============================================================
-            // RISPOSTA DATA
-            // ==============================================================
-
             _AnswerBox(
               title: 'La tua risposta',
               answer: result.givenAnswer,
@@ -580,10 +499,6 @@ class _QuestionResultCard extends StatelessWidget {
                   : Colors.redAccent,
             ),
 
-
-            // ==============================================================
-            // RISPOSTA CORRETTA
-            // ==============================================================
 
             if (!result.isCorrect) ...[
               const SizedBox(height: 10),
@@ -595,11 +510,6 @@ class _QuestionResultCard extends StatelessWidget {
               ),
             ],
 
-
-            // ==============================================================
-            // SPIEGAZIONI
-            // ==============================================================
-
             _buildExplanations(),
           ],
         ),
@@ -607,10 +517,6 @@ class _QuestionResultCard extends StatelessWidget {
     );
   }
 
-
-  // ==========================================================================
-  // SPIEGAZIONI
-  // ==========================================================================
 
   Widget _buildExplanations() {
 
@@ -654,10 +560,6 @@ class _QuestionResultCard extends StatelessWidget {
         const SizedBox(height: 10),
 
 
-        // ==============================================================
-        // SPIEGAZIONE FORMALE
-        // ==============================================================
-
         if (hasFormal)
           _ExplanationSection(
             title: 'Definizione formale',
@@ -665,20 +567,12 @@ class _QuestionResultCard extends StatelessWidget {
           ),
 
 
-        // ==============================================================
-        // SPIEGAZIONE INFORMALE
-        // ==============================================================
-
         if (hasInformal)
           _ExplanationSection(
             title: 'Definizione informale',
             text: result.informalExplanation,
           ),
 
-
-        // ==============================================================
-        // SPIEGAZIONE RISPOSTA
-        // ==============================================================
 
         if (hasResponse)
           _ExplanationSection(
@@ -688,9 +582,6 @@ class _QuestionResultCard extends StatelessWidget {
           ),
 
 
-        // ==============================================================
-        // ANALISI DELLE ALTERNATIVE
-        // ==============================================================
 
         if (hasAnswers) ...[
           const SizedBox(height: 8),
@@ -778,10 +669,6 @@ class _QuestionResultCard extends StatelessWidget {
 }
 
 
-// ============================================================================
-// BADGE CORRETTA / ERRATA
-// ============================================================================
-
 class _StatusBadge extends StatelessWidget {
   final bool isCorrect;
 
@@ -847,11 +734,6 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 }
-
-
-// ============================================================================
-// BOX RISPOSTA
-// ============================================================================
 
 class _AnswerBox extends StatelessWidget {
   final String title;
@@ -921,9 +803,6 @@ class _AnswerBox extends StatelessWidget {
 }
 
 
-// ============================================================================
-// SEZIONE SPIEGAZIONE
-// ============================================================================
 
 class _ExplanationSection extends StatelessWidget {
   final String title;

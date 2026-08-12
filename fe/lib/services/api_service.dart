@@ -160,43 +160,44 @@ class ApiService {
     }
   }
 
-  Future<bool> validate_quest(
-    String idQuestion,
-    String idChoice,
-    String sub,
-  ) async {
-    final url = Uri.parse(
-      '$baseUrl/validate_answer',
-    ).replace(
-      queryParameters: {
+Future<bool> validate_quest(
+  String idQuestion,
+  String idChoice,
+  String department,
+  String sub,
+) async {
+  final url = Uri.parse(
+    '$baseUrl/validate_answer',
+  );
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
         'idQuestion': idQuestion,
         'idChoice': idChoice,
+        'department': department,
         'sub': sub,
-      },
+      }),
     );
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) == true;
-      }
-
-      throw Exception(
-        'Errore validate: '
-        '${response.statusCode} - ${response.body}',
-      );
-    } catch (e) {
-      throw Exception(
-        'Errore connessione validazione: $e',
-      );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) == true;
     }
+
+    throw Exception(
+      'Errore validate: '
+      '${response.statusCode} - ${response.body}',
+    );
+  } catch (e) {
+    throw Exception(
+      'Errore connessione validazione: $e',
+    );
   }
+}
 
     Future<List<String>> getSubjects(
     String department,

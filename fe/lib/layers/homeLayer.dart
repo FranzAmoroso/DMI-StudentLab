@@ -1,6 +1,8 @@
 import 'package:fe/quiz/subjectSelection.dart';
 import 'package:flutter/material.dart';
-import 'package:fe/theme/nightTheme.dart'; 
+import 'package:fe/theme/nightTheme.dart';
+import 'package:fe/material/StudentMaterialPage.dart'; 
+import 'package:fe/social/social_page.dart';
 
 class FeatureCard {
   final String title;
@@ -55,14 +57,14 @@ class HomeLayer extends StatelessWidget {
       description: 'Accedi a dispense, slide e documenti utili per supportare il tuo studio.',
       icon: Icons.cloud,
       color: AppColors.darkElegance, 
-      isComingSoon: true, 
+      isComingSoon: false, 
     ),
     FeatureCard(
       title: 'Altri studenti',
       description: 'Connettiti con i tuoi colleghi di corso e collaborate.',
       icon: Icons.people,
       color: AppColors.slateGrey, 
-      isComingSoon: true, 
+      isComingSoon: false, 
     ),
   ];
 
@@ -211,6 +213,22 @@ Widget _buildGridCard(BuildContext context, FeatureCard card, int index) {
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (context) => const SubjectSelection(department: "DMI", course: "L-31")),
+                          );
+                        }
+                        if(index == 4){
+                          Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StudentMaterialPage(),
+                          ),
+                        );
+                        }
+                        if(index == 5){
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SocialPage(),
+                            ),
                           );
                         }
                       }

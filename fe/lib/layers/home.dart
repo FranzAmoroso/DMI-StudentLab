@@ -11,10 +11,6 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.darkElegance,
 
-      // ==========================================================
-      // APP BAR
-      // ==========================================================
-
       appBar: AppBar(
         backgroundColor: AppColors.brandNightBlue,
         foregroundColor: AppColors.pearlWhite,
@@ -23,33 +19,18 @@ class HomePage extends StatelessWidget {
         // Nessun titolo centrale.
         centerTitle: false,
 
-        // ========================================================
-        // LOGO STUDENTLAB
-        // ========================================================
-
         leading: IconButton(
-          icon: const Icon(
-            Icons.school_rounded,
+          icon: Image.asset(
+            'assets/icons/favicon.png',
+            width: 50,
+            height: 50,
           ),
           tooltip: 'Home',
           onPressed: () {
-            // La Home è già aperta.
-            //
-            // In futuro, quando avremo una navigazione
-            // completa, questo pulsante porterà sempre
-            // alla Home principale.
+            // Torna alla Home
           },
         ),
-
-        // ========================================================
-        // AUTENTICAZIONE
-        // ========================================================
-
         actions: [
-          // ------------------------------------------------------
-          // ACCEDI
-          // ------------------------------------------------------
-
           _AuthButton(
             text: 'Accedi',
             filled: false,
@@ -60,10 +41,6 @@ class HomePage extends StatelessWidget {
           ),
 
           const SizedBox(width: 8),
-
-          // ------------------------------------------------------
-          // SIGN UP
-          // ------------------------------------------------------
 
           _AuthButton(
             text: 'Sign Up',
@@ -78,19 +55,10 @@ class HomePage extends StatelessWidget {
         ],
       ),
 
-      // ==========================================================
-      // HOME CONTENT
-      // ==========================================================
-
       body: HomeLayer(),
     );
   }
 }
-
-
-// ==================================================================
-// AUTH BUTTON
-// ==================================================================
 
 class _AuthButton extends StatelessWidget {
   final String text;
@@ -112,34 +80,19 @@ class _AuthButton extends StatelessWidget {
         onPressed: onPressed,
 
         style: OutlinedButton.styleFrom(
-          // ------------------------------------------------------
-          // SFONDO
-          // ------------------------------------------------------
 
           backgroundColor: filled
               ? AppColors.skyBlue
               : Colors.transparent,
-
-          // ------------------------------------------------------
-          // BORDO
-          // ------------------------------------------------------
 
           side: BorderSide(
             color: AppColors.skyBlue,
             width: 1.2,
           ),
 
-          // ------------------------------------------------------
-          // FORMA
-          // ------------------------------------------------------
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-
-          // ------------------------------------------------------
-          // SPAZIATURA
-          // ------------------------------------------------------
 
           padding: const EdgeInsets.symmetric(
             horizontal: 14,
