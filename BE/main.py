@@ -12,7 +12,9 @@ from services.filter import (
     subjects,
 )
 
-from models.request_models import Filter, Answer, QuestionCountRequest
+from models.filter import (
+    Filter, Answer, QuestionCountRequest
+)
 
 
 app = FastAPI()

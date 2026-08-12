@@ -104,57 +104,39 @@ def question_count(department, course, sub, selected_arguments):
 
     return count
 
-def subjects(
-    department,
-    course,
-):
-    question_path = os.path.join(
+def subjects(department, course):
+    path = os.path.join(
         "data",
         department.lower(),
         "question",
     )
 
-    if not os.path.exists(question_path):
-        return []
+    subjects = set()
 
-    available_subjects = []
-
-    for filename in os.listdir(question_path):
+    for filename in os.listdir(path):
 
         if not filename.endswith(".json"):
             continue
 
-        path = os.path.join(
-            question_path,
-            filename,
-        )
+        filepath = os.path.join(path, filename)
 
         try:
-            with open(
-                path,
-                "r",
-                encoding="utf-8",
-            ) as file:
-                all_questions = json.load(file)
+            with open(filepath, "r", encoding="utf-8") as file:
+                questions = json.load(file)
 
-            for question in all_questions:
-
-                metadata = question.get(
-                    "metadata",
-                    {},
-                )
+            for question in questions:
+                metadata = question.get("metadata", {})
 
                 if (
                     metadata.get("department") == department
                     and metadata.get("course") == course
-                    and metadata.get("sub")
                 ):
-                    available_subjects.append(
-                        metadata["sub"]
-                    )
-                    break
+                    sub = metadata.get("sub")
+
+                    if sub:
+                        subjects.add(sub)
 
         except (json.JSONDecodeError, OSError):
             continue
 
-    return sorted(set(available_subjects))
+    return sorted(subjects)
