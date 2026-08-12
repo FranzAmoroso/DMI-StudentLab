@@ -25,3 +25,8 @@ class QuestionCountRequest(BaseModel):
 class SubjectRequest(BaseModel):
     department: str
     course: str
+
+class ArgumentsRequest(BaseModel):
+    department: str
+    course: str
+    sub: str

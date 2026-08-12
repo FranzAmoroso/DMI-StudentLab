@@ -10,11 +10,10 @@ from services.filter import (
     arguments,
     question_count,
     subjects,
-    
 )
 
 from models.filter import (
-    Filter, Answer, QuestionCountRequest, SubjectRequest
+    Filter, Answer, QuestionCountRequest, SubjectRequest, ArgumentsRequest
 )
 
 
@@ -56,15 +55,12 @@ def api_validate_answer(answer: Answer):
     )
 
 @app.post("/arguments")
-def api_arguments(
-    department: str,
-    course: str,
-    sub: str,
+def api_arguments(request: ArgumentsRequest
 ):
     return arguments(
-        department,
-        course,
-        sub,
+        request.department,
+        request.course,
+        request.sub,
     )
 
 @app.post("/question_count")
