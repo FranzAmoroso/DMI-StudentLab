@@ -10,7 +10,7 @@ Future<void> quizAnswered(Database db) async {
     choice_id TEXT NOT NULL,
     is_correct INTEGER NOT NULL,
     answered_at INTEGER NOT NULL,
-    FOREIGN KEY (session_id) REFERENCES quiz_session (session_id)
+    FOREIGN KEY (session_id) REFERENCES quiz_session(session_id)
     )
   ''');
 }

@@ -1,7 +1,20 @@
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
-from core.route import router 
-from services.filter import shuffle_filter, validate_answer
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from core.route import router
+
+from services.filter import (
+    shuffle_filter,
+    validate_answer,
+    arguments,
+    question_count,
+    subjects,
+)
+
+from models.request_models import Filter, Answer, QuestionCountRequest
+
+
 app = FastAPI()
 
 app.add_middleware(
@@ -9,19 +22,70 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 app.include_router(router, prefix="")
 
 @app.get("/")
 async def root():
-    return {"status":"Server attivo."}
+    return {
+        "status": "Server attivo."
+    }
 
-@app.get("/shuffle_filter")
-def api_shuffle_filter(department: str, course: str, sub: str, argoment: str | None = None):
-    return shuffle_filter(department, course, sub, argoment)
+@app.post("/shuffle_filter")
+def api_shuffle_filter(request: Filter):
+    return shuffle_filter(
+        request.department,
+        request.course,
+        request.sub,
+        request.arguments,
+        request.number_of_questions,
+    )
 
 @app.post("/validate_answer")
-def api_validate_answer(idQuestion: str, idChoice: str, sub: str):
-    return validate_answer(idQuestion, idChoice, sub)
+def api_validate_answer(answer: Answer):
+    return validate_answer(
+        answer.idQuestion,
+        answer.idChoice,
+        answer.department,
+        answer.sub,
+    )
+
+@app.post("/arguments")
+def api_arguments(
+    department: str,
+    course: str,
+    sub: str,
+):
+    return arguments(
+        department,
+        course,
+        sub,
+    )
+
+@app.post("/question_count")
+def api_question_count(
+    request: QuestionCountRequest,
+):
+
+    count = question_count(
+        request.department,
+        request.course,
+        request.sub,
+        request.selected_arguments,
+    )
+
+    return {
+        "count": count
+    }
+
+    @app.post("/subjects")
+    def api_subjects(
+        department: str,
+        course: str,
+    ):
+        return subjects(
+            department,
+            course,
+        )

@@ -1,104 +1,164 @@
+
 import 'package:flutter/material.dart';
 import 'package:fe/layers/homeLayer.dart';
 import 'package:fe/theme/nightTheme.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.darkElegance,
+
+      // ==========================================================
+      // APP BAR
+      // ==========================================================
+
+      appBar: AppBar(
+        backgroundColor: AppColors.brandNightBlue,
+        foregroundColor: AppColors.pearlWhite,
+        elevation: AppColors.nightAppBarTheme.elevation,
+
+        // Nessun titolo centrale.
+        centerTitle: false,
+
+        // ========================================================
+        // LOGO STUDENTLAB
+        // ========================================================
+
+        leading: IconButton(
+          icon: const Icon(
+            Icons.school_rounded,
+          ),
+          tooltip: 'Home',
+          onPressed: () {
+            // La Home è già aperta.
+            //
+            // In futuro, quando avremo una navigazione
+            // completa, questo pulsante porterà sempre
+            // alla Home principale.
+          },
+        ),
+
+        // ========================================================
+        // AUTENTICAZIONE
+        // ========================================================
+
+        actions: [
+          // ------------------------------------------------------
+          // ACCEDI
+          // ------------------------------------------------------
+
+          _AuthButton(
+            text: 'Accedi',
+            filled: false,
+            onPressed: () {
+              // TODO:
+              // Aprire LoginPage
+            },
+          ),
+
+          const SizedBox(width: 8),
+
+          // ------------------------------------------------------
+          // SIGN UP
+          // ------------------------------------------------------
+
+          _AuthButton(
+            text: 'Sign Up',
+            filled: true,
+            onPressed: () {
+              // TODO:
+              // Aprire SignUpPage
+            },
+          ),
+
+          const SizedBox(width: 16),
+        ],
+      ),
+
+      // ==========================================================
+      // HOME CONTENT
+      // ==========================================================
+
+      body: HomeLayer(),
+    );
+  }
 }
 
-class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0;
-  
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
-  String _getAppBarTitle(){
-    switch(_selectedIndex){
-      case 0:
-        return '10000xxxx3';
-      case 1:
-        return '(grado e punti lab di 10000xxxx3)';
-      case 2:
-        return '(punti e grado challange di 10000xxxx3)';
-      case 3: 
-        return '(punti e preparazione ripasso di 10000xxxx3)';
-      default:
-        return '10000xxxx3';
-    }
-  }
+// ==================================================================
+// AUTH BUTTON
+// ==================================================================
 
+class _AuthButton extends StatelessWidget {
+  final String text;
+  final bool filled;
+  final VoidCallback onPressed;
+
+  const _AuthButton({
+    required this.text,
+    required this.filled,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
 
-    return Scaffold(
-      backgroundColor: AppColors.darkElegance,
-      
-      appBar: AppBar(
-        backgroundColor: AppColors.brandNightBlue, 
-        foregroundColor: AppColors.pearlWhite,
-        elevation: AppColors.nightAppBarTheme.elevation,
-        centerTitle: AppColors.nightAppBarTheme.centerTitle,
-        title: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: Text(
-            _getAppBarTitle(),
-            key: ValueKey<int>(_selectedIndex),
-            style: const TextStyle(
-              fontWeight: FontWeight.w400,
-              fontSize: 20,
-            )
-          )
-        )
-      ),
+      child: OutlinedButton(
+        onPressed: onPressed,
 
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        switchInCurve: Curves.easeIn,
-        switchOutCurve: Curves.easeOut,
-        transitionBuilder: (Widget child, Animation<double> animation) {
+        style: OutlinedButton.styleFrom(
+          // ------------------------------------------------------
+          // SFONDO
+          // ------------------------------------------------------
 
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
-        },
+          backgroundColor: filled
+              ? AppColors.skyBlue
+              : Colors.transparent,
 
-          child: IndexedStack(
-          key: ValueKey<int>(_selectedIndex), 
-          index: _selectedIndex,
-          children: [
-            HomeLayer(), 
-            
-            // Layer 1, 2, 3: Placeholder temporanei 
-            const Center(child: Text('🧪 Laboratorio', style: TextStyle(color: Colors.white, fontSize: 18))),
-            const Center(child: Text('👥 Challange', style: TextStyle(color: Colors.white, fontSize: 18))),
-            const Center(child: Text('👤 Profilo', style: TextStyle(color: Colors.white, fontSize: 18))),
-          ],
+          // ------------------------------------------------------
+          // BORDO
+          // ------------------------------------------------------
+
+          side: BorderSide(
+            color: AppColors.skyBlue,
+            width: 1.2,
+          ),
+
+          // ------------------------------------------------------
+          // FORMA
+          // ------------------------------------------------------
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+
+          // ------------------------------------------------------
+          // SPAZIATURA
+          // ------------------------------------------------------
+
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+          ),
+
+          elevation: 0,
+        ),
+
+        child: Text(
+          text,
+          style: TextStyle(
+            color: filled
+                ? AppColors.brandNightBlue
+                : AppColors.skyBlue,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
-
-            bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.nightBottomNavTheme.backgroundColor, 
-        ),
-        child: BottomNavigationBar(
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: ''),
-            BottomNavigationBarItem(icon: Icon(Icons.science_outlined), activeIcon: Icon(Icons.science), label: ''),
-            BottomNavigationBarItem(icon: Icon(Icons.connect_without_contact_outlined), activeIcon: Icon(Icons.connect_without_contact), label: ''),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outlined), activeIcon: Icon(Icons.person), label: ''),
-          ],
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-        ),
-      ),
-      );
+    );
   }
 }

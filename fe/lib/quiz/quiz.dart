@@ -8,9 +8,17 @@ class QuizPage extends StatefulWidget {
   final String department;
   final String course;
   final String sub;
+  final List<String> arguments;
+final int numberOfQuestions;
 
-  const QuizPage({super.key, required this.department, required this.course, required this.sub});
-
+const QuizPage({
+  super.key,
+  required this.department,
+  required this.course,
+  required this.sub,
+  required this.arguments,
+  required this.numberOfQuestions,
+});
   @override
   State<QuizPage> createState() => _QuizPageState();
 }
@@ -29,15 +37,23 @@ class _QuizPageState extends State<QuizPage> {
     takeData();
   }
 
-  void takeData() async {
-    var result = await ApiService().shuffle_filter(widget.department, widget.course, widget.sub);
-    if (mounted) {
-      setState(() {
-        question = result;
-        load = false;
-      });
-    }
+// modificare il BE per domande
+void takeData() async {
+  var result = await ApiService().shuffle_filter(
+    widget.department,
+    widget.course,
+    widget.sub,
+    widget.arguments,
+    widget.numberOfQuestions,
+  );
+
+  if (mounted) {
+    setState(() {
+      question = result;
+      load = false;
+    });
   }
+}
 
   void answerValidate(String idChoice) async {
 
