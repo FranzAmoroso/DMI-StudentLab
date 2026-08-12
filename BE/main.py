@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from core.route import router
+# from core.route import router separiamo i route
 
 from services.filter import (
     shuffle_filter,
@@ -10,10 +10,11 @@ from services.filter import (
     arguments,
     question_count,
     subjects,
+    
 )
 
 from models.filter import (
-    Filter, Answer, QuestionCountRequest
+    Filter, Answer, QuestionCountRequest, SubjectRequest
 )
 
 
@@ -27,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router, prefix="")
+ # app.include_router(router, prefix="") 
 
 @app.get("/")
 async def root():
@@ -75,19 +76,16 @@ def api_question_count(
         request.department,
         request.course,
         request.sub,
-        request.selected_arguments,
+        request.arguments,
     )
 
     return {
         "count": count
     }
 
-    @app.post("/subjects")
-    def api_subjects(
-        department: str,
-        course: str,
-    ):
-        return subjects(
-            department,
-            course,
-        )
+@app.post("/subjects")
+def api_subjects(request: SubjectRequest):
+    return subjects(
+        request.department,
+        request.course,
+    )

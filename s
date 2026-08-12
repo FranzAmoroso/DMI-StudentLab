@@ -21,7 +21,3 @@ class QuestionCountRequest(BaseModel):
     course: str
     sub: str
     arguments: list[str] = Field(default_factory=list)
-
-class SubjectRequest(BaseModel):
-    department: str
-    course: str
