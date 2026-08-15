@@ -21,21 +21,26 @@ class FeatureCard {
 }
 
 class HomeLayer extends StatelessWidget {
-  HomeLayer({super.key});
+  final bool isAuthenticated;
+
+     HomeLayer({
+      super.key,
+      required this.isAuthenticated,
+    });
   
   final List<FeatureCard> _featureCards = [
     FeatureCard(
       title: 'Esercitazione',
       description: 'Allena la tua mente senza lo stress del tempo, filtrando le domande per singoli argomenti della materia.',
       icon: Icons.quiz,
-      color: AppColors.slateMidnight, 
+      color: AppColors.eleganceObsidian, 
       isComingSoon: false,
     ),
     FeatureCard(
       title: 'Simulazione Esame', 
       description: 'Mettiti alla prova con i veri compiti d\'esame d\'appello, aggiornati in base al professore del tuo corso.',
       icon: Icons.checklist,
-      color: AppColors.royalIndigo, 
+      color: AppColors.eleganceMidnight, 
       isComingSoon: true,
     ),
     FeatureCard(
@@ -49,7 +54,7 @@ class HomeLayer extends StatelessWidget {
       title: 'Definizioni',
       description: 'Glossario completo dei termini e concetti chiave del corso.',
       icon: Icons.menu_book,
-      color: AppColors.eleganceDeepNavy, 
+      color: AppColors.graphite, 
       isComingSoon: true, 
     ),
     FeatureCard(

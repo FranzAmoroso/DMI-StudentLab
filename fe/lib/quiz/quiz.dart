@@ -192,6 +192,7 @@ class _QuizPageState extends State<QuizPage> {
 
                   Row(
                     children: [
+                      const SizedBox(height: 24),
                       const Icon(
                         Icons.menu_book_rounded,
                         color: AppColors.skyBlue,
@@ -288,38 +289,6 @@ class _QuizPageState extends State<QuizPage> {
                   ),
 
                   const SizedBox(height: 20),
-
-   
-                  if (currentQuestion
-                      .questionResponseExplanation
-                      .isNotEmpty) ...[
-                    const Text(
-                      'Perché?',
-                      style: TextStyle(
-                        color:
-                            AppColors.skyBlue,
-                        fontSize: 13,
-                        fontWeight:
-                            FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    Text(
-                      currentQuestion
-                          .questionResponseExplanation,
-                      style: TextStyle(
-                        color: AppColors.pureWhite
-                            .withOpacity(0.70),
-                        fontSize: 15,
-                        height: 1.45,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-                  ],
-
   
                   SizedBox(
                     width: double.infinity,

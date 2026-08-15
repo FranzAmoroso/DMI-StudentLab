@@ -73,7 +73,7 @@ class QuizResultLayer extends StatelessWidget {
       backgroundColor: AppColors.darkElegance,
 
       appBar: AppBar(
-        backgroundColor: AppColors.brandNightBlue,
+        backgroundColor: AppColors.eleganceMidnight,
         foregroundColor: AppColors.pearlWhite,
         elevation: AppColors.nightAppBarTheme.elevation,
         centerTitle: AppColors.nightAppBarTheme.centerTitle,
@@ -170,7 +170,7 @@ class QuizResultLayer extends StatelessWidget {
       padding: const EdgeInsets.all(24),
 
       decoration: BoxDecoration(
-        color: AppColors.brandNightBlue,
+        color: AppColors.eleganceMidnight,
 
         borderRadius:
             BorderRadius.circular(20),
@@ -294,7 +294,7 @@ class QuizResultLayer extends StatelessWidget {
       padding: const EdgeInsets.all(24),
 
       decoration: BoxDecoration(
-        color: AppColors.slateMidnight,
+        color: AppColors.eleganceMidnight,
         borderRadius: BorderRadius.circular(18),
       ),
 
@@ -334,7 +334,7 @@ class _SummaryItem extends StatelessWidget {
       padding: const EdgeInsets.all(18),
 
       decoration: BoxDecoration(
-        color: AppColors.slateMidnight,
+        color: AppColors.eleganceMidnight,
 
         borderRadius:
             BorderRadius.circular(16),
@@ -417,7 +417,7 @@ class _QuestionResultCard extends StatelessWidget {
 
       decoration: BoxDecoration(
         // Manteniamo il colore principale del tema.
-        color: AppColors.slateMidnight,
+        color: AppColors.eleganceMidnight,
 
         borderRadius:
             BorderRadius.circular(18),
