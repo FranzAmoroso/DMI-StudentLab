@@ -1,0 +1,379 @@
+from sqlalchemy.orm import (
+    Session,
+    joinedload,
+)
+
+from models.group import (
+    GroupMember,
+    StudyGroup,
+)
+
+from schemas.group import (
+    GroupCreate,
+    GroupUpdate,
+)
+
+
+def create_group(
+    db: Session,
+    data: GroupCreate,
+):
+    group = StudyGroup(
+        name=data.name,
+        description=data.description,
+        subject_id=data.subject_id,
+        department=data.department,
+        course=data.course,
+        is_private=data.is_private,
+        created_by=data.created_by,
+    )
+
+    db.add(
+        group,
+    )
+
+    db.flush()
+
+    owner = GroupMember(
+        group_id=group.id,
+        user_id=data.created_by,
+        role="owner",
+    )
+
+    db.add(
+        owner,
+    )
+
+    db.commit()
+
+    db.refresh(
+        group,
+    )
+
+    return group
+
+
+def get_groups(
+    db: Session,
+):
+    return (
+        db.query(
+            StudyGroup
+        )
+        .order_by(
+            StudyGroup.created_at.desc(),
+        )
+        .all()
+    )
+
+
+def get_group_by_id(
+    db: Session,
+    group_id: int,
+):
+    return (
+        db.query(
+            StudyGroup
+        )
+        .options(
+            joinedload(
+                StudyGroup.members
+            )
+        )
+        .filter(
+            StudyGroup.id == group_id
+        )
+        .first()
+    )
+
+
+def get_groups_by_user(
+    db: Session,
+    user_id: int,
+):
+    return (
+        db.query(
+            StudyGroup
+        )
+        .join(
+            GroupMember,
+            GroupMember.group_id
+            == StudyGroup.id,
+        )
+        .filter(
+            GroupMember.user_id
+            == user_id
+        )
+        .order_by(
+            StudyGroup.created_at.desc(),
+        )
+        .all()
+    )
+
+
+def get_group_member(
+    db: Session,
+    group_id: int,
+    user_id: int,
+):
+    return (
+        db.query(
+            GroupMember
+        )
+        .filter(
+            GroupMember.group_id
+            == group_id,
+
+            GroupMember.user_id
+            == user_id,
+        )
+        .first()
+    )
+
+
+def add_group_member(
+    db: Session,
+    group_id: int,
+    user_id: int,
+    role: str = "member",
+):
+    member = GroupMember(
+        group_id=group_id,
+        user_id=user_id,
+        role=role,
+    )
+
+    db.add(
+        member,
+    )
+
+    db.commit()
+
+    db.refresh(
+        member,
+    )
+
+    return member
+
+
+def remove_group_member(
+    db: Session,
+    member: GroupMember,
+):
+    db.delete(
+        member,
+    )
+
+    db.commit()
+
+
+def update_group(
+    db: Session,
+    group: StudyGroup,
+    data: GroupUpdate,
+):
+    values = data.model_dump(
+        exclude_unset=True,
+    )
+
+    for field, value in values.items():
+        setattr(
+            group,
+            field,
+            value,
+        )
+
+    db.commit()
+
+    db.refresh(
+        group,
+    )
+
+    return group
+
+
+def update_group_member_role(
+    db: Session,
+    member: GroupMember,
+    role: str,
+):
+    member.role = role
+
+    db.commit()
+
+    db.refresh(
+        member,
+    )
+
+    return member
+
+
+def delete_group(
+    db: Session,
+    group: StudyGroup,
+):
+    db.delete(
+        group,
+    )
+
+    db.commit()
+
+
+def is_group_admin(
+    db: Session,
+    group_id: int,
+    user_id: int,
+):
+    member = get_group_member(
+        db,
+        group_id,
+        user_id,
+    )
+
+    if member is None:
+        return False
+
+    return member.role in [
+        "owner",
+        "admin",
+    ]
+
+
+def is_group_owner(
+    db: Session,
+    group_id: int,
+    user_id: int,
+):
+    member = get_group_member(
+        db,
+        group_id,
+        user_id,
+    )
+
+    if member is None:
+        return False
+
+    return member.role == "owner"
+
+from sqlalchemy.orm import Session
+
+from models.group import (
+    GroupJoinRequest,
+    GroupMember,
+    StudyGroup,
+)
+
+
+def create_group_join_request(
+    db: Session,
+    group_id: int,
+    user_id: int,
+):
+    request = GroupJoinRequest(
+        group_id=group_id,
+        user_id=user_id,
+        status="pending",
+    )
+
+    db.add(
+        request,
+    )
+
+    db.commit()
+
+    db.refresh(
+        request,
+    )
+
+    return request
+
+
+def get_group_join_request(
+    db: Session,
+    group_id: int,
+    user_id: int,
+):
+    return (
+        db.query(
+            GroupJoinRequest
+        )
+        .filter(
+            GroupJoinRequest.group_id == group_id,
+            GroupJoinRequest.user_id == user_id,
+        )
+        .first()
+    )
+
+
+def get_group_join_request_by_id(
+    db: Session,
+    request_id: int,
+):
+    return (
+        db.query(
+            GroupJoinRequest
+        )
+        .filter(
+            GroupJoinRequest.id == request_id
+        )
+        .first()
+    )
+
+
+def get_group_join_requests(
+    db: Session,
+    group_id: int,
+):
+    return (
+        db.query(
+            GroupJoinRequest
+        )
+        .filter(
+            GroupJoinRequest.group_id == group_id,
+            GroupJoinRequest.status == "pending",
+        )
+        .order_by(
+            GroupJoinRequest.created_at.asc(),
+        )
+        .all()
+    )
+
+
+def accept_group_join_request(
+    db: Session,
+    request: GroupJoinRequest,
+):
+    member = GroupMember(
+        group_id=request.group_id,
+        user_id=request.user_id,
+        role="member",
+    )
+
+    request.status = "accepted"
+
+    db.add(
+        member,
+    )
+
+    db.commit()
+
+    db.refresh(
+        member,
+    )
+
+    return member
+
+
+def reject_group_join_request(
+    db: Session,
+    request: GroupJoinRequest,
+):
+    request.status = "rejected"
+
+    db.commit()
+
+    db.refresh(
+        request,
+    )
+
+    return request
