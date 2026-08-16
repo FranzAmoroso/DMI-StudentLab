@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 from models.material import GroupMaterial
 
 
+# =============================================================================
+# CONFIGURAZIONE FILE
+# =============================================================================
+
 ALLOWED_MIME_TYPES = {
     "application/pdf",
     "text/plain",
@@ -18,13 +22,18 @@ ALLOWED_MIME_TYPES = {
 }
 
 
-MAX_FILE_SIZE = 50 * 1024 * 1024
+# Limite prudenziale per upload attraverso Vercel.
+MAX_FILE_SIZE = 4 * 1024 * 1024
 
 
 STORAGE_ROOT = Path(
     "storage/groups"
 )
 
+
+# =============================================================================
+# DIRECTORY GRUPPO
+# =============================================================================
 
 def get_group_storage_directory(
     group_id: int,
@@ -42,6 +51,10 @@ def get_group_storage_directory(
     return directory
 
 
+# =============================================================================
+# NOME FILE INTERNO
+# =============================================================================
+
 def generate_stored_name(
     original_name: str,
 ):
@@ -55,6 +68,10 @@ def generate_stored_name(
         f"{unique_id}{extension}"
     )
 
+
+# =============================================================================
+# SALVATAGGIO MATERIALE
+# =============================================================================
 
 def save_group_material(
     db: Session,
@@ -97,11 +114,14 @@ def save_group_material(
                 if not chunk:
                     break
 
-                size += len(chunk)
+                size += len(
+                    chunk
+                )
 
                 if size > MAX_FILE_SIZE:
                     raise ValueError(
-                        "Il file supera la dimensione massima consentita."
+                        "Il file supera la dimensione "
+                        "massima consentita di 4 MB."
                     )
 
                 output_file.write(
@@ -110,14 +130,22 @@ def save_group_material(
 
         material = GroupMaterial(
             group_id=group_id,
+
             uploaded_by=uploaded_by,
+
             original_name=original_name,
+
             stored_name=stored_name,
-            file_path=str(destination),
+
+            file_path=str(
+                destination
+            ),
+
             mime_type=(
                 file.content_type
                 or "application/octet-stream"
             ),
+
             size=size,
         )
 
@@ -141,6 +169,13 @@ def save_group_material(
 
         raise
 
+    finally:
+        file.file.close()
+
+
+# =============================================================================
+# MATERIALI DEL GRUPPO
+# =============================================================================
 
 def get_group_materials(
     db: Session,
@@ -161,6 +196,10 @@ def get_group_materials(
     )
 
 
+# =============================================================================
+# MATERIALE PER ID
+# =============================================================================
+
 def get_group_material_by_id(
     db: Session,
     material_id: int,
@@ -176,6 +215,10 @@ def get_group_material_by_id(
         .first()
     )
 
+
+# =============================================================================
+# ELIMINA MATERIALE
+# =============================================================================
 
 def delete_group_material(
     db: Session,

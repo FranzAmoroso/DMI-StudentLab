@@ -15,8 +15,6 @@ router = APIRouter()
 async def send_quest(filter: Filter):
 
     try:
-        print(filter)
-
         question = shuffle_filter(
             filter.department,
             filter.course,
@@ -31,7 +29,6 @@ async def send_quest(filter: Filter):
         }
 
     except Exception as e:
-
         raise HTTPException(
             status_code=500,
             detail=str(e),
@@ -58,6 +55,7 @@ async def validate_quest(
 
     return {
         "correct": bool(outcome),
+
         "message": (
             "Ottimo lavoro!"
             if outcome

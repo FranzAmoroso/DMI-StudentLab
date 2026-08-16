@@ -8,14 +8,14 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
+
 from fastapi.responses import FileResponse
 
-from fastapi.middleware.cors import (
-    CORSMiddleware,
-)
+from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
 
 
 from core.database import (
@@ -23,6 +23,13 @@ from core.database import (
     create_tables,
 )
 
+from core.security import (
+    get_current_user,
+)
+
+from core.config import (
+    settings,
+)
 
 from models.user import User
 
@@ -41,7 +48,6 @@ from models.material import (
     GroupMaterial,
 )
 
-
 from models.filter import (
     Answer,
     ArgumentsRequest,
@@ -50,11 +56,16 @@ from models.filter import (
     SubjectRequest,
 )
 
-
 from schemas.user import (
     UserCreate,
     UserResponse,
     UserUpdate,
+)
+
+from schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
 )
 
 from schemas.subject import (
@@ -80,6 +91,12 @@ from schemas.material import (
     GroupMaterialResponse,
 )
 
+
+from services.auth import (
+    authenticate_user,
+    create_access_token,
+    hash_password,
+)
 
 from services.filter import (
     arguments,
@@ -139,7 +156,6 @@ from services.material import (
 
 
 app = FastAPI()
-
 
 @app.on_event("startup")
 def startup_event():
@@ -1285,3 +1301,125 @@ def api_remove_group_material(
 
 # In seguito user_id verrà ricavato
 # dall'utente autenticato.
+
+@app.post(
+    "/register",
+    response_model=TokenResponse,
+)
+def api_register(
+    request: RegisterRequest,
+    db: Session = Depends(get_db),
+):
+    existing_user = get_user_by_email(
+        db,
+        request.email,
+    )
+
+    if existing_user is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Email già registrata.",
+        )
+
+    if request.role not in [
+        "student",
+        "teacher",
+    ]:
+        raise HTTPException(
+            status_code=400,
+            detail="Ruolo non valido.",
+        )
+
+    user = User(
+        first_name=request.first_name,
+        last_name=request.last_name,
+        email=request.email,
+
+        password_hash=hash_password(
+            request.password,
+        ),
+
+        department=request.department,
+        course=request.course,
+
+        description=request.description,
+
+        role=request.role,
+
+        available=request.available,
+
+        willing_to_teach=(
+            request.willing_to_teach
+        ),
+
+        is_active=True,
+    )
+
+    db.add(user)
+
+    try:
+        db.commit()
+        db.refresh(user)
+
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Impossibile registrare l'utente.",
+        )
+
+    token = create_access_token(
+        user_id=user.id,
+        secret_key=settings.secret_key,
+    )
+
+    return TokenResponse(
+        access_token=token,
+    )
+
+@app.post(
+    "/login",
+    response_model=TokenResponse,
+)
+def api_login(
+    request: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    user = authenticate_user(
+        db,
+        request.email,
+        request.password,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Email o password non corrette.",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Utente non attivo.",
+        )
+
+    token = create_access_token(
+        user_id=user.id,
+        secret_key=settings.secret_key,
+    )
+
+    return TokenResponse(
+        access_token=token,
+    )
+
+@app.get(
+    "/me",
+    response_model=UserResponse,
+)
+def api_me(
+    current_user: User = Depends(
+        get_current_user,
+    ),
+):
+    return current_user

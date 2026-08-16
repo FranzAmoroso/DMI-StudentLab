@@ -37,6 +37,11 @@ class User(Base):
         index=True,
     )
 
+    password_hash = Column(
+        String(255),
+        nullable=False,
+    )
+
     department = Column(
         String(150),
         nullable=True,
@@ -83,3 +88,4 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+
