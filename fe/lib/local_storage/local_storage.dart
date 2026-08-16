@@ -37,3 +37,4 @@ export 'services/material_download_service.dart';
 export 'services/material_sync_service.dart';
 
 export 'services/pending_upload_service.dart';
+export 'services/local_storage_identity.dart';

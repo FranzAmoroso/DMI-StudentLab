@@ -1,104 +1,425 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
-import '../theme/nightTheme.dart';
-import 'package:fe/material/models/study_material.dart';
+import '../local_storage/local_storage.dart';
 
-class OnlineSubjectMaterialsPage extends StatelessWidget {
-  final String subjectId;
+import '../theme/nightTheme.dart';
+
+import 'models/study_material.dart';
+
+import 'widgets/material_card.dart';
+
+
+class OnlineSubjectMaterialPage
+    extends StatefulWidget {
+
+  final int? subjectId;
+
   final String subjectName;
+
   final String course;
 
-  const OnlineSubjectMaterialsPage({
+  final String department;
+
+  final int groupId;
+
+  final List<StudyMaterial> materials;
+
+
+  const OnlineSubjectMaterialPage({
     super.key,
+
     required this.subjectId,
+
     required this.subjectName,
+
     required this.course,
+
+    required this.department,
+
+    required this.groupId,
+
+    required this.materials,
   });
 
-  // ===========================================================================
-  // MOCK
-  // ===========================================================================
-
-  List<StudyMaterial> get materials {
-    return const [
-      StudyMaterial(
-        id: 'material_1',
-        name: 'Puntatori e memoria.pdf',
-        type: 'PDF',
-        size: '2.4 MB',
-      ),
-      StudyMaterial(
-        id: 'material_2',
-        name: 'Array e strutture dati.pdf',
-        type: 'PDF',
-        size: '3.1 MB',
-      ),
-      StudyMaterial(
-        id: 'material_3',
-        name: 'Ricorsione.pdf',
-        type: 'PDF',
-        size: '1.7 MB',
-      ),
-    ];
-  }
 
   @override
-  Widget build(BuildContext context) {
+  State<OnlineSubjectMaterialPage>
+      createState() =>
+          _OnlineSubjectMaterialPageState();
+}
+
+
+class _OnlineSubjectMaterialPageState
+    extends State<OnlineSubjectMaterialPage> {
+
+  final MaterialDownloadService
+      _downloadService =
+      MaterialDownloadService();
+
+
+  final Set<int> _downloadedIds =
+      {};
+
+
+  final Set<int> _downloadingIds =
+      {};
+
+
+  bool _loading =
+      true;
+
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadDownloadedState();
+  }
+
+
+  Future<void> _loadDownloadedState() async {
+    final Set<int> downloaded =
+        {};
+
+
+    for (final StudyMaterial material
+        in widget.materials) {
+
+      final int? materialId =
+          int.tryParse(
+        material.id,
+      );
+
+
+      if (materialId ==
+          null) {
+        continue;
+      }
+
+
+      final bool isDownloaded =
+          await _downloadService
+              .isDownloaded(
+        materialId:
+            materialId,
+      );
+
+
+      if (isDownloaded) {
+        downloaded.add(
+          materialId,
+        );
+      }
+    }
+
+
+    if (!mounted) {
+      return;
+    }
+
+
+    setState(() {
+      _downloadedIds
+        ..clear()
+        ..addAll(
+          downloaded,
+        );
+
+      _loading =
+          false;
+    });
+  }
+
+
+  Future<void> _downloadMaterial(
+    StudyMaterial material,
+  ) async {
+
+    final int? materialId =
+        int.tryParse(
+      material.id,
+    );
+
+
+    if (materialId ==
+        null) {
+      _showMessage(
+        'ID materiale non valido.',
+      );
+
+      return;
+    }
+
+
+    if (_downloadingIds.contains(
+      materialId,
+    )) {
+      return;
+    }
+
+
+    setState(() {
+      _downloadingIds.add(
+        materialId,
+      );
+    });
+
+
+    try {
+      final DownloadedMaterialLocal
+          localMaterial =
+          await _downloadService
+              .getOrDownload(
+        materialId:
+            materialId,
+
+        groupId:
+            widget.groupId,
+
+        subjectId:
+            widget.subjectId,
+
+        subjectName:
+            widget.subjectName,
+
+        course:
+            widget.course,
+
+        department:
+            widget.department,
+
+        originalName:
+            material.name,
+
+        mimeType:
+            _mimeTypeFromMaterial(
+          material,
+        ),
+
+        size:
+            null,
+      );
+
+
+      if (!mounted) {
+        return;
+      }
+
+
+      setState(() {
+        _downloadedIds.add(
+          materialId,
+        );
+      });
+
+
+      _showMessage(
+        '${localMaterial.originalName} disponibile offline.',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+
+      _showMessage(
+        _cleanError(
+          e,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingIds.remove(
+            materialId,
+          );
+        });
+      }
+    }
+  }
+
+
+  Future<void> _openMaterial(
+    StudyMaterial material,
+  ) async {
+
+    final int? materialId =
+        int.tryParse(
+      material.id,
+    );
+
+
+    if (materialId ==
+        null) {
+      _showMessage(
+        'ID materiale non valido.',
+      );
+
+      return;
+    }
+
+
+    try {
+      final File? localFile =
+          await _downloadService
+              .getFile(
+        materialId:
+            materialId,
+      );
+
+
+      if (localFile !=
+          null) {
+        _showMessage(
+          'File locale: ${localFile.path}',
+        );
+
+        return;
+      }
+
+
+      final DownloadedMaterialLocal
+          downloaded =
+          await _downloadService
+              .getOrDownload(
+        materialId:
+            materialId,
+
+        groupId:
+            widget.groupId,
+
+        subjectId:
+            widget.subjectId,
+
+        subjectName:
+            widget.subjectName,
+
+        course:
+            widget.course,
+
+        department:
+            widget.department,
+
+        originalName:
+            material.name,
+
+        mimeType:
+            _mimeTypeFromMaterial(
+          material,
+        ),
+
+        size:
+            null,
+      );
+
+
+      if (!mounted) {
+        return;
+      }
+
+
+      setState(() {
+        _downloadedIds.add(
+          materialId,
+        );
+      });
+
+
+      _showMessage(
+        'File locale: ${downloaded.localPath}',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+
+      _showMessage(
+        _cleanError(
+          e,
+        ),
+      );
+    }
+  }
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+
     return Scaffold(
-      backgroundColor: AppColors.darkElegance,
+      backgroundColor:
+          AppColors.darkElegance,
 
-      appBar: AppBar(
-        backgroundColor: AppColors.brandNightBlue,
-        foregroundColor: AppColors.pureWhite,
-        elevation: 0,
+      appBar:
+          AppBar(
+        backgroundColor:
+            AppColors.brandNightBlue,
 
-        title: Text(
-          subjectName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
+        foregroundColor:
+            AppColors.pureWhite,
+
+        title:
+            Text(
+          widget.subjectName,
+
+          style:
+              const TextStyle(
+            fontSize:
+                18,
+
+            fontWeight:
+                FontWeight.w500,
           ),
         ),
+
+        actions: [
+          IconButton(
+            tooltip:
+                'Aggiorna',
+
+            onPressed:
+                _loading
+                    ? null
+                    : _loadDownloadedState,
+
+            icon:
+                const Icon(
+              Icons.refresh_rounded,
+            ),
+          ),
+        ],
       ),
 
-      body: SafeArea(
-        child: Center(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
+      body:
+          SafeArea(
+        child:
+            Center(
+          child:
+              LayoutBuilder(
+            builder:
+                (
+              context,
+              constraints,
+            ) {
+
               final double width =
-                  constraints.maxWidth > 700
-                      ? 700
-                      : constraints.maxWidth;
+                  constraints.maxWidth >
+                          750
+                      ? 750
+                      : constraints
+                          .maxWidth;
+
 
               return SizedBox(
-                width: width,
+                width:
+                    width,
 
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-
-                  children: [
-                    _buildHeader(),
-
-                    const SizedBox(height: 20),
-
-                    if (materials.isEmpty)
-                      _buildEmpty()
-                    else
-                      ...materials.map(
-                        (material) => Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 10,
-                          ),
-                          child: _buildMaterialTile(
-                            context,
-                            material,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                child:
+                    _buildBody(),
               );
             },
           ),
@@ -107,302 +428,397 @@ class OnlineSubjectMaterialsPage extends StatelessWidget {
     );
   }
 
-  // ===========================================================================
-  // HEADER
-  // ===========================================================================
 
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          subjectName,
-          style: const TextStyle(
-            color: AppColors.pureWhite,
-            fontSize: 25,
-            fontWeight: FontWeight.bold,
-          ),
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child:
+            CircularProgressIndicator(),
+      );
+    }
+
+
+    if (widget.materials
+        .isEmpty) {
+      return const _EmptyMaterials();
+    }
+
+
+    return RefreshIndicator(
+      onRefresh:
+          _loadDownloadedState,
+
+      child:
+          ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
+
+        padding:
+            const EdgeInsets.all(
+          20,
         ),
 
-        const SizedBox(height: 6),
+        children: [
+          Text(
+            widget.subjectName,
 
-        Text(
-          course,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppColors.pureWhite.withOpacity(0.55),
-            fontSize: 13,
-          ),
-        ),
+            style:
+                const TextStyle(
+              color:
+                  AppColors.pureWhite,
 
-        const SizedBox(height: 14),
+              fontSize:
+                  22,
 
-        Row(
-          children: [
-            const Icon(
-              Icons.folder_outlined,
-              color: AppColors.materialSky,
-              size: 18,
+              fontWeight:
+                  FontWeight.bold,
             ),
+          ),
 
-            const SizedBox(width: 6),
+          const SizedBox(
+            height:
+                5,
+          ),
 
-            Text(
-              '${materials.length} materiali',
-              style: TextStyle(
-                color: AppColors.materialSky.withOpacity(0.9),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+          Text(
+            '${widget.department} • ${widget.course}',
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite
+                      .withOpacity(
+                0.48,
               ),
+
+              fontSize:
+                  12,
             ),
-          ],
-        ),
-      ],
+          ),
+
+          const SizedBox(
+            height:
+                24,
+          ),
+
+          const Text(
+            'Materiali disponibili',
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite,
+
+              fontSize:
+                  18,
+
+              fontWeight:
+                  FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                14,
+          ),
+
+          ...widget.materials.map(
+            (
+              StudyMaterial material,
+            ) {
+
+              final int? materialId =
+                  int.tryParse(
+                material.id,
+              );
+
+
+              final bool downloaded =
+                  materialId !=
+                          null &&
+                      _downloadedIds
+                          .contains(
+                        materialId,
+                      );
+
+
+              final bool downloading =
+                  materialId !=
+                          null &&
+                      _downloadingIds
+                          .contains(
+                        materialId,
+                      );
+
+
+              return Padding(
+                padding:
+                    const EdgeInsets.only(
+                  bottom:
+                      12,
+                ),
+
+                child:
+                    Column(
+                  children: [
+                    MaterialCard(
+                      material:
+                          material,
+
+                      onTap:
+                          () {
+                        _openMaterial(
+                          material,
+                        );
+                      },
+                    ),
+
+                    const SizedBox(
+                      height:
+                          6,
+                    ),
+
+                    Row(
+                      mainAxisAlignment:
+                          MainAxisAlignment.end,
+
+                      children: [
+                        if (downloaded)
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons
+                                    .check_circle_rounded,
+
+                                color:
+                                    Colors.greenAccent,
+
+                                size:
+                                    16,
+                              ),
+
+                              SizedBox(
+                                width:
+                                    5,
+                              ),
+
+                              Text(
+                                'Disponibile offline',
+
+                                style:
+                                    TextStyle(
+                                  color:
+                                      Colors.greenAccent,
+
+                                  fontSize:
+                                      11,
+
+                                  fontWeight:
+                                      FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          TextButton.icon(
+                            onPressed:
+                                downloading
+                                    ? null
+                                    : () {
+                                        _downloadMaterial(
+                                          material,
+                                        );
+                                      },
+
+                            icon:
+                                downloading
+                                    ? const SizedBox(
+                                        width:
+                                            15,
+
+                                        height:
+                                            15,
+
+                                        child:
+                                            CircularProgressIndicator(
+                                          strokeWidth:
+                                              2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons
+                                            .download_rounded,
+
+                                        size:
+                                            17,
+                                      ),
+
+                            label:
+                                Text(
+                              downloading
+                                  ? 'Download...'
+                                  : 'Scarica offline',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  // ===========================================================================
-  // MATERIAL TILE
-  // ===========================================================================
 
-  Widget _buildMaterialTile(
-    BuildContext context,
+  String? _mimeTypeFromMaterial(
     StudyMaterial material,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.charcoalGrey,
 
-        borderRadius: BorderRadius.circular(14),
+    switch (
+        material.type.toLowerCase()) {
 
-        border: Border.all(
-          color: AppColors.skyBlue.withOpacity(0.10),
+      case 'pdf':
+        return 'application/pdf';
+
+      case 'image':
+        return 'image/*';
+
+      case 'document':
+        return 'application/octet-stream';
+
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+
+  String _cleanError(
+    Object error,
+  ) {
+
+    String message =
+        error.toString();
+
+
+    if (message.startsWith(
+      'Exception: ',
+    )) {
+      message =
+          message.substring(
+        'Exception: '.length,
+      );
+    }
+
+
+    return message;
+  }
+
+
+  void _showMessage(
+    String message,
+  ) {
+
+    if (!mounted) {
+      return;
+    }
+
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+      SnackBar(
+        content:
+            Text(
+          message,
         ),
-      ),
-
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 6,
-        ),
-
-        leading: Container(
-          width: 42,
-          height: 42,
-
-          decoration: BoxDecoration(
-            color: AppColors.brandNightBlue,
-            borderRadius: BorderRadius.circular(11),
-          ),
-
-          child: const Icon(
-            Icons.picture_as_pdf_outlined,
-            color: AppColors.skyBlue,
-            size: 22,
-          ),
-        ),
-
-        title: Text(
-          material.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-
-          style: const TextStyle(
-            color: AppColors.pureWhite,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-
-          child: Text(
-            '${material.type} • ${material.size}',
-            style: TextStyle(
-              color: AppColors.pureWhite.withOpacity(0.50),
-              fontSize: 12,
-            ),
-          ),
-        ),
-
-        trailing: IconButton(
-          icon: const Icon(
-            Icons.more_vert,
-            color: Colors.white54,
-          ),
-
-          onPressed: () {
-            _showMaterialOptions(
-              context,
-              material,
-            );
-          },
-        ),
-
-        onTap: () {
-          _openMaterial(
-            context,
-            material,
-          );
-        },
       ),
     );
   }
+}
 
-  // ===========================================================================
-  // MATERIAL OPTIONS
-  // ===========================================================================
 
-  void _showMaterialOptions(
+class _EmptyMaterials
+    extends StatelessWidget {
+
+  const _EmptyMaterials();
+
+
+  @override
+  Widget build(
     BuildContext context,
-    StudyMaterial material,
   ) {
-    showModalBottomSheet(
-      context: context,
 
-      backgroundColor: AppColors.eleganceDeepNavy,
+    return Center(
+      child:
+          Padding(
+        padding:
+            const EdgeInsets.all(
+          30,
+        ),
 
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        child:
+            Container(
+          width:
+              double.infinity,
+
+          padding:
+              const EdgeInsets.all(
+            30,
+          ),
+
+          decoration:
+              BoxDecoration(
+            color:
+                AppColors.materialNavy,
+
+            borderRadius:
+                BorderRadius.circular(
+              16,
+            ),
+          ),
+
+          child:
+              const Column(
+            mainAxisSize:
+                MainAxisSize.min,
 
             children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.open_in_new,
-                  color: AppColors.pureWhite,
-                ),
+              Icon(
+                Icons.folder_open_rounded,
 
-                title: const Text(
-                  'Apri materiale online',
-                  style: TextStyle(
-                    color: AppColors.pureWhite,
-                  ),
-                ),
+                color:
+                    Colors.white38,
 
-                onTap: () {
-                  Navigator.pop(sheetContext);
-
-                  _openMaterial(
-                    context,
-                    material,
-                  );
-                },
+                size:
+                    45,
               ),
 
-              ListTile(
-                leading: const Icon(
-                  Icons.download_outlined,
-                  color: AppColors.skyBlue,
+              SizedBox(
+                height:
+                    12,
+              ),
+
+              Text(
+                'Nessun materiale disponibile',
+
+                textAlign:
+                    TextAlign.center,
+
+                style:
+                    TextStyle(
+                  color:
+                      Colors.white70,
+
+                  fontSize:
+                      14,
                 ),
-
-                title: const Text(
-                  'Scarica offline',
-                  style: TextStyle(
-                    color: AppColors.pureWhite,
-                  ),
-                ),
-
-                onTap: () {
-                  Navigator.pop(sheetContext);
-
-                  _downloadMaterial(
-                    context,
-                    material,
-                  );
-                },
               ),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  // ===========================================================================
-  // APRI ONLINE
-  // ===========================================================================
-
-  void _openMaterial(
-    BuildContext context,
-    StudyMaterial material,
-  ) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Apertura online: ${material.name}',
         ),
-      ),
-    );
-
-    // Successivamente:
-    //
-    // GET /subjects/{subjectId}/materials/{materialId}
-    //
-    // oppure URL firmato restituito dal backend.
-  }
-
-  // ===========================================================================
-  // DOWNLOAD OFFLINE
-  // ===========================================================================
-
-  void _downloadMaterial(
-    BuildContext context,
-    StudyMaterial material,
-  ) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${material.name} verrà scaricato offline.',
-        ),
-      ),
-    );
-
-    // Successivamente:
-    //
-    // 1. download dal server
-    // 2. salvataggio locale
-    // 3. registrazione nel database SQLite
-    //
-    // Il materiale apparirà quindi nella sezione
-    // "Materiale offline".
-  }
-
-  // ===========================================================================
-  // EMPTY
-  // ===========================================================================
-
-  Widget _buildEmpty() {
-    return Container(
-      padding: const EdgeInsets.all(30),
-
-      decoration: BoxDecoration(
-        color: AppColors.charcoalGrey,
-        borderRadius: BorderRadius.circular(16),
-      ),
-
-      child: Column(
-        children: [
-          Icon(
-            Icons.folder_open_outlined,
-            size: 45,
-            color: AppColors.pureWhite.withOpacity(0.35),
-          ),
-
-          const SizedBox(height: 12),
-
-          Text(
-            'Nessun materiale',
-            style: TextStyle(
-              color: AppColors.pureWhite.withOpacity(0.8),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
       ),
     );
   }

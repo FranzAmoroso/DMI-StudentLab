@@ -19,21 +19,14 @@ import 'groups/public_groups_page.dart';
 import 'widgets/social_intro.dart';
 import 'widgets/student_help_card.dart';
 import 'widgets/teacher_help_card.dart';
-
-// Questi due file li costruiremo dopo.
 import 'widgets/social_user_profile_page.dart';
 import 'widgets/edit_social_profile_page.dart';
 
-
-// =============================================================================
-// SOCIAL PAGE
-// =============================================================================
 
 class SocialPage extends StatefulWidget {
   const SocialPage({
     super.key,
   });
-
 
   @override
   State<SocialPage> createState() =>
@@ -41,24 +34,15 @@ class SocialPage extends StatefulWidget {
 }
 
 
-// =============================================================================
-// SOCIAL PAGE STATE
-// =============================================================================
-
 class _SocialPageState
     extends State<SocialPage> {
 
   final AuthSession _session =
       AuthSession.instance;
 
-
   int _currentIndex =
       0;
 
-
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
 
   @override
   void initState() {
@@ -70,10 +54,6 @@ class _SocialPageState
   }
 
 
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
-
   @override
   void dispose() {
     _session.removeListener(
@@ -84,28 +64,19 @@ class _SocialPageState
   }
 
 
-  // ===========================================================================
-  // SESSION CHANGED
-  // ===========================================================================
-
   void _onSessionChanged() {
     if (!mounted) {
       return;
     }
 
-
     setState(() {
-      if (!_session.isAuthenticated) {
+      if (_session.isGuest) {
         _currentIndex =
             0;
       }
     });
   }
 
-
-  // ===========================================================================
-  // LOGIN
-  // ===========================================================================
 
   Future<void> _openLogin() async {
     final SocialUser? user =
@@ -119,33 +90,24 @@ class _SocialPageState
       ),
     );
 
-
     if (!mounted ||
         user == null) {
       return;
     }
 
-
     setState(() {
       _currentIndex =
           0;
     });
   }
 
-
-  // ===========================================================================
-  // PROFILE CREATED
-  // ===========================================================================
 
   void _onProfileCreated(
     SocialUser user,
   ) {
-    // AuthService.register() ha già aggiornato AuthSession.
-
     if (!mounted) {
       return;
     }
-
 
     setState(() {
       _currentIndex =
@@ -153,19 +115,11 @@ class _SocialPageState
     });
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
     BuildContext context,
   ) {
-    // =========================================================================
-    // GUEST
-    // =========================================================================
-
     if (_session.isGuest) {
       return _GuestSocialPage(
         onLogin:
@@ -175,11 +129,6 @@ class _SocialPageState
             _onProfileCreated,
       );
     }
-
-
-    // =========================================================================
-    // AUTHENTICATED
-    // =========================================================================
 
     return Scaffold(
       backgroundColor:
@@ -196,7 +145,8 @@ class _SocialPageState
                 index:
                     _currentIndex,
 
-                children: const [
+                children:
+                    const [
                   _SocialProfilePage(),
 
                   _SocialUsersPage(),
@@ -206,7 +156,7 @@ class _SocialPageState
               ),
             ),
 
-            _buildSocialSections(),
+            _buildNavigation(),
           ],
         ),
       ),
@@ -214,19 +164,13 @@ class _SocialPageState
   }
 
 
-  // ===========================================================================
-  // SOCIAL NAVIGATION
-  // ===========================================================================
-
-  Widget _buildSocialSections() {
+  Widget _buildNavigation() {
     const sections = [
       (
         icon:
             Icons.person_outline_rounded,
-
         selectedIcon:
             Icons.person_rounded,
-
         label:
             'Profilo',
       ),
@@ -234,10 +178,8 @@ class _SocialPageState
       (
         icon:
             Icons.people_outline_rounded,
-
         selectedIcon:
             Icons.people_rounded,
-
         label:
             'Utenti',
       ),
@@ -245,15 +187,12 @@ class _SocialPageState
       (
         icon:
             Icons.groups_outlined,
-
         selectedIcon:
             Icons.groups_rounded,
-
         label:
             'Gruppi',
       ),
     ];
-
 
     return Container(
       margin:
@@ -296,16 +235,16 @@ class _SocialPageState
                 _currentIndex ==
                     index;
 
-
             final section =
                 sections[index];
 
-
             return Expanded(
               child:
-                  GestureDetector(
-                behavior:
-                    HitTestBehavior.opaque,
+                  InkWell(
+                borderRadius:
+                    BorderRadius.circular(
+                  12,
+                ),
 
                 onTap:
                     () {
@@ -407,10 +346,6 @@ class _SocialPageState
 }
 
 
-// =============================================================================
-// GUEST SOCIAL PAGE
-// =============================================================================
-
 class _GuestSocialPage
     extends StatefulWidget {
 
@@ -434,35 +369,23 @@ class _GuestSocialPage
 }
 
 
-// =============================================================================
-// GUEST STATE
-// =============================================================================
-
 class _GuestSocialPageState
     extends State<_GuestSocialPage> {
 
   final ApiService _apiService =
       ApiService();
 
-
   SocialUserType _selectedType =
       SocialUserType.student;
-
 
   List<SocialUser> _users =
       [];
 
-
   bool _loading =
       true;
 
-
   String? _error;
 
-
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
 
   @override
   void initState() {
@@ -471,10 +394,6 @@ class _GuestSocialPageState
     _loadUsers();
   }
 
-
-  // ===========================================================================
-  // LOAD USERS
-  // ===========================================================================
 
   Future<void> _loadUsers() async {
     if (mounted) {
@@ -487,17 +406,14 @@ class _GuestSocialPageState
       });
     }
 
-
     try {
       final List<SocialUser> users =
           await _apiService
               .getSocialUsers();
 
-
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _users =
@@ -511,10 +427,11 @@ class _GuestSocialPageState
         return;
       }
 
-
       setState(() {
         _error =
-            e.toString();
+            _cleanError(
+          e,
+        );
 
         _loading =
             false;
@@ -522,10 +439,6 @@ class _GuestSocialPageState
     }
   }
 
-
-  // ===========================================================================
-  // OPEN GROUPS
-  // ===========================================================================
 
   Future<void> _openGroups() async {
     await Navigator.of(
@@ -539,10 +452,6 @@ class _GuestSocialPageState
     );
   }
 
-
-  // ===========================================================================
-  // OPEN USER
-  // ===========================================================================
 
   Future<void> _openUser(
     SocialUser user,
@@ -561,10 +470,6 @@ class _GuestSocialPageState
     );
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -628,13 +533,13 @@ class _GuestSocialPageState
               context,
               constraints,
             ) {
+
               final double width =
                   constraints.maxWidth >
                           850
                       ? 850
                       : constraints
                           .maxWidth;
-
 
               return SizedBox(
                 width:
@@ -656,10 +561,6 @@ class _GuestSocialPageState
                     ),
 
                     children: [
-                      // =======================================================
-                      // SIGN UP
-                      // =======================================================
-
                       SocialIntro(
                         onProfileCreated:
                             (
@@ -676,22 +577,12 @@ class _GuestSocialPageState
                             24,
                       ),
 
-
-                      // =======================================================
-                      // COMMUNITY INFO
-                      // =======================================================
-
                       _buildGuestBanner(),
 
                       const SizedBox(
                         height:
                             16,
                       ),
-
-
-                      // =======================================================
-                      // GROUPS
-                      // =======================================================
 
                       _buildGroupsCard(),
 
@@ -700,14 +591,9 @@ class _GuestSocialPageState
                             28,
                       ),
 
-
-                      // =======================================================
-                      // PEOPLE
-                      // =======================================================
-
-                      Row(
+                      const Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.people_outline_rounded,
 
                             color:
@@ -717,12 +603,12 @@ class _GuestSocialPageState
                                 20,
                           ),
 
-                          const SizedBox(
+                          SizedBox(
                             width:
                                 8,
                           ),
 
-                          const Text(
+                          Text(
                             'Persone',
 
                             style:
@@ -785,10 +671,6 @@ class _GuestSocialPageState
     );
   }
 
-
-  // ===========================================================================
-  // GUEST BANNER
-  // ===========================================================================
 
   Widget _buildGuestBanner() {
     return Container(
@@ -890,10 +772,11 @@ class _GuestSocialPageState
                 ),
 
                 Text(
-                  'Puoi conoscere studenti e insegnanti, '
-                  'esplorare i gruppi e scoprire materiale '
-                  'condiviso dalla community. Registrandoti '
-                  'potrai partecipare direttamente alle attività Social.',
+                  'Come Guest puoi vedere studenti e insegnanti, '
+                  'aprire i gruppi pubblici, consultare i partecipanti '
+                  'e scaricare il materiale disponibile. '
+                  'Accedi quando vuoi partecipare, chattare '
+                  'o condividere contenuti.',
 
                   style:
                       TextStyle(
@@ -918,10 +801,6 @@ class _GuestSocialPageState
     );
   }
 
-
-  // ===========================================================================
-  // GROUPS CARD
-  // ===========================================================================
 
   Widget _buildGroupsCard() {
     return Container(
@@ -1007,7 +886,7 @@ class _GuestSocialPageState
 
                   children: [
                     const Text(
-                      'Gruppi',
+                      'Gruppi pubblici',
 
                       style:
                           TextStyle(
@@ -1028,10 +907,9 @@ class _GuestSocialPageState
                     ),
 
                     Text(
-                      'Nei gruppi puoi trovare studenti che seguono '
-                      'le tue stesse materie, condividere appunti, '
-                      'dispense, PDF, slide e materiale delle lezioni '
-                      'e organizzarti con la community per studiare.',
+                      'Esplora gruppi di studio, materiali condivisi, '
+                      'appunti, PDF, slide e studenti che seguono '
+                      'le tue stesse materie.',
 
                       style:
                           TextStyle(
@@ -1050,53 +928,6 @@ class _GuestSocialPageState
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(
-            height:
-                15,
-          ),
-
-          const Wrap(
-            spacing:
-                8,
-
-            runSpacing:
-                8,
-
-            children: [
-              _GuestGroupFeatureChip(
-                icon:
-                    Icons.folder_copy_outlined,
-
-                label:
-                    'Materiale',
-              ),
-
-              _GuestGroupFeatureChip(
-                icon:
-                    Icons.menu_book_outlined,
-
-                label:
-                    'Materie',
-              ),
-
-              _GuestGroupFeatureChip(
-                icon:
-                    Icons.school_outlined,
-
-                label:
-                    'Lezioni',
-              ),
-
-              _GuestGroupFeatureChip(
-                icon:
-                    Icons.people_outline_rounded,
-
-                label:
-                    'Community',
               ),
             ],
           ),
@@ -1155,10 +986,6 @@ class _GuestSocialPageState
   }
 
 
-  // ===========================================================================
-  // SELECTOR
-  // ===========================================================================
-
   Widget _buildSelector() {
     return Row(
       children: [
@@ -1208,8 +1035,12 @@ class _GuestSocialPageState
         _selectedType ==
             type;
 
+    return InkWell(
+      borderRadius:
+          BorderRadius.circular(
+        14,
+      ),
 
-    return GestureDetector(
       onTap:
           () {
         setState(() {
@@ -1317,10 +1148,6 @@ class _GuestSocialPageState
   }
 
 
-  // ===========================================================================
-  // USERS
-  // ===========================================================================
-
   Widget _buildUsers() {
     if (_loading) {
       return const Padding(
@@ -1338,9 +1165,7 @@ class _GuestSocialPageState
       );
     }
 
-
-    if (_error !=
-        null) {
+    if (_error != null) {
       return _ErrorCard(
         message:
             _error!,
@@ -1350,18 +1175,14 @@ class _GuestSocialPageState
       );
     }
 
-
     final List<SocialUser> users =
         _users
             .where(
-              (
-                user,
-              ) =>
+              (user) =>
                   user.type ==
                   _selectedType,
             )
             .toList();
-
 
     if (users.isEmpty) {
       return const _EmptyCard(
@@ -1376,13 +1197,10 @@ class _GuestSocialPageState
       );
     }
 
-
     return Column(
       children:
           users.map(
-        (
-          SocialUser user,
-        ) {
+        (SocialUser user) {
           return Padding(
             padding:
                 const EdgeInsets.only(
@@ -1424,10 +1242,6 @@ class _GuestSocialPageState
 }
 
 
-// =============================================================================
-// PROFILE PAGE
-// =============================================================================
-
 class _SocialProfilePage
     extends StatefulWidget {
 
@@ -1441,38 +1255,25 @@ class _SocialProfilePage
 }
 
 
-// =============================================================================
-// PROFILE STATE
-// =============================================================================
-
 class _SocialProfilePageState
     extends State<_SocialProfilePage> {
 
   final ApiService _apiService =
       ApiService();
 
-
   final AuthSession _session =
       AuthSession.instance;
 
-
   SocialUser? _user;
-
 
   List<StudyGroup> _groups =
       [];
 
-
   bool _loading =
       true;
 
-
   String? _error;
 
-
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
 
   @override
   void initState() {
@@ -1482,17 +1283,15 @@ class _SocialProfilePageState
   }
 
 
-  // ===========================================================================
-  // LOAD PROFILE
-  // ===========================================================================
-
   Future<void> _loadProfile() async {
     final int? currentUserId =
         _session.currentUserId;
 
+    if (currentUserId == null) {
+      if (!mounted) {
+        return;
+      }
 
-    if (currentUserId ==
-        null) {
       setState(() {
         _error =
             'Utente non autenticato.';
@@ -1504,7 +1303,6 @@ class _SocialProfilePageState
       return;
     }
 
-
     setState(() {
       _loading =
           true;
@@ -1513,12 +1311,10 @@ class _SocialProfilePageState
           null;
     });
 
-
     try {
       final SocialUser user =
           await _apiService
               .getCurrentUser();
-
 
       final List<StudyGroup> groups =
           await _loadGroupsFromBackend(
@@ -1532,16 +1328,13 @@ class _SocialProfilePageState
             true,
       );
 
-
       if (!mounted) {
         return;
       }
 
-
       _session.updateUser(
         user,
       );
-
 
       setState(() {
         _user =
@@ -1558,10 +1351,11 @@ class _SocialProfilePageState
         return;
       }
 
-
       setState(() {
         _error =
-            e.toString();
+            _cleanError(
+          e,
+        );
 
         _loading =
             false;
@@ -1569,10 +1363,6 @@ class _SocialProfilePageState
     }
   }
 
-
-  // ===========================================================================
-  // MESSAGES
-  // ===========================================================================
 
   void _openMessages() {
     Navigator.of(
@@ -1587,20 +1377,13 @@ class _SocialProfilePageState
   }
 
 
-  // ===========================================================================
-  // EDIT PROFILE
-  // ===========================================================================
-
   Future<void> _editProfile() async {
     final SocialUser? user =
         _user;
 
-
-    if (user ==
-        null) {
+    if (user == null) {
       return;
     }
-
 
     final SocialUser? updatedUser =
         await Navigator.of(
@@ -1616,18 +1399,14 @@ class _SocialProfilePageState
       ),
     );
 
-
     if (!mounted ||
-        updatedUser ==
-            null) {
+        updatedUser == null) {
       return;
     }
-
 
     _session.updateUser(
       updatedUser,
     );
-
 
     setState(() {
       _user =
@@ -1635,10 +1414,6 @@ class _SocialProfilePageState
     });
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -1656,15 +1431,27 @@ class _SocialProfilePageState
         foregroundColor:
             AppColors.pureWhite,
 
-        elevation:
-            0,
-
         title:
             const Text(
           'Profilo',
         ),
 
         actions: [
+          IconButton(
+            tooltip:
+                'Aggiorna',
+
+            icon:
+                const Icon(
+              Icons.refresh_rounded,
+            ),
+
+            onPressed:
+                _loading
+                    ? null
+                    : _loadProfile,
+          ),
+
           IconButton(
             tooltip:
                 'Messaggi',
@@ -1709,9 +1496,7 @@ class _SocialProfilePageState
       );
     }
 
-
-    if (_error !=
-        null) {
+    if (_error != null) {
       return ListView(
         padding:
             const EdgeInsets.all(
@@ -1730,10 +1515,8 @@ class _SocialProfilePageState
       );
     }
 
-
     final SocialUser user =
         _user!;
-
 
     return RefreshIndicator(
       onRefresh:
@@ -1766,9 +1549,7 @@ class _SocialProfilePageState
                 28,
           ),
 
-          _buildMyGroups(
-            user,
-          ),
+          _buildMyGroups(),
 
           const SizedBox(
             height:
@@ -1779,10 +1560,6 @@ class _SocialProfilePageState
     );
   }
 
-
-  // ===========================================================================
-  // PROFILE CARD
-  // ===========================================================================
 
   Widget _buildProfileCard(
     SocialUser user,
@@ -1993,16 +1770,13 @@ class _SocialProfilePageState
           ),
 
           if (user.subjects.isEmpty)
-            Text(
+            const Text(
               'Nessuna materia associata.',
 
               style:
                   TextStyle(
                 color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.45,
-                ),
+                    Colors.white54,
 
                 fontSize:
                     11,
@@ -2083,12 +1857,37 @@ class _SocialProfilePageState
                   16,
             ),
 
-            const _ProfileCapability(
-              icon:
-                  Icons.volunteer_activism_outlined,
+            const Row(
+              children: [
+                Icon(
+                  Icons
+                      .volunteer_activism_outlined,
 
-              label:
+                  color:
+                      AppColors.materialSky,
+
+                  size:
+                      18,
+                ),
+
+                SizedBox(
+                  width:
+                      7,
+                ),
+
+                Text(
                   'Disponibile ad aiutare',
+
+                  style:
+                      TextStyle(
+                    color:
+                        Colors.white70,
+
+                    fontSize:
+                        11,
+                  ),
+                ),
+              ],
             ),
           ],
 
@@ -2115,35 +1914,6 @@ class _SocialProfilePageState
                   const Text(
                 'Modifica profilo',
               ),
-
-              style:
-                  OutlinedButton.styleFrom(
-                foregroundColor:
-                    AppColors.materialSky,
-
-                side:
-                    BorderSide(
-                  color:
-                      AppColors.skyBlue
-                          .withOpacity(
-                    0.25,
-                  ),
-                ),
-
-                padding:
-                    const EdgeInsets.symmetric(
-                  vertical:
-                      13,
-                ),
-
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    13,
-                  ),
-                ),
-              ),
             ),
           ),
         ],
@@ -2151,10 +1921,6 @@ class _SocialProfilePageState
     );
   }
 
-
-  // ===========================================================================
-  // STATISTICS
-  // ===========================================================================
 
   Widget _buildStatistics() {
     final int materialCount =
@@ -2167,7 +1933,6 @@ class _SocialProfilePageState
           total +
           group.materialCount,
     );
-
 
     return Row(
       children: [
@@ -2203,37 +1968,12 @@ class _SocialProfilePageState
                 'Materiali',
           ),
         ),
-
-        const SizedBox(
-          width:
-              10,
-        ),
-
-        const Expanded(
-          child:
-              _StatisticCard(
-            icon:
-                Icons.people_alt_rounded,
-
-            value:
-                '—',
-
-            label:
-                'Connessioni',
-          ),
-        ),
       ],
     );
   }
 
 
-  // ===========================================================================
-  // MY GROUPS
-  // ===========================================================================
-
-  Widget _buildMyGroups(
-    SocialUser currentUser,
-  ) {
+  Widget _buildMyGroups() {
     return Column(
       crossAxisAlignment:
           CrossAxisAlignment.start,
@@ -2299,9 +2039,9 @@ class _SocialProfilePageState
               context,
               constraints,
             ) {
+
               int columns =
                   2;
-
 
               if (constraints.maxWidth <
                   420) {
@@ -2312,7 +2052,6 @@ class _SocialProfilePageState
                 columns =
                     3;
               }
-
 
               return GridView.builder(
                 shrinkWrap:
@@ -2344,17 +2083,17 @@ class _SocialProfilePageState
                   context,
                   index,
                 ) {
+
                   final StudyGroup group =
                       _groups[index];
-
 
                   return _MiniGroupCard(
                     group:
                         group,
 
                     onTap:
-                        () {
-                      Navigator.of(
+                        () async {
+                      await Navigator.of(
                         context,
                       ).push(
                         MaterialPageRoute(
@@ -2366,6 +2105,10 @@ class _SocialProfilePageState
                           ),
                         ),
                       );
+
+                      if (mounted) {
+                        _loadProfile();
+                      }
                     },
                   );
                 },
@@ -2377,10 +2120,6 @@ class _SocialProfilePageState
   }
 }
 
-
-// =============================================================================
-// USERS PAGE
-// =============================================================================
 
 class _SocialUsersPage
     extends StatefulWidget {
@@ -2395,40 +2134,27 @@ class _SocialUsersPage
 }
 
 
-// =============================================================================
-// USERS STATE
-// =============================================================================
-
 class _SocialUsersPageState
     extends State<_SocialUsersPage> {
 
   final ApiService _apiService =
       ApiService();
 
-
   final TextEditingController
       _searchController =
       TextEditingController();
 
-
   List<SocialUser> _users =
       [];
-
 
   int _selectedFilter =
       0;
 
-
   bool _loading =
       true;
 
-
   String? _error;
 
-
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
 
   @override
   void initState() {
@@ -2438,10 +2164,6 @@ class _SocialUsersPageState
   }
 
 
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -2449,10 +2171,6 @@ class _SocialUsersPageState
     super.dispose();
   }
 
-
-  // ===========================================================================
-  // LOAD USERS
-  // ===========================================================================
 
   Future<void> _loadUsers() async {
     setState(() {
@@ -2463,30 +2181,24 @@ class _SocialUsersPageState
           null;
     });
 
-
     try {
       final List<SocialUser> users =
           await _apiService
               .getSocialUsers();
 
-
       if (!mounted) {
         return;
       }
-
 
       final int? currentUserId =
           AuthSession.instance
               .currentUserId;
 
-
       setState(() {
         _users =
             users
                 .where(
-                  (
-                    user,
-                  ) =>
+                  (user) =>
                       user.id !=
                       currentUserId,
                 )
@@ -2500,10 +2212,11 @@ class _SocialUsersPageState
         return;
       }
 
-
       setState(() {
         _error =
-            e.toString();
+            _cleanError(
+          e,
+        );
 
         _loading =
             false;
@@ -2512,61 +2225,46 @@ class _SocialUsersPageState
   }
 
 
-  // ===========================================================================
-  // FILTERED USERS
-  // ===========================================================================
-
   List<SocialUser> get _filteredUsers {
     final String query =
         _searchController.text
             .trim()
             .toLowerCase();
 
-
     return _users.where(
       (
         SocialUser user,
       ) {
-        if (_selectedFilter ==
-                1 &&
+        if (_selectedFilter == 1 &&
             user.type !=
                 SocialUserType.student) {
           return false;
         }
 
-
-        if (_selectedFilter ==
-                2 &&
+        if (_selectedFilter == 2 &&
             user.type !=
                 SocialUserType.teacher) {
           return false;
         }
 
-
-        if (_selectedFilter ==
-                3 &&
+        if (_selectedFilter == 3 &&
             !user.available) {
           return false;
         }
-
 
         if (query.isEmpty) {
           return true;
         }
 
-
         final String subjects =
             user.subjects
                 .map(
-                  (
-                    subject,
-                  ) =>
+                  (subject) =>
                       subject.name,
                 )
                 .join(
                   ' ',
                 );
-
 
         final String searchable = [
           user.name,
@@ -2578,7 +2276,6 @@ class _SocialUsersPageState
           ' ',
         ).toLowerCase();
 
-
         return searchable.contains(
           query,
         );
@@ -2586,10 +2283,6 @@ class _SocialUsersPageState
     ).toList();
   }
 
-
-  // ===========================================================================
-  // OPEN USER
-  // ===========================================================================
 
   Future<void> _openUser(
     SocialUser user,
@@ -2608,10 +2301,6 @@ class _SocialUsersPageState
     );
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -2682,7 +2371,7 @@ class _SocialUsersPageState
             constraints:
                 const BoxConstraints(
               maxWidth:
-                  850,
+                  900,
             ),
 
             child:
@@ -2701,64 +2390,69 @@ class _SocialUsersPageState
                 ),
 
                 children: [
-                  const Text(
-                    'Community',
+                  TextField(
+                    controller:
+                        _searchController,
+
+                    onChanged:
+                        (_) {
+                      setState(() {});
+                    },
 
                     style:
-                        TextStyle(
+                        const TextStyle(
                       color:
                           AppColors.pureWhite,
-
-                      fontSize:
-                          25,
-
-                      fontWeight:
-                          FontWeight.bold,
                     ),
-                  ),
 
-                  const SizedBox(
-                    height:
-                        5,
-                  ),
+                    decoration:
+                        InputDecoration(
+                      hintText:
+                          'Cerca studenti, insegnanti, materie...',
 
-                  Text(
-                    'Trova studenti e insegnanti, scopri le loro '
-                    'materie e apri il profilo per entrare in contatto.',
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite
-                              .withOpacity(
-                        0.52,
+                      hintStyle:
+                          const TextStyle(
+                        color:
+                            Colors.white38,
                       ),
 
-                      fontSize:
-                          12,
+                      prefixIcon:
+                          const Icon(
+                        Icons.search_rounded,
 
-                      height:
-                          1.4,
+                        color:
+                            AppColors.skyBlue,
+                      ),
+
+                      filled:
+                          true,
+
+                      fillColor:
+                          AppColors.eleganceMidnight,
+
+                      border:
+                          OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          14,
+                        ),
+
+                        borderSide:
+                            BorderSide.none,
+                      ),
                     ),
                   ),
 
                   const SizedBox(
                     height:
-                        18,
-                  ),
-
-                  _buildSearch(),
-
-                  const SizedBox(
-                    height:
-                        12,
+                        14,
                   ),
 
                   _buildFilters(),
 
                   const SizedBox(
                     height:
-                        24,
+                        22,
                   ),
 
                   _buildUserList(),
@@ -2772,78 +2466,13 @@ class _SocialUsersPageState
   }
 
 
-  // ===========================================================================
-  // SEARCH
-  // ===========================================================================
-
-  Widget _buildSearch() {
-    return TextField(
-      controller:
-          _searchController,
-
-      onChanged:
-          (_) {
-        setState(() {});
-      },
-
-      style:
-          const TextStyle(
-        color:
-            AppColors.pureWhite,
-      ),
-
-      decoration:
-          InputDecoration(
-        hintText:
-            'Cerca nome, corso, materia...',
-
-        hintStyle:
-            const TextStyle(
-          color:
-              Colors.white38,
-        ),
-
-        prefixIcon:
-            const Icon(
-          Icons.search_rounded,
-
-          color:
-              AppColors.skyBlue,
-        ),
-
-        filled:
-            true,
-
-        fillColor:
-            AppColors.eleganceMidnight,
-
-        border:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            14,
-          ),
-
-          borderSide:
-              BorderSide.none,
-        ),
-      ),
-    );
-  }
-
-
-  // ===========================================================================
-  // FILTERS
-  // ===========================================================================
-
   Widget _buildFilters() {
-    const labels = [
+    const List<String> labels = [
       'Tutti',
       'Studenti',
       'Insegnanti',
       'Disponibili',
     ];
-
 
     return SingleChildScrollView(
       scrollDirection:
@@ -2891,10 +2520,6 @@ class _SocialUsersPageState
   }
 
 
-  // ===========================================================================
-  // USER LIST
-  // ===========================================================================
-
   Widget _buildUserList() {
     if (_loading) {
       return const Padding(
@@ -2912,9 +2537,7 @@ class _SocialUsersPageState
       );
     }
 
-
-    if (_error !=
-        null) {
+    if (_error != null) {
       return _ErrorCard(
         message:
             _error!,
@@ -2924,10 +2547,8 @@ class _SocialUsersPageState
       );
     }
 
-
     final List<SocialUser> users =
         _filteredUsers;
-
 
     if (users.isEmpty) {
       return const _EmptyCard(
@@ -2941,7 +2562,6 @@ class _SocialUsersPageState
             'Nessun profilo corrisponde alla ricerca.',
       );
     }
-
 
     return Column(
       children:
@@ -2990,10 +2610,6 @@ class _SocialUsersPageState
 }
 
 
-// =============================================================================
-// GROUPS PAGE
-// =============================================================================
-
 class _SocialGroupsPage
     extends StatefulWidget {
 
@@ -3007,31 +2623,20 @@ class _SocialGroupsPage
 }
 
 
-// =============================================================================
-// GROUPS STATE
-// =============================================================================
-
 class _SocialGroupsPageState
     extends State<_SocialGroupsPage> {
 
   final ApiService _apiService =
       ApiService();
 
-
   List<StudyGroup> _groups =
       [];
-
 
   bool _loading =
       true;
 
-
   String? _error;
 
-
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
 
   @override
   void initState() {
@@ -3041,21 +2646,26 @@ class _SocialGroupsPageState
   }
 
 
-  // ===========================================================================
-  // LOAD
-  // ===========================================================================
-
   Future<void> _loadGroups() async {
     final int? currentUserId =
         AuthSession.instance
             .currentUserId;
 
+    if (currentUserId == null) {
+      if (!mounted) {
+        return;
+      }
 
-    if (currentUserId ==
-        null) {
+      setState(() {
+        _groups =
+            [];
+
+        _loading =
+            false;
+      });
+
       return;
     }
-
 
     setState(() {
       _loading =
@@ -3064,7 +2674,6 @@ class _SocialGroupsPageState
       _error =
           null;
     });
-
 
     try {
       final List<StudyGroup> groups =
@@ -3079,11 +2688,9 @@ class _SocialGroupsPageState
             false,
       );
 
-
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _groups =
@@ -3097,10 +2704,11 @@ class _SocialGroupsPageState
         return;
       }
 
-
       setState(() {
         _error =
-            e.toString();
+            _cleanError(
+          e,
+        );
 
         _loading =
             false;
@@ -3108,10 +2716,6 @@ class _SocialGroupsPageState
     }
   }
 
-
-  // ===========================================================================
-  // CREATE
-  // ===========================================================================
 
   Future<void> _createGroup() async {
     await Navigator.of(
@@ -3124,16 +2728,11 @@ class _SocialGroupsPageState
       ),
     );
 
-
     if (mounted) {
       _loadGroups();
     }
   }
 
-
-  // ===========================================================================
-  // EXPLORE
-  // ===========================================================================
 
   Future<void> _exploreGroups() async {
     await Navigator.of(
@@ -3146,16 +2745,11 @@ class _SocialGroupsPageState
       ),
     );
 
-
     if (mounted) {
       _loadGroups();
     }
   }
 
-
-  // ===========================================================================
-  // OPEN GROUP
-  // ===========================================================================
 
   Future<void> _openGroup(
     StudyGroup group,
@@ -3173,16 +2767,11 @@ class _SocialGroupsPageState
       ),
     );
 
-
     if (mounted) {
       _loadGroups();
     }
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -3294,8 +2883,7 @@ class _SocialGroupsPageState
                   ),
 
                   Text(
-                    'Accedi ai gruppi, scopri nuove community '
-                    'e condividi materiale con altri studenti.',
+                    'Gestisci i tuoi gruppi e scopri nuove community.',
 
                     style:
                         TextStyle(
@@ -3307,9 +2895,6 @@ class _SocialGroupsPageState
 
                       fontSize:
                           12,
-
-                      height:
-                          1.4,
                     ),
                   ),
 
@@ -3328,7 +2913,8 @@ class _SocialGroupsPageState
 
                           icon:
                               const Icon(
-                            Icons.add_circle_outline_rounded,
+                            Icons
+                                .add_circle_outline_rounded,
                           ),
 
                           label:
@@ -3356,7 +2942,7 @@ class _SocialGroupsPageState
 
                           label:
                               const Text(
-                            'Esplora gruppi',
+                            'Esplora',
                           ),
 
                           style:
@@ -3388,10 +2974,6 @@ class _SocialGroupsPageState
   }
 
 
-  // ===========================================================================
-  // GROUP GRID
-  // ===========================================================================
-
   Widget _buildGroups() {
     if (_loading) {
       return const Padding(
@@ -3409,9 +2991,7 @@ class _SocialGroupsPageState
       );
     }
 
-
-    if (_error !=
-        null) {
+    if (_error != null) {
       return _ErrorCard(
         message:
             _error!,
@@ -3420,7 +3000,6 @@ class _SocialGroupsPageState
             _loadGroups,
       );
     }
-
 
     if (_groups.isEmpty) {
       return const _EmptyCard(
@@ -3435,16 +3014,15 @@ class _SocialGroupsPageState
       );
     }
 
-
     return LayoutBuilder(
       builder:
           (
         context,
         constraints,
       ) {
+
         int columns =
             2;
-
 
         if (constraints.maxWidth <
             450) {
@@ -3455,7 +3033,6 @@ class _SocialGroupsPageState
           columns =
               3;
         }
-
 
         return GridView.builder(
           shrinkWrap:
@@ -3487,9 +3064,9 @@ class _SocialGroupsPageState
             context,
             index,
           ) {
+
             final StudyGroup group =
                 _groups[index];
-
 
             return _MiniGroupCard(
               group:
@@ -3509,10 +3086,6 @@ class _SocialGroupsPageState
   }
 }
 
-
-// =============================================================================
-// MINI GROUP CARD
-// =============================================================================
 
 class _MiniGroupCard
     extends StatelessWidget {
@@ -3613,12 +3186,17 @@ class _MiniGroupCard
 
                   const Spacer(),
 
-                  const Icon(
-                    Icons.chevron_right_rounded,
+                  if (group.isOwner)
+                    const Icon(
+                      Icons
+                          .admin_panel_settings_outlined,
 
-                    color:
-                        Colors.white38,
-                  ),
+                      color:
+                          AppColors.materialSky,
+
+                      size:
+                          17,
+                    ),
                 ],
               ),
 
@@ -3655,7 +3233,9 @@ class _MiniGroupCard
               ),
 
               Text(
-                group.subject,
+                group.subject.isEmpty
+                    ? 'Materia non specificata'
+                    : group.subject,
 
                 maxLines:
                     1,
@@ -3669,55 +3249,36 @@ class _MiniGroupCard
                       AppColors.materialSky,
 
                   fontSize:
-                      9,
+                      10,
                 ),
               ),
 
               const Spacer(),
 
-              _MiniGroupInfo(
-                icon:
-                    Icons.people_outline_rounded,
+              Row(
+                children: [
+                  _MiniInfo(
+                    icon:
+                        Icons.people_outline_rounded,
 
-                text:
-                    '${group.memberCount} partecipanti',
-              ),
-
-              const SizedBox(
-                height:
-                    5,
-              ),
-
-              _MiniGroupInfo(
-                icon:
-                    Icons.folder_outlined,
-
-                text:
-                    '${group.materialCount} materiali',
-              ),
-
-              if (group.isOwner) ...[
-                const SizedBox(
-                  height:
-                      7,
-                ),
-
-                const Text(
-                  'PROPRIETARIO',
-
-                  style:
-                      TextStyle(
-                    color:
-                        AppColors.materialSky,
-
-                    fontSize:
-                        8,
-
-                    fontWeight:
-                        FontWeight.w600,
+                    text:
+                        '${group.memberCount}',
                   ),
-                ),
-              ],
+
+                  const SizedBox(
+                    width:
+                        12,
+                  ),
+
+                  _MiniInfo(
+                    icon:
+                        Icons.folder_outlined,
+
+                    text:
+                        '${group.materialCount}',
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -3727,115 +3288,17 @@ class _MiniGroupCard
 }
 
 
-// =============================================================================
-// HELPERS
-// =============================================================================
-
-class _GuestGroupFeatureChip
+class _MiniInfo
     extends StatelessWidget {
 
   final IconData icon;
 
-  final String label;
+  final String text;
 
 
-  const _GuestGroupFeatureChip({
+  const _MiniInfo({
     required this.icon,
-    required this.label,
-  });
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal:
-            9,
-
-        vertical:
-            6,
-      ),
-
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.brandNightBlue,
-
-        borderRadius:
-            BorderRadius.circular(
-          9,
-        ),
-
-        border:
-            Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.10,
-          ),
-        ),
-      ),
-
-      child:
-          Row(
-        mainAxisSize:
-            MainAxisSize.min,
-
-        children: [
-          Icon(
-            icon,
-
-            size:
-                14,
-
-            color:
-                AppColors.materialSky,
-          ),
-
-          const SizedBox(
-            width:
-                5,
-          ),
-
-          Text(
-            label,
-
-            style:
-                const TextStyle(
-              color:
-                  AppColors.materialSky,
-
-              fontSize:
-                  9,
-
-              fontWeight:
-                  FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-class _ProfileInfoRow
-    extends StatelessWidget {
-
-  final IconData icon;
-
-  final String title;
-
-  final String value;
-
-
-  const _ProfileInfoRow({
-    required this.icon,
-    required this.title,
-    required this.value,
+    required this.text,
   });
 
 
@@ -3844,63 +3307,35 @@ class _ProfileInfoRow
     BuildContext context,
   ) {
     return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      mainAxisSize:
+          MainAxisSize.min,
 
       children: [
         Icon(
           icon,
 
-          color:
-              AppColors.materialSky,
-
           size:
-              20,
+              13,
+
+          color:
+              Colors.white38,
         ),
 
         const SizedBox(
           width:
-              10,
+              4,
         ),
 
-        Expanded(
-          child:
-              Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+        Text(
+          text,
 
-            children: [
-              Text(
-                title,
+          style:
+              const TextStyle(
+            color:
+                Colors.white54,
 
-                style:
-                    const TextStyle(
-                  color:
-                      Colors.white38,
-
-                  fontSize:
-                      10,
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    2,
-              ),
-
-              Text(
-                value,
-
-                style:
-                    const TextStyle(
-                  color:
-                      Colors.white70,
-
-                  fontSize:
-                      12,
-                ),
-              ),
-            ],
+            fontSize:
+                9,
           ),
         ),
       ],
@@ -3989,17 +3424,20 @@ class _AvailabilityBadge
 }
 
 
-class _ProfileCapability
+class _ProfileInfoRow
     extends StatelessWidget {
 
   final IconData icon;
 
-  final String label;
+  final String title;
+
+  final String value;
 
 
-  const _ProfileCapability({
+  const _ProfileInfoRow({
     required this.icon,
-    required this.label,
+    required this.title,
+    required this.value,
   });
 
 
@@ -4008,6 +3446,9 @@ class _ProfileCapability
     BuildContext context,
   ) {
     return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+
       children: [
         Icon(
           icon,
@@ -4016,24 +3457,52 @@ class _ProfileCapability
               AppColors.materialSky,
 
           size:
-              18,
+              20,
         ),
 
         const SizedBox(
           width:
-              7,
+              10,
         ),
 
-        Text(
-          label,
+        Expanded(
+          child:
+              Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
 
-          style:
-              const TextStyle(
-            color:
-                Colors.white70,
+            children: [
+              Text(
+                title,
 
-            fontSize:
-                11,
+                style:
+                    const TextStyle(
+                  color:
+                      Colors.white38,
+
+                  fontSize:
+                      10,
+                ),
+              ),
+
+              const SizedBox(
+                height:
+                    2,
+              ),
+
+              Text(
+                value,
+
+                style:
+                    const TextStyle(
+                  color:
+                      Colors.white70,
+
+                  fontSize:
+                      12,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -4188,72 +3657,6 @@ class _StatisticCard
 }
 
 
-class _MiniGroupInfo
-    extends StatelessWidget {
-
-  final IconData icon;
-
-  final String text;
-
-
-  const _MiniGroupInfo({
-    required this.icon,
-    required this.text,
-  });
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-
-          color:
-              Colors.white38,
-
-          size:
-              13,
-        ),
-
-        const SizedBox(
-          width:
-              4,
-        ),
-
-        Expanded(
-          child:
-              Text(
-            text,
-
-            maxLines:
-                1,
-
-            overflow:
-                TextOverflow.ellipsis,
-
-            style:
-                const TextStyle(
-              color:
-                  Colors.white54,
-
-              fontSize:
-                  9,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-
-// =============================================================================
-// ERROR CARD
-// =============================================================================
-
 class _ErrorCard
     extends StatelessWidget {
 
@@ -4351,10 +3754,6 @@ class _ErrorCard
   }
 }
 
-
-// =============================================================================
-// EMPTY CARD
-// =============================================================================
 
 class _EmptyCard
     extends StatelessWidget {
@@ -4458,10 +3857,6 @@ class _EmptyCard
 }
 
 
-// =============================================================================
-// LOAD GROUPS FROM BACKEND
-// =============================================================================
-
 Future<List<StudyGroup>>
     _loadGroupsFromBackend({
   required ApiService apiService,
@@ -4479,10 +3874,8 @@ Future<List<StudyGroup>>
           : await apiService
               .getGroups();
 
-
   final List<StudyGroup> result =
       [];
-
 
   for (final Map<String, dynamic>
       rawGroup in rawGroups) {
@@ -4492,50 +3885,37 @@ Future<List<StudyGroup>>
       rawGroup,
     );
 
-
-    final dynamic rawId =
-        rawGroup['id'];
-
-
     final int? groupId =
-        rawId is int
-            ? rawId
-            : int.tryParse(
-                rawId
-                        ?.toString() ??
-                    '',
-              );
+        _toInt(
+      rawGroup['id'],
+    );
 
-
-    if (groupId !=
-        null) {
+    if (groupId != null) {
       try {
         final Map<String, dynamic>
             detail =
-            await apiService.getGroup(
+            await apiService
+                .getGroup(
           groupId,
         );
-
 
         merged.addAll(
           detail,
         );
       } catch (_) {}
 
-
       try {
-        final materials =
+        final List<Map<String, dynamic>>
+            materials =
             await apiService
                 .getGroupMaterials(
           groupId,
         );
 
-
         merged['material_count'] =
             materials.length;
       } catch (_) {}
     }
-
 
     result.add(
       StudyGroup.fromJson(
@@ -4547,6 +3927,42 @@ Future<List<StudyGroup>>
     );
   }
 
-
   return result;
+}
+
+
+int? _toInt(
+  dynamic value,
+) {
+  if (value is int) {
+    return value;
+  }
+
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return int.tryParse(
+    value?.toString() ??
+        '',
+  );
+}
+
+
+String _cleanError(
+  Object error,
+) {
+  String message =
+      error.toString();
+
+  if (message.startsWith(
+    'Exception: ',
+  )) {
+    message =
+        message.substring(
+      'Exception: '.length,
+    );
+  }
+
+  return message;
 }

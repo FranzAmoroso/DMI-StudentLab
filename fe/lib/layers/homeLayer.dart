@@ -6,17 +6,8 @@ import 'package:fe/theme/nightTheme.dart';
 
 import 'package:fe/material/StudentMaterialPage.dart';
 
-import 'package:fe/social/social_models.dart';
 import 'package:fe/social/social_page.dart';
 
-import 'package:fe/social/auth/login_page.dart';
-
-import 'package:fe/social/widgets/social_profile_type.dart';
-
-
-// =============================================================================
-// FEATURE TYPE
-// =============================================================================
 
 enum HomeFeatureType {
   exercise,
@@ -27,10 +18,6 @@ enum HomeFeatureType {
   social,
 }
 
-
-// =============================================================================
-// FEATURE CARD
-// =============================================================================
 
 class FeatureCard {
   final HomeFeatureType type;
@@ -52,15 +39,10 @@ class FeatureCard {
     required this.description,
     required this.icon,
     required this.color,
-
     this.isComingSoon = false,
   });
 }
 
-
-// =============================================================================
-// HOME LAYER
-// =============================================================================
 
 class HomeLayer extends StatelessWidget {
   final bool isAuthenticated;
@@ -71,10 +53,6 @@ class HomeLayer extends StatelessWidget {
     required this.isAuthenticated,
   });
 
-
-  // ===========================================================================
-  // FEATURE CARDS
-  // ===========================================================================
 
   final List<FeatureCard> _featureCards = [
     FeatureCard(
@@ -183,7 +161,8 @@ class HomeLayer extends StatelessWidget {
           'Altri studenti',
 
       description:
-          'Connettiti con i tuoi colleghi di corso e collaborate.',
+          'Esplora studenti, insegnanti, gruppi e materiali '
+          'della community StudentLab.',
 
       icon:
           Icons.people,
@@ -193,10 +172,6 @@ class HomeLayer extends StatelessWidget {
     ),
   ];
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -266,10 +241,6 @@ class HomeLayer extends StatelessWidget {
   }
 
 
-  // ===========================================================================
-  // CARD
-  // ===========================================================================
-
   Widget _buildGridCard(
     BuildContext context,
     FeatureCard card,
@@ -337,10 +308,6 @@ class HomeLayer extends StatelessWidget {
               child:
                   Stack(
                 children: [
-                  // ===========================================================
-                  // BACKGROUND
-                  // ===========================================================
-
                   Container(
                     decoration:
                         BoxDecoration(
@@ -366,11 +333,6 @@ class HomeLayer extends StatelessWidget {
                       ),
                     ),
                   ),
-
-
-                  // ===========================================================
-                  // CONTENT
-                  // ===========================================================
 
                   Padding(
                     padding:
@@ -423,8 +385,7 @@ class HomeLayer extends StatelessWidget {
 
                         Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
 
                           children: [
                             Text(
@@ -434,8 +395,7 @@ class HomeLayer extends StatelessWidget {
                                   1,
 
                               overflow:
-                                  TextOverflow
-                                      .ellipsis,
+                                  TextOverflow.ellipsis,
 
                               style:
                                   const TextStyle(
@@ -446,8 +406,7 @@ class HomeLayer extends StatelessWidget {
                                     FontWeight.bold,
 
                                 color:
-                                    AppColors
-                                        .pureWhite,
+                                    AppColors.pureWhite,
                               ),
                             ),
 
@@ -463,8 +422,7 @@ class HomeLayer extends StatelessWidget {
                                   2,
 
                               overflow:
-                                  TextOverflow
-                                      .ellipsis,
+                                  TextOverflow.ellipsis,
 
                               style:
                                   TextStyle(
@@ -472,8 +430,7 @@ class HomeLayer extends StatelessWidget {
                                     12,
 
                                 color:
-                                    AppColors
-                                        .pureWhite
+                                    AppColors.pureWhite
                                         .withOpacity(
                                   card.isComingSoon
                                       ? 0.4
@@ -490,17 +447,11 @@ class HomeLayer extends StatelessWidget {
                     ),
                   ),
 
-
-                  // ===========================================================
-                  // TAP
-                  // ===========================================================
-
                   Positioned.fill(
                     child:
                         GestureDetector(
                       behavior:
-                          HitTestBehavior
-                              .opaque,
+                          HitTestBehavior.opaque,
 
                       onTapDown:
                           (_) {
@@ -553,10 +504,6 @@ class HomeLayer extends StatelessWidget {
     }
 
 
-    // =========================================================================
-    // COMING SOON BANNER
-    // =========================================================================
-
     return Stack(
       children: [
         cardBody,
@@ -569,8 +516,7 @@ class HomeLayer extends StatelessWidget {
               0,
 
           child:
-              ValueListenableBuilder<
-                  double>(
+              ValueListenableBuilder<double>(
             valueListenable:
                 shakeOffset,
 
@@ -580,8 +526,7 @@ class HomeLayer extends StatelessWidget {
               offset,
               child,
             ) {
-              return TweenAnimationBuilder<
-                  double>(
+              return TweenAnimationBuilder<double>(
                 tween:
                     Tween<double>(
                   begin:
@@ -677,19 +622,11 @@ class HomeLayer extends StatelessWidget {
   }
 
 
-  // ===========================================================================
-  // OPEN FEATURE
-  // ===========================================================================
-
   Future<void> _openFeature(
     BuildContext context,
     FeatureCard card,
   ) async {
     switch (card.type) {
-      // =======================================================================
-      // ESERCITAZIONE
-      // =======================================================================
-
       case HomeFeatureType.exercise:
         await Navigator.of(
           context,
@@ -710,10 +647,6 @@ class HomeLayer extends StatelessWidget {
         return;
 
 
-      // =======================================================================
-      // MATERIALI
-      // =======================================================================
-
       case HomeFeatureType.materials:
         await Navigator.of(
           context,
@@ -728,36 +661,19 @@ class HomeLayer extends StatelessWidget {
         return;
 
 
-      // =======================================================================
-      // SOCIAL
-      // =======================================================================
-
       case HomeFeatureType.social:
-        if (isAuthenticated) {
-          await Navigator.of(
-            context,
-          ).push(
-            MaterialPageRoute(
-              builder:
-                  (_) =>
-                      const SocialPage(),
-            ),
-          );
-
-          return;
-        }
-
-
-        await _showSocialGuestOptions(
+        await Navigator.of(
           context,
+        ).push(
+          MaterialPageRoute(
+            builder:
+                (_) =>
+                    const SocialPage(),
+          ),
         );
 
         return;
 
-
-      // =======================================================================
-      // COMING SOON
-      // =======================================================================
 
       case HomeFeatureType.examSimulation:
       case HomeFeatureType.review:
@@ -766,279 +682,6 @@ class HomeLayer extends StatelessWidget {
     }
   }
 
-
-  // ===========================================================================
-  // SOCIAL GUEST OPTIONS
-  // ===========================================================================
-
-  Future<void> _showSocialGuestOptions(
-    BuildContext context,
-  ) async {
-    await showModalBottomSheet<void>(
-      context:
-          context,
-
-      backgroundColor:
-          AppColors.eleganceDeepNavy,
-
-      shape:
-          const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(
-          top:
-              Radius.circular(
-            20,
-          ),
-        ),
-      ),
-
-      builder:
-          (
-        sheetContext,
-      ) {
-        return SafeArea(
-          child:
-              Padding(
-            padding:
-                const EdgeInsets.fromLTRB(
-              18,
-              18,
-              18,
-              12,
-            ),
-
-            child:
-                Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-
-              crossAxisAlignment:
-                  CrossAxisAlignment.stretch,
-
-              children: [
-                const Text(
-                  'StudentLab Social',
-
-                  style:
-                      TextStyle(
-                    color:
-                        AppColors.pureWhite,
-
-                    fontSize:
-                        20,
-
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(
-                  height:
-                      7,
-                ),
-
-                Text(
-                  'Per utilizzare gruppi, messaggi e funzionalità '
-                  'Social puoi accedere oppure creare il tuo profilo.',
-
-                  style:
-                      TextStyle(
-                    color:
-                        AppColors.pureWhite
-                            .withOpacity(
-                      0.55,
-                    ),
-
-                    fontSize:
-                        12,
-
-                    height:
-                        1.4,
-                  ),
-                ),
-
-                const SizedBox(
-                  height:
-                      20,
-                ),
-
-
-                // =============================================================
-                // LOGIN
-                // =============================================================
-
-                SizedBox(
-                  height:
-                      48,
-
-                  child:
-                      OutlinedButton.icon(
-                    onPressed:
-                        () async {
-                      Navigator.pop(
-                        sheetContext,
-                      );
-
-
-                      final SocialUser? user =
-                          await Navigator.of(
-                        context,
-                      ).push<
-                          SocialUser>(
-                        MaterialPageRoute(
-                          builder:
-                              (_) =>
-                                  const LoginPage(),
-                        ),
-                      );
-
-
-                      if (user !=
-                              null &&
-                          context.mounted) {
-                        Navigator.of(
-                          context,
-                        ).push(
-                          MaterialPageRoute(
-                            builder:
-                                (_) =>
-                                    const SocialPage(),
-                          ),
-                        );
-                      }
-                    },
-
-                    icon:
-                        const Icon(
-                      Icons.login_rounded,
-                    ),
-
-                    label:
-                        const Text(
-                      'Accedi',
-                    ),
-
-                    style:
-                        OutlinedButton.styleFrom(
-                      foregroundColor:
-                          AppColors.skyBlue,
-
-                      side:
-                          BorderSide(
-                        color:
-                            AppColors.skyBlue
-                                .withOpacity(
-                          0.35,
-                        ),
-                      ),
-
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          13,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(
-                  height:
-                      10,
-                ),
-
-
-                // =============================================================
-                // SIGN UP
-                // =============================================================
-
-                SizedBox(
-                  height:
-                      48,
-
-                  child:
-                      ElevatedButton.icon(
-                    onPressed:
-                        () async {
-                      Navigator.pop(
-                        sheetContext,
-                      );
-
-
-                      final SocialUser? user =
-                          await Navigator.of(
-                        context,
-                      ).push<
-                          SocialUser>(
-                        MaterialPageRoute(
-                          builder:
-                              (_) =>
-                                  const SocialProfileType(),
-                        ),
-                      );
-
-
-                      if (user !=
-                              null &&
-                          context.mounted) {
-                        Navigator.of(
-                          context,
-                        ).push(
-                          MaterialPageRoute(
-                            builder:
-                                (_) =>
-                                    const SocialPage(),
-                          ),
-                        );
-                      }
-                    },
-
-                    icon:
-                        const Icon(
-                      Icons.person_add_alt_1_rounded,
-                    ),
-
-                    label:
-                        const Text(
-                      'Crea profilo',
-                    ),
-
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          AppColors.socialBlue,
-
-                      foregroundColor:
-                          AppColors.pureWhite,
-
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          13,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(
-                  height:
-                      8,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-
-  // ===========================================================================
-  // SHAKE COMING SOON
-  // ===========================================================================
 
   Future<void> _shakeSoon(
     ValueNotifier<double> shakeOffset,

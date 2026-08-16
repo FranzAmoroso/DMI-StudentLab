@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -6,6 +8,9 @@ import '../../theme/nightTheme.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_session.dart';
 
+import '../../local_storage/models/downloaded_material_local.dart';
+import '../../local_storage/services/material_download_service.dart';
+
 import '../social_models.dart';
 
 import '../layers/group_chat_layer.dart';
@@ -13,21 +18,16 @@ import '../layers/group_partecipants_layer.dart';
 import '../layers/group_management_layer.dart';
 
 import 'models/study_group.dart';
+import 'package:open_filex/open_filex.dart';
 
-
-// =============================================================================
-// STUDY GROUP DETAIL PAGE
-// =============================================================================
 
 class StudyGroupDetailPage extends StatefulWidget {
   final StudyGroup group;
-
 
   const StudyGroupDetailPage({
     super.key,
     required this.group,
   });
-
 
   @override
   State<StudyGroupDetailPage> createState() =>
@@ -35,128 +35,100 @@ class StudyGroupDetailPage extends StatefulWidget {
 }
 
 
-// =============================================================================
-// STATE
-// =============================================================================
-
 class _StudyGroupDetailPageState
     extends State<StudyGroupDetailPage> {
 
   final ApiService _apiService =
       ApiService();
 
-
   final AuthSession _session =
       AuthSession.instance;
 
+  final MaterialDownloadService
+      _downloadService =
+      MaterialDownloadService();
 
-  // ===========================================================================
-  // DATA
-  // ===========================================================================
 
   List<SocialUser> _participants =
       [];
 
-
   List<_GroupMaterial> _materials =
       [];
 
+  final Set<int> _downloadedMaterialIds =
+      {};
 
-  // ===========================================================================
-  // STATE
-  // ===========================================================================
+  final Set<int> _downloadingMaterialIds =
+      {};
+
 
   bool _loading =
       true;
 
-
   bool _loadingMaterials =
       false;
-
 
   bool _leavingGroup =
       false;
 
+  bool _uploadingMaterial = false;
 
   String? _error;
 
-
-  // ===========================================================================
-  // GETTERS
-  // ===========================================================================
 
   StudyGroup get group {
     return widget.group;
   }
 
-
   SocialUser? get currentUser {
     return _session.currentUser;
   }
-
 
   int? get currentUserId {
     return _session.currentUserId;
   }
 
-
   bool get isAuthenticated {
     return _session.isAuthenticated;
   }
-
 
   bool get isGuest {
     return _session.isGuest;
   }
 
-
   bool get isCurrentUserMember {
     final int? userId =
         currentUserId;
-
 
     if (userId == null) {
       return false;
     }
 
-
     return _participants.any(
-      (
-        participant,
-      ) =>
+      (participant) =>
           participant.id ==
           userId,
     );
   }
 
-
   bool get canUseGroupChat {
     return isAuthenticated &&
         (
           isCurrentUserMember ||
-              group.isOwner
+          group.isOwner
         );
   }
 
-
-  bool get canUploadMaterial {
-    // Manteniamo la regola già presente
-    // nella vecchia pagina:
-    // soltanto l'owner può caricare.
-    //
-    // Se successivamente vorremo permettere
-    // l'upload a tutti i membri,
-    // basta modificare questo getter.
-    return isAuthenticated &&
-        group.isOwner;
-  }
-
+    bool get canUploadMaterial {
+      return isAuthenticated &&
+          group.isOwner &&
+          !_uploadingMaterial;
+    }
 
   bool get canDeleteMaterial {
     return isAuthenticated &&
         group.isOwner;
   }
-
 
   bool get canLeaveGroup {
     return isAuthenticated &&
@@ -165,27 +137,16 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
-
   @override
   void initState() {
     super.initState();
-
 
     _session.addListener(
       _onSessionChanged,
     );
 
-
     _loadGroupData();
   }
-
-
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
 
   @override
   void dispose() {
@@ -193,28 +154,19 @@ class _StudyGroupDetailPageState
       _onSessionChanged,
     );
 
-
     super.dispose();
   }
-
-
-  // ===========================================================================
-  // SESSION CHANGED
-  // ===========================================================================
 
   void _onSessionChanged() {
     if (!mounted) {
       return;
     }
 
-
     setState(() {});
+
+    _refreshDownloadedStates();
   }
 
-
-  // ===========================================================================
-  // CARICAMENTO DATI GRUPPO
-  // ===========================================================================
 
   Future<void> _loadGroupData() async {
     if (mounted) {
@@ -227,7 +179,6 @@ class _StudyGroupDetailPageState
       });
     }
 
-
     try {
       final Map<String, dynamic>
           groupData =
@@ -235,21 +186,21 @@ class _StudyGroupDetailPageState
         group.id,
       );
 
-
       final List<SocialUser> participants =
           await _loadParticipants(
         groupData,
       );
 
-
       final List<_GroupMaterial> materials =
           await _loadMaterials();
 
+      await _loadDownloadedStates(
+        materials,
+      );
 
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _participants =
@@ -266,7 +217,6 @@ class _StudyGroupDetailPageState
         return;
       }
 
-
       setState(() {
         _loading =
             false;
@@ -280,25 +230,18 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // PARTECIPANTI
-  // ===========================================================================
-
   Future<List<SocialUser>> _loadParticipants(
     Map<String, dynamic> groupData,
   ) async {
     final dynamic membersData =
         groupData['members'];
 
-
     if (membersData is! List) {
       return [];
     }
 
-
     final List<SocialUser> users =
         [];
-
 
     for (final dynamic member
         in membersData) {
@@ -307,25 +250,20 @@ class _StudyGroupDetailPageState
         continue;
       }
 
-
       final Map<String, dynamic>
           memberData =
           Map<String, dynamic>.from(
         member,
       );
 
-
       final int? userId =
           _toInt(
         memberData['user_id'],
       );
 
-
-      if (userId ==
-          null) {
+      if (userId == null) {
         continue;
       }
-
 
       try {
         final SocialUser user =
@@ -334,24 +272,15 @@ class _StudyGroupDetailPageState
           userId,
         );
 
-
         users.add(
           user,
         );
-      } catch (_) {
-        // Se un singolo profilo non è caricabile
-        // continuiamo con gli altri membri.
-      }
+      } catch (_) {}
     }
-
 
     return users;
   }
 
-
-  // ===========================================================================
-  // MATERIALI
-  // ===========================================================================
 
   Future<List<_GroupMaterial>>
       _loadMaterials() async {
@@ -363,7 +292,6 @@ class _StudyGroupDetailPageState
       group.id,
     );
 
-
     return data
         .map(
           _GroupMaterial.fromJson,
@@ -372,31 +300,71 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // REFRESH MATERIALI
-  // ===========================================================================
+  Future<void> _loadDownloadedStates(
+    List<_GroupMaterial> materials,
+  ) async {
+    final Set<int> downloaded =
+        {};
+
+    for (final _GroupMaterial material
+        in materials) {
+
+      final bool exists =
+          await _downloadService
+              .isDownloaded(
+        materialId:
+            material.id,
+      );
+
+      if (exists) {
+        downloaded.add(
+          material.id,
+        );
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _downloadedMaterialIds
+        ..clear()
+        ..addAll(
+          downloaded,
+        );
+    });
+  }
+
+
+  Future<void> _refreshDownloadedStates() async {
+    await _loadDownloadedStates(
+      _materials,
+    );
+  }
+
 
   Future<void> _refreshMaterials() async {
     if (_loadingMaterials) {
       return;
     }
 
-
     setState(() {
       _loadingMaterials =
           true;
     });
 
-
     try {
       final List<_GroupMaterial> materials =
           await _loadMaterials();
 
+      await _loadDownloadedStates(
+        materials,
+      );
 
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _materials =
@@ -406,7 +374,6 @@ class _StudyGroupDetailPageState
       if (!mounted) {
         return;
       }
-
 
       _showMessage(
         'Errore aggiornamento materiali: '
@@ -423,10 +390,6 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
-
   @override
   Widget build(
     BuildContext context,
@@ -435,12 +398,8 @@ class _StudyGroupDetailPageState
       backgroundColor:
           AppColors.darkElegance,
 
-
-      // =========================================================================
-      // APP BAR
-      // =========================================================================
-
-      appBar: AppBar(
+      appBar:
+          AppBar(
         backgroundColor:
             AppColors.brandNightBlue,
 
@@ -450,7 +409,8 @@ class _StudyGroupDetailPageState
         elevation:
             0,
 
-        title: Text(
+        title:
+            Text(
           group.name,
 
           maxLines:
@@ -485,11 +445,6 @@ class _StudyGroupDetailPageState
                     : _loadGroupData,
           ),
 
-
-          // ===================================================================
-          // OWNER MANAGEMENT
-          // ===================================================================
-
           if (isAuthenticated &&
               group.isOwner)
             IconButton(
@@ -505,11 +460,6 @@ class _StudyGroupDetailPageState
               onPressed:
                   _openGroupManagement,
             ),
-
-
-          // ===================================================================
-          // MEMBER OPTIONS
-          // ===================================================================
 
           if (canLeaveGroup)
             IconButton(
@@ -527,22 +477,14 @@ class _StudyGroupDetailPageState
         ],
       ),
 
-
-      // =========================================================================
-      // BODY
-      // =========================================================================
-
-      body: SafeArea(
+      body:
+          SafeArea(
         child:
             _buildBody(),
       ),
     );
   }
 
-
-  // ===========================================================================
-  // BODY
-  // ===========================================================================
 
   Widget _buildBody() {
     if (_loading) {
@@ -552,9 +494,7 @@ class _StudyGroupDetailPageState
       );
     }
 
-
-    if (_error !=
-        null) {
+    if (_error != null) {
       return Center(
         child:
             ConstrainedBox(
@@ -584,7 +524,6 @@ class _StudyGroupDetailPageState
       );
     }
 
-
     return Center(
       child:
           LayoutBuilder(
@@ -600,7 +539,6 @@ class _StudyGroupDetailPageState
                   ? 900
                   : constraints
                       .maxWidth;
-
 
           return SizedBox(
             width:
@@ -622,21 +560,12 @@ class _StudyGroupDetailPageState
                 ),
 
                 children: [
-                  // ===========================================================
-                  // HEADER
-                  // ===========================================================
-
                   _buildGroupHeader(),
 
                   const SizedBox(
                     height:
                         16,
                   ),
-
-
-                  // ===========================================================
-                  // GUEST INFO
-                  // ===========================================================
 
                   if (isGuest) ...[
                     _buildGuestInfo(),
@@ -646,11 +575,6 @@ class _StudyGroupDetailPageState
                           16,
                     ),
                   ],
-
-
-                  // ===========================================================
-                  // NON MEMBER INFO
-                  // ===========================================================
 
                   if (isAuthenticated &&
                       !isCurrentUserMember &&
@@ -663,22 +587,12 @@ class _StudyGroupDetailPageState
                     ),
                   ],
 
-
-                  // ===========================================================
-                  // CHAT
-                  // ===========================================================
-
                   _buildChatCard(),
 
                   const SizedBox(
                     height:
                         12,
                   ),
-
-
-                  // ===========================================================
-                  // PARTECIPANTI
-                  // ===========================================================
 
                   _buildParticipantsCard(),
 
@@ -687,42 +601,47 @@ class _StudyGroupDetailPageState
                         28,
                   ),
 
+                    GroupMaterialSection(
+                      group:
+                          group,
 
-                  // ===========================================================
-                  // MATERIALI
-                  // ===========================================================
+                      materials:
+                          _materials,
 
-                  GroupMaterialSection(
-                    group:
-                        group,
+                      downloadedMaterialIds:
+                          _downloadedMaterialIds,
 
-                    materials:
-                        _materials,
+                      downloadingMaterialIds:
+                          _downloadingMaterialIds,
 
-                    loading:
-                        _loadingMaterials,
+                      loading:
+                          _loadingMaterials,
 
-                    canAddMaterial:
-                        canUploadMaterial,
+                      uploadingMaterial:
+                          _uploadingMaterial,
 
-                    canDeleteMaterial:
-                        canDeleteMaterial,
+                      canAddMaterial:
+                          isAuthenticated &&
+                          group.isOwner,
 
-                    onRefresh:
-                        _refreshMaterials,
+                      canDeleteMaterial:
+                          canDeleteMaterial,
 
-                    onAddMaterial:
-                        _addMaterial,
+                      onRefresh:
+                          _refreshMaterials,
 
-                    onOpenMaterial:
-                        _openMaterial,
+                      onAddMaterial:
+                          _addMaterial,
 
-                    onDownloadMaterial:
-                        _downloadMaterial,
+                      onOpenMaterial:
+                          _openMaterial,
 
-                    onDeleteMaterial:
-                        _deleteMaterial,
-                  ),
+                      onDownloadMaterial:
+                          _downloadMaterial,
+
+                      onDeleteMaterial:
+                          _deleteMaterial,
+                    ),
 
                   const SizedBox(
                     height:
@@ -738,10 +657,6 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // HEADER GRUPPO
-  // ===========================================================================
-
   Widget _buildGroupHeader() {
     return LayoutBuilder(
       builder:
@@ -753,18 +668,12 @@ class _StudyGroupDetailPageState
         final double width =
             constraints.maxWidth;
 
-
         final bool compact =
-            width <
-                380;
-
+            width < 380;
 
         final bool medium =
-            width >=
-                    380 &&
-                width <
-                    600;
-
+            width >= 380 &&
+                width < 600;
 
         final double padding =
             compact
@@ -773,7 +682,6 @@ class _StudyGroupDetailPageState
                     ? 17
                     : 20;
 
-
         final double iconSize =
             compact
                 ? 44
@@ -781,14 +689,12 @@ class _StudyGroupDetailPageState
                     ? 50
                     : 56;
 
-
         final double icon =
             compact
                 ? 23
                 : medium
                     ? 27
                     : 30;
-
 
         return Container(
           width:
@@ -879,11 +785,6 @@ class _StudyGroupDetailPageState
 
                   const Spacer(),
 
-
-                  // ===========================================================
-                  // OWNER
-                  // ===========================================================
-
                   if (group.isOwner)
                     _GroupHeaderBadge(
                       icon:
@@ -897,18 +798,12 @@ class _StudyGroupDetailPageState
                           compact,
                     ),
 
-
                   if (group.isOwner &&
                       group.isPrivate)
                     const SizedBox(
                       width:
                           7,
                     ),
-
-
-                  // ===========================================================
-                  // PRIVATE
-                  // ===========================================================
 
                   if (group.isPrivate)
                     _GroupHeaderBadge(
@@ -971,8 +866,7 @@ class _StudyGroupDetailPageState
               Text(
                 group.subject.isNotEmpty
                     ? group.subject
-                    : group.subjectId !=
-                            null
+                    : group.subjectId != null
                         ? 'Materia #${group.subjectId}'
                         : 'Materia non specificata',
 
@@ -1028,7 +922,6 @@ class _StudyGroupDetailPageState
                           : 12,
                 ),
               ),
-
 
               if (group.department
                   .isNotEmpty) ...[
@@ -1147,10 +1040,6 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // GUEST INFO
-  // ===========================================================================
-
   Widget _buildGuestInfo() {
     return Container(
       padding:
@@ -1206,10 +1095,10 @@ class _StudyGroupDetailPageState
             child:
                 Text(
               'Stai visualizzando il gruppo come Guest. '
-              'Puoi consultare le informazioni, vedere i partecipanti '
-              'e il materiale disponibile. Per utilizzare la chat '
-              'e partecipare alle attività del gruppo devi accedere '
-              'a StudentLab.',
+              'Puoi vedere partecipanti e materiali e scaricare '
+              'i file disponibili per consultarli offline. '
+              'Per utilizzare la chat, partecipare al gruppo '
+              'o condividere materiale devi accedere a StudentLab.',
 
               style:
                   TextStyle(
@@ -1232,10 +1121,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-
-  // ===========================================================================
-  // NON MEMBER INFO
-  // ===========================================================================
 
   Widget _buildNonMemberInfo() {
     return Container(
@@ -1288,8 +1173,8 @@ class _StudyGroupDetailPageState
           Expanded(
             child:
                 Text(
-              'Puoi esplorare questo gruppo, ma la chat è '
-              'riservata ai partecipanti.',
+              'Puoi esplorare il gruppo e scaricare il materiale, '
+              'ma la chat è riservata ai partecipanti.',
 
               style:
                   TextStyle(
@@ -1312,10 +1197,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-
-  // ===========================================================================
-  // CHAT
-  // ===========================================================================
 
   Widget _buildChatCard() {
     return _GroupActionCard(
@@ -1345,22 +1226,15 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // OPEN CHAT
-  // ===========================================================================
-
   void _openChat() {
     final SocialUser? user =
         currentUser;
 
-
-    if (user ==
-        null) {
+    if (user == null) {
       _showAuthenticationRequired();
 
       return;
     }
-
 
     if (!canUseGroupChat) {
       _showMessage(
@@ -1369,7 +1243,6 @@ class _StudyGroupDetailPageState
 
       return;
     }
-
 
     Navigator.of(
       context,
@@ -1395,10 +1268,6 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // PARTECIPANTI
-  // ===========================================================================
-
   Widget _buildParticipantsCard() {
     return _GroupActionCard(
       icon:
@@ -1422,10 +1291,6 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // OPEN PARTICIPANTS
-  // ===========================================================================
-
   void _openParticipants() {
     Navigator.of(
       context,
@@ -1442,16 +1307,11 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // GESTIONE GRUPPO
-  // ===========================================================================
-
   void _openGroupManagement() {
     if (!isAuthenticated ||
         !group.isOwner) {
       return;
     }
-
 
     Navigator.of(
       context,
@@ -1468,208 +1328,386 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // APRI MATERIALE
-  // ===========================================================================
+Future<void> _openMaterial(
+  _GroupMaterial material,
+) async {
+  try {
+    final File? localFile =
+        await _downloadService.getFile(
+      materialId: material.id,
+    );
 
-  Future<void> _openMaterial(
-    _GroupMaterial material,
-  ) async {
-    try {
-      final bytes =
-          await _apiService
-              .downloadGroupMaterial(
+    if (localFile != null) {
+      final bool exists =
+          await localFile.exists();
+
+      if (exists) {
+        final OpenResult result =
+            await OpenFilex.open(
+          localFile.path,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        if (result.type ==
+            ResultType.done) {
+          return;
+        }
+
+        if (result.type ==
+            ResultType.noAppToOpen) {
+          _showMessage(
+            'Nessuna applicazione installata può aprire questo file.',
+          );
+
+          return;
+        }
+
+        if (result.type ==
+            ResultType.permissionDenied) {
+          _showMessage(
+            'Permesso negato durante l\'apertura del file.',
+          );
+
+          return;
+        }
+
+        if (result.type ==
+            ResultType.fileNotFound) {
+          await _refreshDownloadedStates();
+
+          _showMessage(
+            'Il file locale non è più disponibile.',
+          );
+
+          return;
+        }
+
+        _showMessage(
+          result.message.isNotEmpty
+              ? result.message
+              : 'Impossibile aprire il file.',
+        );
+
+        return;
+      }
+    }
+
+    final DownloadedMaterialLocal downloaded =
+        await _downloadService.getOrDownload(
+      materialId: material.id,
+      groupId: group.id,
+      subjectId: group.subjectId,
+      subjectName: group.subject,
+      course: group.course,
+      department: group.department,
+      originalName: material.originalName,
+      mimeType: material.mimeType,
+      size: material.size,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _downloadedMaterialIds.add(
         material.id,
       );
+    });
 
+    final OpenResult result =
+        await OpenFilex.open(
+      downloaded.localPath,
+    );
 
-      if (!mounted) {
-        return;
-      }
-
-
-      // Per ora il backend restituisce correttamente
-      // il contenuto binario.
-      //
-      // Il viewer PDF/DOCX verrà collegato
-      // al servizio file locale.
-      _showMessage(
-        '${material.originalName} caricato '
-        '(${bytes.length} byte).',
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-
-      _showMessage(
-        'Errore apertura materiale: '
-        '${_cleanError(e)}',
-      );
+    if (!mounted) {
+      return;
     }
+
+    if (result.type ==
+        ResultType.done) {
+      return;
+    }
+
+    if (result.type ==
+        ResultType.noAppToOpen) {
+      _showMessage(
+        'Materiale scaricato, ma nessuna applicazione può aprire questo tipo di file.',
+      );
+
+      return;
+    }
+
+    if (result.type ==
+        ResultType.permissionDenied) {
+      _showMessage(
+        'Materiale scaricato, ma StudentLab non ha il permesso di aprirlo.',
+      );
+
+      return;
+    }
+
+    if (result.type ==
+        ResultType.fileNotFound) {
+      _showMessage(
+        'Il materiale è stato scaricato ma il file non è stato trovato.',
+      );
+
+      return;
+    }
+
+    _showMessage(
+      result.message.isNotEmpty
+          ? result.message
+          : 'Impossibile aprire il materiale.',
+    );
+  } catch (e) {
+    if (!mounted) {
+      return;
+    }
+
+    _showMessage(
+      'Errore apertura materiale: ${_cleanError(e)}',
+    );
   }
+}
 
-
-  // ===========================================================================
-  // DOWNLOAD MATERIALE
-  // ===========================================================================
 
   Future<void> _downloadMaterial(
     _GroupMaterial material,
   ) async {
-    try {
-      final bytes =
-          await _apiService
-              .downloadGroupMaterial(
+
+    if (_downloadingMaterialIds
+        .contains(
+      material.id,
+    )) {
+      return;
+    }
+
+    setState(() {
+      _downloadingMaterialIds.add(
         material.id,
       );
+    });
 
+    try {
+      final bool alreadyDownloaded =
+          await _downloadService
+              .isDownloaded(
+        materialId:
+            material.id,
+      );
+
+      final DownloadedMaterialLocal localMaterial =
+          await _downloadService
+              .getOrDownload(
+        materialId:
+            material.id,
+
+        groupId:
+            group.id,
+
+        subjectId:
+            group.subjectId,
+
+        subjectName:
+            group.subject,
+
+        course:
+            group.course,
+
+        department:
+            group.department,
+
+        originalName:
+            material.originalName,
+
+        mimeType:
+            material.mimeType,
+
+        size:
+            material.size,
+      );
 
       if (!mounted) {
         return;
       }
 
+      setState(() {
+        _downloadedMaterialIds.add(
+          material.id,
+        );
+      });
 
-      // Il download HTTP funziona.
-      //
-      // Il salvataggio definitivo sul filesystem
-      // deve passare dal MaterialDownloadService
-      // costruito nel local_storage.
-      _showMessage(
-        'Download ricevuto: '
-        '${material.originalName} '
-        '(${bytes.length} byte).',
+      if (alreadyDownloaded) {
+        _showMessage(
+          '${material.originalName} è già disponibile offline.',
+        );
+      } else {
+        _showMessage(
+          '${material.originalName} scaricato correttamente.',
+        );
+      }
+
+      debugPrint(
+        'Materiale locale: ${localMaterial.localPath}',
       );
     } catch (e) {
       if (!mounted) {
         return;
       }
-
 
       _showMessage(
         'Errore download materiale: '
         '${_cleanError(e)}',
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingMaterialIds.remove(
+            material.id,
+          );
+        });
+      }
     }
   }
 
 
-  // ===========================================================================
-  // AGGIUNGI MATERIALE
-  // ===========================================================================
+Future<void> _addMaterial() async {
+  if (_uploadingMaterial) {
+    return;
+  }
 
-  Future<void> _addMaterial() async {
-    if (!canUploadMaterial) {
-      if (isGuest) {
-        _showAuthenticationRequired();
-      } else {
-        _showMessage(
-          'Non hai i permessi per caricare materiale.',
-        );
-      }
-
-      return;
-    }
-
-
-    final SocialUser? user =
-        currentUser;
-
-
-    if (user ==
-        null) {
+  if (!canUploadMaterial) {
+    if (isGuest) {
       _showAuthenticationRequired();
+    } else {
+      _showMessage(
+        'Non hai i permessi per caricare materiale.',
+      );
+    }
+
+    return;
+  }
+
+  final SocialUser? user =
+      currentUser;
+
+  if (user == null) {
+    _showAuthenticationRequired();
+
+    return;
+  }
+
+  try {
+    final FilePickerResult? result =
+        await FilePicker.platform
+            .pickFiles(
+      allowMultiple:
+          false,
+
+      type:
+          FileType.custom,
+
+      allowedExtensions: [
+        'pdf',
+        'txt',
+        'zip',
+        'docx',
+        'pptx',
+      ],
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    final PlatformFile selectedFile =
+        result.files.single;
+
+    final String? filePath =
+        selectedFile.path;
+
+    if (filePath == null) {
+      _showMessage(
+        'Impossibile ottenere il percorso del file.',
+      );
 
       return;
     }
 
+    final int fileSize =
+        selectedFile.size;
 
-    try {
-      final FilePickerResult? result =
-          await FilePicker.platform
-              .pickFiles(
-        allowMultiple:
-            false,
-
-        type:
-            FileType.custom,
-
-        allowedExtensions: [
-          'pdf',
-          'txt',
-          'zip',
-          'docx',
-          'pptx',
-        ],
-      );
-
-
-      if (result ==
-          null) {
-        return;
-      }
-
-
-      final PlatformFile selectedFile =
-          result.files.single;
-
-
-      final String? filePath =
-          selectedFile.path;
-
-
-      if (filePath ==
-          null) {
-        _showMessage(
-          'Impossibile ottenere il percorso del file.',
-        );
-
-        return;
-      }
-
-
-      await _apiService
-          .addGroupMaterial(
-        groupId:
-            group.id,
-
-        uploadedBy:
-            user.id,
-
-        filePath:
-            filePath,
-      );
-
-
-      await _refreshMaterials();
-
-
-      if (!mounted) {
-        return;
-      }
-
-
+    if (fileSize <= 0) {
       _showMessage(
-        'Materiale caricato correttamente.',
+        'Il file è vuoto.',
       );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
 
+      return;
+    }
 
+    if (fileSize >
+        ApiService.maxMaterialFileSize) {
       _showMessage(
-        'Errore caricamento materiale: '
-        '${_cleanError(e)}',
+        'Il file supera la dimensione massima consentita di 250 MB.',
       );
+
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _uploadingMaterial =
+          true;
+    });
+
+    await _apiService
+        .addGroupMaterial(
+      groupId:
+          group.id,
+
+      uploadedBy:
+          user.id,
+
+      filePath:
+          filePath,
+    );
+
+    await _refreshMaterials();
+
+    if (!mounted) {
+      return;
+    }
+
+    _showMessage(
+      'Materiale caricato correttamente.',
+    );
+  } catch (e) {
+    if (!mounted) {
+      return;
+    }
+
+    _showMessage(
+      'Errore caricamento materiale: '
+      '${_cleanError(e)}',
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _uploadingMaterial =
+            false;
+      });
     }
   }
+}
 
-
-  // ===========================================================================
-  // ELIMINA MATERIALE
-  // ===========================================================================
 
   Future<void> _deleteMaterial(
     _GroupMaterial material,
@@ -1677,7 +1715,6 @@ class _StudyGroupDetailPageState
     if (!canDeleteMaterial) {
       return;
     }
-
 
     final bool? confirmed =
         await showDialog<bool>(
@@ -1757,12 +1794,9 @@ class _StudyGroupDetailPageState
       },
     );
 
-
-    if (confirmed !=
-        true) {
+    if (confirmed != true) {
       return;
     }
-
 
     try {
       await _apiService
@@ -1770,23 +1804,19 @@ class _StudyGroupDetailPageState
         material.id,
       );
 
-
       await _refreshMaterials();
-
 
       if (!mounted) {
         return;
       }
 
-
       _showMessage(
-        'Materiale eliminato.',
+        'Materiale eliminato dal gruppo.',
       );
     } catch (e) {
       if (!mounted) {
         return;
       }
-
 
       _showMessage(
         'Errore eliminazione materiale: '
@@ -1796,15 +1826,10 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // OPTIONS
-  // ===========================================================================
-
   void _showOptions() {
     if (!canLeaveGroup) {
       return;
     }
-
 
     showModalBottomSheet<void>(
       context:
@@ -1903,27 +1928,19 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // ESCI DAL GRUPPO
-  // ===========================================================================
-
   Future<void> _leaveGroup() async {
     final int? userId =
         currentUserId;
 
-
-    if (userId ==
-        null) {
+    if (userId == null) {
       _showAuthenticationRequired();
 
       return;
     }
 
-
     if (!canLeaveGroup) {
       return;
     }
-
 
     final bool? confirmed =
         await showDialog<bool>(
@@ -2002,18 +2019,14 @@ class _StudyGroupDetailPageState
       },
     );
 
-
-    if (confirmed !=
-        true) {
+    if (confirmed != true) {
       return;
     }
-
 
     setState(() {
       _leavingGroup =
           true;
     });
-
 
     try {
       await _apiService
@@ -2025,16 +2038,13 @@ class _StudyGroupDetailPageState
             userId,
       );
 
-
       if (!mounted) {
         return;
       }
 
-
       _showMessage(
         'Hai lasciato il gruppo.',
       );
-
 
       Navigator.of(
         context,
@@ -2045,7 +2055,6 @@ class _StudyGroupDetailPageState
       if (!mounted) {
         return;
       }
-
 
       _showMessage(
         'Errore durante l\'uscita dal gruppo: '
@@ -2062,10 +2071,6 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // AUTH REQUIRED
-  // ===========================================================================
-
   void _showAuthenticationRequired() {
     _showMessage(
       'Accedi a StudentLab per utilizzare questa funzione.',
@@ -2073,17 +2078,12 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // MESSAGE
-  // ===========================================================================
-
   void _showMessage(
     String message,
   ) {
     if (!mounted) {
       return;
     }
-
 
     ScaffoldMessenger.of(
       context,
@@ -2098,16 +2098,11 @@ class _StudyGroupDetailPageState
   }
 
 
-  // ===========================================================================
-  // CLEAN ERROR
-  // ===========================================================================
-
   String _cleanError(
     Object error,
   ) {
     String message =
         error.toString();
-
 
     if (message.startsWith(
       'Exception: ',
@@ -2118,14 +2113,9 @@ class _StudyGroupDetailPageState
       );
     }
 
-
     return message;
   }
 
-
-  // ===========================================================================
-  // INT
-  // ===========================================================================
 
   static int? _toInt(
     dynamic value,
@@ -2134,11 +2124,9 @@ class _StudyGroupDetailPageState
       return value;
     }
 
-
     if (value is num) {
       return value.toInt();
     }
-
 
     return int.tryParse(
       value?.toString() ??
@@ -2148,23 +2136,14 @@ class _StudyGroupDetailPageState
 }
 
 
-// =============================================================================
-// MODEL MATERIALE BACKEND
-// =============================================================================
-
 class _GroupMaterial {
   final int id;
-
   final int groupId;
-
   final int uploadedBy;
 
   final String originalName;
-
   final String storedName;
-
   final String filePath;
-
   final String mimeType;
 
   final int size;
@@ -2185,14 +2164,9 @@ class _GroupMaterial {
   });
 
 
-  // ===========================================================================
-  // FROM JSON
-  // ===========================================================================
-
   factory _GroupMaterial.fromJson(
     Map<String, dynamic> json,
   ) {
-
     return _GroupMaterial(
       id:
           _toInt(
@@ -2248,16 +2222,11 @@ class _GroupMaterial {
   }
 
 
-  // ===========================================================================
-  // TYPE
-  // ===========================================================================
-
   String get type {
     if (mimeType ==
         'application/pdf') {
       return 'PDF';
     }
-
 
     if (mimeType.contains(
       'wordprocessingml',
@@ -2265,54 +2234,39 @@ class _GroupMaterial {
       return 'DOCX';
     }
 
-
     if (mimeType.contains(
       'presentationml',
     )) {
       return 'PPTX';
     }
 
-
     if (mimeType ==
         'application/zip') {
       return 'ZIP';
     }
-
 
     if (mimeType ==
         'text/plain') {
       return 'TXT';
     }
 
-
     return 'FILE';
   }
 
 
-  // ===========================================================================
-  // FORMATTED SIZE
-  // ===========================================================================
-
   String get formattedSize {
-    if (size <
-        1024) {
+    if (size < 1024) {
       return '$size B';
     }
-
 
     if (size <
         1024 * 1024) {
       return '${(size / 1024).toStringAsFixed(1)} KB';
     }
 
-
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-
-  // ===========================================================================
-  // INT
-  // ===========================================================================
 
   static int? _toInt(
     dynamic value,
@@ -2321,11 +2275,9 @@ class _GroupMaterial {
       return value;
     }
 
-
     if (value is num) {
       return value.toInt();
     }
-
 
     return int.tryParse(
       value?.toString() ??
@@ -2335,17 +2287,11 @@ class _GroupMaterial {
 }
 
 
-// =============================================================================
-// HEADER BADGE
-// =============================================================================
-
 class _GroupHeaderBadge
     extends StatelessWidget {
 
   final IconData icon;
-
   final String label;
-
   final bool compact;
 
 
@@ -2441,17 +2387,11 @@ class _GroupHeaderBadge
 }
 
 
-// =============================================================================
-// HEADER INFO
-// =============================================================================
-
 class _GroupHeaderInfo
     extends StatelessWidget {
 
   final IconData icon;
-
   final String text;
-
   final bool compact;
 
 
@@ -2514,10 +2454,6 @@ class _GroupHeaderInfo
 }
 
 
-// =============================================================================
-// MATERIALI DEL GRUPPO
-// =============================================================================
-
 class GroupMaterialSection
     extends StatelessWidget {
 
@@ -2525,11 +2461,17 @@ class GroupMaterialSection
 
   final List<_GroupMaterial> materials;
 
+  final Set<int> downloadedMaterialIds;
+
+  final Set<int> downloadingMaterialIds;
+
   final bool loading;
 
   final bool canAddMaterial;
 
   final bool canDeleteMaterial;
+
+  final bool uploadingMaterial;
 
   final Future<void> Function()
       onRefresh;
@@ -2554,7 +2496,10 @@ class GroupMaterialSection
     super.key,
     required this.group,
     required this.materials,
+    required this.downloadedMaterialIds,
+    required this.downloadingMaterialIds,
     required this.loading,
+    required this.uploadingMaterial,
     required this.canAddMaterial,
     required this.canDeleteMaterial,
     required this.onRefresh,
@@ -2705,23 +2650,18 @@ class GroupMaterialSection
             final double width =
                 constraints.maxWidth;
 
-
             int columns;
 
-
-            if (width <
-                420) {
+            if (width < 420) {
               columns =
                   1;
-            } else if (width <
-                760) {
+            } else if (width < 760) {
               columns =
                   2;
             } else {
               columns =
                   3;
             }
-
 
             final int itemCount =
                 materials.length +
@@ -2731,12 +2671,9 @@ class GroupMaterialSection
                           : 0
                     );
 
-
-            if (itemCount ==
-                0) {
+            if (itemCount == 0) {
               return const _EmptyGroupMaterials();
             }
-
 
             return GridView.builder(
               shrinkWrap:
@@ -2760,8 +2697,7 @@ class GroupMaterialSection
                     14,
 
                 mainAxisExtent:
-                    columns ==
-                            1
+                    columns == 1
                         ? 175
                         : 190,
               ),
@@ -2773,26 +2709,38 @@ class GroupMaterialSection
               ) {
 
                 if (canAddMaterial &&
-                    index ==
-                        0) {
-                  return _AddGroupMaterialCard(
-                    onTap:
-                        onAddMaterial,
-                  );
-                }
+                      index == 0) {
+                    return _AddGroupMaterialCard(
+                      uploading:
+                          uploadingMaterial,
 
+                      onTap:
+                          uploadingMaterial
+                              ? null
+                              : onAddMaterial,
+                    );
+                  }
 
                 final int materialIndex =
                     canAddMaterial
-                        ? index -
-                            1
+                        ? index - 1
                         : index;
-
 
                 final _GroupMaterial material =
                     materials[
                         materialIndex];
 
+                final bool downloaded =
+                    downloadedMaterialIds
+                        .contains(
+                  material.id,
+                );
+
+                final bool downloading =
+                    downloadingMaterialIds
+                        .contains(
+                  material.id,
+                );
 
                 return _GroupMaterialCard(
                   material:
@@ -2800,6 +2748,12 @@ class GroupMaterialSection
 
                   canDelete:
                       canDeleteMaterial,
+
+                  downloaded:
+                      downloaded,
+
+                  downloading:
+                      downloading,
 
                   onOpen:
                       () {
@@ -2832,18 +2786,17 @@ class GroupMaterialSection
 }
 
 
-// =============================================================================
-// ADD MATERIAL CARD
-// =============================================================================
-
 class _AddGroupMaterialCard
     extends StatelessWidget {
 
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+
+  final bool uploading;
 
 
   const _AddGroupMaterialCard({
     required this.onTap,
+    required this.uploading,
   });
 
 
@@ -2893,32 +2846,52 @@ class _AddGroupMaterialCard
           ),
 
           child:
-              const Column(
+              Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
 
             children: [
-              Icon(
-                Icons
-                    .add_circle_outline_rounded,
+              if (uploading)
+                const SizedBox(
+                  width:
+                      35,
 
-                color:
-                    AppColors.skyBlue,
+                  height:
+                      35,
 
-                size:
-                    35,
-              ),
+                  child:
+                      CircularProgressIndicator(
+                    strokeWidth:
+                        3,
 
-              SizedBox(
+                    color:
+                        AppColors.skyBlue,
+                  ),
+                )
+              else
+                const Icon(
+                  Icons
+                      .add_circle_outline_rounded,
+
+                  color:
+                      AppColors.skyBlue,
+
+                  size:
+                      35,
+                ),
+
+              const SizedBox(
                 height:
                     18,
               ),
 
               Text(
-                'Aggiungi materiale',
+                uploading
+                    ? 'Caricamento...'
+                    : 'Aggiungi materiale',
 
                 style:
-                    TextStyle(
+                    const TextStyle(
                   color:
                       AppColors.pureWhite,
 
@@ -2930,16 +2903,18 @@ class _AddGroupMaterialCard
                 ),
               ),
 
-              SizedBox(
+              const SizedBox(
                 height:
                     6,
               ),
 
               Text(
-                'Condividi un nuovo file',
+                uploading
+                    ? 'Invio del file in corso'
+                    : 'Condividi un nuovo file',
 
                 style:
-                    TextStyle(
+                    const TextStyle(
                   color:
                       Colors.white60,
 
@@ -2948,13 +2923,16 @@ class _AddGroupMaterialCard
                 ),
               ),
 
-              Spacer(),
+              const Spacer(),
 
               Row(
                 children: [
                   Icon(
-                    Icons
-                        .cloud_upload_outlined,
+                    uploading
+                        ? Icons
+                            .cloud_sync_outlined
+                        : Icons
+                            .cloud_upload_outlined,
 
                     color:
                         AppColors.materialSky,
@@ -2963,16 +2941,18 @@ class _AddGroupMaterialCard
                         16,
                   ),
 
-                  SizedBox(
+                  const SizedBox(
                     width:
                         5,
                   ),
 
                   Text(
-                    'Carica nel gruppo',
+                    uploading
+                        ? 'Attendi il completamento'
+                        : 'Carica nel gruppo',
 
                     style:
-                        TextStyle(
+                        const TextStyle(
                       color:
                           AppColors.materialSky,
 
@@ -2991,16 +2971,16 @@ class _AddGroupMaterialCard
 }
 
 
-// =============================================================================
-// MATERIAL CARD
-// =============================================================================
-
 class _GroupMaterialCard
     extends StatelessWidget {
 
   final _GroupMaterial material;
 
   final bool canDelete;
+
+  final bool downloaded;
+
+  final bool downloading;
 
   final VoidCallback onOpen;
 
@@ -3012,6 +2992,8 @@ class _GroupMaterialCard
   const _GroupMaterialCard({
     required this.material,
     required this.canDelete,
+    required this.downloaded,
+    required this.downloading,
     required this.onOpen,
     required this.onDownload,
     required this.onDelete,
@@ -3056,10 +3038,15 @@ class _GroupMaterialCard
             border:
                 Border.all(
               color:
-                  AppColors.skyBlue
-                      .withOpacity(
-                0.18,
-              ),
+                  downloaded
+                      ? Colors.greenAccent
+                          .withOpacity(
+                          0.20,
+                        )
+                      : AppColors.skyBlue
+                          .withOpacity(
+                          0.18,
+                        ),
             ),
           ),
 
@@ -3108,6 +3095,27 @@ class _GroupMaterialCard
                   ),
 
                   const Spacer(),
+
+                  if (downloaded)
+                    const Padding(
+                      padding:
+                          EdgeInsets.only(
+                        right:
+                            4,
+                      ),
+
+                      child:
+                          Icon(
+                        Icons
+                            .check_circle_rounded,
+
+                        color:
+                            Colors.greenAccent,
+
+                        size:
+                            18,
+                      ),
+                    ),
 
                   PopupMenuButton<String>(
                     tooltip:
@@ -3170,18 +3178,25 @@ class _GroupMaterialCard
                           ),
                         ),
 
-                        const PopupMenuItem<String>(
+                        PopupMenuItem<String>(
                           value:
                               'download',
 
+                          enabled:
+                              !downloading,
+
                           child:
                               Text(
-                            'Scarica',
+                            downloaded
+                                ? 'Già scaricato'
+                                : 'Scarica offline',
 
                             style:
                                 TextStyle(
                               color:
-                                  AppColors.pureWhite,
+                                  downloaded
+                                      ? Colors.greenAccent
+                                      : AppColors.pureWhite,
                             ),
                           ),
                         ),
@@ -3241,15 +3256,24 @@ class _GroupMaterialCard
               ),
 
               Text(
-                material.type,
+                downloaded
+                    ? 'Disponibile offline'
+                    : material.type,
 
                 style:
-                    const TextStyle(
+                    TextStyle(
                   color:
-                      Colors.white60,
+                      downloaded
+                          ? Colors.greenAccent
+                          : Colors.white60,
 
                   fontSize:
                       11,
+
+                  fontWeight:
+                      downloaded
+                          ? FontWeight.w500
+                          : FontWeight.normal,
                 ),
               ),
 
@@ -3295,29 +3319,50 @@ class _GroupMaterialCard
                     ),
                   ),
 
-                  InkWell(
-                    onTap:
-                        onDownload,
+                  if (downloading)
+                    const SizedBox(
+                      width:
+                          18,
 
-                    child:
-                        const Padding(
-                      padding:
-                          EdgeInsets.all(
-                        5,
-                      ),
+                      height:
+                          18,
 
                       child:
-                          Icon(
-                        Icons.download_rounded,
+                          CircularProgressIndicator(
+                        strokeWidth:
+                            2,
+                      ),
+                    )
+                  else
+                    InkWell(
+                      onTap:
+                          onDownload,
 
-                        color:
-                            AppColors.materialSky,
+                      child:
+                          Padding(
+                        padding:
+                            const EdgeInsets.all(
+                          5,
+                        ),
 
-                        size:
-                            18,
+                        child:
+                            Icon(
+                          downloaded
+                              ? Icons
+                                  .check_circle_outline_rounded
+                              : Icons
+                                  .download_rounded,
+
+                          color:
+                              downloaded
+                                  ? Colors.greenAccent
+                                  : AppColors.materialSky,
+
+                          size:
+                              18,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -3328,10 +3373,6 @@ class _GroupMaterialCard
   }
 }
 
-
-// =============================================================================
-// EMPTY MATERIALS
-// =============================================================================
 
 class _EmptyGroupMaterials
     extends StatelessWidget {
@@ -3412,23 +3453,14 @@ class _EmptyGroupMaterials
 }
 
 
-// =============================================================================
-// GROUP ACTION CARD
-// =============================================================================
-
 class _GroupActionCard
     extends StatelessWidget {
 
   final IconData icon;
-
   final String title;
-
   final String description;
-
   final String counter;
-
   final bool enabled;
-
   final VoidCallback onTap;
 
 
@@ -3456,7 +3488,6 @@ class _GroupActionCard
         final bool compact =
             constraints.maxWidth <
                 360;
-
 
         return Material(
           color:
@@ -3663,10 +3694,6 @@ class _GroupActionCard
   }
 }
 
-
-// =============================================================================
-// ERROR
-// =============================================================================
 
 class _GroupErrorCard
     extends StatelessWidget {

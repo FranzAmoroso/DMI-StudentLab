@@ -1,269 +1,783 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-
-import 'models/subject_notebook.dart';
-import 'models/study_material.dart';
-
-import 'widgets/subject_notebook_card.dart';
-import 'widgets/material_card.dart';
+import 'package:open_filex/open_filex.dart';
 
 import 'package:fe/theme/nightTheme.dart';
 
+import 'package:fe/material/models/subject_notebook.dart';
+import 'package:fe/material/models/study_material.dart';
+
+import 'package:fe/material/widgets/subject_notebook_card.dart';
+import 'package:fe/material/widgets/material_card.dart';
+
+import 'package:fe/local_storage/models/downloaded_material_local.dart';
+import 'package:fe/local_storage/services/material_download_service.dart';
+
+
 class StudentMaterialPage extends StatefulWidget {
-  const StudentMaterialPage({super.key});
+  const StudentMaterialPage({
+    super.key,
+  });
 
   @override
-  State<StudentMaterialPage> createState() => _StudentMaterialPageState();
+  State<StudentMaterialPage> createState() =>
+      _StudentMaterialPageState();
 }
 
-class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
-  SubjectNotebook? selectedSubject;
+class _StudentMaterialPageState
+    extends State<StudentMaterialPage> {
 
-  final List<SubjectNotebook> subjects = const [
+  final MaterialDownloadService _downloadService =
+      MaterialDownloadService();
 
-    SubjectNotebook(
-      id: 'algebra',
-      name: 'Algebra Lineare',
-      course: 'Matematica',
-      department: 'DMI',
-      materialCount: 12,
-    ),
+  List<DownloadedMaterialLocal> _downloadedMaterials =
+      [];
 
-    SubjectNotebook(
-      id: 'programmazione1',
-      name: 'Programmazione 1',
-      course: 'Scienze e Tecnologie Informatiche',
-      department: 'DMI',
-      materialCount: 8,
-    ),
+  List<SubjectNotebook> _subjects =
+      [];
 
-    SubjectNotebook(
-      id: 'architettura',
-      name: 'Architettura degli Elaboratori',
-      course: 'Informatica',
-      department: 'DMI',
-      materialCount: 5,
-    ),
+  SubjectNotebook? _selectedSubject;
 
-    SubjectNotebook(
-      id: 'multimedia',
-      name: 'Interazione e Multimedia',
-      course: 'Informatica',
-      department: 'DMI',
-      materialCount: 14,
-    ),
-  ];
+  bool _loading =
+      true;
 
-  final List<StudyMaterial> materials = const [
+  String? _error;
 
-    StudyMaterial(
-      id: '1',
-      name: 'Puntatori e memoria.pdf',
-      type: 'PDF',
-      size: '2.4 MB',
-    ),
-
-    StudyMaterial(
-      id: '2',
-      name: 'Array e strutture dati.pdf',
-      type: 'PDF',
-      size: '1.8 MB',
-    ),
-
-    StudyMaterial(
-      id: '3',
-      name: 'Appunti lezione 12',
-      type: 'Document',
-      size: '540 KB',
-    ),
-
-    StudyMaterial(
-      id: '4',
-      name: 'Esercizi programmazione.pdf',
-      type: 'PDF',
-      size: '3.1 MB',
-    ),
-  ];
 
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
 
-    if (selectedSubject == null) {
+    _loadMaterials();
+  }
+
+
+  Future<void> _loadMaterials() async {
+    if (mounted) {
+      setState(() {
+        _loading =
+            true;
+
+        _error =
+            null;
+      });
+    }
+
+    try {
+      final List<DownloadedMaterialLocal> materials =
+          await _downloadService
+              .getDownloadedMaterials();
+
+      final List<SubjectNotebook> subjects =
+          _buildSubjects(
+        materials,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      SubjectNotebook? selectedSubject =
+          _selectedSubject;
+
+      if (selectedSubject != null) {
+        final SubjectNotebook? updatedSubject =
+            _findSubject(
+          subjects,
+          selectedSubject.id,
+        );
+
+        selectedSubject =
+            updatedSubject;
+      }
+
+      setState(() {
+        _downloadedMaterials =
+            materials;
+
+        _subjects =
+            subjects;
+
+        _selectedSubject =
+            selectedSubject;
+
+        _loading =
+            false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loading =
+            false;
+
+        _error =
+            _cleanError(
+          e,
+        );
+      });
+    }
+  }
+
+
+  SubjectNotebook? _findSubject(
+    List<SubjectNotebook> subjects,
+    String id,
+  ) {
+    for (final SubjectNotebook subject
+        in subjects) {
+      if (subject.id ==
+          id) {
+        return subject;
+      }
+    }
+
+    return null;
+  }
+
+
+  List<SubjectNotebook> _buildSubjects(
+    List<DownloadedMaterialLocal> materials,
+  ) {
+    final Map<String, List<DownloadedMaterialLocal>>
+        grouped =
+        {};
+
+    for (final DownloadedMaterialLocal material
+        in materials) {
+
+      final String subjectName =
+          material.subjectName
+                  ?.trim() ??
+              '';
+
+      if (material.subjectId ==
+              null &&
+          subjectName.isEmpty) {
+        continue;
+      }
+
+      final String key;
+
+      if (material.subjectId !=
+          null) {
+        key =
+            'id:${material.subjectId}';
+      } else {
+        key =
+            'name:${subjectName.toLowerCase()}';
+      }
+
+      grouped.putIfAbsent(
+        key,
+        () =>
+            [],
+      );
+
+      grouped[key]!.add(
+        material,
+      );
+    }
+
+    final List<SubjectNotebook> subjects =
+        [];
+
+    for (final MapEntry<
+            String,
+            List<DownloadedMaterialLocal>>
+        entry in grouped.entries) {
+
+      if (entry.value.isEmpty) {
+        continue;
+      }
+
+      final DownloadedMaterialLocal first =
+          entry.value.first;
+
+      final String subjectName;
+
+      if (first.subjectName !=
+              null &&
+          first.subjectName!
+              .trim()
+              .isNotEmpty) {
+        subjectName =
+            first.subjectName!
+                .trim();
+      } else if (first.subjectId !=
+          null) {
+        subjectName =
+            'Materia #${first.subjectId}';
+      } else {
+        subjectName =
+            'Materia';
+      }
+
+      final String course;
+
+      if (first.course !=
+              null &&
+          first.course!
+              .trim()
+              .isNotEmpty) {
+        course =
+            first.course!
+                .trim();
+      } else {
+        course =
+            'Corso non specificato';
+      }
+
+      final String department;
+
+      if (first.department !=
+              null &&
+          first.department!
+              .trim()
+              .isNotEmpty) {
+        department =
+            first.department!
+                .trim();
+      } else {
+        department =
+            'Dipartimento non specificato';
+      }
+
+      subjects.add(
+        SubjectNotebook(
+          id:
+              entry.key,
+
+          name:
+              subjectName,
+
+          course:
+              course,
+
+          department:
+              department,
+
+          materialCount:
+              entry.value.length,
+        ),
+      );
+    }
+
+    subjects.sort(
+      (
+        SubjectNotebook a,
+        SubjectNotebook b,
+      ) =>
+          a.name
+              .toLowerCase()
+              .compareTo(
+                b.name
+                    .toLowerCase(),
+              ),
+    );
+
+    return subjects;
+  }
+
+
+  List<DownloadedMaterialLocal>
+      get _selectedMaterials {
+
+    final SubjectNotebook? subject =
+        _selectedSubject;
+
+    if (subject ==
+        null) {
+      return [];
+    }
+
+    final List<DownloadedMaterialLocal>
+        materials =
+        _downloadedMaterials.where(
+      (
+        DownloadedMaterialLocal material,
+      ) {
+        if (subject.id.startsWith(
+          'id:',
+        )) {
+          final int? subjectId =
+              int.tryParse(
+            subject.id.substring(
+              3,
+            ),
+          );
+
+          return material.subjectId ==
+              subjectId;
+        }
+
+        if (subject.id.startsWith(
+          'name:',
+        )) {
+          final String subjectName =
+              subject.id
+                  .substring(
+                    5,
+                  )
+                  .trim()
+                  .toLowerCase();
+
+          final String materialSubject =
+              material.subjectName
+                      ?.trim()
+                      .toLowerCase() ??
+                  '';
+
+          return materialSubject ==
+              subjectName;
+        }
+
+        return false;
+      },
+    ).toList();
+
+    materials.sort(
+      (
+        DownloadedMaterialLocal a,
+        DownloadedMaterialLocal b,
+      ) =>
+          b.downloadedAt.compareTo(
+            a.downloadedAt,
+          ),
+    );
+
+    return materials;
+  }
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    if (_selectedSubject ==
+        null) {
       return _buildSubjectSelection();
     }
 
     return _buildMaterialList();
   }
 
+
   Widget _buildSubjectSelection() {
-
     return Scaffold(
-      backgroundColor: AppColors.darkElegance,
+      backgroundColor:
+          AppColors.darkElegance,
 
-      appBar: AppBar(
-        backgroundColor: AppColors.brandNightBlue,
-        foregroundColor: AppColors.pureWhite,
+      appBar:
+          AppBar(
+        backgroundColor:
+            AppColors.brandNightBlue,
 
-        title: const Text(
+        foregroundColor:
+            AppColors.pureWhite,
+
+        title:
+            const Text(
           'Materiale',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w500,
+
+          style:
+              TextStyle(
+            fontSize:
+                20,
+
+            fontWeight:
+                FontWeight.w500,
           ),
         ),
+
+        actions: [
+          IconButton(
+            tooltip:
+                'Aggiorna',
+
+            onPressed:
+                _loading
+                    ? null
+                    : _loadMaterials,
+
+            icon:
+                const Icon(
+              Icons.refresh_rounded,
+            ),
+          ),
+        ],
       ),
 
-      body: SafeArea(
-        child: Center(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-
-              final bool largeScreen =
-                  constraints.maxWidth > 700;
-
-              final double width =
-                  largeScreen
-                      ? 700
-                      : constraints.maxWidth;
-
-              return SizedBox(
-                width: width,
-
-                child: GridView.builder(
-                  padding: const EdgeInsets.all(20),
-
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 0.95,
-                  ),
-
-                  itemCount: subjects.length,
-
-                  itemBuilder: (context, index) {
-
-                    final subject = subjects[index];
-
-                    return SubjectNotebookCard(
-                      subject: subject,
-
-                      onTap: () {
-
-                        setState(() {
-                          selectedSubject = subject;
-                        });
-
-                      },
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-        ),
+      body:
+          SafeArea(
+        child:
+            _buildSubjectBody(),
       ),
     );
   }
 
+
+  Widget _buildSubjectBody() {
+    if (_loading) {
+      return const Center(
+        child:
+            CircularProgressIndicator(),
+      );
+    }
+
+    if (_error !=
+        null) {
+      return Center(
+        child:
+            Padding(
+          padding:
+              const EdgeInsets.all(
+            20,
+          ),
+
+          child:
+              _buildErrorCard(),
+        ),
+      );
+    }
+
+    if (_subjects.isEmpty) {
+      return RefreshIndicator(
+        onRefresh:
+            _loadMaterials,
+
+        child:
+            ListView(
+          physics:
+              const AlwaysScrollableScrollPhysics(),
+
+          padding:
+              const EdgeInsets.all(
+            20,
+          ),
+
+          children: [
+            const SizedBox(
+              height:
+                  80,
+            ),
+
+            _buildEmptyLibrary(),
+          ],
+        ),
+      );
+    }
+
+    return Center(
+      child:
+          LayoutBuilder(
+        builder:
+            (
+          context,
+          constraints,
+        ) {
+
+          final double width =
+              constraints.maxWidth >
+                      900
+                  ? 900
+                  : constraints
+                      .maxWidth;
+
+          int columns =
+              2;
+
+          if (width <
+              430) {
+            columns =
+                1;
+          } else if (width >=
+              750) {
+            columns =
+                3;
+          }
+
+          return SizedBox(
+            width:
+                width,
+
+            child:
+                RefreshIndicator(
+              onRefresh:
+                  _loadMaterials,
+
+              child:
+                  GridView.builder(
+                physics:
+                    const AlwaysScrollableScrollPhysics(),
+
+                padding:
+                    const EdgeInsets.all(
+                  20,
+                ),
+
+                itemCount:
+                    _subjects.length,
+
+                gridDelegate:
+                    SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount:
+                      columns,
+
+                  crossAxisSpacing:
+                      14,
+
+                  mainAxisSpacing:
+                      14,
+
+                  mainAxisExtent:
+                      205,
+                ),
+
+                itemBuilder:
+                    (
+                  context,
+                  index,
+                ) {
+
+                  final SubjectNotebook subject =
+                      _subjects[index];
+
+                  return SubjectNotebookCard(
+                    subject:
+                        subject,
+
+                    onTap:
+                        () {
+                      setState(() {
+                        _selectedSubject =
+                            subject;
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+
   Widget _buildMaterialList() {
+    final SubjectNotebook subject =
+        _selectedSubject!;
+
+    final List<DownloadedMaterialLocal>
+        materials =
+        _selectedMaterials;
 
     return Scaffold(
-      backgroundColor: AppColors.darkElegance,
+      backgroundColor:
+          AppColors.darkElegance,
 
-      appBar: AppBar(
-        backgroundColor: AppColors.brandNightBlue,
-        foregroundColor: AppColors.pureWhite,
+      appBar:
+          AppBar(
+        backgroundColor:
+            AppColors.brandNightBlue,
 
-        leading: IconButton(
-          icon: const Icon(
+        foregroundColor:
+            AppColors.pureWhite,
+
+        leading:
+            IconButton(
+          icon:
+              const Icon(
             Icons.arrow_back_rounded,
           ),
 
-          onPressed: () {
-
+          onPressed:
+              () {
             setState(() {
-              selectedSubject = null;
+              _selectedSubject =
+                  null;
             });
-
           },
         ),
 
-        title: Text(
-          selectedSubject!.name,
+        title:
+            Text(
+          subject.name,
 
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
+          maxLines:
+              1,
+
+          overflow:
+              TextOverflow.ellipsis,
+
+          style:
+              const TextStyle(
+            fontSize:
+                18,
+
+            fontWeight:
+                FontWeight.w500,
           ),
         ),
+
+        actions: [
+          IconButton(
+            tooltip:
+                'Aggiorna',
+
+            onPressed:
+                _loading
+                    ? null
+                    : _loadMaterials,
+
+            icon:
+                const Icon(
+              Icons.refresh_rounded,
+            ),
+          ),
+        ],
       ),
 
-      body: SafeArea(
-        child: Center(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-
-              final bool largeScreen =
-                  constraints.maxWidth > 700;
+      body:
+          SafeArea(
+        child:
+            Center(
+          child:
+              LayoutBuilder(
+            builder:
+                (
+              context,
+              constraints,
+            ) {
 
               final double width =
-                  largeScreen
-                      ? 700
-                      : constraints.maxWidth;
+                  constraints.maxWidth >
+                          750
+                      ? 750
+                      : constraints
+                          .maxWidth;
 
               return SizedBox(
-                width: width,
+                width:
+                    width,
 
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
+                child:
+                    _loading
+                        ? const Center(
+                            child:
+                                CircularProgressIndicator(),
+                          )
+                        : RefreshIndicator(
+                            onRefresh:
+                                _loadMaterials,
 
-                  children: [
+                            child:
+                                ListView(
+                              physics:
+                                  const AlwaysScrollableScrollPhysics(),
 
-                    _buildAddMaterialButton(),
+                              padding:
+                                  const EdgeInsets.all(
+                                20,
+                              ),
 
-                    const SizedBox(height: 28),
+                              children: [
+                                _buildSubjectHeader(
+                                  subject,
+                                  materials.length,
+                                ),
 
-                    const Text(
-                      'Materiali disponibili',
+                                const SizedBox(
+                                  height:
+                                      26,
+                                ),
 
-                      style: TextStyle(
-                        color: AppColors.pureWhite,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                                const Text(
+                                  'Disponibili offline',
 
-                    const SizedBox(height: 14),
+                                  style:
+                                      TextStyle(
+                                    color:
+                                        AppColors.pureWhite,
 
-                    if (materials.isEmpty)
+                                    fontSize:
+                                        20,
 
-                      _buildEmptyMaterials()
+                                    fontWeight:
+                                        FontWeight.bold,
+                                  ),
+                                ),
 
-                    else
+                                const SizedBox(
+                                  height:
+                                      6,
+                                ),
 
-                      ...materials.map(
-                        (material) {
+                                Text(
+                                  materials.length ==
+                                          1
+                                      ? '1 materiale salvato in StudentLab.'
+                                      : '${materials.length} materiali salvati in StudentLab.',
 
-                          return Padding(
-                            padding:
-                                const EdgeInsets.only(
-                              bottom: 10,
+                                  style:
+                                      TextStyle(
+                                    color:
+                                        AppColors.pureWhite
+                                            .withOpacity(
+                                      0.48,
+                                    ),
+
+                                    fontSize:
+                                        11,
+                                  ),
+                                ),
+
+                                const SizedBox(
+                                  height:
+                                      14,
+                                ),
+
+                                if (materials.isEmpty)
+                                  _buildEmptyMaterials()
+                                else
+                                  ...materials.map(
+                                    (
+                                      DownloadedMaterialLocal
+                                          localMaterial,
+                                    ) {
+
+                                      return Padding(
+                                        padding:
+                                            const EdgeInsets.only(
+                                          bottom:
+                                              10,
+                                        ),
+
+                                        child:
+                                            MaterialCard(
+                                          material:
+                                              _toStudyMaterial(
+                                            localMaterial,
+                                          ),
+
+                                          onTap:
+                                              () {
+                                            _openMaterial(
+                                              localMaterial,
+                                            );
+                                          },
+                                        ),
+                                      );
+                                    },
+                                  ),
+                              ],
                             ),
-
-                            child: MaterialCard(
-                              material: material,
-
-                              onTap: () {
-                                _openMaterial(material);
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                  ],
-                ),
+                          ),
               );
             },
           ),
@@ -273,124 +787,196 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   }
 
 
-  Widget _buildAddMaterialButton() {
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-
-      onTap: _addMaterial,
-
-      child: Container(
-        width: double.infinity,
-
-        padding: const EdgeInsets.all(18),
-
-        decoration: BoxDecoration(
-          color: AppColors.brandNightBlue,
-
-          borderRadius:
-              BorderRadius.circular(16),
-
-          border: Border.all(
-            color: AppColors.skyBlue
-                .withOpacity(0.25),
-          ),
-        ),
-
-        child: Row(
-          children: [
-
-            Container(
-              width: 45,
-              height: 45,
-
-              decoration: BoxDecoration(
-                color: AppColors.skyBlue
-                    .withOpacity(0.15),
-
-                borderRadius:
-                    BorderRadius.circular(12),
-              ),
-
-              child: const Icon(
-                Icons.add_rounded,
-                color: AppColors.skyBlue,
-              ),
-            ),
-
-            const SizedBox(width: 14),
-
-            const Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
-                children: [
-
-                  Text(
-                    'Aggiungi nuovo materiale',
-
-                    style: TextStyle(
-                      color: AppColors.pureWhite,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  SizedBox(height: 4),
-
-                  Text(
-                    'Carica un nuovo file nel quaderno',
-
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: Colors.white38,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyMaterials() {
-
+  Widget _buildSubjectHeader(
+    SubjectNotebook subject,
+    int count,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(30),
+      width:
+          double.infinity,
 
-      decoration: BoxDecoration(
-        color: AppColors.materialNavy,
-        borderRadius: BorderRadius.circular(16),
+      padding:
+          const EdgeInsets.all(
+        18,
       ),
 
-      child: const Column(
-        children: [
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.eleganceMidnight,
 
-          Icon(
-            Icons.folder_open_rounded,
-            color: Colors.white38,
-            size: 45,
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withOpacity(
+            0.15,
+          ),
+        ),
+      ),
+
+      child:
+          Row(
+        children: [
+          Container(
+            width:
+                52,
+
+            height:
+                52,
+
+            decoration:
+                BoxDecoration(
+              color:
+                  AppColors.brandNightBlue,
+
+              borderRadius:
+                  BorderRadius.circular(
+                14,
+              ),
+            ),
+
+            child:
+                const Icon(
+              Icons.menu_book_rounded,
+
+              color:
+                  AppColors.skyBlue,
+
+              size:
+                  27,
+            ),
           ),
 
-          SizedBox(height: 12),
+          const SizedBox(
+            width:
+                14,
+          ),
 
-          Text(
-            'Nessun materiale disponibile',
+          Expanded(
+            child:
+                Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
 
-            textAlign: TextAlign.center,
+              children: [
+                Text(
+                  subject.name,
 
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+                  maxLines:
+                      2,
+
+                  overflow:
+                      TextOverflow.ellipsis,
+
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.pureWhite,
+
+                    fontSize:
+                        17,
+
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      4,
+                ),
+
+                Text(
+                  subject.course,
+
+                  maxLines:
+                      1,
+
+                  overflow:
+                      TextOverflow.ellipsis,
+
+                  style:
+                      const TextStyle(
+                    color:
+                        Colors.white60,
+
+                    fontSize:
+                        11,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      3,
+                ),
+
+                Text(
+                  subject.department,
+
+                  maxLines:
+                      1,
+
+                  overflow:
+                      TextOverflow.ellipsis,
+
+                  style:
+                      const TextStyle(
+                    color:
+                        Colors.white38,
+
+                    fontSize:
+                        10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Container(
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal:
+                  10,
+
+              vertical:
+                  7,
+            ),
+
+            decoration:
+                BoxDecoration(
+              color:
+                  AppColors.skyBlue
+                      .withOpacity(
+                0.12,
+              ),
+
+              borderRadius:
+                  BorderRadius.circular(
+                10,
+              ),
+            ),
+
+            child:
+                Text(
+              '$count',
+
+              style:
+                  const TextStyle(
+                color:
+                    AppColors.materialSky,
+
+                fontSize:
+                    12,
+
+                fontWeight:
+                    FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -398,25 +984,521 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     );
   }
 
-  Future<void> _addMaterial() async {
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'File picker: da implementare',
+  StudyMaterial _toStudyMaterial(
+    DownloadedMaterialLocal material,
+  ) {
+    return StudyMaterial(
+      id:
+          material.materialId
+              .toString(),
+
+      name:
+          material.originalName,
+
+      type:
+          _materialType(
+        material,
+      ),
+
+      size:
+          _formatSize(
+        material.size,
+      ),
+    );
+  }
+
+
+  String _materialType(
+    DownloadedMaterialLocal material,
+  ) {
+    final String mimeType =
+        material.mimeType
+                ?.trim()
+                .toLowerCase() ??
+            '';
+
+    final String name =
+        material.originalName
+            .trim()
+            .toLowerCase();
+
+    if (mimeType ==
+            'application/pdf' ||
+        name.endsWith(
+          '.pdf',
+        )) {
+      return 'PDF';
+    }
+
+    if (mimeType.contains(
+          'wordprocessingml',
+        ) ||
+        name.endsWith(
+          '.docx',
+        ) ||
+        name.endsWith(
+          '.doc',
+        )) {
+      return 'Document';
+    }
+
+    if (mimeType.contains(
+          'presentationml',
+        ) ||
+        name.endsWith(
+          '.pptx',
+        ) ||
+        name.endsWith(
+          '.ppt',
+        )) {
+      return 'PPTX';
+    }
+
+    if (mimeType ==
+            'text/plain' ||
+        name.endsWith(
+          '.txt',
+        )) {
+      return 'Document';
+    }
+
+    if (mimeType.contains(
+          'zip',
+        ) ||
+        name.endsWith(
+          '.zip',
+        )) {
+      return 'ZIP';
+    }
+
+    if (mimeType.startsWith(
+          'image/',
+        ) ||
+        name.endsWith(
+          '.png',
+        ) ||
+        name.endsWith(
+          '.jpg',
+        ) ||
+        name.endsWith(
+          '.jpeg',
+        ) ||
+        name.endsWith(
+          '.webp',
+        )) {
+      return 'Image';
+    }
+
+    return 'File';
+  }
+
+
+  String _formatSize(
+    int? size,
+  ) {
+    if (size ==
+            null ||
+        size <=
+            0) {
+      return 'Dimensione sconosciuta';
+    }
+
+    if (size <
+        1024) {
+      return '$size B';
+    }
+
+    if (size <
+        1024 * 1024) {
+      return '${(size / 1024).toStringAsFixed(1)} KB';
+    }
+
+    if (size <
+        1024 * 1024 * 1024) {
+      return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+
+    return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+
+  Future<void> _openMaterial(
+    DownloadedMaterialLocal material,
+  ) async {
+    try {
+      final File? file =
+          await _downloadService
+              .getFile(
+        materialId:
+            material.materialId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (file ==
+          null) {
+        await _loadMaterials();
+
+        _showMessage(
+          'Il file non è più disponibile sul dispositivo.',
+        );
+
+        return;
+      }
+
+      final bool exists =
+          await file.exists();
+
+      if (!exists) {
+        await _loadMaterials();
+
+        _showMessage(
+          'Il file non è più disponibile sul dispositivo.',
+        );
+
+        return;
+      }
+
+      final OpenResult result =
+          await OpenFilex.open(
+        file.path,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      switch (result.type) {
+        case ResultType.done:
+          return;
+
+        case ResultType.noAppToOpen:
+          _showMessage(
+            'Nessuna applicazione installata può aprire questo tipo di file.',
+          );
+
+          return;
+
+        case ResultType.fileNotFound:
+          await _loadMaterials();
+
+          _showMessage(
+            'Il file non è stato trovato sul dispositivo.',
+          );
+
+          return;
+
+        case ResultType.permissionDenied:
+          _showMessage(
+            'StudentLab non ha il permesso di aprire il file.',
+          );
+
+          return;
+
+        case ResultType.error:
+          _showMessage(
+            result.message.isNotEmpty
+                ? result.message
+                : 'Impossibile aprire il file.',
+          );
+
+          return;
+      }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Errore apertura file: ${_cleanError(e)}',
+      );
+    }
+  }
+
+
+  Widget _buildEmptyLibrary() {
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        30,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.eleganceMidnight,
+
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withOpacity(
+            0.10,
+          ),
+        ),
+      ),
+
+      child:
+          Column(
+        children: [
+          const Icon(
+            Icons
+                .download_for_offline_outlined,
+
+            color:
+                AppColors.skyBlue,
+
+            size:
+                46,
+          ),
+
+          const SizedBox(
+            height:
+                14,
+          ),
+
+          const Text(
+            'Nessun materiale offline',
+
+            textAlign:
+                TextAlign.center,
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite,
+
+              fontSize:
+                  16,
+
+              fontWeight:
+                  FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                8,
+          ),
+
+          Text(
+            'I materiali che scarichi dai gruppi StudentLab '
+            'compariranno automaticamente qui, organizzati per materia.',
+
+            textAlign:
+                TextAlign.center,
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite
+                      .withOpacity(
+                0.50,
+              ),
+
+              fontSize:
+                  11,
+
+              height:
+                  1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildEmptyMaterials() {
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        30,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.materialNavy,
+
+        borderRadius:
+            BorderRadius.circular(
+          16,
+        ),
+      ),
+
+      child:
+          const Column(
+        children: [
+          Icon(
+            Icons.folder_open_rounded,
+
+            color:
+                Colors.white38,
+
+            size:
+                45,
+          ),
+
+          SizedBox(
+            height:
+                12,
+          ),
+
+          Text(
+            'Nessun materiale disponibile offline',
+
+            textAlign:
+                TextAlign.center,
+
+            style:
+                TextStyle(
+              color:
+                  Colors.white70,
+
+              fontSize:
+                  14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildErrorCard() {
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        24,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.eleganceMidnight,
+
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
+      ),
+
+      child:
+          Column(
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+
+            color:
+                Colors.redAccent,
+
+            size:
+                40,
+          ),
+
+          const SizedBox(
+            height:
+                12,
+          ),
+
+          Text(
+            _error ??
+                'Errore sconosciuto',
+
+            textAlign:
+                TextAlign.center,
+
+            style:
+                const TextStyle(
+              color:
+                  Colors.white60,
+
+              fontSize:
+                  11,
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                15,
+          ),
+
+          OutlinedButton.icon(
+            onPressed:
+                _loadMaterials,
+
+            icon:
+                const Icon(
+              Icons.refresh_rounded,
+            ),
+
+            label:
+                const Text(
+              'Riprova',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  void _showMessage(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+      SnackBar(
+        content:
+            Text(
+          message,
         ),
       ),
     );
   }
 
-  void _openMaterial(StudyMaterial material) {
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Apertura: ${material.name}',
-        ),
-      ),
-    );
+  String _cleanError(
+    Object error,
+  ) {
+    String message =
+        error.toString();
+
+    if (message.startsWith(
+      'Exception: ',
+    )) {
+      message =
+          message.substring(
+        'Exception: '.length,
+      );
+    }
+
+    return message;
   }
 }

@@ -5,39 +5,66 @@ import 'database_migrations.dart';
 import 'database_tables.dart';
 
 
+// =============================================================================
+// APP DATABASE
+// =============================================================================
+
 class AppDatabase {
   AppDatabase._();
+
+
+  // ===========================================================================
+  // SINGLETON
+  // ===========================================================================
 
   static final AppDatabase instance =
       AppDatabase._();
 
+
   static Database? _database;
 
-  static const int _databaseVersion =
-      3;
 
+  // ===========================================================================
+  // VERSION
+  // ===========================================================================
+
+  static const int _databaseVersion =
+      4;
+
+
+  // ===========================================================================
+  // DATABASE
+  // ===========================================================================
 
   Future<Database> get database async {
     if (_database != null) {
       return _database!;
     }
 
+
     _database =
         await _initDatabase();
+
 
     return _database!;
   }
 
 
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
   Future<Database> _initDatabase() async {
     final String databasePath =
         await getDatabasesPath();
+
 
     final String path =
         join(
       databasePath,
       'studentlab.db',
     );
+
 
     return openDatabase(
       path,
@@ -79,9 +106,23 @@ class AppDatabase {
     int version,
   ) async {
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // DOWNLOADED MATERIALS
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    //
+    // Registra le copie locali dei materiali.
+    //
+    // user_id:
+    //
+    // - ID reale per utente autenticato
+    // - 0 per Guest
+    //
+    // subject_id / subject_name / course / department:
+    //
+    // permettono di costruire automaticamente
+    // la libreria Materiale raggruppata per materia.
+    //
+    // =========================================================================
 
     await db.execute(
       '''
@@ -89,26 +130,41 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
 
         user_id INTEGER NOT NULL,
+
         material_id INTEGER NOT NULL,
+
         group_id INTEGER NOT NULL,
 
+        subject_id INTEGER,
+
+        subject_name TEXT,
+
+        course TEXT,
+
+        department TEXT,
+
         original_name TEXT NOT NULL,
+
         local_path TEXT NOT NULL,
 
         mime_type TEXT,
+
         size INTEGER,
 
         downloaded_at TEXT NOT NULL,
 
-        UNIQUE(user_id, material_id)
+        UNIQUE(
+          user_id,
+          material_id
+        )
       )
       ''',
     );
 
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // PENDING UPLOADS
-    // -------------------------------------------------------------------------
+    // =========================================================================
 
     await db.execute(
       '''
@@ -116,32 +172,38 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
 
         user_id INTEGER NOT NULL,
+
         group_id INTEGER NOT NULL,
 
         local_path TEXT NOT NULL,
+
         original_name TEXT NOT NULL,
 
         mime_type TEXT,
+
         size INTEGER,
 
         status TEXT NOT NULL DEFAULT 'pending',
 
         created_at TEXT NOT NULL,
+
         uploaded_at TEXT,
 
         server_material_id INTEGER,
+
         error_message TEXT,
 
         retry_count INTEGER NOT NULL DEFAULT 0,
+
         last_attempt_at TEXT
       )
       ''',
     );
 
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // MATERIAL CACHE
-    // -------------------------------------------------------------------------
+    // =========================================================================
 
     await db.execute(
       '''
@@ -149,6 +211,7 @@ class AppDatabase {
         material_id INTEGER NOT NULL,
 
         user_id INTEGER NOT NULL,
+
         group_id INTEGER NOT NULL,
 
         uploaded_by INTEGER,
@@ -156,9 +219,11 @@ class AppDatabase {
         original_name TEXT NOT NULL,
 
         mime_type TEXT,
+
         size INTEGER,
 
         created_at TEXT,
+
         synced_at TEXT NOT NULL,
 
         PRIMARY KEY(
@@ -170,9 +235,9 @@ class AppDatabase {
     );
 
 
-    // -------------------------------------------------------------------------
-    // INDEX
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // INDEX - DOWNLOADED MATERIALS USER
+    // =========================================================================
 
     await db.execute(
       '''
@@ -183,6 +248,11 @@ class AppDatabase {
       ''',
     );
 
+
+    // =========================================================================
+    // INDEX - DOWNLOADED MATERIALS GROUP
+    // =========================================================================
+
     await db.execute(
       '''
       CREATE INDEX idx_downloaded_materials_group
@@ -191,6 +261,33 @@ class AppDatabase {
       )
       ''',
     );
+
+
+    // =========================================================================
+    // INDEX - DOWNLOADED MATERIALS SUBJECT
+    // =========================================================================
+    //
+    // StudentMaterialPage utilizzerà spesso:
+    //
+    // WHERE user_id = ?
+    // AND subject_id = ?
+    //
+    // =========================================================================
+
+    await db.execute(
+      '''
+      CREATE INDEX idx_downloaded_materials_user_subject
+      ON ${DatabaseTables.downloadedMaterials}(
+        user_id,
+        subject_id
+      )
+      ''',
+    );
+
+
+    // =========================================================================
+    // INDEX - PENDING UPLOADS USER STATUS
+    // =========================================================================
 
     await db.execute(
       '''
@@ -202,6 +299,11 @@ class AppDatabase {
       ''',
     );
 
+
+    // =========================================================================
+    // INDEX - PENDING UPLOADS GROUP
+    // =========================================================================
+
     await db.execute(
       '''
       CREATE INDEX idx_pending_uploads_group
@@ -210,6 +312,11 @@ class AppDatabase {
       )
       ''',
     );
+
+
+    // =========================================================================
+    // INDEX - MATERIAL CACHE
+    // =========================================================================
 
     await db.execute(
       '''
@@ -223,16 +330,22 @@ class AppDatabase {
   }
 
 
+  // ===========================================================================
+  // CLOSE
+  // ===========================================================================
 
   Future<void> close() async {
     final Database? db =
         _database;
 
+
     if (db == null) {
       return;
     }
 
+
     await db.close();
+
 
     _database =
         null;

@@ -3,19 +3,16 @@ import 'package:flutter/material.dart';
 import '../../theme/nightTheme.dart';
 
 import '../../services/api_service.dart';
+import '../../services/auth_session.dart';
 
 import 'models/study_group.dart';
+import 'study_group_detail_page.dart';
 
-
-// =============================================================================
-// PUBLIC GROUPS PAGE
-// =============================================================================
 
 class PublicGroupsPage extends StatefulWidget {
   const PublicGroupsPage({
     super.key,
   });
-
 
   @override
   State<PublicGroupsPage> createState() =>
@@ -23,89 +20,78 @@ class PublicGroupsPage extends StatefulWidget {
 }
 
 
-// =============================================================================
-// STATE
-// =============================================================================
-
 class _PublicGroupsPageState
     extends State<PublicGroupsPage> {
 
   final ApiService _apiService =
       ApiService();
 
+  final AuthSession _session =
+      AuthSession.instance;
 
   final TextEditingController
       _searchController =
       TextEditingController();
 
 
-  // ===========================================================================
-  // DATI
-  // ===========================================================================
-
   List<StudyGroup> _groups =
       [];
-
-
-  // ===========================================================================
-  // FILTRI
-  // ===========================================================================
 
   String _searchQuery =
       '';
 
-
   String? _selectedSubject;
-
 
   String? _selectedDepartment;
 
-
   String? _selectedCourse;
-
 
   _GroupSort _sort =
       _GroupSort.name;
 
-
-  // ===========================================================================
-  // STATO
-  // ===========================================================================
-
   bool _loading =
       true;
-
 
   String? _error;
 
 
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
+  bool get isGuest {
+    return _session.isGuest;
+  }
+
 
   @override
   void initState() {
     super.initState();
 
+    _session.addListener(
+      _onSessionChanged,
+    );
+
     _loadGroups();
   }
 
 
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
-
   @override
   void dispose() {
+    _session.removeListener(
+      _onSessionChanged,
+    );
+
     _searchController.dispose();
 
     super.dispose();
   }
 
 
-  // ===========================================================================
-  // LOAD GROUPS
-  // ===========================================================================
+  void _onSessionChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    _loadGroups();
+  }
+
 
   Future<void> _loadGroups() async {
     if (mounted) {
@@ -118,36 +104,74 @@ class _PublicGroupsPageState
       });
     }
 
-
     try {
       final List<Map<String, dynamic>>
           data =
           await _apiService.getGroups();
 
+      final int? currentUserId =
+          _session.currentUserId;
 
       final List<StudyGroup> groups =
-          data
-              .map(
-                (
-                  json,
-                ) =>
-                    StudyGroup.fromJson(
-                  json,
-                ),
-              )
-              .where(
-                (
-                  group,
-                ) =>
-                    !group.isPrivate,
-              )
-              .toList();
+          [];
 
+      for (final Map<String, dynamic>
+          rawGroup in data) {
+
+        final Map<String, dynamic> merged =
+            Map<String, dynamic>.from(
+          rawGroup,
+        );
+
+        final int? groupId =
+            _toInt(
+          rawGroup['id'],
+        );
+
+        if (groupId != null) {
+          try {
+            final Map<String, dynamic>
+                detail =
+                await _apiService.getGroup(
+              groupId,
+            );
+
+            merged.addAll(
+              detail,
+            );
+          } catch (_) {}
+
+          try {
+            final List<Map<String, dynamic>>
+                materials =
+                await _apiService
+                    .getGroupMaterials(
+              groupId,
+            );
+
+            merged['material_count'] =
+                materials.length;
+          } catch (_) {}
+        }
+
+        final StudyGroup group =
+            StudyGroup.fromJson(
+          merged,
+
+          currentUserId:
+              currentUserId,
+        );
+
+        if (!group.isPrivate) {
+          groups.add(
+            group,
+          );
+        }
+      }
 
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _groups =
@@ -161,10 +185,11 @@ class _PublicGroupsPageState
         return;
       }
 
-
       setState(() {
         _error =
-            e.toString();
+            _cleanError(
+          e,
+        );
 
         _loading =
             false;
@@ -173,147 +198,76 @@ class _PublicGroupsPageState
   }
 
 
-  // ===========================================================================
-  // GRUPPI FILTRATI
-  // ===========================================================================
-
   List<StudyGroup> get _filteredGroups {
     Iterable<StudyGroup> result =
         _groups.where(
-      (
-        group,
-      ) =>
+      (group) =>
           !group.isPrivate,
     );
-
-
-    // =========================================================================
-    // SEARCH
-    // =========================================================================
 
     final String query =
         _searchQuery
             .trim()
             .toLowerCase();
 
-
     if (query.isNotEmpty) {
       result =
           result.where(
-        (
-          group,
-        ) {
-          final String name =
-              group.name
-                  .toLowerCase();
+        (group) {
+          final String searchable = [
+            group.name,
+            group.description,
+            group.subject,
+            group.department,
+            group.course,
+          ].join(
+            ' ',
+          ).toLowerCase();
 
-
-          final String description =
-              group.description
-                  .toLowerCase();
-
-
-          final String subject =
-              group.subject
-                  .toLowerCase();
-
-
-          final String department =
-              group.department
-                  .toLowerCase();
-
-
-          final String course =
-              group.course
-                  .toLowerCase();
-
-
-          return name.contains(
-                query,
-              ) ||
-              description.contains(
-                query,
-              ) ||
-              subject.contains(
-                query,
-              ) ||
-              department.contains(
-                query,
-              ) ||
-              course.contains(
-                query,
-              );
+          return searchable.contains(
+            query,
+          );
         },
       );
     }
-
-
-    // =========================================================================
-    // MATERIA
-    // =========================================================================
 
     if (_selectedSubject !=
         null) {
       result =
           result.where(
-        (
-          group,
-        ) =>
+        (group) =>
             group.subject ==
             _selectedSubject,
       );
     }
 
-
-    // =========================================================================
-    // DIPARTIMENTO
-    // =========================================================================
-
     if (_selectedDepartment !=
         null) {
       result =
           result.where(
-        (
-          group,
-        ) =>
+        (group) =>
             group.department ==
             _selectedDepartment,
       );
     }
 
-
-    // =========================================================================
-    // CORSO
-    // =========================================================================
-
     if (_selectedCourse !=
         null) {
       result =
           result.where(
-        (
-          group,
-        ) =>
+        (group) =>
             group.course ==
             _selectedCourse,
       );
     }
 
-
     final List<StudyGroup> groups =
         result.toList();
-
-
-    // =========================================================================
-    // ORDINAMENTO
-    // =========================================================================
 
     switch (_sort) {
       case _GroupSort.name:
         groups.sort(
-          (
-            a,
-            b,
-          ) =>
+          (a, b) =>
               a.name
                   .toLowerCase()
                   .compareTo(
@@ -324,13 +278,9 @@ class _PublicGroupsPageState
 
         break;
 
-
       case _GroupSort.members:
         groups.sort(
-          (
-            a,
-            b,
-          ) =>
+          (a, b) =>
               b.memberCount.compareTo(
             a.memberCount,
           ),
@@ -338,13 +288,9 @@ class _PublicGroupsPageState
 
         break;
 
-
       case _GroupSort.materials:
         groups.sort(
-          (
-            a,
-            b,
-          ) =>
+          (a, b) =>
               b.materialCount.compareTo(
             a.materialCount,
           ),
@@ -353,117 +299,111 @@ class _PublicGroupsPageState
         break;
     }
 
-
     return groups;
   }
 
-
-  // ===========================================================================
-  // MATERIE DISPONIBILI
-  // ===========================================================================
 
   List<String> get _subjects {
     final List<String> values =
         _groups
             .map(
-              (
-                group,
-              ) =>
+              (group) =>
                   group.subject,
             )
             .where(
-              (
-                value,
-              ) =>
-                  value.trim().isNotEmpty,
+              (value) =>
+                  value
+                      .trim()
+                      .isNotEmpty,
             )
             .toSet()
             .toList();
 
-
     values.sort();
-
 
     return values;
   }
 
-
-  // ===========================================================================
-  // DIPARTIMENTI
-  // ===========================================================================
 
   List<String> get _departments {
     final List<String> values =
         _groups
             .map(
-              (
-                group,
-              ) =>
+              (group) =>
                   group.department,
             )
             .where(
-              (
-                value,
-              ) =>
-                  value.trim().isNotEmpty,
+              (value) =>
+                  value
+                      .trim()
+                      .isNotEmpty,
             )
             .toSet()
             .toList();
 
-
     values.sort();
-
 
     return values;
   }
 
 
-  // ===========================================================================
-  // CORSI
-  // ===========================================================================
-
   List<String> get _courses {
     final List<String> values =
         _groups
             .where(
-              (
-                group,
-              ) =>
+              (group) =>
                   _selectedDepartment ==
                       null ||
                   group.department ==
                       _selectedDepartment,
             )
             .map(
-              (
-                group,
-              ) =>
+              (group) =>
                   group.course,
             )
             .where(
-              (
-                value,
-              ) =>
-                  value.trim().isNotEmpty,
+              (value) =>
+                  value
+                      .trim()
+                      .isNotEmpty,
             )
             .toSet()
             .toList();
 
-
     values.sort();
-
 
     return values;
   }
 
 
-  // ===========================================================================
-  // RESET FILTRI
-  // ===========================================================================
+  bool get _hasFilters {
+    return _selectedSubject !=
+            null ||
+        _selectedDepartment !=
+            null ||
+        _selectedCourse !=
+            null ||
+        _sort !=
+            _GroupSort.name;
+  }
+
+
+  String get _sortLabel {
+    switch (_sort) {
+      case _GroupSort.name:
+        return 'Ordina';
+
+      case _GroupSort.members:
+        return 'Più membri';
+
+      case _GroupSort.materials:
+        return 'Più materiale';
+    }
+  }
+
 
   void _resetFilters() {
     _searchController.clear();
-
 
     setState(() {
       _searchQuery =
@@ -484,9 +424,27 @@ class _PublicGroupsPageState
   }
 
 
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
+  Future<void> _openGroup(
+    StudyGroup group,
+  ) async {
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                StudyGroupDetailPage(
+          group:
+              group,
+        ),
+      ),
+    );
+
+    if (mounted) {
+      _loadGroups();
+    }
+  }
+
 
   @override
   Widget build(
@@ -495,11 +453,6 @@ class _PublicGroupsPageState
     return Scaffold(
       backgroundColor:
           AppColors.darkElegance,
-
-
-      // =========================================================================
-      // APP BAR
-      // =========================================================================
 
       appBar:
           AppBar(
@@ -544,11 +497,6 @@ class _PublicGroupsPageState
         ],
       ),
 
-
-      // =========================================================================
-      // BODY
-      // =========================================================================
-
       body:
           SafeArea(
         child:
@@ -577,10 +525,6 @@ class _PublicGroupsPageState
                 ),
 
                 children: [
-                  // ===========================================================
-                  // HEADER
-                  // ===========================================================
-
                   const Text(
                     'Trova il tuo gruppo',
 
@@ -604,9 +548,9 @@ class _PublicGroupsPageState
 
                   Text(
                     'Esplora i gruppi pubblici di StudentLab. '
-                    'Puoi cercare per nome, materia, dipartimento '
-                    'o corso e scoprire dove vengono condivisi '
-                    'materiali, appunti e sessioni di studio.',
+                    'Cerca per nome, materia, dipartimento o corso '
+                    'e scopri materiali, appunti e community '
+                    'dedicate allo studio.',
 
                     style:
                         TextStyle(
@@ -624,27 +568,19 @@ class _PublicGroupsPageState
                     ),
                   ),
 
-                  const SizedBox(
-                    height:
-                        20,
-                  ),
+                  if (isGuest) ...[
+                    const SizedBox(
+                      height:
+                          20,
+                    ),
 
-
-                  // ===========================================================
-                  // GUEST INFO
-                  // ===========================================================
-
-                  _buildGuestInfo(),
+                    _buildGuestInfo(),
+                  ],
 
                   const SizedBox(
                     height:
                         18,
                   ),
-
-
-                  // ===========================================================
-                  // SEARCH
-                  // ===========================================================
 
                   _buildSearchBar(),
 
@@ -653,11 +589,6 @@ class _PublicGroupsPageState
                         12,
                   ),
 
-
-                  // ===========================================================
-                  // FILTRI
-                  // ===========================================================
-
                   _buildFilters(),
 
                   const SizedBox(
@@ -665,22 +596,12 @@ class _PublicGroupsPageState
                         16,
                   ),
 
-
-                  // ===========================================================
-                  // RISULTATI
-                  // ===========================================================
-
                   _buildResultsHeader(),
 
                   const SizedBox(
                     height:
                         14,
                   ),
-
-
-                  // ===========================================================
-                  // CONTENT
-                  // ===========================================================
 
                   _buildContent(),
 
@@ -697,10 +618,6 @@ class _PublicGroupsPageState
     );
   }
 
-
-  // ===========================================================================
-  // GUEST INFO
-  // ===========================================================================
 
   Widget _buildGuestInfo() {
     return Container(
@@ -757,10 +674,11 @@ class _PublicGroupsPageState
             child:
                 Text(
               'Stai esplorando come Guest. '
-              'Puoi vedere e cercare i gruppi pubblici. '
-              'Per entrare in un gruppo, condividere materiale '
-              'o partecipare alle attività dovrai accedere '
-              'oppure creare un profilo StudentLab.',
+              'Puoi cercare e aprire i gruppi pubblici, '
+              'vedere i partecipanti e scaricare il materiale '
+              'disponibile per consultarlo offline. '
+              'Per entrare nei gruppi, utilizzare la chat '
+              'o condividere materiale devi accedere a StudentLab.',
 
               style:
                   TextStyle(
@@ -783,10 +701,6 @@ class _PublicGroupsPageState
     );
   }
 
-
-  // ===========================================================================
-  // SEARCH BAR
-  // ===========================================================================
 
   Widget _buildSearchBar() {
     return TextField(
@@ -812,7 +726,7 @@ class _PublicGroupsPageState
       decoration:
           InputDecoration(
         hintText:
-            'Cerca per nome, materia, corso...',
+            'Cerca nome, materia, corso...',
 
         hintStyle:
             TextStyle(
@@ -841,7 +755,6 @@ class _PublicGroupsPageState
                     onPressed:
                         () {
                       _searchController.clear();
-
 
                       setState(() {
                         _searchQuery =
@@ -913,10 +826,6 @@ class _PublicGroupsPageState
   }
 
 
-  // ===========================================================================
-  // FILTRI
-  // ===========================================================================
-
   Widget _buildFilters() {
     return SingleChildScrollView(
       scrollDirection:
@@ -925,10 +834,6 @@ class _PublicGroupsPageState
       child:
           Row(
         children: [
-          // ===================================================================
-          // MATERIA
-          // ===================================================================
-
           _FilterButton(
             icon:
                 Icons.menu_book_outlined,
@@ -970,11 +875,6 @@ class _PublicGroupsPageState
             width:
                 8,
           ),
-
-
-          // ===================================================================
-          // DIPARTIMENTO
-          // ===================================================================
 
           _FilterButton(
             icon:
@@ -1022,11 +922,6 @@ class _PublicGroupsPageState
                 8,
           ),
 
-
-          // ===================================================================
-          // CORSO
-          // ===================================================================
-
           _FilterButton(
             icon:
                 Icons.school_outlined,
@@ -1069,11 +964,6 @@ class _PublicGroupsPageState
                 8,
           ),
 
-
-          // ===================================================================
-          // SORT
-          // ===================================================================
-
           _FilterButton(
             icon:
                 Icons.sort_rounded,
@@ -1089,14 +979,8 @@ class _PublicGroupsPageState
                 _showSortFilter,
           ),
 
-
-          // ===================================================================
-          // RESET
-          // ===================================================================
-
           if (_hasFilters ||
-              _searchQuery
-                  .isNotEmpty) ...[
+              _searchQuery.isNotEmpty) ...[
             const SizedBox(
               width:
                   8,
@@ -1127,29 +1011,21 @@ class _PublicGroupsPageState
   }
 
 
-  // ===========================================================================
-  // RESULTS HEADER
-  // ===========================================================================
-
   Widget _buildResultsHeader() {
     if (_loading ||
-        _error !=
-            null) {
+        _error != null) {
       return const SizedBox.shrink();
     }
 
-
     final int count =
         _filteredGroups.length;
-
 
     return Row(
       children: [
         Expanded(
           child:
               Text(
-            count ==
-                    1
+            count == 1
                 ? '1 gruppo trovato'
                 : '$count gruppi trovati',
 
@@ -1190,10 +1066,6 @@ class _PublicGroupsPageState
   }
 
 
-  // ===========================================================================
-  // CONTENT
-  // ===========================================================================
-
   Widget _buildContent() {
     if (_loading) {
       return const Padding(
@@ -1211,9 +1083,7 @@ class _PublicGroupsPageState
       );
     }
 
-
-    if (_error !=
-        null) {
+    if (_error != null) {
       return _PublicGroupsError(
         message:
             _error!,
@@ -1223,23 +1093,19 @@ class _PublicGroupsPageState
       );
     }
 
-
     final List<StudyGroup> groups =
         _filteredGroups;
-
 
     if (groups.isEmpty) {
       return _EmptyPublicGroups(
         filtered:
             _hasFilters ||
-                _searchQuery
-                    .isNotEmpty,
+                _searchQuery.isNotEmpty,
 
         onReset:
             _resetFilters,
       );
     }
-
 
     return LayoutBuilder(
       builder:
@@ -1247,9 +1113,9 @@ class _PublicGroupsPageState
         context,
         constraints,
       ) {
+
         int columns =
             2;
-
 
         if (constraints.maxWidth <
             500) {
@@ -1260,7 +1126,6 @@ class _PublicGroupsPageState
           columns =
               3;
         }
-
 
         return GridView.builder(
           shrinkWrap:
@@ -1292,9 +1157,9 @@ class _PublicGroupsPageState
             context,
             index,
           ) {
+
             final StudyGroup group =
                 groups[index];
-
 
             return _PublicGroupCard(
               group:
@@ -1314,38 +1179,13 @@ class _PublicGroupsPageState
   }
 
 
-  // ===========================================================================
-  // OPEN GROUP
-  // ===========================================================================
-
-  void _openGroup(
-    StudyGroup group,
-  ) {
-    Navigator.of(
-      context,
-    ).push(
-      MaterialPageRoute(
-        builder:
-            (_) =>
-                PublicGroupDetailPage(
-          group:
-              group,
-        ),
-      ),
-    );
-  }
-
-
-  // ===========================================================================
-  // STRING FILTER
-  // ===========================================================================
-
   Future<void> _showStringFilter({
     required String title,
     required List<String> values,
     required String? selected,
     required ValueChanged<String?> onSelected,
   }) async {
+
     final String? value =
         await showModalBottomSheet<String?>(
       context:
@@ -1369,6 +1209,7 @@ class _PublicGroupsPageState
           (
         sheetContext,
       ) {
+
         return SafeArea(
           child:
               ListView(
@@ -1430,8 +1271,7 @@ class _PublicGroupsPageState
                 ),
 
                 trailing:
-                    selected ==
-                            null
+                    selected == null
                         ? const Icon(
                             Icons.check_rounded,
 
@@ -1451,12 +1291,13 @@ class _PublicGroupsPageState
 
               ...values.map(
                 (
-                  String value,
+                  String item,
                 ) {
+
                   return ListTile(
                     title:
                         Text(
-                      value,
+                      item,
 
                       style:
                           const TextStyle(
@@ -1466,8 +1307,7 @@ class _PublicGroupsPageState
                     ),
 
                     trailing:
-                        selected ==
-                                value
+                        selected == item
                             ? const Icon(
                                 Icons.check_rounded,
 
@@ -1480,7 +1320,7 @@ class _PublicGroupsPageState
                         () {
                       Navigator.pop(
                         sheetContext,
-                        value,
+                        item,
                       );
                     },
                   );
@@ -1492,29 +1332,24 @@ class _PublicGroupsPageState
       },
     );
 
-
     if (!mounted ||
-        value ==
-            null) {
+        value == null) {
       return;
     }
-
 
     if (value.isEmpty) {
       onSelected(
         null,
       );
-    } else {
-      onSelected(
-        value,
-      );
+
+      return;
     }
+
+    onSelected(
+      value,
+    );
   }
 
-
-  // ===========================================================================
-  // SORT FILTER
-  // ===========================================================================
 
   Future<void> _showSortFilter() async {
     final _GroupSort? selected =
@@ -1541,6 +1376,7 @@ class _PublicGroupsPageState
           (
         sheetContext,
       ) {
+
         return SafeArea(
           child:
               Column(
@@ -1623,13 +1459,10 @@ class _PublicGroupsPageState
       },
     );
 
-
-    if (selected ==
-            null ||
+    if (selected == null ||
         !mounted) {
       return;
     }
-
 
     setState(() {
       _sort =
@@ -1638,40 +1471,43 @@ class _PublicGroupsPageState
   }
 
 
-  // ===========================================================================
-  // HELPERS FILTRI
-  // ===========================================================================
+  String _cleanError(
+    Object error,
+  ) {
+    String message =
+        error.toString();
 
-  bool get _hasFilters {
-    return _selectedSubject !=
-            null ||
-        _selectedDepartment !=
-            null ||
-        _selectedCourse !=
-            null ||
-        _sort !=
-            _GroupSort.name;
+    if (message.startsWith(
+      'Exception: ',
+    )) {
+      message =
+          message.substring(
+        'Exception: '.length,
+      );
+    }
+
+    return message;
   }
 
 
-  String get _sortLabel {
-    switch (_sort) {
-      case _GroupSort.name:
-        return 'Ordina';
-
-      case _GroupSort.members:
-        return 'Più membri';
-
-      case _GroupSort.materials:
-        return 'Più materiale';
+  static int? _toInt(
+    dynamic value,
+  ) {
+    if (value is int) {
+      return value;
     }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value?.toString() ??
+          '',
+    );
   }
 }
 
-
-// =============================================================================
-// SORT
-// =============================================================================
 
 enum _GroupSort {
   name,
@@ -1680,19 +1516,12 @@ enum _GroupSort {
 }
 
 
-// =============================================================================
-// FILTER BUTTON
-// =============================================================================
-
 class _FilterButton
     extends StatelessWidget {
 
   final IconData icon;
-
   final String label;
-
   final bool active;
-
   final VoidCallback onTap;
 
 
@@ -1827,10 +1656,6 @@ class _FilterButton
 }
 
 
-// =============================================================================
-// PUBLIC GROUP CARD
-// =============================================================================
-
 class _PublicGroupCard
     extends StatelessWidget {
 
@@ -1849,727 +1674,229 @@ class _PublicGroupCard
   Widget build(
     BuildContext context,
   ) {
-    return InkWell(
-      onTap:
-          onTap,
-
-      borderRadius:
-          BorderRadius.circular(
-        18,
-      ),
+    return Material(
+      color:
+          Colors.transparent,
 
       child:
-          Container(
-        padding:
-            const EdgeInsets.all(
-          15,
-        ),
+          InkWell(
+        onTap:
+            onTap,
 
-        decoration:
-            BoxDecoration(
-          color:
-              AppColors.eleganceMidnight,
-
-          borderRadius:
-              BorderRadius.circular(
-            18,
-          ),
-
-          border:
-              Border.all(
-            color:
-                AppColors.skyBlue
-                    .withOpacity(
-              0.12,
-            ),
-          ),
+        borderRadius:
+            BorderRadius.circular(
+          18,
         ),
 
         child:
-            Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+            Container(
+          padding:
+              const EdgeInsets.all(
+            15,
+          ),
 
-          children: [
-            Row(
-              children: [
-                Container(
-                  width:
-                      40,
+          decoration:
+              BoxDecoration(
+            color:
+                AppColors.eleganceMidnight,
 
-                  height:
-                      40,
+            borderRadius:
+                BorderRadius.circular(
+              18,
+            ),
 
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors
-                            .brandNightBlue,
+            border:
+                Border.all(
+              color:
+                  AppColors.skyBlue
+                      .withOpacity(
+                0.12,
+              ),
+            ),
+          ),
 
-                    borderRadius:
-                        BorderRadius.circular(
-                      11,
+          child:
+              Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width:
+                        40,
+
+                    height:
+                        40,
+
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          AppColors
+                              .brandNightBlue,
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        11,
+                      ),
+                    ),
+
+                    child:
+                        const Icon(
+                      Icons.groups_2_outlined,
+
+                      color:
+                          AppColors.skyBlue,
+
+                      size:
+                          21,
                     ),
                   ),
 
-                  child:
-                      const Icon(
-                    Icons.groups_2_outlined,
+                  const SizedBox(
+                    width:
+                        10,
+                  ),
+
+                  Expanded(
+                    child:
+                        Text(
+                      group.name,
+
+                      maxLines:
+                          2,
+
+                      overflow:
+                          TextOverflow.ellipsis,
+
+                      style:
+                          const TextStyle(
+                        color:
+                            AppColors.pureWhite,
+
+                        fontSize:
+                            14,
+
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  if (group.isOwner)
+                    const Icon(
+                      Icons
+                          .admin_panel_settings_outlined,
+
+                      color:
+                          AppColors.materialSky,
+
+                      size:
+                          17,
+                    ),
+                ],
+              ),
+
+              const SizedBox(
+                height:
+                    11,
+              ),
+
+              Text(
+                group.description.isEmpty
+                    ? 'Nessuna descrizione.'
+                    : group.description,
+
+                maxLines:
+                    2,
+
+                overflow:
+                    TextOverflow.ellipsis,
+
+                style:
+                    TextStyle(
+                  color:
+                      AppColors.pureWhite
+                          .withOpacity(
+                    0.48,
+                  ),
+
+                  fontSize:
+                      10,
+
+                  height:
+                      1.35,
+                ),
+              ),
+
+              const Spacer(),
+
+              _GroupInfoRow(
+                icon:
+                    Icons.menu_book_outlined,
+
+                text:
+                    group.subject.isEmpty
+                        ? 'Materia non specificata'
+                        : group.subject,
+              ),
+
+              const SizedBox(
+                height:
+                    6,
+              ),
+
+              _GroupInfoRow(
+                icon:
+                    Icons.school_outlined,
+
+                text:
+                    '${group.department} • ${group.course}',
+              ),
+
+              const SizedBox(
+                height:
+                    10,
+              ),
+
+              Row(
+                children: [
+                  _GroupCounter(
+                    icon:
+                        Icons.people_outline_rounded,
+
+                    value:
+                        '${group.memberCount}',
+                  ),
+
+                  const SizedBox(
+                    width:
+                        12,
+                  ),
+
+                  _GroupCounter(
+                    icon:
+                        Icons.folder_outlined,
+
+                    value:
+                        '${group.materialCount}',
+                  ),
+
+                  const Spacer(),
+
+                  const Icon(
+                    Icons.arrow_forward_rounded,
 
                     color:
                         AppColors.skyBlue,
 
                     size:
-                        21,
+                        17,
                   ),
-                ),
-
-                const SizedBox(
-                  width:
-                      10,
-                ),
-
-                Expanded(
-                  child:
-                      Text(
-                    group.name,
-
-                    maxLines:
-                        2,
-
-                    overflow:
-                        TextOverflow.ellipsis,
-
-                    style:
-                        const TextStyle(
-                      color:
-                          AppColors.pureWhite,
-
-                      fontSize:
-                          14,
-
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(
-              height:
-                  11,
-            ),
-
-            Text(
-              group.description.isEmpty
-                  ? 'Nessuna descrizione.'
-                  : group.description,
-
-              maxLines:
-                  2,
-
-              overflow:
-                  TextOverflow.ellipsis,
-
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.48,
-                ),
-
-                fontSize:
-                    10,
-
-                height:
-                    1.35,
+                ],
               ),
-            ),
-
-            const Spacer(),
-
-            _GroupInfoRow(
-              icon:
-                  Icons.menu_book_outlined,
-
-              text:
-                  group.subject.isEmpty
-                      ? 'Materia non specificata'
-                      : group.subject,
-            ),
-
-            const SizedBox(
-              height:
-                  6,
-            ),
-
-            _GroupInfoRow(
-              icon:
-                  Icons.school_outlined,
-
-              text:
-                  '${group.department} • ${group.course}',
-            ),
-
-            const SizedBox(
-              height:
-                  10,
-            ),
-
-            Row(
-              children: [
-                _GroupCounter(
-                  icon:
-                      Icons.people_outline_rounded,
-
-                  value:
-                      '${group.memberCount}',
-                ),
-
-                const SizedBox(
-                  width:
-                      12,
-                ),
-
-                _GroupCounter(
-                  icon:
-                      Icons.folder_outlined,
-
-                  value:
-                      '${group.materialCount}',
-                ),
-
-                const Spacer(),
-
-                const Icon(
-                  Icons.arrow_forward_rounded,
-
-                  color:
-                      AppColors.skyBlue,
-
-                  size:
-                      17,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-// =============================================================================
-// PUBLIC GROUP DETAIL PAGE
-// =============================================================================
-
-class PublicGroupDetailPage
-    extends StatelessWidget {
-
-  final StudyGroup group;
-
-
-  const PublicGroupDetailPage({
-    super.key,
-    required this.group,
-  });
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
-
-      appBar:
-          AppBar(
-        backgroundColor:
-            AppColors.brandNightBlue,
-
-        foregroundColor:
-            AppColors.pureWhite,
-
-        title:
-            Text(
-          group.name,
-
-          maxLines:
-              1,
-
-          overflow:
-              TextOverflow.ellipsis,
-        ),
-      ),
-
-      body:
-          SafeArea(
-        child:
-            Center(
-          child:
-              ConstrainedBox(
-            constraints:
-                const BoxConstraints(
-              maxWidth:
-                  750,
-            ),
-
-            child:
-                ListView(
-              padding:
-                  const EdgeInsets.all(
-                20,
-              ),
-
-              children: [
-                // =============================================================
-                // MAIN CARD
-                // =============================================================
-
-                Container(
-                  padding:
-                      const EdgeInsets.all(
-                    18,
-                  ),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.eleganceMidnight,
-
-                    borderRadius:
-                        BorderRadius.circular(
-                      18,
-                    ),
-
-                    border:
-                        Border.all(
-                      color:
-                          AppColors.skyBlue
-                              .withOpacity(
-                        0.12,
-                      ),
-                    ),
-                  ),
-
-                  child:
-                      Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.public_rounded,
-
-                            color:
-                                AppColors.skyBlue,
-                          ),
-
-                          SizedBox(
-                            width:
-                                8,
-                          ),
-
-                          Text(
-                            'Gruppo pubblico',
-
-                            style:
-                                TextStyle(
-                              color:
-                                  AppColors.materialSky,
-
-                              fontSize:
-                                  11,
-
-                              fontWeight:
-                                  FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(
-                        height:
-                            16,
-                      ),
-
-                      Text(
-                        group.name,
-
-                        style:
-                            const TextStyle(
-                          color:
-                              AppColors.pureWhite,
-
-                          fontSize:
-                              22,
-
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height:
-                            8,
-                      ),
-
-                      Text(
-                        group.description.isEmpty
-                            ? 'Nessuna descrizione disponibile.'
-                            : group.description,
-
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite
-                                  .withOpacity(
-                            0.55,
-                          ),
-
-                          fontSize:
-                              12,
-
-                          height:
-                              1.45,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height:
-                            18,
-                      ),
-
-                      _GroupInfoRow(
-                        icon:
-                            Icons.menu_book_outlined,
-
-                        text:
-                            group.subject.isEmpty
-                                ? 'Materia non specificata'
-                                : group.subject,
-                      ),
-
-                      const SizedBox(
-                        height:
-                            8,
-                      ),
-
-                      _GroupInfoRow(
-                        icon:
-                            Icons
-                                .account_balance_outlined,
-
-                        text:
-                            group.department,
-                      ),
-
-                      const SizedBox(
-                        height:
-                            8,
-                      ),
-
-                      _GroupInfoRow(
-                        icon:
-                            Icons.school_outlined,
-
-                        text:
-                            group.course,
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(
-                  height:
-                      16,
-                ),
-
-
-                // =============================================================
-                // STATS
-                // =============================================================
-
-                Container(
-                  padding:
-                      const EdgeInsets.all(
-                    16,
-                  ),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.eleganceMidnight,
-
-                    borderRadius:
-                        BorderRadius.circular(
-                      16,
-                    ),
-
-                    border:
-                        Border.all(
-                      color:
-                          AppColors.skyBlue
-                              .withOpacity(
-                        0.10,
-                      ),
-                    ),
-                  ),
-
-                  child:
-                      Row(
-                    children: [
-                      Expanded(
-                        child:
-                            _DetailStatistic(
-                          value:
-                              '${group.memberCount}',
-
-                          label:
-                              'Partecipanti',
-
-                          icon:
-                              Icons
-                                  .people_outline_rounded,
-                        ),
-                      ),
-
-                      Container(
-                        width:
-                            1,
-
-                        height:
-                            52,
-
-                        color:
-                            AppColors.pureWhite
-                                .withOpacity(
-                          0.07,
-                        ),
-                      ),
-
-                      Expanded(
-                        child:
-                            _DetailStatistic(
-                          value:
-                              '${group.materialCount}',
-
-                          label:
-                              'Materiali',
-
-                          icon:
-                              Icons.folder_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(
-                  height:
-                      16,
-                ),
-
-
-                // =============================================================
-                // INFO MATERIALI
-                // =============================================================
-
-                Container(
-                  padding:
-                      const EdgeInsets.all(
-                    16,
-                  ),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.eleganceMidnight,
-
-                    borderRadius:
-                        BorderRadius.circular(
-                      16,
-                    ),
-
-                    border:
-                        Border.all(
-                      color:
-                          AppColors.skyBlue
-                              .withOpacity(
-                        0.10,
-                      ),
-                    ),
-                  ),
-
-                  child:
-                      Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons
-                                .folder_copy_outlined,
-
-                            color:
-                                AppColors.skyBlue,
-
-                            size:
-                                20,
-                          ),
-
-                          SizedBox(
-                            width:
-                                8,
-                          ),
-
-                          Text(
-                            'Materiale condiviso',
-
-                            style:
-                                TextStyle(
-                              color:
-                                  AppColors.pureWhite,
-
-                              fontSize:
-                                  14,
-
-                              fontWeight:
-                                  FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(
-                        height:
-                            9,
-                      ),
-
-                      Text(
-                        'Questo gruppo contiene ${group.materialCount} '
-                        'materiali condivisi tra i partecipanti. '
-                        'Possono includere PDF, slide, appunti, '
-                        'documenti e materiale relativo alle lezioni.',
-
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite
-                                  .withOpacity(
-                            0.48,
-                          ),
-
-                          fontSize:
-                              11,
-
-                          height:
-                              1.45,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(
-                  height:
-                      16,
-                ),
-
-
-                // =============================================================
-                // GUEST LIMIT
-                // =============================================================
-
-                Container(
-                  padding:
-                      const EdgeInsets.all(
-                    15,
-                  ),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.skyBlue
-                            .withOpacity(
-                      0.07,
-                    ),
-
-                    borderRadius:
-                        BorderRadius.circular(
-                      14,
-                    ),
-
-                    border:
-                        Border.all(
-                      color:
-                          AppColors.skyBlue
-                              .withOpacity(
-                        0.14,
-                      ),
-                    ),
-                  ),
-
-                  child:
-                      Row(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-
-                    children: [
-                      const Icon(
-                        Icons
-                            .info_outline_rounded,
-
-                        color:
-                            AppColors.materialSky,
-
-                        size:
-                            19,
-                      ),
-
-                      const SizedBox(
-                        width:
-                            9,
-                      ),
-
-                      Expanded(
-                        child:
-                            Text(
-                          'Come Guest puoi esplorare le informazioni '
-                          'del gruppo pubblico. Per partecipare al gruppo, '
-                          'scaricare o condividere materiale e utilizzare '
-                          'le funzionalità riservate ai membri è necessario '
-                          'accedere o creare un profilo StudentLab.',
-
-                          style:
-                              TextStyle(
-                            color:
-                                AppColors.pureWhite
-                                    .withOpacity(
-                              0.55,
-                            ),
-
-                            fontSize:
-                                11,
-
-                            height:
-                                1.45,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
@@ -2577,10 +1904,6 @@ class PublicGroupDetailPage
   }
 }
 
-
-// =============================================================================
-// GROUP INFO ROW
-// =============================================================================
 
 class _GroupInfoRow
     extends StatelessWidget {
@@ -2647,10 +1970,6 @@ class _GroupInfoRow
 }
 
 
-// =============================================================================
-// COUNTER
-// =============================================================================
-
 class _GroupCounter
     extends StatelessWidget {
 
@@ -2703,91 +2022,6 @@ class _GroupCounter
   }
 }
 
-
-// =============================================================================
-// DETAIL STATISTIC
-// =============================================================================
-
-class _DetailStatistic
-    extends StatelessWidget {
-
-  final String value;
-
-  final String label;
-
-  final IconData icon;
-
-
-  const _DetailStatistic({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-
-          color:
-              AppColors.skyBlue,
-
-          size:
-              22,
-        ),
-
-        const SizedBox(
-          height:
-              6,
-        ),
-
-        Text(
-          value,
-
-          style:
-              const TextStyle(
-            color:
-                AppColors.pureWhite,
-
-            fontSize:
-                17,
-
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(
-          height:
-              2,
-        ),
-
-        Text(
-          label,
-
-          style:
-              const TextStyle(
-            color:
-                Colors.white38,
-
-            fontSize:
-                9,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-
-// =============================================================================
-// SORT OPTION
-// =============================================================================
 
 class _SortOption
     extends StatelessWidget {
@@ -2849,10 +2083,6 @@ class _SortOption
   }
 }
 
-
-// =============================================================================
-// ERROR
-// =============================================================================
 
 class _PublicGroupsError
     extends StatelessWidget {
@@ -2948,10 +2178,6 @@ class _PublicGroupsError
   }
 }
 
-
-// =============================================================================
-// EMPTY
-// =============================================================================
 
 class _EmptyPublicGroups
     extends StatelessWidget {
