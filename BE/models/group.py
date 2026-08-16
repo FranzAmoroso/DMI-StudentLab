@@ -1,5 +1,3 @@
-# models/group.py
-
 from datetime import datetime
 
 from sqlalchemy import (
@@ -45,6 +43,12 @@ class StudyGroup(Base):
         ),
         nullable=True,
         index=True,
+    )
+
+    university = Column(
+        String(150),
+        nullable=False,
+        default="",
     )
 
     department = Column(
@@ -103,8 +107,8 @@ class StudyGroup(Base):
     )
 
     materials = relationship(
-    "GroupMaterial",
-    cascade="all, delete-orphan",
+        "GroupMaterial",
+        cascade="all, delete-orphan",
     )
 
 

@@ -1,6 +1,7 @@
 from fastapi import (
     Depends,
     HTTPException,
+    status,
 )
 
 from fastapi.security import (
@@ -8,12 +9,21 @@ from fastapi.security import (
     HTTPBearer,
 )
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import (
+    Session,
+)
 
-from core.database import get_db
-from core.config import settings
+from core.config import (
+    settings,
+)
 
-from models.user import User
+from core.database import (
+    get_db,
+)
+
+from models.user import (
+    User,
+)
 
 from services.auth import (
     decode_access_token,
@@ -27,6 +37,24 @@ from services.user import (
 security = HTTPBearer()
 
 
+ADMIN_ROLES = {
+    "admin",
+    "creator",
+}
+
+
+def require_active_user(
+    user: User,
+) -> User:
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account non attivo.",
+        )
+
+    return user
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(
         security,
@@ -35,7 +63,6 @@ def get_current_user(
         get_db,
     ),
 ) -> User:
-
     user_id = decode_access_token(
         token=credentials.credentials,
         secret_key=settings.secret_key,
@@ -43,7 +70,7 @@ def get_current_user(
 
     if user_id is None:
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token non valido o scaduto.",
         )
 
@@ -54,14 +81,142 @@ def get_current_user(
 
     if user is None:
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Utente non trovato.",
         )
 
-    if not user.is_active:
+    require_active_user(
+        user,
+    )
+
+    return user
+
+
+def get_admin_user(
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+) -> User:
+    user = get_user_by_id(
+        db,
+        current_user.id,
+    )
+
+    if user is None:
         raise HTTPException(
-            status_code=403,
-            detail="Utente non attivo.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Utente non trovato.",
+        )
+
+    require_active_user(
+        user,
+    )
+
+    role = (
+        user.role
+        or ""
+    ).strip().lower()
+
+    if role not in ADMIN_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accesso riservato agli amministratori.",
+        )
+
+    return user
+
+
+def get_verified_teacher_user(
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+) -> User:
+    user = get_user_by_id(
+        db,
+        current_user.id,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Utente non trovato.",
+        )
+
+    require_active_user(
+        user,
+    )
+
+    role = (
+        user.role
+        or ""
+    ).strip().lower()
+
+    if role != "teacher":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accesso riservato ai docenti.",
+        )
+
+    teacher_status = (
+        user.teacher_verification_status
+        or ""
+    ).strip().lower()
+
+    if teacher_status != "verified":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Docente non ancora verificato.",
+        )
+
+    return user
+
+
+def get_verified_teacher(
+    current_user: User = Depends(
+        get_verified_teacher_user,
+    ),
+) -> User:
+    return current_user
+
+
+def get_creator_user(
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+) -> User:
+    user = get_user_by_id(
+        db,
+        current_user.id,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Utente non trovato.",
+        )
+
+    require_active_user(
+        user,
+    )
+
+    role = (
+        user.role
+        or ""
+    ).strip().lower()
+
+    if role != "creator":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accesso riservato al creator.",
         )
 
     return user

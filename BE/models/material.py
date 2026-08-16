@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    UniqueConstraint,
 )
 
 from sqlalchemy.orm import relationship
@@ -15,6 +16,14 @@ from core.database import Base
 
 class GroupMaterial(Base):
     __tablename__ = "group_materials"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "group_id",
+            "file_hash",
+            name="uq_group_material_group_file_hash",
+        ),
+    )
 
     id = Column(
         Integer,
@@ -66,6 +75,12 @@ class GroupMaterial(Base):
     size = Column(
         Integer,
         nullable=False,
+    )
+
+    file_hash = Column(
+        String(64),
+        nullable=True,
+        index=True,
     )
 
     created_at = Column(

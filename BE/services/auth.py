@@ -15,7 +15,13 @@ from sqlalchemy.orm import Session
 
 from models.user import User
 
-password_hash = PasswordHash.recommended()
+
+password_hash = (
+    PasswordHash.recommended()
+)
+
+
+ALGORITHM = "HS256"
 
 
 def hash_password(
@@ -35,20 +41,33 @@ def verify_password(
         hashed_password,
     )
 
+
 def authenticate_user(
     db: Session,
     email: str,
     password: str,
 ):
+    normalized_email = (
+        email
+        .strip()
+        .lower()
+    )
+
     user = (
-        db.query(User)
+        db.query(
+            User,
+        )
         .filter(
-            User.email == email,
+            User.email ==
+            normalized_email,
         )
         .first()
     )
 
     if user is None:
+        return None
+
+    if not user.is_active:
         return None
 
     if not user.password_hash:
@@ -61,9 +80,6 @@ def authenticate_user(
         return None
 
     return user
-
-
-ALGORITHM = "HS256"
 
 
 def create_access_token(
@@ -84,9 +100,16 @@ def create_access_token(
     )
 
     payload = {
-        "sub": str(user_id),
-        "iat": now,
-        "exp": expire,
+        "sub":
+            str(
+                user_id,
+            ),
+
+        "iat":
+            now,
+
+        "exp":
+            expire,
     }
 
     return jwt.encode(

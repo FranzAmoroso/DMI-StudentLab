@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
 )
 
 
@@ -12,6 +13,8 @@ class GroupCreate(BaseModel):
     description: str | None = None
 
     subject_id: int | None = None
+
+    university: str
 
     department: str
 
@@ -28,6 +31,8 @@ class GroupUpdate(BaseModel):
     description: str | None = None
 
     subject_id: int | None = None
+
+    university: str | None = None
 
     department: str | None = None
 
@@ -63,6 +68,8 @@ class GroupResponse(BaseModel):
 
     subject_id: int | None
 
+    university: str
+
     department: str
 
     course: str
@@ -75,7 +82,9 @@ class GroupResponse(BaseModel):
 
 
 class GroupDetailResponse(GroupResponse):
-    members: list[GroupMemberResponse] = []
+    members: list[GroupMemberResponse] = Field(
+        default_factory=list,
+    )
 
 
 class AddGroupMemberRequest(BaseModel):
@@ -86,13 +95,6 @@ class AddGroupMemberRequest(BaseModel):
 
 class ChangeGroupMemberRoleRequest(BaseModel):
     role: str
-
-from datetime import datetime
-
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-)
 
 
 class GroupJoinRequestCreate(BaseModel):
@@ -114,7 +116,10 @@ class GroupJoinRequestResponse(BaseModel):
 
     created_at: datetime
 
+
 class JoinGroupResponse(BaseModel):
     joined: bool
+
     pending: bool
+
     message: str

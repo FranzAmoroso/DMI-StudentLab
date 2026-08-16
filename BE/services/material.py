@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from vercel.blob import AsyncBlobClient
 
@@ -65,6 +66,33 @@ def validate_material_mime_type(
         )
 
 
+def normalize_file_hash(
+    file_hash: str,
+) -> str:
+    normalized_hash = (
+        file_hash
+        .strip()
+        .lower()
+    )
+
+    if len(normalized_hash) != 64:
+        raise ValueError(
+            "Hash del file non valido."
+        )
+
+    if not all(
+        character in
+        "0123456789abcdef"
+        for character
+        in normalized_hash
+    ):
+        raise ValueError(
+            "Hash del file non valido."
+        )
+
+    return normalized_hash
+
+
 def validate_stored_name(
     group_id: int,
     stored_name: str,
@@ -81,6 +109,60 @@ def validate_stored_name(
         )
 
 
+def get_group_material_by_hash(
+    db: Session,
+    group_id: int,
+    file_hash: str,
+):
+    normalized_hash = normalize_file_hash(
+        file_hash,
+    )
+
+    return (
+        db.query(
+            GroupMaterial
+        )
+        .filter(
+            GroupMaterial.group_id
+            == group_id,
+            GroupMaterial.file_hash
+            == normalized_hash,
+        )
+        .first()
+    )
+
+
+def material_exists_in_group(
+    db: Session,
+    group_id: int,
+    file_hash: str,
+) -> bool:
+    return (
+        get_group_material_by_hash(
+            db,
+            group_id,
+            file_hash,
+        )
+        is not None
+    )
+
+
+def ensure_material_not_duplicate(
+    db: Session,
+    group_id: int,
+    file_hash: str,
+) -> None:
+    if material_exists_in_group(
+        db,
+        group_id,
+        file_hash,
+    ):
+        raise ValueError(
+            "Questo materiale è già presente "
+            "nel gruppo."
+        )
+
+
 def create_group_material_record(
     db: Session,
     group_id: int,
@@ -90,6 +172,7 @@ def create_group_material_record(
     file_path: str,
     mime_type: str,
     size: int,
+    file_hash: str,
 ):
     validate_material_size(
         size,
@@ -104,6 +187,16 @@ def create_group_material_record(
         stored_name,
     )
 
+    normalized_hash = normalize_file_hash(
+        file_hash,
+    )
+
+    ensure_material_not_duplicate(
+        db,
+        group_id,
+        normalized_hash,
+    )
+
     material = GroupMaterial(
         group_id=group_id,
         uploaded_by=uploaded_by,
@@ -112,6 +205,7 @@ def create_group_material_record(
         file_path=file_path,
         mime_type=mime_type,
         size=size,
+        file_hash=normalized_hash,
     )
 
     try:
@@ -126,6 +220,14 @@ def create_group_material_record(
         )
 
         return material
+
+    except IntegrityError as exception:
+        db.rollback()
+
+        raise ValueError(
+            "Questo materiale è già presente "
+            "nel gruppo."
+        ) from exception
 
     except Exception:
         db.rollback()

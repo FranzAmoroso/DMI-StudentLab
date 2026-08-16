@@ -4,6 +4,7 @@ from sqlalchemy.orm import (
 )
 
 from models.group import (
+    GroupJoinRequest,
     GroupMember,
     StudyGroup,
 )
@@ -22,6 +23,7 @@ def create_group(
         name=data.name,
         description=data.description,
         subject_id=data.subject_id,
+        university=data.university,
         department=data.department,
         course=data.course,
         is_private=data.is_private,
@@ -44,13 +46,18 @@ def create_group(
         owner,
     )
 
-    db.commit()
+    try:
+        db.commit()
 
-    db.refresh(
-        group,
-    )
+        db.refresh(
+            group,
+        )
 
-    return group
+        return group
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_groups(
@@ -143,28 +150,38 @@ def add_group_member(
         role=role,
     )
 
-    db.add(
-        member,
-    )
+    try:
+        db.add(
+            member,
+        )
 
-    db.commit()
+        db.commit()
 
-    db.refresh(
-        member,
-    )
+        db.refresh(
+            member,
+        )
 
-    return member
+        return member
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 def remove_group_member(
     db: Session,
     member: GroupMember,
 ):
-    db.delete(
-        member,
-    )
+    try:
+        db.delete(
+            member,
+        )
 
-    db.commit()
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 def update_group(
@@ -183,13 +200,18 @@ def update_group(
             value,
         )
 
-    db.commit()
+    try:
+        db.commit()
 
-    db.refresh(
-        group,
-    )
+        db.refresh(
+            group,
+        )
 
-    return group
+        return group
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 def update_group_member_role(
@@ -199,24 +221,34 @@ def update_group_member_role(
 ):
     member.role = role
 
-    db.commit()
+    try:
+        db.commit()
 
-    db.refresh(
-        member,
-    )
+        db.refresh(
+            member,
+        )
 
-    return member
+        return member
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 def delete_group(
     db: Session,
     group: StudyGroup,
 ):
-    db.delete(
-        group,
-    )
+    try:
+        db.delete(
+            group,
+        )
 
-    db.commit()
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 def is_group_admin(
@@ -255,14 +287,6 @@ def is_group_owner(
 
     return member.role == "owner"
 
-from sqlalchemy.orm import Session
-
-from models.group import (
-    GroupJoinRequest,
-    GroupMember,
-    StudyGroup,
-)
-
 
 def create_group_join_request(
     db: Session,
@@ -275,17 +299,22 @@ def create_group_join_request(
         status="pending",
     )
 
-    db.add(
-        request,
-    )
+    try:
+        db.add(
+            request,
+        )
 
-    db.commit()
+        db.commit()
 
-    db.refresh(
-        request,
-    )
+        db.refresh(
+            request,
+        )
 
-    return request
+        return request
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_group_join_request(
@@ -351,17 +380,22 @@ def accept_group_join_request(
 
     request.status = "accepted"
 
-    db.add(
-        member,
-    )
+    try:
+        db.add(
+            member,
+        )
 
-    db.commit()
+        db.commit()
 
-    db.refresh(
-        member,
-    )
+        db.refresh(
+            member,
+        )
 
-    return member
+        return member
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 def reject_group_join_request(
@@ -370,10 +404,15 @@ def reject_group_join_request(
 ):
     request.status = "rejected"
 
-    db.commit()
+    try:
+        db.commit()
 
-    db.refresh(
-        request,
-    )
+        db.refresh(
+            request,
+        )
 
-    return request
+        return request
+
+    except Exception:
+        db.rollback()
+        raise

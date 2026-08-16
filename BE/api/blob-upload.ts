@@ -28,6 +28,7 @@ type UploadRequestBody = {
   original_name: string;
   mime_type: string;
   size: number;
+  file_hash: string;
 };
 
 
@@ -83,6 +84,7 @@ export default async function handler(
       original_name,
       mime_type,
       size,
+      file_hash,
     } = body;
 
 
@@ -185,6 +187,30 @@ export default async function handler(
     }
 
 
+    if (
+      typeof file_hash !== 'string' ||
+      !/^[a-fA-F0-9]{64}$/.test(
+        file_hash.trim(),
+      )
+    ) {
+      return Response.json(
+        {
+          error:
+            'Hash del file non valido.',
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+
+    const normalizedFileHash =
+      file_hash
+        .trim()
+        .toLowerCase();
+
+
     const origin =
       new URL(
         request.url,
@@ -225,6 +251,8 @@ export default async function handler(
               original_name,
               mime_type,
               size,
+              file_hash:
+                normalizedFileHash,
             }),
         },
       );
@@ -251,7 +279,8 @@ export default async function handler(
     }
 
 
-    const authorization: FastApiAuthorizationResponse =
+    const authorization:
+        FastApiAuthorizationResponse =
       await authorizationResponse.json();
 
 
@@ -313,11 +342,11 @@ export default async function handler(
 
 
     const {
-    presignedUrl,
+      presignedUrl,
     } =
-    await presignUrl(
-        signedToken,
-        {
+        await presignUrl(
+      signedToken,
+      {
         pathname,
 
         operation:
@@ -327,7 +356,7 @@ export default async function handler(
             'private',
 
         validUntil,
-        },
+      },
     );
 
 
@@ -345,6 +374,9 @@ export default async function handler(
           mime_type,
 
         size,
+
+        file_hash:
+          normalizedFileHash,
 
         valid_until:
           validUntil,
