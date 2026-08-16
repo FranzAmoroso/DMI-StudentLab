@@ -1,21 +1,17 @@
-from pathlib import Path
-
 from fastapi import (
     Depends,
     FastAPI,
-    File,
-    Form,
     HTTPException,
-    UploadFile,
 )
 
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from vercel.blob import AsyncBlobClient
 
 
 from core.database import (
@@ -30,6 +26,7 @@ from core.security import (
 from core.config import (
     settings,
 )
+
 
 from models.user import User
 
@@ -55,6 +52,7 @@ from models.filter import (
     QuestionCountRequest,
     SubjectRequest,
 )
+
 
 from schemas.user import (
     UserCreate,
@@ -88,7 +86,9 @@ from schemas.group import (
 )
 
 from schemas.material import (
+    GroupMaterialCompleteRequest,
     GroupMaterialResponse,
+    GroupMaterialUploadRequest,
 )
 
 
@@ -119,7 +119,6 @@ from services.user import (
 
 from services.subject import (
     create_subject,
-    get_subjects,
     get_subject_by_id,
     get_existing_subject,
     get_subjects_by_course,
@@ -138,8 +137,6 @@ from services.group import (
     get_group_member,
     get_groups,
     get_groups_by_user,
-    is_group_admin,
-    is_group_owner,
     reject_group_join_request,
     remove_group_member,
     update_group,
@@ -147,15 +144,18 @@ from services.group import (
 )
 
 from services.material import (
-    ALLOWED_MIME_TYPES,
+    create_group_material_record,
     delete_group_material,
+    generate_stored_name,
     get_group_material_by_id,
     get_group_materials,
-    save_group_material,
+    validate_material_mime_type,
+    validate_material_size,
 )
 
 
 app = FastAPI()
+
 
 @app.on_event("startup")
 def startup_event():
@@ -177,10 +177,10 @@ async def root():
         "status": "Server attivo."
     }
 
-# Potremo successivamente limitare CORS
-# al dominio reale di StudentLab invece di usare "*".
 
-
+# =============================================================================
+# QUIZ
+# =============================================================================
 
 @app.post("/shuffle_filter")
 def api_shuffle_filter(
@@ -242,6 +242,11 @@ def api_subjects(
         request.department,
         request.course,
     )
+
+
+# =============================================================================
+# USERS
+# =============================================================================
 
 @app.post(
     "/create_user",
@@ -359,10 +364,9 @@ def api_update_user(
     )
 
 
-# In seguito questi endpoint utilizzeranno
-# l'utente autenticato ricavato dal token,
-# quindi non sarà necessario fidarsi di user_id
-# ricevuto direttamente dal client.
+# =============================================================================
+# SUBJECTS
+# =============================================================================
 
 @app.post(
     "/create_subject",
@@ -414,11 +418,6 @@ def api_social_subjects(
         department,
         course,
     )
-
-
-# Potremo successivamente impedire agli utenti normali
-# di creare direttamente nuove materie e permettere
-# soltanto una proposta da approvare.
 
 
 @app.post(
@@ -538,6 +537,11 @@ def api_remove_user_subject(
         "message": "Materia rimossa.",
     }
 
+
+# =============================================================================
+# GROUPS
+# =============================================================================
+
 @app.post(
     "/create_group",
     response_model=GroupResponse,
@@ -584,10 +588,6 @@ def api_create_group(
         )
 
 
-# Quando aggiungeremo l'autenticazione,
-# created_by verrà ottenuto dal token
-# invece di essere accettato dal client.
-
 @app.get(
     "/groups",
     response_model=list[GroupResponse],
@@ -621,6 +621,7 @@ def api_group(
 
     return group
 
+
 @app.get(
     "/user_groups/{user_id}",
     response_model=list[GroupResponse],
@@ -644,6 +645,7 @@ def api_user_groups(
         db,
         user_id,
     )
+
 
 @app.post(
     "/add_group_member/{group_id}",
@@ -714,10 +716,6 @@ def api_add_group_member(
         )
 
 
-# Quando avremo l'autenticazione,
-# questo endpoint verificherà automaticamente
-# che chi effettua la richiesta sia owner/admin.
-
 @app.delete(
     "/remove_group_member/{group_id}/{user_id}",
 )
@@ -766,9 +764,6 @@ def api_remove_group_member(
     }
 
 
-# Dopo l'autenticazione controlleremo qui
-# i privilegi dell'utente che esegue l'operazione.
-
 @app.patch(
     "/update_group/{group_id}",
     response_model=GroupResponse,
@@ -807,9 +802,6 @@ def api_update_group(
         request,
     )
 
-
-# Dopo l'autenticazione la modifica sarà
-# permessa esclusivamente ad owner/admin.
 
 @app.patch(
     "/update_group_member_role/{group_id}/{user_id}",
@@ -855,9 +847,6 @@ def api_update_group_member_role(
     )
 
 
-# La promozione/rimozione di un amministratore
-# verrà autorizzata dal proprietario del gruppo.
-
 @app.delete(
     "/delete_group/{group_id}",
 )
@@ -887,8 +876,9 @@ def api_delete_group(
     }
 
 
-# Dopo l'autenticazione solo il proprietario
-# potrà eliminare definitivamente il gruppo.
+# =============================================================================
+# GROUP JOIN REQUESTS
+# =============================================================================
 
 @app.post(
     "/request_join_group/{group_id}",
@@ -992,10 +982,6 @@ def api_request_join_group(
             detail="Impossibile inviare la richiesta.",
         )
 
-
-# In seguito user_id verrà ricavato
-# dall'utente autenticato invece di essere
-# ricevuto direttamente dal client.
 
 @app.get(
     "/group_requests/{group_id}",
@@ -1105,21 +1091,16 @@ def api_reject_group_request(
     )
 
 
-# Quando aggiungeremo l'autenticazione,
-# group_requests, accept e reject dovranno verificare
-# che l'utente corrente sia owner/admin del gruppo.
+# =============================================================================
+# GROUP MATERIALS
+# =============================================================================
 
 @app.post(
-    "/add_group_material/{group_id}",
-    response_model=GroupMaterialResponse,
+    "/group_material_upload_request/{group_id}",
 )
-def api_add_group_material(
+def api_group_material_upload_request(
     group_id: int,
-
-    uploaded_by: int = Form(...),
-
-    file: UploadFile = File(...),
-
+    request: GroupMaterialUploadRequest,
     db: Session = Depends(get_db),
 ):
     group = get_group_by_id(
@@ -1135,7 +1116,7 @@ def api_add_group_material(
 
     user = get_user_by_id(
         db,
-        uploaded_by,
+        request.uploaded_by,
     )
 
     if user is None:
@@ -1147,7 +1128,7 @@ def api_add_group_material(
     member = get_group_member(
         db,
         group_id,
-        uploaded_by,
+        request.uploaded_by,
     )
 
     if member is None:
@@ -1156,32 +1137,114 @@ def api_add_group_material(
             detail="L'utente non appartiene al gruppo.",
         )
 
-    if (
-        file.content_type
-        not in ALLOWED_MIME_TYPES
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Tipo di file non supportato.",
+    try:
+        validate_material_size(
+            request.size,
         )
 
-    try:
-        return save_group_material(
-            db,
-            group_id,
-            uploaded_by,
-            file,
+        validate_material_mime_type(
+            request.mime_type,
         )
 
     except ValueError as exception:
         raise HTTPException(
-            status_code=413,
+            status_code=400,
             detail=str(exception),
         )
 
+    stored_name = generate_stored_name(
+        group_id,
+        request.original_name,
+    )
 
-# In seguito uploaded_by verrà ricavato
-# direttamente dall'utente autenticato.
+    return {
+        "allowed": True,
+        "pathname": stored_name,
+        "max_file_size": 250 * 1024 * 1024,
+    }
+
+
+@app.post(
+    "/group_material_complete/{group_id}",
+    response_model=GroupMaterialResponse,
+)
+def api_group_material_complete(
+    group_id: int,
+    request: GroupMaterialCompleteRequest,
+    db: Session = Depends(get_db),
+):
+    group = get_group_by_id(
+        db,
+        group_id,
+    )
+
+    if group is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Gruppo non trovato.",
+        )
+
+    user = get_user_by_id(
+        db,
+        request.uploaded_by,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Utente non trovato.",
+        )
+
+    member = get_group_member(
+        db,
+        group_id,
+        request.uploaded_by,
+    )
+
+    if member is None:
+        raise HTTPException(
+            status_code=403,
+            detail="L'utente non appartiene al gruppo.",
+        )
+
+    try:
+        validate_material_size(
+            request.size,
+        )
+
+        validate_material_mime_type(
+            request.mime_type,
+        )
+
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exception),
+        )
+
+    expected_prefix = (
+        f"groups/group_{group_id}/"
+    )
+
+    if not request.stored_name.startswith(
+        expected_prefix
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Percorso storage non valido.",
+        )
+
+    return create_group_material_record(
+        db=db,
+        group_id=group_id,
+        uploaded_by=request.uploaded_by,
+        original_name=request.original_name,
+        stored_name=request.stored_name,
+        file_path=request.file_path,
+        mime_type=request.mime_type,
+        size=request.size,
+    )
+
 
 @app.get(
     "/group_materials/{group_id}",
@@ -1207,10 +1270,11 @@ def api_group_materials(
         group_id,
     )
 
+
 @app.get(
     "/group_material/{material_id}",
 )
-def api_group_material(
+async def api_group_material(
     material_id: int,
     db: Session = Depends(get_db),
 ):
@@ -1225,28 +1289,48 @@ def api_group_material(
             detail="Materiale non trovato.",
         )
 
-    path = Path(
-        material.file_path
-    )
-
-    if not path.exists():
+    if not settings.blob_read_write_token:
         raise HTTPException(
-            status_code=404,
-            detail="File non disponibile sul server.",
+            status_code=500,
+            detail="Storage dei file non configurato.",
         )
 
-    return FileResponse(
-        path=str(path),
-
-        media_type=material.mime_type,
-
-        filename=material.original_name,
+    client = AsyncBlobClient(
+        token=settings.blob_read_write_token,
     )
+
+    result = await client.get(
+        material.stored_name,
+        access="private",
+    )
+
+    if (
+        result is None
+        or result.status_code != 200
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="File non disponibile.",
+        )
+
+    headers = {
+        "Content-Disposition": (
+            f'attachment; filename="{material.original_name}"'
+        ),
+        "X-Content-Type-Options": "nosniff",
+    }
+
+    return StreamingResponse(
+        result.stream,
+        media_type=material.mime_type,
+        headers=headers,
+    )
+
 
 @app.delete(
     "/remove_group_material/{material_id}",
 )
-def api_remove_group_material(
+async def api_remove_group_material(
     material_id: int,
     user_id: int,
     db: Session = Depends(get_db),
@@ -1288,10 +1372,17 @@ def api_remove_group_material(
             detail="Non puoi eliminare questo materiale.",
         )
 
-    delete_group_material(
-        db,
-        material,
-    )
+    try:
+        await delete_group_material(
+            db,
+            material,
+        )
+
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=500,
+            detail=str(exception),
+        )
 
     return {
         "success": True,
@@ -1299,8 +1390,9 @@ def api_remove_group_material(
     }
 
 
-# In seguito user_id verrà ricavato
-# dall'utente autenticato.
+# =============================================================================
+# AUTH
+# =============================================================================
 
 @app.post(
     "/register",
@@ -1355,11 +1447,15 @@ def api_register(
         is_active=True,
     )
 
-    db.add(user)
+    db.add(
+        user
+    )
 
     try:
         db.commit()
-        db.refresh(user)
+        db.refresh(
+            user
+        )
 
     except IntegrityError:
         db.rollback()
@@ -1377,6 +1473,7 @@ def api_register(
     return TokenResponse(
         access_token=token,
     )
+
 
 @app.post(
     "/login",
@@ -1412,6 +1509,7 @@ def api_login(
     return TokenResponse(
         access_token=token,
     )
+
 
 @app.get(
     "/me",

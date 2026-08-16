@@ -2,62 +2,32 @@ import uuid
 
 from pathlib import Path
 
-from fastapi import UploadFile
-
 from sqlalchemy.orm import Session
+
+from vercel.blob import AsyncBlobClient
+
+from core.config import settings
 
 from models.material import GroupMaterial
 
-
-# =============================================================================
-# CONFIGURAZIONE FILE
-# =============================================================================
 
 ALLOWED_MIME_TYPES = {
     "application/pdf",
     "text/plain",
     "application/zip",
+    "application/x-zip-compressed",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
 
-# Limite prudenziale per upload attraverso Vercel.
-MAX_FILE_SIZE = 4 * 1024 * 1024
+MAX_FILE_SIZE = 250 * 1024 * 1024
 
-
-STORAGE_ROOT = Path(
-    "storage/groups"
-)
-
-
-# =============================================================================
-# DIRECTORY GRUPPO
-# =============================================================================
-
-def get_group_storage_directory(
-    group_id: int,
-):
-    directory = (
-        STORAGE_ROOT
-        / f"group_{group_id}"
-    )
-
-    directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    return directory
-
-
-# =============================================================================
-# NOME FILE INTERNO
-# =============================================================================
 
 def generate_stored_name(
+    group_id: int,
     original_name: str,
-):
+) -> str:
     extension = Path(
         original_name
     ).suffix.lower()
@@ -65,90 +35,86 @@ def generate_stored_name(
     unique_id = uuid.uuid4().hex
 
     return (
+        f"groups/"
+        f"group_{group_id}/"
         f"{unique_id}{extension}"
     )
 
 
-# =============================================================================
-# SALVATAGGIO MATERIALE
-# =============================================================================
+def validate_material_size(
+    size: int,
+) -> None:
+    if size <= 0:
+        raise ValueError(
+            "Il file è vuoto."
+        )
 
-def save_group_material(
+    if size > MAX_FILE_SIZE:
+        raise ValueError(
+            "Il file supera la dimensione "
+            "massima consentita di 250 MB."
+        )
+
+
+def validate_material_mime_type(
+    mime_type: str,
+) -> None:
+    if mime_type not in ALLOWED_MIME_TYPES:
+        raise ValueError(
+            "Tipo di file non supportato."
+        )
+
+
+def validate_stored_name(
+    group_id: int,
+    stored_name: str,
+) -> None:
+    expected_prefix = (
+        f"groups/group_{group_id}/"
+    )
+
+    if not stored_name.startswith(
+        expected_prefix
+    ):
+        raise ValueError(
+            "Percorso storage non valido."
+        )
+
+
+def create_group_material_record(
     db: Session,
     group_id: int,
     uploaded_by: int,
-    file: UploadFile,
+    original_name: str,
+    stored_name: str,
+    file_path: str,
+    mime_type: str,
+    size: int,
 ):
-    original_name = (
-        file.filename
-        or "file"
+    validate_material_size(
+        size,
     )
 
-    stored_name = generate_stored_name(
-        original_name,
+    validate_material_mime_type(
+        mime_type,
     )
 
-    directory = (
-        get_group_storage_directory(
-            group_id,
-        )
+    validate_stored_name(
+        group_id,
+        stored_name,
     )
 
-    destination = (
-        directory
-        / stored_name
+    material = GroupMaterial(
+        group_id=group_id,
+        uploaded_by=uploaded_by,
+        original_name=original_name,
+        stored_name=stored_name,
+        file_path=file_path,
+        mime_type=mime_type,
+        size=size,
     )
-
-    size = 0
 
     try:
-        with destination.open(
-            "wb"
-        ) as output_file:
-
-            while True:
-                chunk = file.file.read(
-                    1024 * 1024
-                )
-
-                if not chunk:
-                    break
-
-                size += len(
-                    chunk
-                )
-
-                if size > MAX_FILE_SIZE:
-                    raise ValueError(
-                        "Il file supera la dimensione "
-                        "massima consentita di 4 MB."
-                    )
-
-                output_file.write(
-                    chunk
-                )
-
-        material = GroupMaterial(
-            group_id=group_id,
-
-            uploaded_by=uploaded_by,
-
-            original_name=original_name,
-
-            stored_name=stored_name,
-
-            file_path=str(
-                destination
-            ),
-
-            mime_type=(
-                file.content_type
-                or "application/octet-stream"
-            ),
-
-            size=size,
-        )
-
         db.add(
             material
         )
@@ -163,19 +129,8 @@ def save_group_material(
 
     except Exception:
         db.rollback()
-
-        if destination.exists():
-            destination.unlink()
-
         raise
 
-    finally:
-        file.file.close()
-
-
-# =============================================================================
-# MATERIALI DEL GRUPPO
-# =============================================================================
 
 def get_group_materials(
     db: Session,
@@ -196,10 +151,6 @@ def get_group_materials(
     )
 
 
-# =============================================================================
-# MATERIALE PER ID
-# =============================================================================
-
 def get_group_material_by_id(
     db: Session,
     material_id: int,
@@ -216,23 +167,34 @@ def get_group_material_by_id(
     )
 
 
-# =============================================================================
-# ELIMINA MATERIALE
-# =============================================================================
+def get_blob_client():
+    if not settings.blob_read_write_token:
+        raise RuntimeError(
+            "Token Vercel Blob non configurato."
+        )
 
-def delete_group_material(
+    return AsyncBlobClient(
+        token=settings.blob_read_write_token,
+    )
+
+
+async def delete_group_material(
     db: Session,
     material: GroupMaterial,
 ):
-    path = Path(
-        material.file_path
+    client = get_blob_client()
+
+    await client.delete(
+        material.stored_name,
     )
 
-    db.delete(
-        material
-    )
+    try:
+        db.delete(
+            material
+        )
 
-    db.commit()
+        db.commit()
 
-    if path.exists():
-        path.unlink()
+    except Exception:
+        db.rollback()
+        raise
