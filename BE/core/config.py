@@ -7,16 +7,12 @@ load_dotenv()
 
 
 class Settings:
-    database_url: str = os.environ["DATABASE_URL"]
-    secret_key: str = os.environ["SECRET_KEY"]
-    app_name: str = os.environ["APP_NAME"]
-
-    debug: bool = (
-        os.getenv("DEBUG", "false")
-        .strip()
-        .lower()
-        in {"1", "true", "yes", "on"}
-    )
+    def __init__(self):
+        self.database_url = (
+            os.getenv("StudentLab_DATABASE_URL")
+            or os.getenv("DATABASE_URL")
+            or "postgresql://postgres:postgres@localhost:5432/studentlab"
+        )
 
 
 settings = Settings()
