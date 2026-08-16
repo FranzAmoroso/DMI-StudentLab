@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../theme/nightTheme.dart';
 
 import '../../services/api_service.dart';
+import '../../services/auth_session.dart';
 
 import '../social_models.dart';
 
@@ -12,8 +14,6 @@ import '../layers/group_management_layer.dart';
 
 import 'models/study_group.dart';
 
-import 'package:file_picker/file_picker.dart';
-
 
 // =============================================================================
 // STUDY GROUP DETAIL PAGE
@@ -22,10 +22,12 @@ import 'package:file_picker/file_picker.dart';
 class StudyGroupDetailPage extends StatefulWidget {
   final StudyGroup group;
 
+
   const StudyGroupDetailPage({
     super.key,
     required this.group,
   });
+
 
   @override
   State<StudyGroupDetailPage> createState() =>
@@ -44,6 +46,14 @@ class _StudyGroupDetailPageState
       ApiService();
 
 
+  final AuthSession _session =
+      AuthSession.instance;
+
+
+  // ===========================================================================
+  // DATA
+  // ===========================================================================
+
   List<SocialUser> _participants =
       [];
 
@@ -51,6 +61,10 @@ class _StudyGroupDetailPageState
   List<_GroupMaterial> _materials =
       [];
 
+
+  // ===========================================================================
+  // STATE
+  // ===========================================================================
 
   bool _loading =
       true;
@@ -60,19 +74,142 @@ class _StudyGroupDetailPageState
       false;
 
 
+  bool _leavingGroup =
+      false;
+
+
   String? _error;
 
+
+  // ===========================================================================
+  // GETTERS
+  // ===========================================================================
+
+  StudyGroup get group {
+    return widget.group;
+  }
+
+
+  SocialUser? get currentUser {
+    return _session.currentUser;
+  }
+
+
+  int? get currentUserId {
+    return _session.currentUserId;
+  }
+
+
+  bool get isAuthenticated {
+    return _session.isAuthenticated;
+  }
+
+
+  bool get isGuest {
+    return _session.isGuest;
+  }
+
+
+  bool get isCurrentUserMember {
+    final int? userId =
+        currentUserId;
+
+
+    if (userId == null) {
+      return false;
+    }
+
+
+    return _participants.any(
+      (
+        participant,
+      ) =>
+          participant.id ==
+          userId,
+    );
+  }
+
+
+  bool get canUseGroupChat {
+    return isAuthenticated &&
+        (
+          isCurrentUserMember ||
+              group.isOwner
+        );
+  }
+
+
+  bool get canUploadMaterial {
+    // Manteniamo la regola già presente
+    // nella vecchia pagina:
+    // soltanto l'owner può caricare.
+    //
+    // Se successivamente vorremo permettere
+    // l'upload a tutti i membri,
+    // basta modificare questo getter.
+    return isAuthenticated &&
+        group.isOwner;
+  }
+
+
+  bool get canDeleteMaterial {
+    return isAuthenticated &&
+        group.isOwner;
+  }
+
+
+  bool get canLeaveGroup {
+    return isAuthenticated &&
+        isCurrentUserMember &&
+        !group.isOwner;
+  }
+
+
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
 
   @override
   void initState() {
     super.initState();
 
+
+    _session.addListener(
+      _onSessionChanged,
+    );
+
+
     _loadGroupData();
   }
 
 
-  StudyGroup get group =>
-      widget.group;
+  // ===========================================================================
+  // DISPOSE
+  // ===========================================================================
+
+  @override
+  void dispose() {
+    _session.removeListener(
+      _onSessionChanged,
+    );
+
+
+    super.dispose();
+  }
+
+
+  // ===========================================================================
+  // SESSION CHANGED
+  // ===========================================================================
+
+  void _onSessionChanged() {
+    if (!mounted) {
+      return;
+    }
+
+
+    setState(() {});
+  }
 
 
   // ===========================================================================
@@ -80,13 +217,15 @@ class _StudyGroupDetailPageState
   // ===========================================================================
 
   Future<void> _loadGroupData() async {
-    setState(() {
-      _loading =
-          true;
+    if (mounted) {
+      setState(() {
+        _loading =
+            true;
 
-      _error =
-          null;
-    });
+        _error =
+            null;
+      });
+    }
 
 
     try {
@@ -97,15 +236,13 @@ class _StudyGroupDetailPageState
       );
 
 
-      final List<SocialUser>
-          participants =
+      final List<SocialUser> participants =
           await _loadParticipants(
         groupData,
       );
 
 
-      final List<_GroupMaterial>
-          materials =
+      final List<_GroupMaterial> materials =
           await _loadMaterials();
 
 
@@ -135,7 +272,9 @@ class _StudyGroupDetailPageState
             false;
 
         _error =
-            e.toString();
+            _cleanError(
+          e,
+        );
       });
     }
   }
@@ -145,11 +284,9 @@ class _StudyGroupDetailPageState
   // PARTECIPANTI
   // ===========================================================================
 
-  Future<List<SocialUser>>
-      _loadParticipants(
+  Future<List<SocialUser>> _loadParticipants(
     Map<String, dynamic> groupData,
   ) async {
-
     final dynamic membersData =
         groupData['members'];
 
@@ -159,8 +296,7 @@ class _StudyGroupDetailPageState
     }
 
 
-    final List<SocialUser>
-        users =
+    final List<SocialUser> users =
         [];
 
 
@@ -185,7 +321,8 @@ class _StudyGroupDetailPageState
       );
 
 
-      if (userId == null) {
+      if (userId ==
+          null) {
         continue;
       }
 
@@ -202,8 +339,8 @@ class _StudyGroupDetailPageState
           user,
         );
       } catch (_) {
-        // In futuro possiamo mostrare anche membri
-        // il cui profilo non è temporaneamente disponibile.
+        // Se un singolo profilo non è caricabile
+        // continuiamo con gli altri membri.
       }
     }
 
@@ -235,9 +372,11 @@ class _StudyGroupDetailPageState
   }
 
 
-  Future<void>
-      _refreshMaterials() async {
+  // ===========================================================================
+  // REFRESH MATERIALI
+  // ===========================================================================
 
+  Future<void> _refreshMaterials() async {
     if (_loadingMaterials) {
       return;
     }
@@ -250,7 +389,7 @@ class _StudyGroupDetailPageState
 
 
     try {
-      final materials =
+      final List<_GroupMaterial> materials =
           await _loadMaterials();
 
 
@@ -270,8 +409,8 @@ class _StudyGroupDetailPageState
 
 
       _showMessage(
-        context,
-        'Errore aggiornamento materiali: $e',
+        'Errore aggiornamento materiali: '
+        '${_cleanError(e)}',
       );
     } finally {
       if (mounted) {
@@ -296,8 +435,12 @@ class _StudyGroupDetailPageState
       backgroundColor:
           AppColors.darkElegance,
 
-      appBar:
-          AppBar(
+
+      // =========================================================================
+      // APP BAR
+      // =========================================================================
+
+      appBar: AppBar(
         backgroundColor:
             AppColors.brandNightBlue,
 
@@ -307,8 +450,7 @@ class _StudyGroupDetailPageState
         elevation:
             0,
 
-        title:
-            Text(
+        title: Text(
           group.name,
 
           maxLines:
@@ -338,11 +480,18 @@ class _StudyGroupDetailPageState
             ),
 
             onPressed:
-                _loadGroupData,
+                _loading
+                    ? null
+                    : _loadGroupData,
           ),
 
 
-          if (group.isOwner)
+          // ===================================================================
+          // OWNER MANAGEMENT
+          // ===================================================================
+
+          if (isAuthenticated &&
+              group.isOwner)
             IconButton(
               tooltip:
                   'Gestisci gruppo',
@@ -354,35 +503,36 @@ class _StudyGroupDetailPageState
               ),
 
               onPressed:
-                  () {
-                _openGroupManagement(
-                  context,
-                );
-              },
+                  _openGroupManagement,
             ),
 
 
-          IconButton(
-            tooltip:
-                'Altre opzioni',
+          // ===================================================================
+          // MEMBER OPTIONS
+          // ===================================================================
 
-            icon:
-                const Icon(
-              Icons.more_vert_rounded,
+          if (canLeaveGroup)
+            IconButton(
+              tooltip:
+                  'Opzioni gruppo',
+
+              icon:
+                  const Icon(
+                Icons.more_vert_rounded,
+              ),
+
+              onPressed:
+                  _showOptions,
             ),
-
-            onPressed:
-                () {
-              _showOptions(
-                context,
-              );
-            },
-          ),
         ],
       ),
 
-      body:
-          SafeArea(
+
+      // =========================================================================
+      // BODY
+      // =========================================================================
+
+      body: SafeArea(
         child:
             _buildBody(),
       ),
@@ -403,7 +553,8 @@ class _StudyGroupDetailPageState
     }
 
 
-    if (_error != null) {
+    if (_error !=
+        null) {
       return Center(
         child:
             ConstrainedBox(
@@ -442,6 +593,7 @@ class _StudyGroupDetailPageState
           context,
           constraints,
         ) {
+
           final double width =
               constraints.maxWidth >
                       900
@@ -470,30 +622,75 @@ class _StudyGroupDetailPageState
                 ),
 
                 children: [
+                  // ===========================================================
+                  // HEADER
+                  // ===========================================================
+
                   _buildGroupHeader(),
 
                   const SizedBox(
                     height:
-                        20,
+                        16,
                   ),
 
-                  _buildChatCard(
-                    context,
-                  ),
+
+                  // ===========================================================
+                  // GUEST INFO
+                  // ===========================================================
+
+                  if (isGuest) ...[
+                    _buildGuestInfo(),
+
+                    const SizedBox(
+                      height:
+                          16,
+                    ),
+                  ],
+
+
+                  // ===========================================================
+                  // NON MEMBER INFO
+                  // ===========================================================
+
+                  if (isAuthenticated &&
+                      !isCurrentUserMember &&
+                      !group.isOwner) ...[
+                    _buildNonMemberInfo(),
+
+                    const SizedBox(
+                      height:
+                          16,
+                    ),
+                  ],
+
+
+                  // ===========================================================
+                  // CHAT
+                  // ===========================================================
+
+                  _buildChatCard(),
 
                   const SizedBox(
                     height:
                         12,
                   ),
 
-                  _buildParticipantsCard(
-                    context,
-                  ),
+
+                  // ===========================================================
+                  // PARTECIPANTI
+                  // ===========================================================
+
+                  _buildParticipantsCard(),
 
                   const SizedBox(
                     height:
                         28,
                   ),
+
+
+                  // ===========================================================
+                  // MATERIALI
+                  // ===========================================================
 
                   GroupMaterialSection(
                     group:
@@ -505,45 +702,26 @@ class _StudyGroupDetailPageState
                     loading:
                         _loadingMaterials,
 
+                    canAddMaterial:
+                        canUploadMaterial,
+
+                    canDeleteMaterial:
+                        canDeleteMaterial,
+
                     onRefresh:
                         _refreshMaterials,
 
                     onAddMaterial:
-                        () {
-                      _addMaterial(
-                        context,
-                      );
-                    },
+                        _addMaterial,
 
                     onOpenMaterial:
-                        (
-                      material,
-                    ) {
-                      _openMaterial(
-                        context,
-                        material,
-                      );
-                    },
+                        _openMaterial,
 
                     onDownloadMaterial:
-                        (
-                      material,
-                    ) {
-                      _downloadMaterial(
-                        context,
-                        material,
-                      );
-                    },
+                        _downloadMaterial,
 
                     onDeleteMaterial:
-                        (
-                      material,
-                    ) {
-                      _deleteMaterial(
-                        context,
-                        material,
-                      );
-                    },
+                        _deleteMaterial,
                   ),
 
                   const SizedBox(
@@ -571,6 +749,7 @@ class _StudyGroupDetailPageState
         context,
         constraints,
       ) {
+
         final double width =
             constraints.maxWidth;
 
@@ -623,8 +802,7 @@ class _StudyGroupDetailPageState
           decoration:
               BoxDecoration(
             color:
-                AppColors
-                    .eleganceMidnight,
+                AppColors.eleganceMidnight,
 
             borderRadius:
                 BorderRadius.circular(
@@ -702,6 +880,10 @@ class _StudyGroupDetailPageState
                   const Spacer(),
 
 
+                  // ===========================================================
+                  // OWNER
+                  // ===========================================================
+
                   if (group.isOwner)
                     _GroupHeaderBadge(
                       icon:
@@ -723,6 +905,10 @@ class _StudyGroupDetailPageState
                           7,
                     ),
 
+
+                  // ===========================================================
+                  // PRIVATE
+                  // ===========================================================
 
                   if (group.isPrivate)
                     _GroupHeaderBadge(
@@ -753,8 +939,7 @@ class _StudyGroupDetailPageState
                     2,
 
                 overflow:
-                    TextOverflow
-                        .ellipsis,
+                    TextOverflow.ellipsis,
 
                 style:
                     TextStyle(
@@ -795,8 +980,7 @@ class _StudyGroupDetailPageState
                     1,
 
                 overflow:
-                    TextOverflow
-                        .ellipsis,
+                    TextOverflow.ellipsis,
 
                 style:
                     TextStyle(
@@ -828,8 +1012,7 @@ class _StudyGroupDetailPageState
                     1,
 
                 overflow:
-                    TextOverflow
-                        .ellipsis,
+                    TextOverflow.ellipsis,
 
                 style:
                     TextStyle(
@@ -861,8 +1044,7 @@ class _StudyGroupDetailPageState
                       1,
 
                   overflow:
-                      TextOverflow
-                          .ellipsis,
+                      TextOverflow.ellipsis,
 
                   style:
                       TextStyle(
@@ -898,8 +1080,7 @@ class _StudyGroupDetailPageState
                         : 4,
 
                 overflow:
-                    TextOverflow
-                        .ellipsis,
+                    TextOverflow.ellipsis,
 
                 style:
                     TextStyle(
@@ -956,23 +1137,6 @@ class _StudyGroupDetailPageState
                     compact:
                         compact,
                   ),
-
-                  _GroupHeaderInfo(
-                    icon:
-                        group.isPrivate
-                            ? Icons
-                                .lock_outline_rounded
-                            : Icons
-                                .public_rounded,
-
-                    text:
-                        group.isPrivate
-                            ? 'Gruppo privato'
-                            : 'Gruppo pubblico',
-
-                    compact:
-                        compact,
-                  ),
                 ],
               ),
             ],
@@ -984,12 +1148,176 @@ class _StudyGroupDetailPageState
 
 
   // ===========================================================================
+  // GUEST INFO
+  // ===========================================================================
+
+  Widget _buildGuestInfo() {
+    return Container(
+      padding:
+          const EdgeInsets.all(
+        14,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.skyBlue
+                .withOpacity(
+          0.06,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          14,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withOpacity(
+            0.13,
+          ),
+        ),
+      ),
+
+      child:
+          Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          const Icon(
+            Icons.visibility_outlined,
+
+            color:
+                AppColors.materialSky,
+
+            size:
+                20,
+          ),
+
+          const SizedBox(
+            width:
+                10,
+          ),
+
+          Expanded(
+            child:
+                Text(
+              'Stai visualizzando il gruppo come Guest. '
+              'Puoi consultare le informazioni, vedere i partecipanti '
+              'e il materiale disponibile. Per utilizzare la chat '
+              'e partecipare alle attività del gruppo devi accedere '
+              'a StudentLab.',
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.55,
+                ),
+
+                fontSize:
+                    11,
+
+                height:
+                    1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // NON MEMBER INFO
+  // ===========================================================================
+
+  Widget _buildNonMemberInfo() {
+    return Container(
+      padding:
+          const EdgeInsets.all(
+        14,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.skyBlue
+                .withOpacity(
+          0.05,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          14,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withOpacity(
+            0.10,
+          ),
+        ),
+      ),
+
+      child:
+          Row(
+        children: [
+          const Icon(
+            Icons.group_add_outlined,
+
+            color:
+                AppColors.materialSky,
+
+            size:
+                20,
+          ),
+
+          const SizedBox(
+            width:
+                10,
+          ),
+
+          Expanded(
+            child:
+                Text(
+              'Puoi esplorare questo gruppo, ma la chat è '
+              'riservata ai partecipanti.',
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.52,
+                ),
+
+                fontSize:
+                    11,
+
+                height:
+                    1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  // ===========================================================================
   // CHAT
   // ===========================================================================
 
-  Widget _buildChatCard(
-    BuildContext context,
-  ) {
+  Widget _buildChatCard() {
     return _GroupActionCard(
       icon:
           Icons
@@ -999,34 +1327,70 @@ class _StudyGroupDetailPageState
           'Chat del gruppo',
 
       description:
-          'Parla con i partecipanti del gruppo.',
+          canUseGroupChat
+              ? 'Parla con i partecipanti del gruppo.'
+              : isGuest
+                  ? 'Accedi per utilizzare la chat del gruppo.'
+                  : 'La chat è disponibile ai partecipanti del gruppo.',
 
       counter:
           'Chat',
 
+      enabled:
+          canUseGroupChat,
+
       onTap:
-          () {
-        Navigator.of(
-          context,
-        ).push(
-          MaterialPageRoute(
-            builder:
-                (
-              _,
-            ) =>
-                    GroupChatLayer(
-              groupId:
-                  group.id.toString(),
+          _openChat,
+    );
+  }
 
-              groupName:
-                  group.name,
 
-              subjectName:
-                  group.subject,
-            ),
-          ),
-        );
-      },
+  // ===========================================================================
+  // OPEN CHAT
+  // ===========================================================================
+
+  void _openChat() {
+    final SocialUser? user =
+        currentUser;
+
+
+    if (user ==
+        null) {
+      _showAuthenticationRequired();
+
+      return;
+    }
+
+
+    if (!canUseGroupChat) {
+      _showMessage(
+        'Devi partecipare al gruppo per utilizzare la chat.',
+      );
+
+      return;
+    }
+
+
+    Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                GroupChatLayer(
+          groupId:
+              group.id,
+
+          groupName:
+              group.name,
+
+          subjectName:
+              group.subject,
+
+          currentUser:
+              user,
+        ),
+      ),
     );
   }
 
@@ -1035,9 +1399,7 @@ class _StudyGroupDetailPageState
   // PARTECIPANTI
   // ===========================================================================
 
-  Widget _buildParticipantsCard(
-    BuildContext context,
-  ) {
+  Widget _buildParticipantsCard() {
     return _GroupActionCard(
       icon:
           Icons.people_outline_rounded,
@@ -1051,34 +1413,31 @@ class _StudyGroupDetailPageState
       counter:
           '${_participants.length}',
 
+      enabled:
+          true,
+
       onTap:
-          () {
-        Navigator.of(
-          context,
-        ).push(
-          MaterialPageRoute(
-            builder:
-                (
-              _,
-            ) =>
-                    GroupParticipantsLayer(
-              groupId:
-                  group.id.toString(),
+          _openParticipants,
+    );
+  }
 
-              groupName:
-                  group.name,
 
-              subjectId:
-                  group.subjectId
-                          ?.toString() ??
-                      '',
+  // ===========================================================================
+  // OPEN PARTICIPANTS
+  // ===========================================================================
 
-              users:
-                  _participants,
-            ),
-          ),
-        );
-      },
+  void _openParticipants() {
+    Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                GroupParticipantsLayer(
+          group:
+              group,
+        ),
+      ),
     );
   }
 
@@ -1087,10 +1446,9 @@ class _StudyGroupDetailPageState
   // GESTIONE GRUPPO
   // ===========================================================================
 
-  void _openGroupManagement(
-    BuildContext context,
-  ) {
-    if (!group.isOwner) {
+  void _openGroupManagement() {
+    if (!isAuthenticated ||
+        !group.isOwner) {
       return;
     }
 
@@ -1100,15 +1458,10 @@ class _StudyGroupDetailPageState
     ).push(
       MaterialPageRoute(
         builder:
-            (
-          _,
-        ) =>
+            (_) =>
                 GroupManagementPage(
           group:
               group,
-
-          participants:
-              _participants,
         ),
       ),
     );
@@ -1120,7 +1473,6 @@ class _StudyGroupDetailPageState
   // ===========================================================================
 
   Future<void> _openMaterial(
-    BuildContext context,
     _GroupMaterial material,
   ) async {
     try {
@@ -1136,15 +1488,15 @@ class _StudyGroupDetailPageState
       }
 
 
+      // Per ora il backend restituisce correttamente
+      // il contenuto binario.
+      //
+      // Il viewer PDF/DOCX verrà collegato
+      // al servizio file locale.
       _showMessage(
-        context,
-        'Materiale ${material.originalName} caricato: '
-        '${bytes.length} byte.',
+        '${material.originalName} caricato '
+        '(${bytes.length} byte).',
       );
-
-
-      // In futuro possiamo aprire direttamente PDF/DOCX
-      // tramite un viewer Flutter.
     } catch (e) {
       if (!mounted) {
         return;
@@ -1152,8 +1504,8 @@ class _StudyGroupDetailPageState
 
 
       _showMessage(
-        context,
-        'Errore apertura materiale: $e',
+        'Errore apertura materiale: '
+        '${_cleanError(e)}',
       );
     }
   }
@@ -1164,7 +1516,6 @@ class _StudyGroupDetailPageState
   // ===========================================================================
 
   Future<void> _downloadMaterial(
-    BuildContext context,
     _GroupMaterial material,
   ) async {
     try {
@@ -1180,16 +1531,16 @@ class _StudyGroupDetailPageState
       }
 
 
+      // Il download HTTP funziona.
+      //
+      // Il salvataggio definitivo sul filesystem
+      // deve passare dal MaterialDownloadService
+      // costruito nel local_storage.
       _showMessage(
-        context,
-        'Download completato: '
+        'Download ricevuto: '
         '${material.originalName} '
         '(${bytes.length} byte).',
       );
-
-
-      // In futuro i bytes verranno salvati nella
-      // directory locale gestita dall'app / SQLite.
     } catch (e) {
       if (!mounted) {
         return;
@@ -1197,96 +1548,123 @@ class _StudyGroupDetailPageState
 
 
       _showMessage(
-        context,
-        'Errore download materiale: $e',
+        'Errore download materiale: '
+        '${_cleanError(e)}',
       );
     }
   }
 
 
+  // ===========================================================================
+  // AGGIUNGI MATERIALE
+  // ===========================================================================
 
-        Future<void> _addMaterial(
-          BuildContext context,
-        ) async {
-          try {
-            final FilePickerResult? result =
-                await FilePicker.platform.pickFiles(
-              allowMultiple: false,
+  Future<void> _addMaterial() async {
+    if (!canUploadMaterial) {
+      if (isGuest) {
+        _showAuthenticationRequired();
+      } else {
+        _showMessage(
+          'Non hai i permessi per caricare materiale.',
+        );
+      }
 
-              type: FileType.custom,
-
-              allowedExtensions: [
-                'pdf',
-                'txt',
-                'zip',
-                'docx',
-                'pptx',
-              ],
-            );
-
-            if (result == null) {
-              return;
-            }
+      return;
+    }
 
 
-            final PlatformFile selectedFile =
-                result.files.single;
+    final SocialUser? user =
+        currentUser;
 
 
-            final String? filePath =
-                selectedFile.path;
+    if (user ==
+        null) {
+      _showAuthenticationRequired();
+
+      return;
+    }
 
 
-            if (filePath == null) {
-              if (!mounted) {
-                return;
-              }
+    try {
+      final FilePickerResult? result =
+          await FilePicker.platform
+              .pickFiles(
+        allowMultiple:
+            false,
 
-              _showMessage(
-                context,
-                'Impossibile ottenere il percorso del file.',
-              );
+        type:
+            FileType.custom,
 
-              return;
-            }
-
-
-            await _apiService.addGroupMaterial(
-              groupId:
-                  group.id,
-
-              uploadedBy:
-                  1,
-
-              filePath:
-                  filePath,
-            );
+        allowedExtensions: [
+          'pdf',
+          'txt',
+          'zip',
+          'docx',
+          'pptx',
+        ],
+      );
 
 
-            await _refreshMaterials();
+      if (result ==
+          null) {
+        return;
+      }
 
 
-            if (!mounted) {
-              return;
-            }
+      final PlatformFile selectedFile =
+          result.files.single;
 
 
-            _showMessage(
-              context,
-              'Materiale caricato correttamente.',
-            );
-          } catch (e) {
-            if (!mounted) {
-              return;
-            }
+      final String? filePath =
+          selectedFile.path;
 
 
-            _showMessage(
-              context,
-              'Errore caricamento materiale: $e',
-            );
-          }
-        }
+      if (filePath ==
+          null) {
+        _showMessage(
+          'Impossibile ottenere il percorso del file.',
+        );
+
+        return;
+      }
+
+
+      await _apiService
+          .addGroupMaterial(
+        groupId:
+            group.id,
+
+        uploadedBy:
+            user.id,
+
+        filePath:
+            filePath,
+      );
+
+
+      await _refreshMaterials();
+
+
+      if (!mounted) {
+        return;
+      }
+
+
+      _showMessage(
+        'Materiale caricato correttamente.',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+
+      _showMessage(
+        'Errore caricamento materiale: '
+        '${_cleanError(e)}',
+      );
+    }
+  }
 
 
   // ===========================================================================
@@ -1294,10 +1672,9 @@ class _StudyGroupDetailPageState
   // ===========================================================================
 
   Future<void> _deleteMaterial(
-    BuildContext context,
     _GroupMaterial material,
   ) async {
-    if (!group.isOwner) {
+    if (!canDeleteMaterial) {
       return;
     }
 
@@ -1311,10 +1688,10 @@ class _StudyGroupDetailPageState
           (
         dialogContext,
       ) {
+
         return AlertDialog(
           backgroundColor:
-              AppColors
-                  .eleganceDeepNavy,
+              AppColors.eleganceDeepNavy,
 
           title:
               const Text(
@@ -1329,7 +1706,8 @@ class _StudyGroupDetailPageState
 
           content:
               Text(
-            'Vuoi eliminare "${material.originalName}"?',
+            'Vuoi eliminare '
+            '"${material.originalName}"?',
 
             style:
                 const TextStyle(
@@ -1402,7 +1780,6 @@ class _StudyGroupDetailPageState
 
 
       _showMessage(
-        context,
         'Materiale eliminato.',
       );
     } catch (e) {
@@ -1412,27 +1789,29 @@ class _StudyGroupDetailPageState
 
 
       _showMessage(
-        context,
-        'Errore eliminazione materiale: $e',
+        'Errore eliminazione materiale: '
+        '${_cleanError(e)}',
       );
     }
   }
 
 
   // ===========================================================================
-  // OPZIONI
+  // OPTIONS
   // ===========================================================================
 
-  void _showOptions(
-    BuildContext context,
-  ) {
-    showModalBottomSheet(
+  void _showOptions() {
+    if (!canLeaveGroup) {
+      return;
+    }
+
+
+    showModalBottomSheet<void>(
       context:
           context,
 
       backgroundColor:
-          AppColors
-              .eleganceDeepNavy,
+          AppColors.eleganceDeepNavy,
 
       shape:
           const RoundedRectangleBorder(
@@ -1449,6 +1828,7 @@ class _StudyGroupDetailPageState
           (
         sheetContext,
       ) {
+
         return SafeArea(
           child:
               Column(
@@ -1462,111 +1842,54 @@ class _StudyGroupDetailPageState
               ),
 
               ListTile(
-                leading:
-                    const Icon(
-                  Icons
-                      .notifications_none_rounded,
+                enabled:
+                    !_leavingGroup,
 
-                  color:
-                      AppColors.pureWhite,
-                ),
+                leading:
+                    _leavingGroup
+                        ? const SizedBox(
+                            width:
+                                22,
+
+                            height:
+                                22,
+
+                            child:
+                                CircularProgressIndicator(
+                              strokeWidth:
+                                  2,
+                            ),
+                          )
+                        : const Icon(
+                            Icons
+                                .exit_to_app_rounded,
+
+                            color:
+                                Colors.redAccent,
+                          ),
 
                 title:
                     const Text(
-                  'Notifiche',
+                  'Esci dal gruppo',
 
                   style:
                       TextStyle(
                     color:
-                        AppColors.pureWhite,
+                        Colors.redAccent,
                   ),
                 ),
 
                 onTap:
-                    () {
-                  Navigator.pop(
-                    sheetContext,
-                  );
+                    _leavingGroup
+                        ? null
+                        : () {
+                            Navigator.pop(
+                              sheetContext,
+                            );
 
-
-                  _showMessage(
-                    context,
-                    'Impostazioni notifiche: da implementare.',
-                  );
-                },
+                            _leaveGroup();
+                          },
               ),
-
-
-              if (group.isOwner)
-                ListTile(
-                  leading:
-                      const Icon(
-                    Icons
-                        .admin_panel_settings_outlined,
-
-                    color:
-                        AppColors.skyBlue,
-                  ),
-
-                  title:
-                      const Text(
-                    'Gestisci gruppo',
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite,
-                    ),
-                  ),
-
-                  onTap:
-                      () {
-                    Navigator.pop(
-                      sheetContext,
-                    );
-
-
-                    _openGroupManagement(
-                      context,
-                    );
-                  },
-                ),
-
-
-              if (!group.isOwner)
-                ListTile(
-                  leading:
-                      const Icon(
-                    Icons
-                        .exit_to_app_rounded,
-
-                    color:
-                        Colors.redAccent,
-                  ),
-
-                  title:
-                      const Text(
-                    'Esci dal gruppo',
-
-                    style:
-                        TextStyle(
-                      color:
-                          Colors.redAccent,
-                    ),
-                  ),
-
-                  onTap:
-                      () {
-                    Navigator.pop(
-                      sheetContext,
-                    );
-
-
-                    _leaveGroup(
-                      context,
-                    );
-                  },
-                ),
 
               const SizedBox(
                 height:
@@ -1584,12 +1907,168 @@ class _StudyGroupDetailPageState
   // ESCI DAL GRUPPO
   // ===========================================================================
 
-  void _leaveGroup(
-    BuildContext context,
-  ) {
+  Future<void> _leaveGroup() async {
+    final int? userId =
+        currentUserId;
+
+
+    if (userId ==
+        null) {
+      _showAuthenticationRequired();
+
+      return;
+    }
+
+
+    if (!canLeaveGroup) {
+      return;
+    }
+
+
+    final bool? confirmed =
+        await showDialog<bool>(
+      context:
+          context,
+
+      builder:
+          (
+        dialogContext,
+      ) {
+
+        return AlertDialog(
+          backgroundColor:
+              AppColors.eleganceDeepNavy,
+
+          title:
+              const Text(
+            'Esci dal gruppo',
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite,
+            ),
+          ),
+
+          content:
+              Text(
+            'Vuoi davvero uscire da "${group.name}"?',
+
+            style:
+                const TextStyle(
+              color:
+                  Colors.white70,
+            ),
+          ),
+
+          actions: [
+            TextButton(
+              onPressed:
+                  () {
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
+              },
+
+              child:
+                  const Text(
+                'Annulla',
+              ),
+            ),
+
+            TextButton(
+              onPressed:
+                  () {
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
+              },
+
+              child:
+                  const Text(
+                'Esci',
+
+                style:
+                    TextStyle(
+                  color:
+                      Colors.redAccent,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+
+    if (confirmed !=
+        true) {
+      return;
+    }
+
+
+    setState(() {
+      _leavingGroup =
+          true;
+    });
+
+
+    try {
+      await _apiService
+          .removeGroupMember(
+        groupId:
+            group.id,
+
+        userId:
+            userId,
+      );
+
+
+      if (!mounted) {
+        return;
+      }
+
+
+      _showMessage(
+        'Hai lasciato il gruppo.',
+      );
+
+
+      Navigator.of(
+        context,
+      ).pop(
+        true,
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+
+      _showMessage(
+        'Errore durante l\'uscita dal gruppo: '
+        '${_cleanError(e)}',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _leavingGroup =
+              false;
+        });
+      }
+    }
+  }
+
+
+  // ===========================================================================
+  // AUTH REQUIRED
+  // ===========================================================================
+
+  void _showAuthenticationRequired() {
     _showMessage(
-      context,
-      'Uscita dal gruppo: collegheremo removeGroupMember().',
+      'Accedi a StudentLab per utilizzare questa funzione.',
     );
   }
 
@@ -1599,9 +2078,13 @@ class _StudyGroupDetailPageState
   // ===========================================================================
 
   void _showMessage(
-    BuildContext context,
     String message,
   ) {
+    if (!mounted) {
+      return;
+    }
+
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(
@@ -1616,7 +2099,32 @@ class _StudyGroupDetailPageState
 
 
   // ===========================================================================
-  // UTILITY
+  // CLEAN ERROR
+  // ===========================================================================
+
+  String _cleanError(
+    Object error,
+  ) {
+    String message =
+        error.toString();
+
+
+    if (message.startsWith(
+      'Exception: ',
+    )) {
+      message =
+          message.substring(
+        'Exception: '.length,
+      );
+    }
+
+
+    return message;
+  }
+
+
+  // ===========================================================================
+  // INT
   // ===========================================================================
 
   static int? _toInt(
@@ -1666,28 +2174,25 @@ class _GroupMaterial {
 
   const _GroupMaterial({
     required this.id,
-
     required this.groupId,
-
     required this.uploadedBy,
-
     required this.originalName,
-
     required this.storedName,
-
     required this.filePath,
-
     required this.mimeType,
-
     required this.size,
-
     required this.createdAt,
   });
 
 
+  // ===========================================================================
+  // FROM JSON
+  // ===========================================================================
+
   factory _GroupMaterial.fromJson(
     Map<String, dynamic> json,
   ) {
+
     return _GroupMaterial(
       id:
           _toInt(
@@ -1743,6 +2248,10 @@ class _GroupMaterial {
   }
 
 
+  // ===========================================================================
+  // TYPE
+  // ===========================================================================
+
   String get type {
     if (mimeType ==
         'application/pdf') {
@@ -1780,6 +2289,10 @@ class _GroupMaterial {
   }
 
 
+  // ===========================================================================
+  // FORMATTED SIZE
+  // ===========================================================================
+
   String get formattedSize {
     if (size <
         1024) {
@@ -1796,6 +2309,10 @@ class _GroupMaterial {
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
+
+  // ===========================================================================
+  // INT
+  // ===========================================================================
 
   static int? _toInt(
     dynamic value,
@@ -1834,9 +2351,7 @@ class _GroupHeaderBadge
 
   const _GroupHeaderBadge({
     required this.icon,
-
     required this.label,
-
     required this.compact,
   });
 
@@ -1942,9 +2457,7 @@ class _GroupHeaderInfo
 
   const _GroupHeaderInfo({
     required this.icon,
-
     required this.text,
-
     required this.compact,
   });
 
@@ -2010,10 +2523,13 @@ class GroupMaterialSection
 
   final StudyGroup group;
 
-  final List<_GroupMaterial>
-      materials;
+  final List<_GroupMaterial> materials;
 
   final bool loading;
+
+  final bool canAddMaterial;
+
+  final bool canDeleteMaterial;
 
   final Future<void> Function()
       onRefresh;
@@ -2036,21 +2552,15 @@ class GroupMaterialSection
 
   const GroupMaterialSection({
     super.key,
-
     required this.group,
-
     required this.materials,
-
     required this.loading,
-
+    required this.canAddMaterial,
+    required this.canDeleteMaterial,
     required this.onRefresh,
-
     required this.onAddMaterial,
-
     required this.onOpenMaterial,
-
     required this.onDownloadMaterial,
-
     required this.onDeleteMaterial,
   });
 
@@ -2120,8 +2630,7 @@ class GroupMaterialSection
 
             Container(
               padding:
-                  const EdgeInsets
-                      .symmetric(
+                  const EdgeInsets.symmetric(
                 horizontal:
                     9,
 
@@ -2132,8 +2641,7 @@ class GroupMaterialSection
               decoration:
                   BoxDecoration(
                 color:
-                    AppColors
-                        .brandNightBlue,
+                    AppColors.brandNightBlue,
 
                 borderRadius:
                     BorderRadius.circular(
@@ -2167,7 +2675,7 @@ class GroupMaterialSection
         ),
 
         Text(
-          'Materiale condiviso dai membri del gruppo.',
+          'Materiale condiviso nel gruppo.',
 
           style:
               TextStyle(
@@ -2193,6 +2701,7 @@ class GroupMaterialSection
             context,
             constraints,
           ) {
+
             final double width =
                 constraints.maxWidth;
 
@@ -2216,9 +2725,11 @@ class GroupMaterialSection
 
             final int itemCount =
                 materials.length +
-                    (group.isOwner
-                        ? 1
-                        : 0);
+                    (
+                      canAddMaterial
+                          ? 1
+                          : 0
+                    );
 
 
             if (itemCount ==
@@ -2260,7 +2771,8 @@ class GroupMaterialSection
                 context,
                 index,
               ) {
-                if (group.isOwner &&
+
+                if (canAddMaterial &&
                     index ==
                         0) {
                   return _AddGroupMaterialCard(
@@ -2271,13 +2783,13 @@ class GroupMaterialSection
 
 
                 final int materialIndex =
-                    group.isOwner
+                    canAddMaterial
                         ? index -
                             1
                         : index;
 
 
-                final material =
+                final _GroupMaterial material =
                     materials[
                         materialIndex];
 
@@ -2287,7 +2799,7 @@ class GroupMaterialSection
                       material,
 
                   canDelete:
-                      group.isOwner,
+                      canDeleteMaterial,
 
                   onOpen:
                       () {
@@ -2363,8 +2875,7 @@ class _AddGroupMaterialCard
           decoration:
               BoxDecoration(
             color:
-                AppColors
-                    .eleganceMidnight,
+                AppColors.eleganceMidnight,
 
             borderRadius:
                 BorderRadius.circular(
@@ -2500,13 +3011,9 @@ class _GroupMaterialCard
 
   const _GroupMaterialCard({
     required this.material,
-
     required this.canDelete,
-
     required this.onOpen,
-
     required this.onDownload,
-
     required this.onDelete,
   });
 
@@ -2539,8 +3046,7 @@ class _GroupMaterialCard
           decoration:
               BoxDecoration(
             color:
-                AppColors
-                    .eleganceMidnight,
+                AppColors.eleganceMidnight,
 
             borderRadius:
                 BorderRadius.circular(
@@ -2621,17 +3127,24 @@ class _GroupMaterialCard
 
                     onSelected:
                         (
-                      value,
+                      String value,
                     ) {
+
                       switch (value) {
                         case 'open':
                           onOpen();
 
+                          break;
+
                         case 'download':
                           onDownload();
 
+                          break;
+
                         case 'delete':
                           onDelete();
+
+                          break;
                       }
                     },
 
@@ -2639,6 +3152,7 @@ class _GroupMaterialCard
                         (
                       context,
                     ) {
+
                       return [
                         const PopupMenuItem<String>(
                           value:
@@ -2662,7 +3176,7 @@ class _GroupMaterialCard
 
                           child:
                               Text(
-                            'Scarica offline',
+                            'Scarica',
 
                             style:
                                 TextStyle(
@@ -2706,8 +3220,7 @@ class _GroupMaterialCard
                     2,
 
                 overflow:
-                    TextOverflow
-                        .ellipsis,
+                    TextOverflow.ellipsis,
 
                 style:
                     const TextStyle(
@@ -2762,14 +3275,14 @@ class _GroupMaterialCard
                   Expanded(
                     child:
                         Text(
-                      '${material.type} • ${material.formattedSize}',
+                      '${material.type} • '
+                      '${material.formattedSize}',
 
                       maxLines:
                           1,
 
                       overflow:
-                          TextOverflow
-                              .ellipsis,
+                          TextOverflow.ellipsis,
 
                       style:
                           const TextStyle(
@@ -2795,8 +3308,7 @@ class _GroupMaterialCard
 
                       child:
                           Icon(
-                        Icons
-                            .download_rounded,
+                        Icons.download_rounded,
 
                         color:
                             AppColors.materialSky,
@@ -2915,18 +3427,17 @@ class _GroupActionCard
 
   final String counter;
 
+  final bool enabled;
+
   final VoidCallback onTap;
 
 
   const _GroupActionCard({
     required this.icon,
-
     required this.title,
-
     required this.description,
-
     required this.counter,
-
+    required this.enabled,
     required this.onTap,
   });
 
@@ -2941,6 +3452,7 @@ class _GroupActionCard
         context,
         constraints,
       ) {
+
         final bool compact =
             constraints.maxWidth <
                 360;
@@ -2961,166 +3473,187 @@ class _GroupActionCard
             ),
 
             child:
-                Container(
-              padding:
-                  EdgeInsets.all(
-                compact
-                    ? 13
-                    : 16,
+                AnimatedOpacity(
+              duration:
+                  const Duration(
+                milliseconds:
+                    150,
               ),
 
-              decoration:
-                  BoxDecoration(
-                color:
-                    AppColors.charcoalGrey,
-
-                borderRadius:
-                    BorderRadius.circular(
-                  16,
-                ),
-
-                border:
-                    Border.all(
-                  color:
-                      AppColors.skyBlue
-                          .withOpacity(
-                    0.10,
-                  ),
-                ),
-              ),
+              opacity:
+                  enabled
+                      ? 1
+                      : 0.65,
 
               child:
-                  Row(
-                children: [
                   Container(
-                    width:
-                        compact
-                            ? 43
-                            : 48,
+                padding:
+                    EdgeInsets.all(
+                  compact
+                      ? 13
+                      : 16,
+                ),
 
-                    height:
-                        compact
-                            ? 43
-                            : 48,
+                decoration:
+                    BoxDecoration(
+                  color:
+                      AppColors.charcoalGrey,
 
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          AppColors
-                              .brandNightBlue,
-
-                      borderRadius:
-                          BorderRadius.circular(
-                        13,
-                      ),
-                    ),
-
-                    child:
-                        Icon(
-                      icon,
-
-                      color:
-                          AppColors.skyBlue,
-
-                      size:
-                          compact
-                              ? 22
-                              : 25,
-                    ),
+                  borderRadius:
+                      BorderRadius.circular(
+                    16,
                   ),
 
-                  const SizedBox(
-                    width:
-                        12,
-                  ),
-
-                  Expanded(
-                    child:
-                        Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-
-                      children: [
-                        Text(
-                          title,
-
-                          style:
-                              TextStyle(
-                            color:
-                                AppColors.pureWhite,
-
-                            fontSize:
-                                compact
-                                    ? 13
-                                    : 15,
-
-                            fontWeight:
-                                FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(
-                          height:
-                              4,
-                        ),
-
-                        Text(
-                          description,
-
-                          maxLines:
-                              2,
-
-                          overflow:
-                              TextOverflow
-                                  .ellipsis,
-
-                          style:
-                              TextStyle(
-                            color:
-                                AppColors.pureWhite
-                                    .withOpacity(
-                              0.55,
-                            ),
-
-                            fontSize:
-                                compact
-                                    ? 10
-                                    : 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (!compact)
-                    Text(
-                      counter,
-
-                      style:
-                          const TextStyle(
-                        color:
-                            AppColors.materialSky,
-
-                        fontSize:
-                            12,
-
-                        fontWeight:
-                            FontWeight.bold,
-                      ),
-                    ),
-
-                  const SizedBox(
-                    width:
-                        5,
-                  ),
-
-                  const Icon(
-                    Icons.chevron_right_rounded,
-
+                  border:
+                      Border.all(
                     color:
-                        Colors.white38,
+                        AppColors.skyBlue
+                            .withOpacity(
+                      0.10,
+                    ),
                   ),
-                ],
+                ),
+
+                child:
+                    Row(
+                  children: [
+                    Container(
+                      width:
+                          compact
+                              ? 43
+                              : 48,
+
+                      height:
+                          compact
+                              ? 43
+                              : 48,
+
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            AppColors
+                                .brandNightBlue,
+
+                        borderRadius:
+                            BorderRadius.circular(
+                          13,
+                        ),
+                      ),
+
+                      child:
+                          Icon(
+                        icon,
+
+                        color:
+                            enabled
+                                ? AppColors.skyBlue
+                                : Colors.white38,
+
+                        size:
+                            compact
+                                ? 22
+                                : 25,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      width:
+                          12,
+                    ),
+
+                    Expanded(
+                      child:
+                          Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+
+                        children: [
+                          Text(
+                            title,
+
+                            style:
+                                TextStyle(
+                              color:
+                                  enabled
+                                      ? AppColors.pureWhite
+                                      : Colors.white54,
+
+                              fontSize:
+                                  compact
+                                      ? 13
+                                      : 15,
+
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(
+                            height:
+                                4,
+                          ),
+
+                          Text(
+                            description,
+
+                            maxLines:
+                                2,
+
+                            overflow:
+                                TextOverflow.ellipsis,
+
+                            style:
+                                TextStyle(
+                              color:
+                                  AppColors.pureWhite
+                                      .withOpacity(
+                                enabled
+                                    ? 0.55
+                                    : 0.35,
+                              ),
+
+                              fontSize:
+                                  compact
+                                      ? 10
+                                      : 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    if (!compact)
+                      Text(
+                        counter,
+
+                        style:
+                            TextStyle(
+                          color:
+                              enabled
+                                  ? AppColors.materialSky
+                                  : Colors.white30,
+
+                          fontSize:
+                              12,
+
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
+
+                    const SizedBox(
+                      width:
+                          5,
+                    ),
+
+                    const Icon(
+                      Icons.chevron_right_rounded,
+
+                      color:
+                          Colors.white38,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -3146,7 +3679,6 @@ class _GroupErrorCard
 
   const _GroupErrorCard({
     required this.message,
-
     required this.onRetry,
   });
 

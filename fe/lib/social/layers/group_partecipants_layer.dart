@@ -1,22 +1,186 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/nightTheme.dart';
+import '../../services/api_service.dart';
 
 import '../social_models.dart';
+import '../groups/models/study_group.dart';
 
-class GroupParticipantsLayer extends StatelessWidget {
-  final String groupId;
-  final String groupName;
-  final String subjectId;
-  final List<SocialUser> users;
+
+// =============================================================================
+// GROUP PARTICIPANTS LAYER
+// =============================================================================
+
+class GroupParticipantsLayer extends StatefulWidget {
+  final StudyGroup group;
 
   const GroupParticipantsLayer({
     super.key,
-    required this.groupId,
-    required this.groupName,
-    required this.subjectId,
-    required this.users,
+    required this.group,
   });
+
+  @override
+  State<GroupParticipantsLayer> createState() =>
+      _GroupParticipantsLayerState();
+}
+
+
+// =============================================================================
+// STATE
+// =============================================================================
+
+class _GroupParticipantsLayerState
+    extends State<GroupParticipantsLayer> {
+
+  final ApiService _apiService =
+      ApiService();
+
+
+  List<_GroupParticipant> _participants =
+      [];
+
+
+  bool _loading =
+      true;
+
+
+  String? _error;
+
+
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadParticipants();
+  }
+
+
+  // ===========================================================================
+  // LOAD PARTICIPANTS
+  // ===========================================================================
+
+  Future<void> _loadParticipants() async {
+    setState(() {
+      _loading =
+          true;
+
+      _error =
+          null;
+    });
+
+
+    try {
+      final Map<String, dynamic> groupData =
+          await _apiService.getGroup(
+        widget.group.id,
+      );
+
+
+      final dynamic membersData =
+          groupData['members'];
+
+
+      if (membersData is! List) {
+        throw Exception(
+          'Lista partecipanti non valida.',
+        );
+      }
+
+
+      final List<_GroupParticipant> result =
+          [];
+
+
+      for (final dynamic item
+          in membersData) {
+
+        if (item is! Map) {
+          continue;
+        }
+
+
+        final Map<String, dynamic> member =
+            Map<String, dynamic>.from(
+          item,
+        );
+
+
+        final int? userId =
+            _toInt(
+          member['user_id'],
+        );
+
+
+        if (userId == null) {
+          continue;
+        }
+
+
+        final SocialUser user =
+            await _apiService.getSocialUser(
+          userId,
+        );
+
+
+        result.add(
+          _GroupParticipant(
+            membershipId:
+                _toInt(
+                      member['id'],
+                    ) ??
+                    0,
+
+            role:
+                member['role']
+                        ?.toString() ??
+                    'member',
+
+            joinedAt:
+                DateTime.tryParse(
+              member['joined_at']
+                      ?.toString() ??
+                  '',
+            ),
+
+            user:
+                user,
+          ),
+        );
+      }
+
+
+      if (!mounted) {
+        return;
+      }
+
+
+      setState(() {
+        _participants =
+            result;
+
+        _loading =
+            false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+
+      setState(() {
+        _loading =
+            false;
+
+        _error =
+            e.toString();
+      });
+    }
+  }
+
 
   // ===========================================================================
   // BUILD
@@ -25,47 +189,70 @@ class GroupParticipantsLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkElegance,
-
-      // =======================================================================
-      // APP BAR
-      // =======================================================================
+      backgroundColor:
+          AppColors.darkElegance,
 
       appBar: AppBar(
-        backgroundColor: AppColors.brandNightBlue,
+        backgroundColor:
+            AppColors.brandNightBlue,
 
-        foregroundColor: AppColors.pureWhite,
+        foregroundColor:
+            AppColors.pureWhite,
 
-        elevation: 0,
+        elevation:
+            0,
 
         title: const Text(
           'Partecipanti',
+
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
+            fontSize:
+                18,
+
+            fontWeight:
+                FontWeight.w500,
           ),
         ),
-      ),
 
-      // =======================================================================
-      // BODY
-      // =======================================================================
+        actions: [
+          IconButton(
+            tooltip:
+                'Aggiorna',
+
+            onPressed:
+                _loading
+                    ? null
+                    : _loadParticipants,
+
+            icon:
+                const Icon(
+              Icons.refresh_rounded,
+            ),
+          ),
+        ],
+      ),
 
       body: SafeArea(
         child: Center(
           child: LayoutBuilder(
-            builder: (context, constraints) {
+            builder:
+                (
+              context,
+              constraints,
+            ) {
+
               final double width =
                   constraints.maxWidth > 900
                       ? 900
                       : constraints.maxWidth;
 
-              return SizedBox(
-                width: width,
 
-                child: users.isEmpty
-                    ? _buildEmptyState()
-                    : _buildContent(context),
+              return SizedBox(
+                width:
+                    width,
+
+                child:
+                    _buildBody(),
               );
             },
           ),
@@ -74,66 +261,133 @@ class GroupParticipantsLayer extends StatelessWidget {
     );
   }
 
+
   // ===========================================================================
-  // CONTENUTO
+  // BODY
   // ===========================================================================
 
-  Widget _buildContent(BuildContext context) {
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child:
+            CircularProgressIndicator(),
+      );
+    }
+
+
+    if (_error != null) {
+      return _buildErrorState();
+    }
+
+
+    if (_participants.isEmpty) {
+      return RefreshIndicator(
+        onRefresh:
+            _loadParticipants,
+
+        child: ListView(
+          physics:
+              const AlwaysScrollableScrollPhysics(),
+
+          children: [
+            SizedBox(
+              height:
+                  500,
+
+              child:
+                  _buildEmptyState(),
+            ),
+          ],
+        ),
+      );
+    }
+
+
+    return RefreshIndicator(
+      onRefresh:
+          _loadParticipants,
+
+      child:
+          _buildContent(),
+    );
+  }
+
+
+  // ===========================================================================
+  // CONTENT
+  // ===========================================================================
+
+  Widget _buildContent() {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      physics:
+          const AlwaysScrollableScrollPhysics(),
+
+      padding:
+          const EdgeInsets.all(
+        20,
+      ),
 
       children: [
-        // =====================================================================
-        // SCHEDA GRUPPO / MATERIA
-        // =====================================================================
-
         _buildGroupCard(),
 
         const SizedBox(
-          height: 24,
+          height:
+              24,
         ),
-
-        // =====================================================================
-        // HEADER PARTECIPANTI
-        // =====================================================================
 
         Row(
           children: [
             const Expanded(
-              child: Text(
+              child:
+                  Text(
                 'Partecipanti',
 
-                style: TextStyle(
-                  color: AppColors.pureWhite,
+                style:
+                    TextStyle(
+                  color:
+                      AppColors.pureWhite,
 
-                  fontSize: 20,
+                  fontSize:
+                      20,
 
-                  fontWeight: FontWeight.bold,
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
             ),
 
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 5,
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal:
+                    10,
+
+                vertical:
+                    5,
               ),
 
-              decoration: BoxDecoration(
-                color: AppColors.brandNightBlue,
+              decoration:
+                  BoxDecoration(
+                color:
+                    AppColors.brandNightBlue,
 
                 borderRadius:
-                    BorderRadius.circular(10),
+                    BorderRadius.circular(
+                  10,
+                ),
               ),
 
-              child: Text(
-                '${users.length}',
+              child:
+                  Text(
+                '${_participants.length}',
 
-                style: const TextStyle(
+                style:
+                    const TextStyle(
                   color:
                       AppColors.materialSky,
 
-                  fontSize: 12,
+                  fontSize:
+                      12,
 
                   fontWeight:
                       FontWeight.w600,
@@ -144,119 +398,145 @@ class GroupParticipantsLayer extends StatelessWidget {
         ),
 
         const SizedBox(
-          height: 6,
+          height:
+              6,
         ),
 
         Text(
           'Studenti e membri del gruppo di studio.',
 
-          style: TextStyle(
+          style:
+              TextStyle(
             color:
                 AppColors.pureWhite
-                    .withOpacity(0.55),
+                    .withOpacity(
+              0.55,
+            ),
 
-            fontSize: 13,
+            fontSize:
+                13,
           ),
         ),
 
         const SizedBox(
-          height: 16,
+          height:
+              16,
         ),
 
-        // =====================================================================
-        // GRIGLIA PARTECIPANTI
-        // =====================================================================
-
-        _buildParticipantsGrid(
-          context,
-        ),
+        _buildParticipantsGrid(),
       ],
     );
   }
 
+
   // ===========================================================================
-  // SCHEDA GRUPPO
+  // GROUP CARD
   // ===========================================================================
 
   Widget _buildGroupCard() {
     return Container(
-      width: double.infinity,
+      width:
+          double.infinity,
 
-      padding: const EdgeInsets.all(20),
+      padding:
+          const EdgeInsets.all(
+        20,
+      ),
 
-      decoration: BoxDecoration(
+      decoration:
+          BoxDecoration(
         color:
             AppColors.eleganceDeepNavy,
 
         borderRadius:
-            BorderRadius.circular(18),
+            BorderRadius.circular(
+          18,
+        ),
 
-        border: Border.all(
+        border:
+            Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(0.15),
+                  .withOpacity(
+            0.15,
+          ),
         ),
 
         boxShadow: [
           BoxShadow(
             color:
-                Colors.black.withOpacity(0.12),
+                Colors.black
+                    .withOpacity(
+              0.12,
+            ),
 
-            blurRadius: 8,
+            blurRadius:
+                8,
 
             offset:
-                const Offset(0, 4),
+                const Offset(
+              0,
+              4,
+            ),
           ),
         ],
       ),
 
-      child: Column(
+      child:
+          Column(
         crossAxisAlignment:
             CrossAxisAlignment.start,
 
         children: [
-          // ===================================================================
-          // HEADER
-          // ===================================================================
-
           Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width:
+                    56,
 
-                decoration: BoxDecoration(
+                height:
+                    56,
+
+                decoration:
+                    BoxDecoration(
                   color:
                       AppColors.brandNightBlue,
 
                   borderRadius:
-                      BorderRadius.circular(16),
+                      BorderRadius.circular(
+                    16,
+                  ),
                 ),
 
-                child: const Icon(
+                child:
+                    const Icon(
                   Icons.menu_book_rounded,
 
                   color:
                       AppColors.skyBlue,
 
-                  size: 30,
+                  size:
+                      30,
                 ),
               ),
 
               const SizedBox(
-                width: 14,
+                width:
+                    14,
               ),
 
               Expanded(
-                child: Column(
+                child:
+                    Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
 
                   children: [
                     Text(
-                      groupName,
+                      widget.group.name,
 
-                      maxLines: 2,
+                      maxLines:
+                          2,
 
                       overflow:
                           TextOverflow.ellipsis,
@@ -266,33 +546,41 @@ class GroupParticipantsLayer extends StatelessWidget {
                         color:
                             AppColors.pureWhite,
 
-                        fontSize: 20,
+                        fontSize:
+                            20,
 
                         fontWeight:
                             FontWeight.bold,
 
-                        height: 1.2,
+                        height:
+                            1.2,
                       ),
                     ),
 
                     const SizedBox(
-                      height: 5,
+                      height:
+                          5,
                     ),
 
                     Text(
                       _subjectName,
 
-                      maxLines: 1,
+                      maxLines:
+                          1,
 
                       overflow:
                           TextOverflow.ellipsis,
 
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         color:
                             AppColors.materialSky
-                                .withOpacity(0.9),
+                                .withOpacity(
+                          0.9,
+                        ),
 
-                        fontSize: 13,
+                        fontSize:
+                            13,
 
                         fontWeight:
                             FontWeight.w600,
@@ -305,12 +593,33 @@ class GroupParticipantsLayer extends StatelessWidget {
           ),
 
           const SizedBox(
-            height: 18,
+            height:
+                18,
           ),
 
-          // ===================================================================
-          // INFORMAZIONI
-          // ===================================================================
+          Text(
+            widget.group.description,
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite
+                      .withOpacity(
+                0.60,
+              ),
+
+              fontSize:
+                  13,
+
+              height:
+                  1.4,
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                18,
+          ),
 
           Row(
             children: [
@@ -320,22 +629,28 @@ class GroupParticipantsLayer extends StatelessWidget {
                 color:
                     AppColors.materialSky,
 
-                size: 17,
+                size:
+                    17,
               ),
 
               const SizedBox(
-                width: 6,
+                width:
+                    6,
               ),
 
               Text(
-                '${users.length} partecipanti',
+                '${_participants.length} partecipanti',
 
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color:
                       AppColors.pureWhite
-                          .withOpacity(0.60),
+                          .withOpacity(
+                    0.60,
+                  ),
 
-                  fontSize: 12,
+                  fontSize:
+                      12,
 
                   fontWeight:
                       FontWeight.w500,
@@ -344,30 +659,16 @@ class GroupParticipantsLayer extends StatelessWidget {
 
               const Spacer(),
 
-              const Icon(
-                Icons.groups_outlined,
+              if (widget.group.isPrivate)
+                const Icon(
+                  Icons.lock_outline_rounded,
 
-                color:
-                    AppColors.materialSky,
-
-                size: 17,
-              ),
-
-              const SizedBox(
-                width: 6,
-              ),
-
-              Text(
-                'Gruppo di studio',
-
-                style: TextStyle(
                   color:
-                      AppColors.pureWhite
-                          .withOpacity(0.60),
+                      Colors.white38,
 
-                  fontSize: 12,
+                  size:
+                      18,
                 ),
-              ),
             ],
           ),
         ],
@@ -375,87 +676,93 @@ class GroupParticipantsLayer extends StatelessWidget {
     );
   }
 
+
   // ===========================================================================
-  // NOME MATERIA
+  // SUBJECT NAME
   // ===========================================================================
 
   String get _subjectName {
-    switch (subjectId) {
-      case 'programmazione1':
-      case 'programmazione_1':
-        return 'Programmazione 1';
-
-      case 'algebra':
-      case 'algebra_lineare':
-        return 'Algebra Lineare';
-
-      case 'architettura':
-      case 'architettura_elaboratori':
-        return 'Architettura degli Elaboratori';
-
-      case 'multimedia':
-      case 'interazione_multimedia':
-        return 'Interazione e Multimedia';
-
-      default:
-        return groupName;
+    if (widget.group.subject
+        .trim()
+        .isNotEmpty) {
+      return widget.group.subject;
     }
+
+
+    if (widget.group.subjectId !=
+        null) {
+      return 'Materia #${widget.group.subjectId}';
+    }
+
+
+    return widget.group.name;
   }
 
+
   // ===========================================================================
-  // GRIGLIA PARTECIPANTI
+  // GRID
   // ===========================================================================
 
-  Widget _buildParticipantsGrid(
-    BuildContext context,
-  ) {
+  Widget _buildParticipantsGrid() {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder:
+          (
+        context,
+        constraints,
+      ) {
+
         final bool singleColumn =
-            constraints.maxWidth < 560;
+            constraints.maxWidth <
+                560;
+
 
         return GridView.builder(
-          shrinkWrap: true,
+          shrinkWrap:
+              true,
 
           physics:
               const NeverScrollableScrollPhysics(),
 
           itemCount:
-              users.length,
+              _participants.length,
 
           gridDelegate:
               SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount:
-                singleColumn ? 1 : 2,
+                singleColumn
+                    ? 1
+                    : 2,
 
-            crossAxisSpacing: 14,
+            crossAxisSpacing:
+                14,
 
-            mainAxisSpacing: 14,
-
-            // ===============================================================
-            // IMPORTANTE:
-            // usiamo un'altezza fissa sufficiente per evitare
-            // RenderFlex overflow.
-            // ===============================================================
+            mainAxisSpacing:
+                14,
 
             mainAxisExtent:
-                singleColumn ? 116 : 140,
+                singleColumn
+                    ? 128
+                    : 145,
           ),
 
-          itemBuilder: (
+          itemBuilder:
+              (
             context,
             index,
           ) {
-            final SocialUser user =
-                users[index];
+
+            final _GroupParticipant participant =
+                _participants[index];
+
 
             return _ParticipantCard(
-              user: user,
+              participant:
+                  participant,
 
-              onTap: () {
+              onTap:
+                  () {
                 _openUser(
-                  context,
-                  user,
+                  participant.user,
                 );
               },
             );
@@ -465,42 +772,209 @@ class GroupParticipantsLayer extends StatelessWidget {
     );
   }
 
+
   // ===========================================================================
-  // APERTURA PROFILO
+  // OPEN USER
   // ===========================================================================
 
   void _openUser(
-    BuildContext context,
     SocialUser user,
   ) {
     ScaffoldMessenger.of(context)
         .showSnackBar(
       SnackBar(
-        content: Text(
+        content:
+            Text(
           'Apertura profilo di ${user.name}: da implementare.',
         ),
       ),
     );
+
+
+    /*
+     * In seguito:
+     *
+     * Navigator.push(
+     *   context,
+     *   MaterialPageRoute(
+     *     builder: (_) => SocialUserProfilePage(
+     *       userId: user.id,
+     *     ),
+     *   ),
+     * );
+     */
   }
 
+
   // ===========================================================================
-  // EMPTY STATE
+  // ERROR
+  // ===========================================================================
+
+  Widget _buildErrorState() {
+    return RefreshIndicator(
+      onRefresh:
+          _loadParticipants,
+
+      child:
+          ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
+
+        padding:
+            const EdgeInsets.all(
+          20,
+        ),
+
+        children: [
+          const SizedBox(
+            height:
+                70,
+          ),
+
+          Container(
+            padding:
+                const EdgeInsets.all(
+              24,
+            ),
+
+            decoration:
+                BoxDecoration(
+              color:
+                  AppColors.eleganceMidnight,
+
+              borderRadius:
+                  BorderRadius.circular(
+                18,
+              ),
+
+              border:
+                  Border.all(
+                color:
+                    Colors.redAccent
+                        .withOpacity(
+                  0.20,
+                ),
+              ),
+            ),
+
+            child:
+                Column(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+
+                  color:
+                      Colors.redAccent,
+
+                  size:
+                      42,
+                ),
+
+                const SizedBox(
+                  height:
+                      12,
+                ),
+
+                const Text(
+                  'Errore caricamento partecipanti',
+
+                  textAlign:
+                      TextAlign.center,
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite,
+
+                    fontSize:
+                        16,
+
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      8,
+                ),
+
+                Text(
+                  _error ??
+                      'Errore sconosciuto.',
+
+                  textAlign:
+                      TextAlign.center,
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite
+                            .withOpacity(
+                      0.50,
+                    ),
+
+                    fontSize:
+                        11,
+
+                    height:
+                        1.4,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      16,
+                ),
+
+                OutlinedButton.icon(
+                  onPressed:
+                      _loadParticipants,
+
+                  icon:
+                      const Icon(
+                    Icons.refresh_rounded,
+                  ),
+
+                  label:
+                      const Text(
+                    'Riprova',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // EMPTY
   // ===========================================================================
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
+      child:
+          Padding(
         padding:
-            const EdgeInsets.all(30),
+            const EdgeInsets.all(
+          30,
+        ),
 
-        child: Column(
+        child:
+            Column(
           mainAxisSize:
               MainAxisSize.min,
 
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width:
+                  72,
+
+              height:
+                  72,
 
               decoration:
                   BoxDecoration(
@@ -508,31 +982,38 @@ class GroupParticipantsLayer extends StatelessWidget {
                     AppColors.brandNightBlue,
 
                 borderRadius:
-                    BorderRadius.circular(20),
+                    BorderRadius.circular(
+                  20,
+                ),
               ),
 
-              child: const Icon(
+              child:
+                  const Icon(
                 Icons.people_outline_rounded,
 
                 color:
                     AppColors.skyBlue,
 
-                size: 38,
+                size:
+                    38,
               ),
             ),
 
             const SizedBox(
-              height: 18,
+              height:
+                  18,
             ),
 
             const Text(
               'Nessun partecipante',
 
-              style: TextStyle(
+              style:
+                  TextStyle(
                 color:
                     AppColors.pureWhite,
 
-                fontSize: 20,
+                fontSize:
+                    20,
 
                 fontWeight:
                     FontWeight.bold,
@@ -540,7 +1021,8 @@ class GroupParticipantsLayer extends StatelessWidget {
             ),
 
             const SizedBox(
-              height: 8,
+              height:
+                  8,
             ),
 
             Text(
@@ -549,12 +1031,16 @@ class GroupParticipantsLayer extends StatelessWidget {
               textAlign:
                   TextAlign.center,
 
-              style: TextStyle(
+              style:
+                  TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(0.55),
+                        .withOpacity(
+                  0.55,
+                ),
 
-                fontSize: 13,
+                fontSize:
+                    13,
               ),
             ),
           ],
@@ -562,38 +1048,77 @@ class GroupParticipantsLayer extends StatelessWidget {
       ),
     );
   }
+
+
+  // ===========================================================================
+  // UTILITY
+  // ===========================================================================
+
+  static int? _toInt(
+    dynamic value,
+  ) {
+    if (value is int) {
+      return value;
+    }
+
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+
+    return int.tryParse(
+      value?.toString() ??
+          '',
+    );
+  }
 }
 
+
 // =============================================================================
-// CARD PARTECIPANTE
+// PARTICIPANT CARD
 // =============================================================================
 
 class _ParticipantCard
     extends StatelessWidget {
-  final SocialUser user;
+
+  final _GroupParticipant participant;
 
   final VoidCallback onTap;
 
+
   const _ParticipantCard({
-    required this.user,
+    required this.participant,
     required this.onTap,
   });
+
 
   @override
   Widget build(
     BuildContext context,
   ) {
+    final SocialUser user =
+        participant.user;
+
+
     return InkWell(
-      onTap: onTap,
+      onTap:
+          onTap,
 
       borderRadius:
-          BorderRadius.circular(16),
+          BorderRadius.circular(
+        16,
+      ),
 
-      child: Container(
-        width: double.infinity,
+      child:
+          Container(
+        width:
+            double.infinity,
 
         padding:
-            const EdgeInsets.all(14),
+            const EdgeInsets.all(
+          14,
+        ),
 
         decoration:
             BoxDecoration(
@@ -601,37 +1126,48 @@ class _ParticipantCard
               AppColors.eleganceMidnight,
 
           borderRadius:
-              BorderRadius.circular(16),
+              BorderRadius.circular(
+            16,
+          ),
 
-          border: Border.all(
+          border:
+              Border.all(
             color:
                 AppColors.skyBlue
-                    .withOpacity(0.12),
+                    .withOpacity(
+              0.12,
+            ),
           ),
 
           boxShadow: [
             BoxShadow(
               color:
                   Colors.black
-                      .withOpacity(0.10),
+                      .withOpacity(
+                0.10,
+              ),
 
-              blurRadius: 6,
+              blurRadius:
+                  6,
 
               offset:
-                  const Offset(0, 3),
+                  const Offset(
+                0,
+                3,
+              ),
             ),
           ],
         ),
 
-        child: Row(
+        child:
+            Row(
           children: [
-            // =================================================================
-            // AVATAR
-            // =================================================================
-
             Container(
-              width: 48,
-              height: 48,
+              width:
+                  48,
+
+              height:
+                  48,
 
               decoration:
                   const BoxDecoration(
@@ -642,8 +1178,10 @@ class _ParticipantCard
                     BoxShape.circle,
               ),
 
-              child: Center(
-                child: Text(
+              child:
+                  Center(
+                child:
+                    Text(
                   _initials(
                     user.name,
                   ),
@@ -653,7 +1191,8 @@ class _ParticipantCard
                     color:
                         AppColors.skyBlue,
 
-                    fontSize: 15,
+                    fontSize:
+                        15,
 
                     fontWeight:
                         FontWeight.bold,
@@ -663,15 +1202,13 @@ class _ParticipantCard
             ),
 
             const SizedBox(
-              width: 12,
+              width:
+                  12,
             ),
 
-            // =================================================================
-            // INFORMAZIONI
-            // =================================================================
-
             Expanded(
-              child: Column(
+              child:
+                  Column(
                 mainAxisSize:
                     MainAxisSize.min,
 
@@ -679,17 +1216,15 @@ class _ParticipantCard
                     CrossAxisAlignment.start,
 
                 children: [
-                  // =============================================================
-                  // NOME
-                  // =============================================================
-
                   Row(
                     children: [
                       Flexible(
-                        child: Text(
+                        child:
+                            Text(
                           user.name,
 
-                          maxLines: 1,
+                          maxLines:
+                              1,
 
                           overflow:
                               TextOverflow.ellipsis,
@@ -699,7 +1234,8 @@ class _ParticipantCard
                             color:
                                 AppColors.pureWhite,
 
-                            fontSize: 14,
+                            fontSize:
+                                14,
 
                             fontWeight:
                                 FontWeight.w600,
@@ -707,14 +1243,28 @@ class _ParticipantCard
                         ),
                       ),
 
+                      const SizedBox(
+                        width:
+                            7,
+                      ),
+
+                      _RoleBadge(
+                        role:
+                            participant.role,
+                      ),
+
                       if (user.available) ...[
                         const SizedBox(
-                          width: 7,
+                          width:
+                              7,
                         ),
 
                         Container(
-                          width: 7,
-                          height: 7,
+                          width:
+                              7,
+
+                          height:
+                              7,
 
                           decoration:
                               const BoxDecoration(
@@ -730,58 +1280,66 @@ class _ParticipantCard
                   ),
 
                   const SizedBox(
-                    height: 4,
+                    height:
+                        4,
                   ),
 
-                  // =============================================================
-                  // CORSO
-                  // =============================================================
-
                   Text(
-                    user.course,
+                    '${user.department} • ${user.course}',
 
-                    maxLines: 1,
+                    maxLines:
+                        1,
 
                     overflow:
                         TextOverflow.ellipsis,
 
-                    style: TextStyle(
+                    style:
+                        TextStyle(
                       color:
                           AppColors.pureWhite
-                              .withOpacity(0.50),
+                              .withOpacity(
+                        0.50,
+                      ),
 
-                      fontSize: 11,
+                      fontSize:
+                          11,
                     ),
                   ),
 
-                  // =============================================================
-                  // MATERIE
-                  // =============================================================
-
                   if (user.subjects.isNotEmpty) ...[
                     const SizedBox(
-                      height: 5,
+                      height:
+                          5,
                     ),
 
                     Text(
                       user.subjects
                           .map(
-                            (subject) =>
+                            (
+                              subject,
+                            ) =>
                                 subject.name,
                           )
-                          .join(' • '),
+                          .join(
+                            ' • ',
+                          ),
 
-                      maxLines: 1,
+                      maxLines:
+                          1,
 
                       overflow:
                           TextOverflow.ellipsis,
 
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         color:
                             AppColors.materialSky
-                                .withOpacity(0.85),
+                                .withOpacity(
+                          0.85,
+                        ),
 
-                        fontSize: 10,
+                        fontSize:
+                            10,
 
                         fontWeight:
                             FontWeight.w500,
@@ -793,12 +1351,9 @@ class _ParticipantCard
             ),
 
             const SizedBox(
-              width: 8,
+              width:
+                  8,
             ),
-
-            // =================================================================
-            // FRECCIA
-            // =================================================================
 
             const Icon(
               Icons.chevron_right_rounded,
@@ -806,7 +1361,8 @@ class _ParticipantCard
               color:
                   Colors.white38,
 
-              size: 22,
+              size:
+                  22,
             ),
           ],
         ),
@@ -814,8 +1370,9 @@ class _ParticipantCard
     );
   }
 
+
   // ===========================================================================
-  // INIZIALI
+  // INITIALS
   // ===========================================================================
 
   String _initials(
@@ -824,24 +1381,146 @@ class _ParticipantCard
     final String trimmed =
         name.trim();
 
+
     if (trimmed.isEmpty) {
       return '?';
     }
 
+
     final List<String> parts =
         trimmed.split(
-      RegExp(r'\s+'),
+      RegExp(
+        r'\s+',
+      ),
     );
 
-    if (parts.length == 1) {
+
+    if (parts.length ==
+        1) {
       return parts.first
-          .substring(0, 1)
+          .substring(
+            0,
+            1,
+          )
           .toUpperCase();
     }
 
+
     return (
-      parts.first.substring(0, 1) +
-      parts.last.substring(0, 1)
+      parts.first.substring(
+        0,
+        1,
+      ) +
+      parts.last.substring(
+        0,
+        1,
+      )
     ).toUpperCase();
   }
+}
+
+
+// =============================================================================
+// ROLE BADGE
+// =============================================================================
+
+class _RoleBadge
+    extends StatelessWidget {
+
+  final String role;
+
+
+  const _RoleBadge({
+    required this.role,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final String label;
+
+    switch (role.toLowerCase()) {
+      case 'owner':
+        label =
+            'OWNER';
+        break;
+
+      case 'admin':
+        label =
+            'ADMIN';
+        break;
+
+      default:
+        label =
+            'MEMBER';
+    }
+
+
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            6,
+
+        vertical:
+            3,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.skyBlue
+                .withOpacity(
+          0.10,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          6,
+        ),
+      ),
+
+      child:
+          Text(
+        label,
+
+        style:
+            const TextStyle(
+          color:
+              AppColors.materialSky,
+
+          fontSize:
+              7,
+
+          fontWeight:
+              FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+
+// =============================================================================
+// GROUP PARTICIPANT MODEL
+// =============================================================================
+
+class _GroupParticipant {
+  final int membershipId;
+
+  final String role;
+
+  final DateTime? joinedAt;
+
+  final SocialUser user;
+
+
+  const _GroupParticipant({
+    required this.membershipId,
+    required this.role,
+    required this.joinedAt,
+    required this.user,
+  });
 }

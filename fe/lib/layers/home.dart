@@ -1,46 +1,200 @@
 import 'package:flutter/material.dart';
 
 import 'package:fe/layers/homeLayer.dart';
+
 import 'package:fe/theme/nightTheme.dart';
+
+import 'package:fe/services/auth_service.dart';
+import 'package:fe/services/auth_session.dart';
+
+import 'package:fe/social/social_models.dart';
+import 'package:fe/social/social_page.dart';
+
+import 'package:fe/social/auth/login_page.dart';
+
+import 'package:fe/social/widgets/social_profile_type.dart';
 
 import 'package:fe/social/message/message_page.dart';
 
-class HomePage extends StatelessWidget {
+
+// =============================================================================
+// HOME PAGE
+// =============================================================================
+
+class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
   });
 
-  // ===========================================================================
-  // STATO AUTENTICAZIONE
-  // ===========================================================================
-  //
-  // Temporaneo.
-  //
-  // true  -> utente autenticato
-  // false -> guest
-  //
-  // In futuro verrà sostituito da:
-  //
-  // AuthService
-  // Token
-  // SQLite locale
-  // verifica backend
-  //
-  // ===========================================================================
-
-  static const bool isAuthenticated = true;
 
   @override
-  Widget build(BuildContext context) {
+  State<HomePage> createState() =>
+      _HomePageState();
+}
+
+
+// =============================================================================
+// HOME PAGE STATE
+// =============================================================================
+
+class _HomePageState
+    extends State<HomePage> {
+
+  final AuthSession _authSession =
+      AuthSession.instance;
+
+
+  final AuthService _authService =
+      AuthService();
+
+
+  bool _restoringSession =
+      true;
+
+
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+
+    // =========================================================================
+    // ASCOLTA CAMBIAMENTI AUTH
+    // =========================================================================
+
+    _authSession.addListener(
+      _onAuthChanged,
+    );
+
+
+    // =========================================================================
+    // RIPRISTINO SESSIONE
+    // =========================================================================
+
+    _restoreSession();
+  }
+
+
+  // ===========================================================================
+  // DISPOSE
+  // ===========================================================================
+
+  @override
+  void dispose() {
+    _authSession.removeListener(
+      _onAuthChanged,
+    );
+
+    super.dispose();
+  }
+
+
+  // ===========================================================================
+  // AUTH CHANGED
+  // ===========================================================================
+
+  void _onAuthChanged() {
+    if (!mounted) {
+      return;
+    }
+
+
+    setState(() {});
+  }
+
+
+  // ===========================================================================
+  // RESTORE SESSION
+  // ===========================================================================
+
+  Future<void> _restoreSession() async {
+    try {
+      await _authService.restoreSession();
+    } catch (_) {
+      // AuthService gestisce già:
+      // - token assente
+      // - token scaduto
+      // - token non valido
+      //
+      // In questi casi l'app rimane Guest.
+    } finally {
+      if (!mounted) {
+        return;
+      }
+
+
+      setState(() {
+        _restoringSession =
+            false;
+      });
+    }
+  }
+
+
+  // ===========================================================================
+  // GETTERS AUTH
+  // ===========================================================================
+
+  bool get _isAuthenticated {
+    return _authSession.isAuthenticated;
+  }
+
+
+  SocialUser? get _currentUser {
+    return _authSession.currentUser;
+  }
+
+
+  // ===========================================================================
+  // NOME UTENTE
+  // ===========================================================================
+
+  String get _displayName {
+    final SocialUser? user =
+        _currentUser;
+
+
+    if (user == null) {
+      return 'Utente';
+    }
+
+
+    if (user.firstName.isNotEmpty) {
+      return user.firstName;
+    }
+
+
+    if (user.name.isNotEmpty) {
+      return user.name;
+    }
+
+
+    return 'Utente';
+  }
+
+
+  // ===========================================================================
+  // BUILD
+  // ===========================================================================
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       backgroundColor:
           AppColors.darkElegance,
+
 
       // =========================================================================
       // APP BAR
       // =========================================================================
 
-      appBar: AppBar(
+      appBar:
+          AppBar(
         backgroundColor:
             AppColors.eleganceMidnight,
 
@@ -48,20 +202,27 @@ class HomePage extends StatelessWidget {
             AppColors.pearlWhite,
 
         elevation:
-            AppColors.nightAppBarTheme.elevation,
+            AppColors
+                .nightAppBarTheme
+                .elevation,
 
         centerTitle:
             false,
+
 
         // =======================================================================
         // LOGO
         // =======================================================================
 
-        leading: IconButton(
-          tooltip:
-              'Home',
+        leading:
+            Padding(
+          padding:
+              const EdgeInsets.all(
+            11,
+          ),
 
-          icon: Image.asset(
+          child:
+              Image.asset(
             'assets/icons/favicon.png',
 
             width:
@@ -69,49 +230,50 @@ class HomePage extends StatelessWidget {
 
             height:
                 30,
-          ),
 
-          onPressed: () {
-            // Siamo già nella Home.
-          },
+            fit:
+                BoxFit.contain,
+          ),
         ),
+
 
         // =======================================================================
         // AZIONI
         // =======================================================================
 
         actions: [
+          if (_restoringSession)
+            const Padding(
+              padding:
+                  EdgeInsets.only(
+                right:
+                    18,
+              ),
+
+              child:
+                  Center(
+                child:
+                    SizedBox(
+                  width:
+                      20,
+
+                  height:
+                      20,
+
+                  child:
+                      CircularProgressIndicator(
+                    strokeWidth:
+                        2,
+                  ),
+                ),
+              ),
+            )
+
           // =====================================================================
-          // UTENTE AUTENTICATO
+          // AUTENTICATO
           // =====================================================================
 
-          if (isAuthenticated) ...[
-            // -------------------------------------------------------------------
-            // NOTIFICHE
-            // -------------------------------------------------------------------
-
-            _NavbarIconButton(
-              tooltip:
-                  'Notifiche',
-
-              icon:
-                  Icons.notifications_none_rounded,
-
-              badge:
-                  3,
-
-              onPressed: () {
-                _openNotifications(
-                  context,
-                );
-              },
-            ),
-
-            const SizedBox(
-              width:
-                  2,
-            ),
-
+          else if (_isAuthenticated) ...[
             // -------------------------------------------------------------------
             // MESSAGGI
             // -------------------------------------------------------------------
@@ -121,36 +283,38 @@ class HomePage extends StatelessWidget {
                   'Messaggi',
 
               icon:
-                  Icons.chat_bubble_outline_rounded,
+                  Icons
+                      .chat_bubble_outline_rounded,
 
-              badge:
-                  2,
-
-              onPressed: () {
-                _openMessages(
-                  context,
-                );
+              onPressed:
+                  () {
+                _openMessages();
               },
             ),
 
             const SizedBox(
               width:
-                  8,
+                  7,
             ),
 
+
             // -------------------------------------------------------------------
-            // PROFILO
+            // USER MENU
             // -------------------------------------------------------------------
 
             _UserButton(
               name:
-                  'Franz',
+                  _displayName,
 
-              onPressed: () {
-                _showUserMenu(
-                  context,
-                );
+              onPressed:
+                  () {
+                _showUserMenu();
               },
+            ),
+
+            const SizedBox(
+              width:
+                  12,
             ),
           ]
 
@@ -166,10 +330,9 @@ class HomePage extends StatelessWidget {
               filled:
                   false,
 
-              onPressed: () {
-                _openLogin(
-                  context,
-                );
+              onPressed:
+                  () {
+                _openLogin();
               },
             ),
 
@@ -185,105 +348,292 @@ class HomePage extends StatelessWidget {
               filled:
                   true,
 
-              onPressed: () {
-                _openSignUp(
-                  context,
-                );
+              onPressed:
+                  () {
+                _openSignUp();
               },
             ),
-          ],
 
-          const SizedBox(
-            width:
-                12,
-          ),
+            const SizedBox(
+              width:
+                  12,
+            ),
+          ],
         ],
       ),
+
 
       // =========================================================================
       // HOME
       // =========================================================================
 
-      body: HomeLayer(
+      body:
+          HomeLayer(
         isAuthenticated:
-            isAuthenticated,
+            _isAuthenticated,
       ),
     );
   }
 
-  // ===========================================================================
-  // NOTIFICHE
-  // ===========================================================================
-
-  static void _openNotifications(
-    BuildContext context,
-  ) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Pagina notifiche: da implementare.',
-        ),
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // MESSAGGI
-  // ===========================================================================
-
-  static void _openMessages(
-    BuildContext context,
-  ) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            const MessagesPage(),
-      ),
-    );
-  }
 
   // ===========================================================================
   // LOGIN
   // ===========================================================================
 
-  static void _openLogin(
-    BuildContext context,
-  ) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Login: da collegare.',
-        ),
+  Future<void> _openLogin() async {
+    final SocialUser? user =
+        await Navigator.of(
+      context,
+    ).push<SocialUser>(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const LoginPage(),
       ),
     );
+
+
+    if (!mounted ||
+        user == null) {
+      return;
+    }
+
+
+    // AuthService.login() ha già:
+    //
+    // - salvato JWT
+    // - recuperato /me
+    // - aggiornato AuthSession
+    // - preparato LocalStorage
+    //
+    // AuthSession notifica automaticamente
+    // questa Home tramite _onAuthChanged().
+
+    _showMessage(
+      'Accesso effettuato. Benvenuto ${user.firstName}.',
+    );
   }
+
 
   // ===========================================================================
   // SIGN UP
   // ===========================================================================
 
-  static void _openSignUp(
-    BuildContext context,
-  ) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Registrazione: da collegare.',
-        ),
+  Future<void> _openSignUp() async {
+    final SocialUser? user =
+        await Navigator.of(
+      context,
+    ).push<SocialUser>(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const SocialProfileType(),
+      ),
+    );
+
+
+    if (!mounted ||
+        user == null) {
+      return;
+    }
+
+
+    // Anche in questo caso AuthService.register()
+    // ha già creato e salvato la sessione.
+
+    _showMessage(
+      'Registrazione completata. Benvenuto ${user.firstName}.',
+    );
+  }
+
+
+  // ===========================================================================
+  // MESSAGGI
+  // ===========================================================================
+
+  Future<void> _openMessages() async {
+    if (!_isAuthenticated) {
+      return;
+    }
+
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const MessagesPage(),
       ),
     );
   }
+
+
+  // ===========================================================================
+  // PROFILO / SOCIAL
+  // ===========================================================================
+
+  Future<void> _openProfile() async {
+    if (!_isAuthenticated) {
+      return;
+    }
+
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const SocialPage(),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // LOGOUT
+  // ===========================================================================
+
+  Future<void> _logout() async {
+    try {
+      await _authService.logout();
+
+
+      if (!mounted) {
+        return;
+      }
+
+
+      _showMessage(
+        'Disconnessione completata.',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+
+      _showMessage(
+        'Errore durante la disconnessione: $e',
+      );
+    }
+  }
+
+
+  // ===========================================================================
+  // CONFERMA LOGOUT
+  // ===========================================================================
+
+  Future<void> _confirmLogout() async {
+    final bool? confirmed =
+        await showDialog<bool>(
+      context:
+          context,
+
+      builder:
+          (
+        dialogContext,
+      ) {
+        return AlertDialog(
+          backgroundColor:
+              AppColors.eleganceDeepNavy,
+
+          title:
+              const Text(
+            'Disconnetti account',
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite,
+            ),
+          ),
+
+          content:
+              Text(
+            'Vuoi davvero uscire dal tuo account StudentLab? '
+            'I file scaricati offline non verranno eliminati.',
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite
+                      .withOpacity(
+                0.65,
+              ),
+
+              height:
+                  1.4,
+            ),
+          ),
+
+          actions: [
+            TextButton(
+              onPressed:
+                  () {
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
+              },
+
+              child:
+                  const Text(
+                'Annulla',
+              ),
+            ),
+
+            TextButton(
+              onPressed:
+                  () {
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
+              },
+
+              child:
+                  const Text(
+                'Esci',
+
+                style:
+                    TextStyle(
+                  color:
+                      Colors.redAccent,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+
+    if (confirmed !=
+        true) {
+      return;
+    }
+
+
+    await _logout();
+  }
+
 
   // ===========================================================================
   // MENU UTENTE
   // ===========================================================================
 
-  static void _showUserMenu(
-    BuildContext context,
-  ) {
+  void _showUserMenu() {
+    final SocialUser? user =
+        _currentUser;
+
+
+    if (user == null) {
+      return;
+    }
+
+
     showModalBottomSheet(
       context:
           context,
@@ -296,13 +646,19 @@ class HomePage extends StatelessWidget {
         borderRadius:
             BorderRadius.vertical(
           top:
-              Radius.circular(20),
+              Radius.circular(
+            20,
+          ),
         ),
       ),
 
-      builder: (sheetContext) {
+      builder:
+          (
+        sheetContext,
+      ) {
         return SafeArea(
-          child: Column(
+          child:
+              Column(
             mainAxisSize:
                 MainAxisSize.min,
 
@@ -312,14 +668,165 @@ class HomePage extends StatelessWidget {
                     8,
               ),
 
-              // -----------------------------------------------------------------
+
+              // ===============================================================
+              // HEADER UTENTE
+              // ===============================================================
+
+              Padding(
+                padding:
+                    const EdgeInsets.fromLTRB(
+                  18,
+                  12,
+                  18,
+                  14,
+                ),
+
+                child:
+                    Row(
+                  children: [
+                    CircleAvatar(
+                      radius:
+                          24,
+
+                      backgroundColor:
+                          AppColors.skyBlue,
+
+                      child:
+                          Text(
+                        user.name.isNotEmpty
+                            ? user.name[0]
+                                .toUpperCase()
+                            : '?',
+
+                        style:
+                            const TextStyle(
+                          color:
+                              AppColors
+                                  .eleganceSoftNight,
+
+                          fontSize:
+                              17,
+
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(
+                      width:
+                          12,
+                    ),
+
+                    Expanded(
+                      child:
+                          Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+
+                        children: [
+                          Text(
+                            user.name,
+
+                            maxLines:
+                                1,
+
+                            overflow:
+                                TextOverflow.ellipsis,
+
+                            style:
+                                const TextStyle(
+                              color:
+                                  AppColors.pureWhite,
+
+                              fontSize:
+                                  16,
+
+                              fontWeight:
+                                  FontWeight.w600,
+                            ),
+                          ),
+
+                          const SizedBox(
+                            height:
+                                3,
+                          ),
+
+                          Text(
+                            user.email,
+
+                            maxLines:
+                                1,
+
+                            overflow:
+                                TextOverflow.ellipsis,
+
+                            style:
+                                TextStyle(
+                              color:
+                                  AppColors.pureWhite
+                                      .withOpacity(
+                                0.45,
+                              ),
+
+                              fontSize:
+                                  11,
+                            ),
+                          ),
+
+                          const SizedBox(
+                            height:
+                                3,
+                          ),
+
+                          Text(
+                            user.type ==
+                                    SocialUserType.teacher
+                                ? 'Insegnante'
+                                : 'Studente',
+
+                            style:
+                                const TextStyle(
+                              color:
+                                  AppColors.materialSky,
+
+                              fontSize:
+                                  10,
+
+                              fontWeight:
+                                  FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+
+              Divider(
+                height:
+                    1,
+
+                color:
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.08,
+                ),
+              ),
+
+
+              // ===============================================================
               // PROFILO
-              // -----------------------------------------------------------------
+              // ===============================================================
 
               ListTile(
                 leading:
                     const Icon(
-                  Icons.person_outline_rounded,
+                  Icons
+                      .person_outline_rounded,
 
                   color:
                       AppColors.skyBlue,
@@ -336,31 +843,55 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
 
-                onTap: () {
+                subtitle:
+                    Text(
+                  'Visualizza il tuo profilo Social',
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite
+                            .withOpacity(
+                      0.42,
+                    ),
+
+                    fontSize:
+                        10,
+                  ),
+                ),
+
+                trailing:
+                    const Icon(
+                  Icons
+                      .arrow_forward_ios_rounded,
+
+                  color:
+                      Colors.white30,
+
+                  size:
+                      14,
+                ),
+
+                onTap:
+                    () {
                   Navigator.pop(
                     sheetContext,
                   );
 
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Profilo: da collegare.',
-                      ),
-                    ),
-                  );
+                  _openProfile();
                 },
               ),
 
-              // -----------------------------------------------------------------
-              // IMPOSTAZIONI
-              // -----------------------------------------------------------------
+
+              // ===============================================================
+              // MESSAGGI
+              // ===============================================================
 
               ListTile(
                 leading:
                     const Icon(
-                  Icons.settings_outlined,
+                  Icons
+                      .chat_bubble_outline_rounded,
 
                   color:
                       AppColors.skyBlue,
@@ -368,7 +899,7 @@ class HomePage extends StatelessWidget {
 
                 title:
                     const Text(
-                  'Impostazioni',
+                  'Messaggi',
 
                   style:
                       TextStyle(
@@ -377,16 +908,44 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
 
-                onTap: () {
+                trailing:
+                    const Icon(
+                  Icons
+                      .arrow_forward_ios_rounded,
+
+                  color:
+                      Colors.white30,
+
+                  size:
+                      14,
+                ),
+
+                onTap:
+                    () {
                   Navigator.pop(
                     sheetContext,
                   );
+
+                  _openMessages();
                 },
               ),
 
-              // -----------------------------------------------------------------
+
+              Divider(
+                height:
+                    1,
+
+                color:
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.08,
+                ),
+              ),
+
+
+              // ===============================================================
               // LOGOUT
-              // -----------------------------------------------------------------
+              // ===============================================================
 
               ListTile(
                 leading:
@@ -408,20 +967,13 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
 
-                onTap: () {
+                onTap:
+                    () {
                   Navigator.pop(
                     sheetContext,
                   );
 
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Logout: da implementare.',
-                      ),
-                    ),
-                  );
+                  _confirmLogout();
                 },
               ),
 
@@ -435,17 +987,36 @@ class HomePage extends StatelessWidget {
       },
     );
   }
+
+
+  // ===========================================================================
+  // MESSAGE
+  // ===========================================================================
+
+  void _showMessage(
+    String message,
+  ) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+      SnackBar(
+        content:
+            Text(
+          message,
+        ),
+      ),
+    );
+  }
 }
+
 
 // =============================================================================
 // ICONA NAVBAR
-//
-// Utilizzata per notifiche e messaggi.
-// Può visualizzare un piccolo badge numerico.
 // =============================================================================
 
 class _NavbarIconButton
     extends StatelessWidget {
+
   final String tooltip;
 
   final IconData icon;
@@ -454,12 +1025,17 @@ class _NavbarIconButton
 
   final VoidCallback onPressed;
 
+
   const _NavbarIconButton({
     required this.tooltip,
+
     required this.icon,
+
     required this.onPressed,
+
     this.badge = 0,
   });
+
 
   @override
   Widget build(
@@ -469,21 +1045,26 @@ class _NavbarIconButton
       message:
           tooltip,
 
-      child: InkWell(
+      child:
+          InkWell(
         onTap:
             onPressed,
 
         borderRadius:
-            BorderRadius.circular(12),
+            BorderRadius.circular(
+          12,
+        ),
 
-        child: SizedBox(
+        child:
+            SizedBox(
           width:
               42,
 
           height:
               42,
 
-          child: Stack(
+          child:
+              Stack(
             clipBehavior:
                 Clip.none,
 
@@ -500,17 +1081,25 @@ class _NavbarIconButton
                   decoration:
                       BoxDecoration(
                     color:
-                        AppColors.brandNightBlue
-                            .withOpacity(0.65),
+                        AppColors
+                            .brandNightBlue
+                            .withOpacity(
+                          0.65,
+                        ),
 
                     borderRadius:
-                        BorderRadius.circular(11),
+                        BorderRadius.circular(
+                      11,
+                    ),
 
                     border:
                         Border.all(
                       color:
-                          AppColors.skyBlue
-                              .withOpacity(0.10),
+                          AppColors
+                              .skyBlue
+                              .withOpacity(
+                            0.10,
+                          ),
                     ),
                   ),
 
@@ -519,8 +1108,11 @@ class _NavbarIconButton
                     icon,
 
                     color:
-                        AppColors.pureWhite
-                            .withOpacity(0.82),
+                        AppColors
+                            .pureWhite
+                            .withOpacity(
+                          0.82,
+                        ),
 
                     size:
                         21,
@@ -528,11 +1120,9 @@ class _NavbarIconButton
                 ),
               ),
 
-              // ===============================================================
-              // BADGE
-              // ===============================================================
 
-              if (badge > 0)
+              if (badge >
+                  0)
                 Positioned(
                   top:
                       1,
@@ -566,12 +1156,15 @@ class _NavbarIconButton
                           Colors.redAccent,
 
                       borderRadius:
-                          BorderRadius.circular(10),
+                          BorderRadius.circular(
+                        10,
+                      ),
 
                       border:
                           Border.all(
                         color:
-                            AppColors.eleganceMidnight,
+                            AppColors
+                                .eleganceMidnight,
 
                         width:
                             1.5,
@@ -580,7 +1173,8 @@ class _NavbarIconButton
 
                     child:
                         Text(
-                      badge > 99
+                      badge >
+                              99
                           ? '99+'
                           : '$badge',
 
@@ -606,23 +1200,29 @@ class _NavbarIconButton
   }
 }
 
+
 // =============================================================================
 // AUTH BUTTON
 // =============================================================================
 
 class _AuthButton
     extends StatelessWidget {
+
   final String text;
 
   final bool filled;
 
   final VoidCallback onPressed;
 
+
   const _AuthButton({
     required this.text,
+
     required this.filled,
+
     required this.onPressed,
   });
+
 
   @override
   Widget build(
@@ -645,7 +1245,7 @@ class _AuthButton
                   : Colors.transparent,
 
           side:
-              BorderSide(
+              const BorderSide(
             color:
                 AppColors.skyBlue,
 
@@ -656,7 +1256,9 @@ class _AuthButton
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(10),
+                BorderRadius.circular(
+              10,
+            ),
           ),
 
           padding:
@@ -677,7 +1279,8 @@ class _AuthButton
               TextStyle(
             color:
                 filled
-                    ? AppColors.eleganceSoftNight
+                    ? AppColors
+                        .eleganceSoftNight
                     : AppColors.skyBlue,
 
             fontSize:
@@ -692,20 +1295,25 @@ class _AuthButton
   }
 }
 
+
 // =============================================================================
 // USER BUTTON
 // =============================================================================
 
 class _UserButton
     extends StatelessWidget {
+
   final String name;
 
   final VoidCallback onPressed;
 
+
   const _UserButton({
     required this.name,
+
     required this.onPressed,
   });
+
 
   @override
   Widget build(
@@ -716,7 +1324,9 @@ class _UserButton
           onPressed,
 
       borderRadius:
-          BorderRadius.circular(12),
+          BorderRadius.circular(
+        12,
+      ),
 
       child:
           Container(
@@ -735,13 +1345,17 @@ class _UserButton
               AppColors.brandNightBlue,
 
           borderRadius:
-              BorderRadius.circular(12),
+              BorderRadius.circular(
+            12,
+          ),
 
           border:
               Border.all(
             color:
                 AppColors.skyBlue
-                    .withOpacity(0.25),
+                    .withOpacity(
+              0.25,
+            ),
           ),
         ),
 
@@ -761,13 +1375,15 @@ class _UserButton
               child:
                   Text(
                 name.isNotEmpty
-                    ? name[0].toUpperCase()
+                    ? name[0]
+                        .toUpperCase()
                     : '?',
 
                 style:
                     const TextStyle(
                   color:
-                      AppColors.eleganceSoftNight,
+                      AppColors
+                          .eleganceSoftNight,
 
                   fontSize:
                       12,
@@ -785,6 +1401,12 @@ class _UserButton
 
             Text(
               name,
+
+              maxLines:
+                  1,
+
+              overflow:
+                  TextOverflow.ellipsis,
 
               style:
                   const TextStyle(
@@ -805,7 +1427,8 @@ class _UserButton
             ),
 
             const Icon(
-              Icons.keyboard_arrow_down_rounded,
+              Icons
+                  .keyboard_arrow_down_rounded,
 
               color:
                   Colors.white60,

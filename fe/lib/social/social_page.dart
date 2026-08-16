@@ -3,32 +3,26 @@ import 'package:flutter/material.dart';
 import '../theme/nightTheme.dart';
 
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
 
 import 'social_models.dart';
+
+import 'auth/login_page.dart';
 
 import 'message/message_page.dart';
 
 import 'groups/models/study_group.dart';
-
 import 'groups/study_group_detail_page.dart';
+import 'groups/create_group_page.dart';
+import 'groups/public_groups_page.dart';
 
 import 'widgets/social_intro.dart';
-
 import 'widgets/student_help_card.dart';
-
 import 'widgets/teacher_help_card.dart';
 
-import 'groups/create_group_page.dart';
-
-
-// =============================================================================
-// CONFIGURAZIONE TEMPORANEA UTENTE
-// =============================================================================
-//
-// Verrà sostituita da AuthService / sessione autenticata.
-//
-
-const int _currentUserId = 1;
+// Questi due file li costruiremo dopo.
+import 'widgets/social_user_profile_page.dart';
+import 'widgets/edit_social_profile_page.dart';
 
 
 // =============================================================================
@@ -40,45 +34,165 @@ class SocialPage extends StatefulWidget {
     super.key,
   });
 
+
   @override
   State<SocialPage> createState() =>
       _SocialPageState();
 }
 
 
+// =============================================================================
+// SOCIAL PAGE STATE
+// =============================================================================
+
 class _SocialPageState
     extends State<SocialPage> {
 
-  bool isRegistered = true;
+  final AuthSession _session =
+      AuthSession.instance;
 
-  int _currentIndex = 0;
 
+  int _currentIndex =
+      0;
+
+
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    _session.addListener(
+      _onSessionChanged,
+    );
+  }
+
+
+  // ===========================================================================
+  // DISPOSE
+  // ===========================================================================
+
+  @override
+  void dispose() {
+    _session.removeListener(
+      _onSessionChanged,
+    );
+
+    super.dispose();
+  }
+
+
+  // ===========================================================================
+  // SESSION CHANGED
+  // ===========================================================================
+
+  void _onSessionChanged() {
+    if (!mounted) {
+      return;
+    }
+
+
+    setState(() {
+      if (!_session.isAuthenticated) {
+        _currentIndex =
+            0;
+      }
+    });
+  }
+
+
+  // ===========================================================================
+  // LOGIN
+  // ===========================================================================
+
+  Future<void> _openLogin() async {
+    final SocialUser? user =
+        await Navigator.of(
+      context,
+    ).push<SocialUser>(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const LoginPage(),
+      ),
+    );
+
+
+    if (!mounted ||
+        user == null) {
+      return;
+    }
+
+
+    setState(() {
+      _currentIndex =
+          0;
+    });
+  }
+
+
+  // ===========================================================================
+  // PROFILE CREATED
+  // ===========================================================================
+
+  void _onProfileCreated(
+    SocialUser user,
+  ) {
+    // AuthService.register() ha già aggiornato AuthSession.
+
+    if (!mounted) {
+      return;
+    }
+
+
+    setState(() {
+      _currentIndex =
+          0;
+    });
+  }
+
+
+  // ===========================================================================
+  // BUILD
+  // ===========================================================================
 
   @override
   Widget build(
     BuildContext context,
   ) {
-    if (!isRegistered) {
+    // =========================================================================
+    // GUEST
+    // =========================================================================
+
+    if (_session.isGuest) {
       return _GuestSocialPage(
-        onLogin: () {
-          _showMessage(
-            context,
-            'Accesso / registrazione: da collegare.',
-          );
-        },
+        onLogin:
+            _openLogin,
+
+        onProfileCreated:
+            _onProfileCreated,
       );
     }
 
+
+    // =========================================================================
+    // AUTHENTICATED
+    // =========================================================================
 
     return Scaffold(
       backgroundColor:
           AppColors.darkElegance,
 
-      body: SafeArea(
-        child: Column(
+      body:
+          SafeArea(
+        child:
+            Column(
           children: [
             Expanded(
-              child: IndexedStack(
+              child:
+                  IndexedStack(
                 index:
                     _currentIndex,
 
@@ -101,7 +215,7 @@ class _SocialPageState
 
 
   // ===========================================================================
-  // NAVIGAZIONE SOCIAL
+  // SOCIAL NAVIGATION
   // ===========================================================================
 
   Widget _buildSocialSections() {
@@ -175,13 +289,13 @@ class _SocialPageState
         children:
             List.generate(
           sections.length,
-
           (
             index,
           ) {
             final bool selected =
                 _currentIndex ==
                     index;
+
 
             final section =
                 sections[index];
@@ -191,8 +305,7 @@ class _SocialPageState
               child:
                   GestureDetector(
                 behavior:
-                    HitTestBehavior
-                        .opaque,
+                    HitTestBehavior.opaque,
 
                 onTap:
                     () {
@@ -211,8 +324,7 @@ class _SocialPageState
                   ),
 
                   margin:
-                      const EdgeInsets
-                          .all(
+                      const EdgeInsets.all(
                     4,
                   ),
 
@@ -220,17 +332,14 @@ class _SocialPageState
                       BoxDecoration(
                     color:
                         selected
-                            ? AppColors
-                                .skyBlue
+                            ? AppColors.skyBlue
                                 .withOpacity(
                                 0.16,
                               )
-                            : Colors
-                                .transparent,
+                            : Colors.transparent,
 
                     borderRadius:
-                        BorderRadius
-                            .circular(
+                        BorderRadius.circular(
                       12,
                     ),
                   ),
@@ -238,26 +347,21 @@ class _SocialPageState
                   child:
                       Row(
                     mainAxisAlignment:
-                        MainAxisAlignment
-                            .center,
+                        MainAxisAlignment.center,
 
                     children: [
                       Icon(
                         selected
-                            ? section
-                                .selectedIcon
-                            : section
-                                .icon,
+                            ? section.selectedIcon
+                            : section.icon,
 
                         size:
                             19,
 
                         color:
                             selected
-                                ? AppColors
-                                    .materialSky
-                                : AppColors
-                                    .pureWhite
+                                ? AppColors.materialSky
+                                : AppColors.pureWhite
                                     .withOpacity(
                                     0.45,
                                   ),
@@ -275,10 +379,8 @@ class _SocialPageState
                             TextStyle(
                           color:
                               selected
-                                  ? AppColors
-                                      .pureWhite
-                                  : AppColors
-                                      .pureWhite
+                                  ? AppColors.pureWhite
+                                  : AppColors.pureWhite
                                       .withOpacity(
                                       0.45,
                                     ),
@@ -288,10 +390,8 @@ class _SocialPageState
 
                           fontWeight:
                               selected
-                                  ? FontWeight
-                                      .w600
-                                  : FontWeight
-                                      .normal,
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -304,38 +404,26 @@ class _SocialPageState
       ),
     );
   }
-
-
-  static void _showMessage(
-    BuildContext context,
-    String message,
-  ) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-      SnackBar(
-        content:
-            Text(
-          message,
-        ),
-      ),
-    );
-  }
 }
 
 
 // =============================================================================
-// SOCIAL GUEST
+// GUEST SOCIAL PAGE
 // =============================================================================
 
 class _GuestSocialPage
     extends StatefulWidget {
 
-  final VoidCallback onLogin;
+  final Future<void> Function()
+      onLogin;
+
+  final ValueChanged<SocialUser>
+      onProfileCreated;
 
 
   const _GuestSocialPage({
     required this.onLogin,
+    required this.onProfileCreated,
   });
 
 
@@ -345,6 +433,10 @@ class _GuestSocialPage
           _GuestSocialPageState();
 }
 
+
+// =============================================================================
+// GUEST STATE
+// =============================================================================
 
 class _GuestSocialPageState
     extends State<_GuestSocialPage> {
@@ -368,6 +460,10 @@ class _GuestSocialPageState
   String? _error;
 
 
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
   @override
   void initState() {
     super.initState();
@@ -377,21 +473,23 @@ class _GuestSocialPageState
 
 
   // ===========================================================================
-  // BACKEND
+  // LOAD USERS
   // ===========================================================================
 
   Future<void> _loadUsers() async {
-    setState(() {
-      _loading =
-          true;
+    if (mounted) {
+      setState(() {
+        _loading =
+            true;
 
-      _error =
-          null;
-    });
+        _error =
+            null;
+      });
+    }
 
 
     try {
-      final users =
+      final List<SocialUser> users =
           await _apiService
               .getSocialUsers();
 
@@ -424,6 +522,49 @@ class _GuestSocialPageState
     }
   }
 
+
+  // ===========================================================================
+  // OPEN GROUPS
+  // ===========================================================================
+
+  Future<void> _openGroups() async {
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const PublicGroupsPage(),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // OPEN USER
+  // ===========================================================================
+
+  Future<void> _openUser(
+    SocialUser user,
+  ) async {
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                SocialUserProfilePage(
+          user:
+              user,
+        ),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // BUILD
+  // ===========================================================================
 
   @override
   Widget build(
@@ -469,7 +610,9 @@ class _GuestSocialPageState
             ),
 
             onPressed:
-                widget.onLogin,
+                () {
+              widget.onLogin();
+            },
           ),
         ],
       ),
@@ -508,24 +651,119 @@ class _GuestSocialPageState
                         const AlwaysScrollableScrollPhysics(),
 
                     padding:
-                        const EdgeInsets
-                            .all(
+                        const EdgeInsets.all(
                       20,
                     ),
 
                     children: [
-                      const SocialIntro(),
+                      // =======================================================
+                      // SIGN UP
+                      // =======================================================
+
+                      SocialIntro(
+                        onProfileCreated:
+                            (
+                          SocialUser user,
+                        ) {
+                          widget.onProfileCreated(
+                            user,
+                          );
+                        },
+                      ),
 
                       const SizedBox(
                         height:
                             24,
                       ),
 
+
+                      // =======================================================
+                      // COMMUNITY INFO
+                      // =======================================================
+
                       _buildGuestBanner(),
 
                       const SizedBox(
                         height:
-                            24,
+                            16,
+                      ),
+
+
+                      // =======================================================
+                      // GROUPS
+                      // =======================================================
+
+                      _buildGroupsCard(),
+
+                      const SizedBox(
+                        height:
+                            28,
+                      ),
+
+
+                      // =======================================================
+                      // PEOPLE
+                      // =======================================================
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.people_outline_rounded,
+
+                            color:
+                                AppColors.skyBlue,
+
+                            size:
+                                20,
+                          ),
+
+                          const SizedBox(
+                            width:
+                                8,
+                          ),
+
+                          const Text(
+                            'Persone',
+
+                            style:
+                                TextStyle(
+                              color:
+                                  AppColors.pureWhite,
+
+                              fontSize:
+                                  18,
+
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height:
+                            6,
+                      ),
+
+                      Text(
+                        'Scopri studenti e insegnanti della community.',
+
+                        style:
+                            TextStyle(
+                          color:
+                              AppColors.pureWhite
+                                  .withOpacity(
+                            0.48,
+                          ),
+
+                          fontSize:
+                              11,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                            16,
                       ),
 
                       _buildSelector(),
@@ -549,7 +787,7 @@ class _GuestSocialPageState
 
 
   // ===========================================================================
-  // BANNER GUEST
+  // GUEST BANNER
   // ===========================================================================
 
   Widget _buildGuestBanner() {
@@ -598,8 +836,7 @@ class _GuestSocialPageState
             decoration:
                 BoxDecoration(
               color:
-                  AppColors
-                      .brandNightBlue,
+                  AppColors.brandNightBlue,
 
               borderRadius:
                   BorderRadius.circular(
@@ -653,9 +890,10 @@ class _GuestSocialPageState
                 ),
 
                 Text(
-                  'Puoi conoscere studenti e insegnanti di StudentLab. '
-                  'Registrandoti potrai creare il tuo profilo, inviare messaggi '
-                  'e utilizzare tutte le funzionalità Social.',
+                  'Puoi conoscere studenti e insegnanti, '
+                  'esplorare i gruppi e scoprire materiale '
+                  'condiviso dalla community. Registrandoti '
+                  'potrai partecipare direttamente alle attività Social.',
 
                   style:
                       TextStyle(
@@ -682,7 +920,243 @@ class _GuestSocialPageState
 
 
   // ===========================================================================
-  // STUDENTI / INSEGNANTI
+  // GROUPS CARD
+  // ===========================================================================
+
+  Widget _buildGroupsCard() {
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        17,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.eleganceMidnight,
+
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withOpacity(
+            0.12,
+          ),
+        ),
+      ),
+
+      child:
+          Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              Container(
+                width:
+                    46,
+
+                height:
+                    46,
+
+                decoration:
+                    BoxDecoration(
+                  color:
+                      AppColors.brandNightBlue,
+
+                  borderRadius:
+                      BorderRadius.circular(
+                    13,
+                  ),
+                ),
+
+                child:
+                    const Icon(
+                  Icons.groups_2_outlined,
+
+                  color:
+                      AppColors.skyBlue,
+
+                  size:
+                      25,
+                ),
+              ),
+
+              const SizedBox(
+                width:
+                    13,
+              ),
+
+              Expanded(
+                child:
+                    Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+
+                  children: [
+                    const Text(
+                      'Gruppi',
+
+                      style:
+                          TextStyle(
+                        color:
+                            AppColors.pureWhite,
+
+                        fontSize:
+                            15,
+
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          6,
+                    ),
+
+                    Text(
+                      'Nei gruppi puoi trovare studenti che seguono '
+                      'le tue stesse materie, condividere appunti, '
+                      'dispense, PDF, slide e materiale delle lezioni '
+                      'e organizzarti con la community per studiare.',
+
+                      style:
+                          TextStyle(
+                        color:
+                            AppColors.pureWhite
+                                .withOpacity(
+                          0.52,
+                        ),
+
+                        fontSize:
+                            11,
+
+                        height:
+                            1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height:
+                15,
+          ),
+
+          const Wrap(
+            spacing:
+                8,
+
+            runSpacing:
+                8,
+
+            children: [
+              _GuestGroupFeatureChip(
+                icon:
+                    Icons.folder_copy_outlined,
+
+                label:
+                    'Materiale',
+              ),
+
+              _GuestGroupFeatureChip(
+                icon:
+                    Icons.menu_book_outlined,
+
+                label:
+                    'Materie',
+              ),
+
+              _GuestGroupFeatureChip(
+                icon:
+                    Icons.school_outlined,
+
+                label:
+                    'Lezioni',
+              ),
+
+              _GuestGroupFeatureChip(
+                icon:
+                    Icons.people_outline_rounded,
+
+                label:
+                    'Community',
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height:
+                16,
+          ),
+
+          SizedBox(
+            width:
+                double.infinity,
+
+            child:
+                ElevatedButton.icon(
+              onPressed:
+                  _openGroups,
+
+              icon:
+                  const Icon(
+                Icons.search_rounded,
+              ),
+
+              label:
+                  const Text(
+                'Esplora i gruppi',
+              ),
+
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor:
+                    AppColors.socialBlue,
+
+                foregroundColor:
+                    AppColors.pureWhite,
+
+                padding:
+                    const EdgeInsets.symmetric(
+                  vertical:
+                      13,
+                ),
+
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(
+                    12,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // SELECTOR
   // ===========================================================================
 
   Widget _buildSelector() {
@@ -727,9 +1201,7 @@ class _GuestSocialPageState
 
   Widget _selectorButton({
     required String title,
-
     required IconData icon,
-
     required SocialUserType type,
   }) {
     final bool selected =
@@ -768,8 +1240,7 @@ class _GuestSocialPageState
                       .withOpacity(
                       0.16,
                     )
-                  : AppColors
-                      .eleganceMidnight,
+                  : AppColors.eleganceMidnight,
 
           borderRadius:
               BorderRadius.circular(
@@ -802,8 +1273,7 @@ class _GuestSocialPageState
 
               color:
                   selected
-                      ? AppColors
-                          .materialSky
+                      ? AppColors.materialSky
                       : AppColors.pureWhite
                           .withOpacity(
                           0.50,
@@ -825,10 +1295,8 @@ class _GuestSocialPageState
                   TextStyle(
                 color:
                     selected
-                        ? AppColors
-                            .pureWhite
-                        : AppColors
-                            .pureWhite
+                        ? AppColors.pureWhite
+                        : AppColors.pureWhite
                             .withOpacity(
                             0.55,
                           ),
@@ -839,8 +1307,7 @@ class _GuestSocialPageState
                 fontWeight:
                     selected
                         ? FontWeight.w600
-                        : FontWeight
-                            .normal,
+                        : FontWeight.normal,
               ),
             ),
           ],
@@ -849,6 +1316,10 @@ class _GuestSocialPageState
     );
   }
 
+
+  // ===========================================================================
+  // USERS
+  // ===========================================================================
 
   Widget _buildUsers() {
     if (_loading) {
@@ -868,7 +1339,8 @@ class _GuestSocialPageState
     }
 
 
-    if (_error != null) {
+    if (_error !=
+        null) {
       return _ErrorCard(
         message:
             _error!,
@@ -879,7 +1351,7 @@ class _GuestSocialPageState
     }
 
 
-    final users =
+    final List<SocialUser> users =
         _users
             .where(
               (
@@ -909,7 +1381,7 @@ class _GuestSocialPageState
       children:
           users.map(
         (
-          user,
+          SocialUser user,
         ) {
           return Padding(
             padding:
@@ -919,17 +1391,31 @@ class _GuestSocialPageState
             ),
 
             child:
-                user.type ==
-                        SocialUserType
-                            .student
-                    ? StudentHelpCard(
-                        student:
-                            user,
-                      )
-                    : TeacherHelpCard(
-                        teacher:
-                            user,
-                      ),
+                InkWell(
+              onTap:
+                  () {
+                _openUser(
+                  user,
+                );
+              },
+
+              borderRadius:
+                  BorderRadius.circular(
+                18,
+              ),
+
+              child:
+                  user.type ==
+                          SocialUserType.student
+                      ? StudentHelpCard(
+                          student:
+                              user,
+                        )
+                      : TeacherHelpCard(
+                          teacher:
+                              user,
+                        ),
+            ),
           );
         },
       ).toList(),
@@ -939,7 +1425,7 @@ class _GuestSocialPageState
 
 
 // =============================================================================
-// PROFILO
+// PROFILE PAGE
 // =============================================================================
 
 class _SocialProfilePage
@@ -955,11 +1441,19 @@ class _SocialProfilePage
 }
 
 
+// =============================================================================
+// PROFILE STATE
+// =============================================================================
+
 class _SocialProfilePageState
     extends State<_SocialProfilePage> {
 
   final ApiService _apiService =
       ApiService();
+
+
+  final AuthSession _session =
+      AuthSession.instance;
 
 
   SocialUser? _user;
@@ -976,6 +1470,10 @@ class _SocialProfilePageState
   String? _error;
 
 
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
   @override
   void initState() {
     super.initState();
@@ -985,10 +1483,28 @@ class _SocialProfilePageState
 
 
   // ===========================================================================
-  // BACKEND PROFILO
+  // LOAD PROFILE
   // ===========================================================================
 
   Future<void> _loadProfile() async {
+    final int? currentUserId =
+        _session.currentUserId;
+
+
+    if (currentUserId ==
+        null) {
+      setState(() {
+        _error =
+            'Utente non autenticato.';
+
+        _loading =
+            false;
+      });
+
+      return;
+    }
+
+
     setState(() {
       _loading =
           true;
@@ -1001,9 +1517,7 @@ class _SocialProfilePageState
     try {
       final SocialUser user =
           await _apiService
-              .getSocialUser(
-        _currentUserId,
-      );
+              .getCurrentUser();
 
 
       final List<StudyGroup> groups =
@@ -1012,7 +1526,7 @@ class _SocialProfilePageState
             _apiService,
 
         currentUserId:
-            _currentUserId,
+            currentUserId,
 
         onlyUserGroups:
             true,
@@ -1022,6 +1536,11 @@ class _SocialProfilePageState
       if (!mounted) {
         return;
       }
+
+
+      _session.updateUser(
+        user,
+      );
 
 
       setState(() {
@@ -1051,22 +1570,75 @@ class _SocialProfilePageState
   }
 
 
-  void _openMessages(
-    BuildContext context,
-  ) {
+  // ===========================================================================
+  // MESSAGES
+  // ===========================================================================
+
+  void _openMessages() {
     Navigator.of(
       context,
     ).push(
       MaterialPageRoute(
         builder:
-            (
-          _,
-        ) =>
+            (_) =>
                 const MessagesPage(),
       ),
     );
   }
 
+
+  // ===========================================================================
+  // EDIT PROFILE
+  // ===========================================================================
+
+  Future<void> _editProfile() async {
+    final SocialUser? user =
+        _user;
+
+
+    if (user ==
+        null) {
+      return;
+    }
+
+
+    final SocialUser? updatedUser =
+        await Navigator.of(
+      context,
+    ).push<SocialUser>(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                EditSocialProfilePage(
+          user:
+              user,
+        ),
+      ),
+    );
+
+
+    if (!mounted ||
+        updatedUser ==
+            null) {
+      return;
+    }
+
+
+    _session.updateUser(
+      updatedUser,
+    );
+
+
+    setState(() {
+      _user =
+          updatedUser;
+    });
+  }
+
+
+  // ===========================================================================
+  // BUILD
+  // ===========================================================================
 
   @override
   Widget build(
@@ -1090,15 +1662,6 @@ class _SocialProfilePageState
         title:
             const Text(
           'Profilo',
-
-          style:
-              TextStyle(
-            fontSize:
-                20,
-
-            fontWeight:
-                FontWeight.w500,
-          ),
         ),
 
         actions: [
@@ -1108,16 +1671,11 @@ class _SocialProfilePageState
 
             icon:
                 const Icon(
-              Icons
-                  .chat_bubble_outline_rounded,
+              Icons.chat_bubble_outline_rounded,
             ),
 
             onPressed:
-                () {
-              _openMessages(
-                context,
-              );
-            },
+                _openMessages,
           ),
         ],
       ),
@@ -1152,7 +1710,8 @@ class _SocialProfilePageState
     }
 
 
-    if (_error != null) {
+    if (_error !=
+        null) {
       return ListView(
         padding:
             const EdgeInsets.all(
@@ -1207,7 +1766,9 @@ class _SocialProfilePageState
                 28,
           ),
 
-          _buildMyGroups(),
+          _buildMyGroups(
+            user,
+          ),
 
           const SizedBox(
             height:
@@ -1227,9 +1788,6 @@ class _SocialProfilePageState
     SocialUser user,
   ) {
     return Container(
-      width:
-          double.infinity,
-
       padding:
           const EdgeInsets.all(
         20,
@@ -1253,25 +1811,6 @@ class _SocialProfilePageState
             0.16,
           ),
         ),
-
-        boxShadow: [
-          BoxShadow(
-            color:
-                Colors.black
-                    .withOpacity(
-              0.15,
-            ),
-
-            blurRadius:
-                10,
-
-            offset:
-                const Offset(
-              0,
-              5,
-            ),
-          ),
-        ],
       ),
 
       child:
@@ -1295,8 +1834,7 @@ class _SocialProfilePageState
                 decoration:
                     BoxDecoration(
                   color:
-                      AppColors
-                          .brandNightBlue,
+                      AppColors.brandNightBlue,
 
                   borderRadius:
                       BorderRadius.circular(
@@ -1331,13 +1869,6 @@ class _SocialProfilePageState
                     Text(
                       user.name,
 
-                      maxLines:
-                          2,
-
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-
                       style:
                           const TextStyle(
                         color:
@@ -1358,16 +1889,14 @@ class _SocialProfilePageState
 
                     Text(
                       user.type ==
-                              SocialUserType
-                                  .teacher
+                              SocialUserType.teacher
                           ? 'Insegnante'
                           : 'Studente',
 
                       style:
                           const TextStyle(
                         color:
-                            AppColors
-                                .materialSky,
+                            AppColors.materialSky,
 
                         fontSize:
                             13,
@@ -1379,18 +1908,11 @@ class _SocialProfilePageState
 
                     const SizedBox(
                       height:
-                          7,
+                          5,
                     ),
 
                     Text(
                       user.email,
-
-                      maxLines:
-                          1,
-
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
 
                       style:
                           const TextStyle(
@@ -1398,89 +1920,16 @@ class _SocialProfilePageState
                             Colors.white70,
 
                         fontSize:
-                            12,
+                            11,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              Container(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      9,
-
-                  vertical:
-                      6,
-                ),
-
-                decoration:
-                    BoxDecoration(
-                  color:
-                      AppColors
-                          .brandNightBlue,
-
-                  borderRadius:
-                      BorderRadius.circular(
-                    9,
-                  ),
-
-                  border:
-                      Border.all(
-                    color:
-                        AppColors.skyBlue
-                            .withOpacity(
-                      0.12,
-                    ),
-                  ),
-                ),
-
-                child:
-                    Row(
-                  mainAxisSize:
-                      MainAxisSize.min,
-
-                  children: [
-                    Icon(
-                      Icons.circle,
-
-                      color:
-                          user.available
-                              ? Colors
-                                  .greenAccent
-                              : Colors
-                                  .white30,
-
-                      size:
-                          8,
-                    ),
-
-                    const SizedBox(
-                      width:
-                          5,
-                    ),
-
-                    Text(
-                      user.available
-                          ? 'Disponibile'
-                          : 'Non disponibile',
-
-                      style:
-                          const TextStyle(
-                        color:
-                            AppColors.pureWhite,
-
-                        fontSize:
-                            10,
-
-                        fontWeight:
-                            FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+              _AvailabilityBadge(
+                available:
+                    user.available,
               ),
             ],
           ),
@@ -1508,8 +1957,7 @@ class _SocialProfilePageState
 
           _ProfileInfoRow(
             icon:
-                Icons
-                    .account_balance_outlined,
+                Icons.account_balance_outlined,
 
             title:
                 'Dipartimento',
@@ -1632,43 +2080,15 @@ class _SocialProfilePageState
           if (user.willingToTeach) ...[
             const SizedBox(
               height:
-                  15,
+                  16,
             ),
 
-            Row(
-              children: [
-                const Icon(
-                  Icons
-                      .volunteer_activism_outlined,
+            const _ProfileCapability(
+              icon:
+                  Icons.volunteer_activism_outlined,
 
-                  color:
-                      AppColors.materialSky,
-
-                  size:
-                      18,
-                ),
-
-                const SizedBox(
-                  width:
-                      7,
-                ),
-
-                Text(
-                  'Disponibile ad aiutare altri studenti',
-
-                  style:
-                      TextStyle(
-                    color:
-                        AppColors.pureWhite
-                            .withOpacity(
-                      0.65,
-                    ),
-
-                    fontSize:
-                        11,
-                  ),
-                ),
-              ],
+              label:
+                  'Disponibile ad aiutare',
             ),
           ],
 
@@ -1684,13 +2104,7 @@ class _SocialProfilePageState
             child:
                 OutlinedButton.icon(
               onPressed:
-                  () {
-                _showMessage(
-                  context,
-
-                  'Modifica profilo: da collegare a updateSocialUser.',
-                );
-              },
+                  _editProfile,
 
               icon:
                   const Icon(
@@ -1703,8 +2117,7 @@ class _SocialProfilePageState
               ),
 
               style:
-                  OutlinedButton
-                      .styleFrom(
+                  OutlinedButton.styleFrom(
                 foregroundColor:
                     AppColors.materialSky,
 
@@ -1718,8 +2131,7 @@ class _SocialProfilePageState
                 ),
 
                 padding:
-                    const EdgeInsets
-                        .symmetric(
+                    const EdgeInsets.symmetric(
                   vertical:
                       13,
                 ),
@@ -1741,7 +2153,7 @@ class _SocialProfilePageState
 
 
   // ===========================================================================
-  // STATISTICHE
+  // STATISTICS
   // ===========================================================================
 
   Widget _buildStatistics() {
@@ -1816,10 +2228,12 @@ class _SocialProfilePageState
 
 
   // ===========================================================================
-  // I MIEI GRUPPI
+  // MY GROUPS
   // ===========================================================================
 
-  Widget _buildMyGroups() {
+  Widget _buildMyGroups(
+    SocialUser currentUser,
+  ) {
     return Column(
       crossAxisAlignment:
           CrossAxisAlignment.start,
@@ -1885,19 +2299,15 @@ class _SocialProfilePageState
               context,
               constraints,
             ) {
-              final double width =
-                  constraints.maxWidth;
-
-
               int columns =
                   2;
 
 
-              if (width <
+              if (constraints.maxWidth <
                   420) {
                 columns =
                     1;
-              } else if (width >=
+              } else if (constraints.maxWidth >=
                   700) {
                 columns =
                     3;
@@ -1949,12 +2359,11 @@ class _SocialProfilePageState
                       ).push(
                         MaterialPageRoute(
                           builder:
-                              (
-                            _,
-                          ) =>
+                              (_) =>
                                   StudyGroupDetailPage(
-                          group: group,
-                        ),
+                            group:
+                                group,
+                          ),
                         ),
                       );
                     },
@@ -1966,28 +2375,623 @@ class _SocialProfilePageState
       ],
     );
   }
+}
 
 
-  static void _showMessage(
-    BuildContext context,
-    String message,
-  ) {
-    ScaffoldMessenger.of(
+// =============================================================================
+// USERS PAGE
+// =============================================================================
+
+class _SocialUsersPage
+    extends StatefulWidget {
+
+  const _SocialUsersPage();
+
+
+  @override
+  State<_SocialUsersPage>
+      createState() =>
+          _SocialUsersPageState();
+}
+
+
+// =============================================================================
+// USERS STATE
+// =============================================================================
+
+class _SocialUsersPageState
+    extends State<_SocialUsersPage> {
+
+  final ApiService _apiService =
+      ApiService();
+
+
+  final TextEditingController
+      _searchController =
+      TextEditingController();
+
+
+  List<SocialUser> _users =
+      [];
+
+
+  int _selectedFilter =
+      0;
+
+
+  bool _loading =
+      true;
+
+
+  String? _error;
+
+
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadUsers();
+  }
+
+
+  // ===========================================================================
+  // DISPOSE
+  // ===========================================================================
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+
+    super.dispose();
+  }
+
+
+  // ===========================================================================
+  // LOAD USERS
+  // ===========================================================================
+
+  Future<void> _loadUsers() async {
+    setState(() {
+      _loading =
+          true;
+
+      _error =
+          null;
+    });
+
+
+    try {
+      final List<SocialUser> users =
+          await _apiService
+              .getSocialUsers();
+
+
+      if (!mounted) {
+        return;
+      }
+
+
+      final int? currentUserId =
+          AuthSession.instance
+              .currentUserId;
+
+
+      setState(() {
+        _users =
+            users
+                .where(
+                  (
+                    user,
+                  ) =>
+                      user.id !=
+                      currentUserId,
+                )
+                .toList();
+
+        _loading =
+            false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+
+      setState(() {
+        _error =
+            e.toString();
+
+        _loading =
+            false;
+      });
+    }
+  }
+
+
+  // ===========================================================================
+  // FILTERED USERS
+  // ===========================================================================
+
+  List<SocialUser> get _filteredUsers {
+    final String query =
+        _searchController.text
+            .trim()
+            .toLowerCase();
+
+
+    return _users.where(
+      (
+        SocialUser user,
+      ) {
+        if (_selectedFilter ==
+                1 &&
+            user.type !=
+                SocialUserType.student) {
+          return false;
+        }
+
+
+        if (_selectedFilter ==
+                2 &&
+            user.type !=
+                SocialUserType.teacher) {
+          return false;
+        }
+
+
+        if (_selectedFilter ==
+                3 &&
+            !user.available) {
+          return false;
+        }
+
+
+        if (query.isEmpty) {
+          return true;
+        }
+
+
+        final String subjects =
+            user.subjects
+                .map(
+                  (
+                    subject,
+                  ) =>
+                      subject.name,
+                )
+                .join(
+                  ' ',
+                );
+
+
+        final String searchable = [
+          user.name,
+          user.department,
+          user.course,
+          subjects,
+          user.description,
+        ].join(
+          ' ',
+        ).toLowerCase();
+
+
+        return searchable.contains(
+          query,
+        );
+      },
+    ).toList();
+  }
+
+
+  // ===========================================================================
+  // OPEN USER
+  // ===========================================================================
+
+  Future<void> _openUser(
+    SocialUser user,
+  ) async {
+    await Navigator.of(
       context,
-    ).showSnackBar(
-      SnackBar(
-        content:
-            Text(
-          message,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                SocialUserProfilePage(
+          user:
+              user,
         ),
       ),
+    );
+  }
+
+
+  // ===========================================================================
+  // BUILD
+  // ===========================================================================
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Scaffold(
+      backgroundColor:
+          AppColors.darkElegance,
+
+      appBar:
+          AppBar(
+        backgroundColor:
+            AppColors.brandNightBlue,
+
+        foregroundColor:
+            AppColors.pureWhite,
+
+        title:
+            const Text(
+          'Utenti',
+        ),
+
+        actions: [
+          IconButton(
+            tooltip:
+                'Aggiorna',
+
+            onPressed:
+                _loadUsers,
+
+            icon:
+                const Icon(
+              Icons.refresh_rounded,
+            ),
+          ),
+
+          IconButton(
+            tooltip:
+                'Messaggi',
+
+            onPressed:
+                () {
+              Navigator.of(
+                context,
+              ).push(
+                MaterialPageRoute(
+                  builder:
+                      (_) =>
+                          const MessagesPage(),
+                ),
+              );
+            },
+
+            icon:
+                const Icon(
+              Icons.chat_bubble_outline_rounded,
+            ),
+          ),
+        ],
+      ),
+
+      body:
+          SafeArea(
+        child:
+            Center(
+          child:
+              ConstrainedBox(
+            constraints:
+                const BoxConstraints(
+              maxWidth:
+                  850,
+            ),
+
+            child:
+                RefreshIndicator(
+              onRefresh:
+                  _loadUsers,
+
+              child:
+                  ListView(
+                physics:
+                    const AlwaysScrollableScrollPhysics(),
+
+                padding:
+                    const EdgeInsets.all(
+                  20,
+                ),
+
+                children: [
+                  const Text(
+                    'Community',
+
+                    style:
+                        TextStyle(
+                      color:
+                          AppColors.pureWhite,
+
+                      fontSize:
+                          25,
+
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height:
+                        5,
+                  ),
+
+                  Text(
+                    'Trova studenti e insegnanti, scopri le loro '
+                    'materie e apri il profilo per entrare in contatto.',
+
+                    style:
+                        TextStyle(
+                      color:
+                          AppColors.pureWhite
+                              .withOpacity(
+                        0.52,
+                      ),
+
+                      fontSize:
+                          12,
+
+                      height:
+                          1.4,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height:
+                        18,
+                  ),
+
+                  _buildSearch(),
+
+                  const SizedBox(
+                    height:
+                        12,
+                  ),
+
+                  _buildFilters(),
+
+                  const SizedBox(
+                    height:
+                        24,
+                  ),
+
+                  _buildUserList(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // SEARCH
+  // ===========================================================================
+
+  Widget _buildSearch() {
+    return TextField(
+      controller:
+          _searchController,
+
+      onChanged:
+          (_) {
+        setState(() {});
+      },
+
+      style:
+          const TextStyle(
+        color:
+            AppColors.pureWhite,
+      ),
+
+      decoration:
+          InputDecoration(
+        hintText:
+            'Cerca nome, corso, materia...',
+
+        hintStyle:
+            const TextStyle(
+          color:
+              Colors.white38,
+        ),
+
+        prefixIcon:
+            const Icon(
+          Icons.search_rounded,
+
+          color:
+              AppColors.skyBlue,
+        ),
+
+        filled:
+            true,
+
+        fillColor:
+            AppColors.eleganceMidnight,
+
+        border:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            14,
+          ),
+
+          borderSide:
+              BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // FILTERS
+  // ===========================================================================
+
+  Widget _buildFilters() {
+    const labels = [
+      'Tutti',
+      'Studenti',
+      'Insegnanti',
+      'Disponibili',
+    ];
+
+
+    return SingleChildScrollView(
+      scrollDirection:
+          Axis.horizontal,
+
+      child:
+          Row(
+        children:
+            List.generate(
+          labels.length,
+          (
+            index,
+          ) {
+            return Padding(
+              padding:
+                  const EdgeInsets.only(
+                right:
+                    8,
+              ),
+
+              child:
+                  ChoiceChip(
+                selected:
+                    _selectedFilter ==
+                        index,
+
+                label:
+                    Text(
+                  labels[index],
+                ),
+
+                onSelected:
+                    (_) {
+                  setState(() {
+                    _selectedFilter =
+                        index;
+                  });
+                },
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // USER LIST
+  // ===========================================================================
+
+  Widget _buildUserList() {
+    if (_loading) {
+      return const Padding(
+        padding:
+            EdgeInsets.symmetric(
+          vertical:
+              50,
+        ),
+
+        child:
+            Center(
+          child:
+              CircularProgressIndicator(),
+        ),
+      );
+    }
+
+
+    if (_error !=
+        null) {
+      return _ErrorCard(
+        message:
+            _error!,
+
+        onRetry:
+            _loadUsers,
+      );
+    }
+
+
+    final List<SocialUser> users =
+        _filteredUsers;
+
+
+    if (users.isEmpty) {
+      return const _EmptyCard(
+        icon:
+            Icons.person_search_outlined,
+
+        title:
+            'Nessun utente',
+
+        message:
+            'Nessun profilo corrisponde alla ricerca.',
+      );
+    }
+
+
+    return Column(
+      children:
+          users.map(
+        (
+          SocialUser user,
+        ) {
+          return Padding(
+            padding:
+                const EdgeInsets.only(
+              bottom:
+                  14,
+            ),
+
+            child:
+                InkWell(
+              onTap:
+                  () {
+                _openUser(
+                  user,
+                );
+              },
+
+              borderRadius:
+                  BorderRadius.circular(
+                18,
+              ),
+
+              child:
+                  user.type ==
+                          SocialUserType.student
+                      ? StudentHelpCard(
+                          student:
+                              user,
+                        )
+                      : TeacherHelpCard(
+                          teacher:
+                              user,
+                        ),
+            ),
+          );
+        },
+      ).toList(),
     );
   }
 }
 
 
 // =============================================================================
-// GRUPPI
+// GROUPS PAGE
 // =============================================================================
 
 class _SocialGroupsPage
@@ -2002,6 +3006,10 @@ class _SocialGroupsPage
           _SocialGroupsPageState();
 }
 
+
+// =============================================================================
+// GROUPS STATE
+// =============================================================================
 
 class _SocialGroupsPageState
     extends State<_SocialGroupsPage> {
@@ -2021,6 +3029,10 @@ class _SocialGroupsPageState
   String? _error;
 
 
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
   @override
   void initState() {
     super.initState();
@@ -2030,10 +3042,21 @@ class _SocialGroupsPageState
 
 
   // ===========================================================================
-  // BACKEND
+  // LOAD
   // ===========================================================================
 
   Future<void> _loadGroups() async {
+    final int? currentUserId =
+        AuthSession.instance
+            .currentUserId;
+
+
+    if (currentUserId ==
+        null) {
+      return;
+    }
+
+
     setState(() {
       _loading =
           true;
@@ -2044,13 +3067,13 @@ class _SocialGroupsPageState
 
 
     try {
-      final groups =
+      final List<StudyGroup> groups =
           await _loadGroupsFromBackend(
         apiService:
             _apiService,
 
         currentUserId:
-            _currentUserId,
+            currentUserId,
 
         onlyUserGroups:
             false,
@@ -2086,83 +3109,80 @@ class _SocialGroupsPageState
   }
 
 
-  void _openMessages(
-    BuildContext context,
-  ) {
-    Navigator.of(
+  // ===========================================================================
+  // CREATE
+  // ===========================================================================
+
+  Future<void> _createGroup() async {
+    await Navigator.of(
       context,
     ).push(
       MaterialPageRoute(
         builder:
-            (
-          _,
-        ) =>
-                const MessagesPage(),
-      ),
-    );
-  }
-
-
-  void _createGroup(
-    BuildContext context,
-  ) {
-    Navigator.of(
-      context,
-    )
-        .push(
-      MaterialPageRoute(
-        builder:
-            (
-          _,
-        ) =>
+            (_) =>
                 const CreateGroupPage(),
       ),
-    )
-        .then(
-      (
-        _,
-      ) {
-        _loadGroups();
-      },
     );
+
+
+    if (mounted) {
+      _loadGroups();
+    }
   }
 
 
-  void _joinGroup(
-    BuildContext context,
-  ) {
-    ScaffoldMessenger.of(
+  // ===========================================================================
+  // EXPLORE
+  // ===========================================================================
+
+  Future<void> _exploreGroups() async {
+    await Navigator.of(
       context,
-    ).showSnackBar(
-      const SnackBar(
-        content:
-            Text(
-          'Seleziona un gruppo dalla lista per partecipare.',
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const PublicGroupsPage(),
+      ),
+    );
+
+
+    if (mounted) {
+      _loadGroups();
+    }
+  }
+
+
+  // ===========================================================================
+  // OPEN GROUP
+  // ===========================================================================
+
+  Future<void> _openGroup(
+    StudyGroup group,
+  ) async {
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                StudyGroupDetailPage(
+          group:
+              group,
         ),
       ),
     );
+
+
+    if (mounted) {
+      _loadGroups();
+    }
   }
 
 
-  void _openGroup(
-    BuildContext context,
-    StudyGroup group,
-  ) {
-    Navigator.of(
-      context,
-    ).push(
-      MaterialPageRoute(
-        builder:
-            (
-          _,
-        ) =>
-            StudyGroupDetailPage(
-              group: group,
-            ),
-      ),
-    );
-  }
-
+  // ===========================================================================
+  // BUILD
+  // ===========================================================================
 
   @override
   Widget build(
@@ -2180,21 +3200,9 @@ class _SocialGroupsPageState
         foregroundColor:
             AppColors.pureWhite,
 
-        elevation:
-            0,
-
         title:
             const Text(
           'Gruppi',
-
-          style:
-              TextStyle(
-            fontSize:
-                20,
-
-            fontWeight:
-                FontWeight.w500,
-          ),
         ),
 
         actions: [
@@ -2202,31 +3210,36 @@ class _SocialGroupsPageState
             tooltip:
                 'Aggiorna',
 
+            onPressed:
+                _loadGroups,
+
             icon:
                 const Icon(
               Icons.refresh_rounded,
             ),
-
-            onPressed:
-                _loadGroups,
           ),
 
           IconButton(
             tooltip:
                 'Messaggi',
 
-            icon:
-                const Icon(
-              Icons
-                  .chat_bubble_outline_rounded,
-            ),
-
             onPressed:
                 () {
-              _openMessages(
+              Navigator.of(
                 context,
+              ).push(
+                MaterialPageRoute(
+                  builder:
+                      (_) =>
+                          const MessagesPage(),
+                ),
               );
             },
+
+            icon:
+                const Icon(
+              Icons.chat_bubble_outline_rounded,
+            ),
           ),
         ],
       ),
@@ -2254,8 +3267,7 @@ class _SocialGroupsPageState
                     const AlwaysScrollableScrollPhysics(),
 
                 padding:
-                    const EdgeInsets
-                        .all(
+                    const EdgeInsets.all(
                   20,
                 ),
 
@@ -2282,7 +3294,8 @@ class _SocialGroupsPageState
                   ),
 
                   Text(
-                    'Accedi ai gruppi di cui fai parte o scopri nuovi gruppi.',
+                    'Accedi ai gruppi, scopri nuove community '
+                    'e condividi materiale con altri studenti.',
 
                     style:
                         TextStyle(
@@ -2305,16 +3318,66 @@ class _SocialGroupsPageState
                         22,
                   ),
 
-                  _buildGroupActions(
-                    context,
+                  Row(
+                    children: [
+                      Expanded(
+                        child:
+                            OutlinedButton.icon(
+                          onPressed:
+                              _createGroup,
+
+                          icon:
+                              const Icon(
+                            Icons.add_circle_outline_rounded,
+                          ),
+
+                          label:
+                              const Text(
+                            'Crea gruppo',
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(
+                        width:
+                            10,
+                      ),
+
+                      Expanded(
+                        child:
+                            ElevatedButton.icon(
+                          onPressed:
+                              _exploreGroups,
+
+                          icon:
+                              const Icon(
+                            Icons.search_rounded,
+                          ),
+
+                          label:
+                              const Text(
+                            'Esplora gruppi',
+                          ),
+
+                          style:
+                              ElevatedButton.styleFrom(
+                            backgroundColor:
+                                AppColors.socialBlue,
+
+                            foregroundColor:
+                                AppColors.pureWhite,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(
                     height:
-                        28,
+                        26,
                   ),
 
-                  _buildGroupsGrid(),
+                  _buildGroups(),
                 ],
               ),
             ),
@@ -2326,149 +3389,10 @@ class _SocialGroupsPageState
 
 
   // ===========================================================================
-  // AZIONI
+  // GROUP GRID
   // ===========================================================================
 
-  Widget _buildGroupActions(
-    BuildContext context,
-  ) {
-    return Column(
-      children: [
-        SizedBox(
-          width:
-              double.infinity,
-
-          child:
-              OutlinedButton.icon(
-            onPressed:
-                () {
-              _createGroup(
-                context,
-              );
-            },
-
-            icon:
-                const Icon(
-              Icons
-                  .add_circle_outline_rounded,
-            ),
-
-            label:
-                const Text(
-              'Crea gruppo',
-            ),
-
-            style:
-                OutlinedButton
-                    .styleFrom(
-              foregroundColor:
-                  AppColors.materialSky,
-
-              side:
-                  BorderSide(
-                color:
-                    AppColors.skyBlue
-                        .withOpacity(
-                  0.25,
-                ),
-              ),
-
-              backgroundColor:
-                  AppColors
-                      .eleganceMidnight,
-
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                vertical:
-                    13,
-              ),
-
-              shape:
-                  RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(
-                  10,
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(
-          height:
-              12,
-        ),
-
-        SizedBox(
-          width:
-              double.infinity,
-
-          child:
-              OutlinedButton.icon(
-            onPressed:
-                () {
-              _joinGroup(
-                context,
-              );
-            },
-
-            icon:
-                const Icon(
-              Icons.group_add_outlined,
-            ),
-
-            label:
-                const Text(
-              'Partecipa a un gruppo',
-            ),
-
-            style:
-                OutlinedButton
-                    .styleFrom(
-              foregroundColor:
-                  AppColors.materialSky,
-
-              side:
-                  BorderSide(
-                color:
-                    AppColors.skyBlue
-                        .withOpacity(
-                  0.25,
-                ),
-              ),
-
-              backgroundColor:
-                  AppColors
-                      .eleganceMidnight,
-
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                vertical:
-                    13,
-              ),
-
-              shape:
-                  RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(
-                  10,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-
-  // ===========================================================================
-  // GRIGLIA
-  // ===========================================================================
-
-  Widget _buildGroupsGrid() {
+  Widget _buildGroups() {
     if (_loading) {
       return const Padding(
         padding:
@@ -2486,7 +3410,8 @@ class _SocialGroupsPageState
     }
 
 
-    if (_error != null) {
+    if (_error !=
+        null) {
       return _ErrorCard(
         message:
             _error!,
@@ -2517,28 +3442,18 @@ class _SocialGroupsPageState
         context,
         constraints,
       ) {
-        final double width =
-            constraints.maxWidth;
+        int columns =
+            2;
 
 
-        int columns;
-
-
-        if (width <
-            360) {
+        if (constraints.maxWidth <
+            450) {
           columns =
               1;
-        } else if (width >=
-            1000) {
-          columns =
-              4;
-        } else if (width >=
-            700) {
+        } else if (constraints.maxWidth >=
+            750) {
           columns =
               3;
-        } else {
-          columns =
-              2;
         }
 
 
@@ -2558,16 +3473,13 @@ class _SocialGroupsPageState
                 columns,
 
             crossAxisSpacing:
-                14,
+                12,
 
             mainAxisSpacing:
-                14,
+                12,
 
             mainAxisExtent:
-                columns ==
-                        1
-                    ? 180
-                    : 200,
+                185,
           ),
 
           itemBuilder:
@@ -2579,14 +3491,13 @@ class _SocialGroupsPageState
                 _groups[index];
 
 
-            return _GroupCard(
+            return _MiniGroupCard(
               group:
                   group,
 
               onTap:
                   () {
                 _openGroup(
-                  context,
                   group,
                 );
               },
@@ -2594,373 +3505,6 @@ class _SocialGroupsPageState
           },
         );
       },
-    );
-  }
-}
-
-
-// =============================================================================
-// GROUP CARD
-// =============================================================================
-
-class _GroupCard
-    extends StatelessWidget {
-
-  final StudyGroup group;
-
-  final VoidCallback onTap;
-
-
-  const _GroupCard({
-    required this.group,
-
-    required this.onTap,
-  });
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Material(
-      color:
-          Colors.transparent,
-
-      child:
-          InkWell(
-        onTap:
-            onTap,
-
-        borderRadius:
-            BorderRadius.circular(
-          20,
-        ),
-
-        child:
-            Container(
-          padding:
-              const EdgeInsets
-                  .symmetric(
-            horizontal:
-                14,
-
-            vertical:
-                13,
-          ),
-
-          decoration:
-              BoxDecoration(
-            color:
-                AppColors
-                    .eleganceMidnight,
-
-            borderRadius:
-                BorderRadius.circular(
-              20,
-            ),
-
-            border:
-                Border.all(
-              color:
-                  AppColors.skyBlue
-                      .withOpacity(
-                0.13,
-              ),
-            ),
-
-            boxShadow: [
-              BoxShadow(
-                color:
-                    Colors.black
-                        .withOpacity(
-                  0.10,
-                ),
-
-                blurRadius:
-                    8,
-
-                offset:
-                    const Offset(
-                  0,
-                  4,
-                ),
-              ),
-            ],
-          ),
-
-          child:
-              Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width:
-                        42,
-
-                    height:
-                        42,
-
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          AppColors
-                              .brandNightBlue,
-
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
-                    ),
-
-                    child:
-                        const Icon(
-                      Icons.groups_rounded,
-
-                      color:
-                          AppColors.skyBlue,
-
-                      size:
-                          22,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  if (group.isPrivate) ...[
-                    const Icon(
-                      Icons
-                          .lock_outline_rounded,
-
-                      color:
-                          Colors.white38,
-
-                      size:
-                          15,
-                    ),
-
-                    const SizedBox(
-                      width:
-                          5,
-                    ),
-                  ],
-
-                  const Icon(
-                    Icons
-                        .chevron_right_rounded,
-
-                    color:
-                        Colors.white38,
-
-                    size:
-                        20,
-                  ),
-                ],
-              ),
-
-              const SizedBox(
-                height:
-                    9,
-              ),
-
-              Text(
-                group.name,
-
-                maxLines:
-                    2,
-
-                overflow:
-                    TextOverflow
-                        .ellipsis,
-
-                style:
-                    const TextStyle(
-                  color:
-                      AppColors.pureWhite,
-
-                  fontSize:
-                      13,
-
-                  fontWeight:
-                      FontWeight.bold,
-
-                  height:
-                      1.15,
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    3,
-              ),
-
-              Text(
-                group.subject.isNotEmpty
-                    ? group.subject
-                    : group.subjectId !=
-                            null
-                        ? 'Materia #${group.subjectId}'
-                        : 'Materia non specificata',
-
-                maxLines:
-                    1,
-
-                overflow:
-                    TextOverflow
-                        .ellipsis,
-
-                style:
-                    TextStyle(
-                  color:
-                      AppColors.materialSky
-                          .withOpacity(
-                    0.85,
-                  ),
-
-                  fontSize:
-                      9,
-                ),
-              ),
-
-              const Spacer(),
-
-              Row(
-                children: [
-                  const Icon(
-                    Icons
-                        .people_outline_rounded,
-
-                    color:
-                        Colors.white38,
-
-                    size:
-                        13,
-                  ),
-
-                  const SizedBox(
-                    width:
-                        4,
-                  ),
-
-                  Expanded(
-                    child:
-                        Text(
-                      '${group.memberCount} partecipanti',
-
-                      maxLines:
-                          1,
-
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite
-                                .withOpacity(
-                          0.48,
-                        ),
-
-                        fontSize:
-                            9,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(
-                height:
-                    5,
-              ),
-
-              Row(
-                children: [
-                  Icon(
-                    Icons.folder_outlined,
-
-                    color:
-                        AppColors.materialSky
-                            .withOpacity(
-                      0.75,
-                    ),
-
-                    size:
-                        13,
-                  ),
-
-                  const SizedBox(
-                    width:
-                        4,
-                  ),
-
-                  Expanded(
-                    child:
-                        Text(
-                      '${group.materialCount} materiali',
-
-                      maxLines:
-                          1,
-
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite
-                                .withOpacity(
-                          0.48,
-                        ),
-
-                        fontSize:
-                            9,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(
-                height:
-                    6,
-              ),
-
-              Text(
-                group.isOwner
-                    ? 'PROPRIETARIO'
-                    : 'PARTECIPANTE',
-
-                maxLines:
-                    1,
-
-                overflow:
-                    TextOverflow
-                        .ellipsis,
-
-                style:
-                    TextStyle(
-                  color:
-                      AppColors.materialSky
-                          .withOpacity(
-                    0.80,
-                  ),
-
-                  fontSize:
-                      8,
-
-                  fontWeight:
-                      FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -2980,1177 +3524,6 @@ class _MiniGroupCard
 
   const _MiniGroupCard({
     required this.group,
-
-    required this.onTap,
-  });
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return LayoutBuilder(
-      builder:
-          (
-        context,
-        constraints,
-      ) {
-        final bool compact =
-            constraints.maxWidth <
-                150;
-
-
-        return Material(
-          color:
-              Colors.transparent,
-
-          child:
-              InkWell(
-            onTap:
-                onTap,
-
-            borderRadius:
-                BorderRadius.circular(
-              17,
-            ),
-
-            child:
-                Container(
-              padding:
-                  EdgeInsets.all(
-                compact
-                    ? 11
-                    : 14,
-              ),
-
-              decoration:
-                  BoxDecoration(
-                color:
-                    AppColors
-                        .eleganceMidnight,
-
-                borderRadius:
-                    BorderRadius.circular(
-                  17,
-                ),
-
-                border:
-                    Border.all(
-                  color:
-                      AppColors.skyBlue
-                          .withOpacity(
-                    0.12,
-                  ),
-                ),
-              ),
-
-              child:
-                  Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width:
-                            compact
-                                ? 35
-                                : 40,
-
-                        height:
-                            compact
-                                ? 35
-                                : 40,
-
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              AppColors
-                                  .brandNightBlue,
-
-                          borderRadius:
-                              BorderRadius.circular(
-                            12,
-                          ),
-                        ),
-
-                        child:
-                            Icon(
-                          Icons.groups_rounded,
-
-                          color:
-                              AppColors.skyBlue,
-
-                          size:
-                              compact
-                                  ? 18
-                                  : 21,
-                        ),
-                      ),
-
-                      const Spacer(),
-
-                      if (group.isPrivate)
-                        Icon(
-                          Icons
-                              .lock_outline_rounded,
-
-                          color:
-                              Colors.white38,
-
-                          size:
-                              compact
-                                  ? 13
-                                  : 15,
-                        ),
-
-                      const SizedBox(
-                        width:
-                            4,
-                      ),
-
-                      Icon(
-                        Icons
-                            .chevron_right_rounded,
-
-                        color:
-                            Colors.white38,
-
-                        size:
-                            compact
-                                ? 18
-                                : 20,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(
-                    height:
-                        9,
-                  ),
-
-                  Text(
-                    group.name,
-
-                    maxLines:
-                        2,
-
-                    overflow:
-                        TextOverflow
-                            .ellipsis,
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite,
-
-                      fontSize:
-                          compact
-                              ? 10
-                              : 12,
-
-                      fontWeight:
-                          FontWeight.bold,
-
-                      height:
-                          1.2,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height:
-                        4,
-                  ),
-
-                  Text(
-                    '${group.memberCount} partecipanti',
-
-                    maxLines:
-                        1,
-
-                    overflow:
-                        TextOverflow
-                            .ellipsis,
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite
-                              .withOpacity(
-                        0.48,
-                      ),
-
-                      fontSize:
-                          compact
-                              ? 8
-                              : 9,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  Text(
-                    group.isOwner
-                        ? 'PROPRIETARIO'
-                        : 'PARTECIPANTE',
-
-                    maxLines:
-                        1,
-
-                    overflow:
-                        TextOverflow
-                            .ellipsis,
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.materialSky
-                              .withOpacity(
-                        0.80,
-                      ),
-
-                      fontSize:
-                          compact
-                              ? 7
-                              : 8,
-
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-
-// =============================================================================
-// UTENTI
-// =============================================================================
-
-class _SocialUsersPage
-    extends StatefulWidget {
-
-  const _SocialUsersPage();
-
-
-  @override
-  State<_SocialUsersPage>
-      createState() =>
-          _SocialUsersPageState();
-}
-
-
-class _SocialUsersPageState
-    extends State<_SocialUsersPage> {
-
-  final ApiService _apiService =
-      ApiService();
-
-
-  final TextEditingController
-      _searchController =
-      TextEditingController();
-
-
-  List<SocialUser> _users =
-      [];
-
-
-  bool _loading =
-      true;
-
-
-  String? _error;
-
-
-  int _selectedFilter =
-      0;
-
-
-  @override
-  void initState() {
-    super.initState();
-
-    _loadUsers();
-  }
-
-
-  @override
-  void dispose() {
-    _searchController
-        .dispose();
-
-    super.dispose();
-  }
-
-
-  // ===========================================================================
-  // BACKEND
-  // ===========================================================================
-
-  Future<void> _loadUsers() async {
-    setState(() {
-      _loading =
-          true;
-
-      _error =
-          null;
-    });
-
-
-    try {
-      final users =
-          await _apiService
-              .getSocialUsers();
-
-
-      if (!mounted) {
-        return;
-      }
-
-
-      setState(() {
-        _users =
-            users;
-
-        _loading =
-            false;
-      });
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-
-      setState(() {
-        _error =
-            e.toString();
-
-        _loading =
-            false;
-      });
-    }
-  }
-
-
-  // ===========================================================================
-  // FILTRI
-  // ===========================================================================
-
-  List<SocialUser>
-      get _filteredUsers {
-
-    final String query =
-        _searchController.text
-            .trim()
-            .toLowerCase();
-
-
-    return _users.where(
-      (
-        user,
-      ) {
-        bool matchesFilter =
-            true;
-
-
-        if (_selectedFilter ==
-            1) {
-          matchesFilter =
-              user.type ==
-              SocialUserType.student;
-        }
-
-
-        if (_selectedFilter ==
-            2) {
-          matchesFilter =
-              user.type ==
-              SocialUserType.teacher;
-        }
-
-
-        if (!matchesFilter) {
-          return false;
-        }
-
-
-        if (query.isEmpty) {
-          return true;
-        }
-
-
-        final String subjectText =
-            user.subjects
-                .map(
-                  (
-                    subject,
-                  ) =>
-                      subject.name,
-                )
-                .join(
-                  ' ',
-                );
-
-
-        final String searchable =
-            [
-          user.name,
-
-          user.email,
-
-          user.course,
-
-          user.department,
-
-          subjectText,
-        ].join(
-          ' ',
-        ).toLowerCase();
-
-
-        return searchable.contains(
-          query,
-        );
-      },
-    ).toList();
-  }
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
-
-      appBar:
-          AppBar(
-        backgroundColor:
-            AppColors.brandNightBlue,
-
-        foregroundColor:
-            AppColors.pureWhite,
-
-        elevation:
-            0,
-
-        title:
-            const Text(
-          'Utenti',
-
-          style:
-              TextStyle(
-            fontSize:
-                20,
-
-            fontWeight:
-                FontWeight.w500,
-          ),
-        ),
-
-        actions: [
-          IconButton(
-            tooltip:
-                'Aggiorna',
-
-            icon:
-                const Icon(
-              Icons.refresh_rounded,
-            ),
-
-            onPressed:
-                _loadUsers,
-          ),
-
-          IconButton(
-            tooltip:
-                'Messaggi',
-
-            icon:
-                const Icon(
-              Icons
-                  .chat_bubble_outline_rounded,
-            ),
-
-            onPressed:
-                () {
-              Navigator.of(
-                context,
-              ).push(
-                MaterialPageRoute(
-                  builder:
-                      (
-                    _,
-                  ) =>
-                          const MessagesPage(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-
-      body:
-          SafeArea(
-        child:
-            Center(
-          child:
-              ConstrainedBox(
-            constraints:
-                const BoxConstraints(
-              maxWidth:
-                  850,
-            ),
-
-            child:
-                RefreshIndicator(
-              onRefresh:
-                  _loadUsers,
-
-              child:
-                  ListView(
-                physics:
-                    const AlwaysScrollableScrollPhysics(),
-
-                padding:
-                    const EdgeInsets
-                        .all(
-                  20,
-                ),
-
-                children: [
-                  _buildHeader(),
-
-                  const SizedBox(
-                    height:
-                        18,
-                  ),
-
-                  _buildSearchBar(),
-
-                  const SizedBox(
-                    height:
-                        12,
-                  ),
-
-                  _buildFilters(),
-
-                  const SizedBox(
-                    height:
-                        28,
-                  ),
-
-                  if (_loading)
-                    const Padding(
-                      padding:
-                          EdgeInsets.symmetric(
-                        vertical:
-                            50,
-                      ),
-
-                      child:
-                          Center(
-                        child:
-                            CircularProgressIndicator(),
-                      ),
-                    )
-                  else if (_error !=
-                      null)
-                    _ErrorCard(
-                      message:
-                          _error!,
-
-                      onRetry:
-                          _loadUsers,
-                    )
-                  else
-                    _buildUserResults(),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-
-      children: [
-        const Text(
-          'Connettiamoci',
-
-          style:
-              TextStyle(
-            color:
-                AppColors.pureWhite,
-
-            fontSize:
-                24,
-
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(
-          height:
-              5,
-        ),
-
-        Text(
-          'Trova studenti e insegnanti con cui studiare, collaborare e condividere conoscenze.',
-
-          style:
-              TextStyle(
-            color:
-                AppColors.pureWhite
-                    .withOpacity(
-              0.52,
-            ),
-
-            fontSize:
-                12,
-
-            height:
-                1.4,
-          ),
-        ),
-      ],
-    );
-  }
-
-
-  Widget _buildSearchBar() {
-    return TextField(
-      controller:
-          _searchController,
-
-      textInputAction:
-          TextInputAction.search,
-
-      style:
-          const TextStyle(
-        color:
-            AppColors.pureWhite,
-      ),
-
-      decoration:
-          InputDecoration(
-        hintText:
-            'Cerca studenti o insegnanti...',
-
-        hintStyle:
-            TextStyle(
-          color:
-              AppColors.pureWhite
-                  .withOpacity(
-            0.38,
-          ),
-        ),
-
-        prefixIcon:
-            const Icon(
-          Icons.search_rounded,
-
-          color:
-              AppColors.materialSky,
-        ),
-
-        suffixIcon:
-            _searchController.text
-                    .isNotEmpty
-                ? IconButton(
-                    tooltip:
-                        'Cancella ricerca',
-
-                    icon:
-                        const Icon(
-                      Icons.clear_rounded,
-                    ),
-
-                    color:
-                        Colors.white54,
-
-                    onPressed:
-                        () {
-                      setState(() {
-                        _searchController
-                            .clear();
-                      });
-                    },
-                  )
-                : null,
-
-        filled:
-            true,
-
-        fillColor:
-            AppColors.eleganceMidnight,
-
-        border:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            16,
-          ),
-
-          borderSide:
-              BorderSide.none,
-        ),
-
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            16,
-          ),
-
-          borderSide:
-              BorderSide(
-            color:
-                AppColors.skyBlue
-                    .withOpacity(
-              0.10,
-            ),
-          ),
-        ),
-
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(
-            16,
-          ),
-
-          borderSide:
-              BorderSide(
-            color:
-                AppColors.skyBlue
-                    .withOpacity(
-              0.30,
-            ),
-          ),
-        ),
-      ),
-
-      onChanged:
-          (
-        _,
-      ) {
-        setState(() {});
-      },
-    );
-  }
-
-
-  Widget _buildFilters() {
-    const filters = [
-      'Tutti',
-      'Studenti',
-      'Insegnanti',
-    ];
-
-
-    return SizedBox(
-      height:
-          42,
-
-      child:
-          ListView.builder(
-        scrollDirection:
-            Axis.horizontal,
-
-        itemCount:
-            filters.length,
-
-        itemBuilder:
-            (
-          context,
-          index,
-        ) {
-          final bool selected =
-              _selectedFilter ==
-                  index;
-
-
-          return GestureDetector(
-            onTap:
-                () {
-              setState(() {
-                _selectedFilter =
-                    index;
-              });
-            },
-
-            child:
-                Container(
-              margin:
-                  const EdgeInsets.only(
-                right:
-                    8,
-              ),
-
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                horizontal:
-                    15,
-              ),
-
-              alignment:
-                  Alignment.center,
-
-              decoration:
-                  BoxDecoration(
-                color:
-                    selected
-                        ? AppColors.skyBlue
-                            .withOpacity(
-                            0.15,
-                          )
-                        : AppColors
-                            .eleganceMidnight,
-
-                borderRadius:
-                    BorderRadius.circular(
-                  12,
-                ),
-
-                border:
-                    Border.all(
-                  color:
-                      selected
-                          ? AppColors.skyBlue
-                              .withOpacity(
-                              0.30,
-                            )
-                          : AppColors.skyBlue
-                              .withOpacity(
-                              0.10,
-                            ),
-                ),
-              ),
-
-              child:
-                  Text(
-                filters[index],
-
-                style:
-                    TextStyle(
-                  color:
-                      selected
-                          ? AppColors
-                              .materialSky
-                          : AppColors
-                              .pureWhite
-                              .withOpacity(
-                              0.55,
-                            ),
-
-                  fontSize:
-                      11,
-
-                  fontWeight:
-                      selected
-                          ? FontWeight.w600
-                          : FontWeight
-                              .normal,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-
-  Widget _buildUserResults() {
-    final users =
-        _filteredUsers;
-
-
-    return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-
-      children: [
-        Text(
-          _searchController.text
-                  .trim()
-                  .isEmpty
-              ? 'Persone che potresti conoscere'
-              : 'Risultati della ricerca',
-
-          style:
-              const TextStyle(
-            color:
-                AppColors.pureWhite,
-
-            fontSize:
-                19,
-
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(
-          height:
-              5,
-        ),
-
-        Text(
-          users.isEmpty
-              ? 'Nessun utente corrisponde alla ricerca.'
-              : '${users.length} utenti trovati.',
-
-          style:
-              TextStyle(
-            color:
-                AppColors.pureWhite
-                    .withOpacity(
-              0.50,
-            ),
-
-            fontSize:
-                12,
-          ),
-        ),
-
-        const SizedBox(
-          height:
-              15,
-        ),
-
-        if (users.isEmpty)
-          _buildEmptySearch()
-        else
-          ...users.map(
-            (
-              user,
-            ) {
-              final String subjects =
-                  user.subjects
-                      .map(
-                        (
-                          subject,
-                        ) =>
-                            subject.name,
-                      )
-                      .join(
-                        ' · ',
-                      );
-
-
-              return Padding(
-                padding:
-                    const EdgeInsets.only(
-                  bottom:
-                      12,
-                ),
-
-                child:
-                    _UserCard(
-                  name:
-                      user.name,
-
-                  role:
-                      user.type ==
-                              SocialUserType
-                                  .teacher
-                          ? 'Insegnante'
-                          : 'Studente',
-
-                  course:
-                      user.course,
-
-                  subjects:
-                      subjects.isEmpty
-                          ? 'Nessuna materia'
-                          : subjects,
-
-                  available:
-                      user.available,
-
-                  onTap:
-                      () {
-                    _openUser(
-                      user,
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-
-  Widget _buildEmptySearch() {
-    return Container(
-      width:
-          double.infinity,
-
-      padding:
-          const EdgeInsets.symmetric(
-        vertical:
-            35,
-
-        horizontal:
-            20,
-      ),
-
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.eleganceMidnight,
-
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-
-        border:
-            Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.10,
-          ),
-        ),
-      ),
-
-      child:
-          Column(
-        children: [
-          Icon(
-            Icons
-                .person_search_outlined,
-
-            color:
-                AppColors.pureWhite
-                    .withOpacity(
-              0.25,
-            ),
-
-            size:
-                45,
-          ),
-
-          const SizedBox(
-            height:
-                12,
-          ),
-
-          const Text(
-            'Nessun utente trovato',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite,
-
-              fontSize:
-                  15,
-
-              fontWeight:
-                  FontWeight.w600,
-            ),
-          ),
-
-          const SizedBox(
-            height:
-                5,
-          ),
-
-          Text(
-            'Prova a modificare la ricerca o il filtro.',
-
-            textAlign:
-                TextAlign.center,
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.45,
-              ),
-
-              fontSize:
-                  11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  void _openUser(
-    SocialUser user,
-  ) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-      SnackBar(
-        content:
-            Text(
-          'Profilo di ${user.name}: pagina dettaglio da collegare.',
-        ),
-      ),
-    );
-  }
-}
-
-
-// =============================================================================
-// USER CARD
-// =============================================================================
-
-class _UserCard
-    extends StatelessWidget {
-
-  final String name;
-
-  final String role;
-
-  final String course;
-
-  final String subjects;
-
-  final bool available;
-
-  final VoidCallback onTap;
-
-
-  const _UserCard({
-    required this.name,
-
-    required this.role,
-
-    required this.course,
-
-    required this.subjects,
-
-    required this.available,
-
     required this.onTap,
   });
 
@@ -4170,25 +3543,24 @@ class _UserCard
 
         borderRadius:
             BorderRadius.circular(
-          18,
+          17,
         ),
 
         child:
             Container(
           padding:
               const EdgeInsets.all(
-            16,
+            14,
           ),
 
           decoration:
               BoxDecoration(
             color:
-                AppColors
-                    .eleganceMidnight,
+                AppColors.eleganceMidnight,
 
             borderRadius:
                 BorderRadius.circular(
-              18,
+              17,
             ),
 
             border:
@@ -4196,205 +3568,156 @@ class _UserCard
               color:
                   AppColors.skyBlue
                       .withOpacity(
-                0.13,
+                0.12,
               ),
             ),
-
-            boxShadow: [
-              BoxShadow(
-                color:
-                    Colors.black
-                        .withOpacity(
-                  0.10,
-                ),
-
-                blurRadius:
-                    7,
-
-                offset:
-                    const Offset(
-                  0,
-                  3,
-                ),
-              ),
-            ],
           ),
 
           child:
-              Row(
+              Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
             children: [
-              Container(
-                width:
-                    54,
+              Row(
+                children: [
+                  Container(
+                    width:
+                        40,
 
-                height:
-                    54,
+                    height:
+                        40,
 
-                decoration:
-                    BoxDecoration(
-                  color:
-                      AppColors
-                          .brandNightBlue,
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          AppColors.brandNightBlue,
 
-                  borderRadius:
-                      BorderRadius.circular(
-                    16,
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+                    ),
+
+                    child:
+                        const Icon(
+                      Icons.groups_rounded,
+
+                      color:
+                          AppColors.skyBlue,
+
+                      size:
+                          21,
+                    ),
                   ),
-                ),
 
-                child:
-                    const Icon(
-                  Icons.person_rounded,
+                  const Spacer(),
 
-                  color:
-                      AppColors.skyBlue,
+                  const Icon(
+                    Icons.chevron_right_rounded,
 
-                  size:
-                      28,
-                ),
+                    color:
+                        Colors.white38,
+                  ),
+                ],
               ),
 
               const SizedBox(
-                width:
-                    13,
-              ),
-
-              Expanded(
-                child:
-                    Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-
-                  children: [
-                    Text(
-                      name,
-
-                      style:
-                          const TextStyle(
-                        color:
-                            AppColors.pureWhite,
-
-                        fontSize:
-                            15,
-
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
-                    ),
-
-                    const SizedBox(
-                      height:
-                          4,
-                    ),
-
-                    Text(
-                      '$role · $course',
-
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite
-                                .withOpacity(
-                          0.52,
-                        ),
-
-                        fontSize:
-                            11,
-                      ),
-                    ),
-
-                    const SizedBox(
-                      height:
-                          6,
-                    ),
-
-                    Text(
-                      subjects,
-
-                      maxLines:
-                          1,
-
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.materialSky
-                                .withOpacity(
-                          0.85,
-                        ),
-
-                        fontSize:
-                            10,
-                      ),
-                    ),
-
-                    const SizedBox(
-                      height:
-                          7,
-                    ),
-
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.circle,
-
-                          color:
-                              available
-                                  ? Colors
-                                      .greenAccent
-                                  : Colors
-                                      .white30,
-
-                          size:
-                              7,
-                        ),
-
-                        const SizedBox(
-                          width:
-                              5,
-                        ),
-
-                        Text(
-                          available
-                              ? 'Disponibile'
-                              : 'Non disponibile',
-
-                          style:
-                              TextStyle(
-                            color:
-                                AppColors.pureWhite
-                                    .withOpacity(
-                              0.45,
-                            ),
-
-                            fontSize:
-                                10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(
-                width:
+                height:
                     10,
               ),
 
-              const Icon(
-                Icons
-                    .chevron_right_rounded,
+              Text(
+                group.name,
 
-                color:
-                    Colors.white38,
+                maxLines:
+                    2,
 
-                size:
-                    25,
+                overflow:
+                    TextOverflow.ellipsis,
+
+                style:
+                    const TextStyle(
+                  color:
+                      AppColors.pureWhite,
+
+                  fontSize:
+                      13,
+
+                  fontWeight:
+                      FontWeight.bold,
+                ),
               ),
+
+              const SizedBox(
+                height:
+                    5,
+              ),
+
+              Text(
+                group.subject,
+
+                maxLines:
+                    1,
+
+                overflow:
+                    TextOverflow.ellipsis,
+
+                style:
+                    const TextStyle(
+                  color:
+                      AppColors.materialSky,
+
+                  fontSize:
+                      9,
+                ),
+              ),
+
+              const Spacer(),
+
+              _MiniGroupInfo(
+                icon:
+                    Icons.people_outline_rounded,
+
+                text:
+                    '${group.memberCount} partecipanti',
+              ),
+
+              const SizedBox(
+                height:
+                    5,
+              ),
+
+              _MiniGroupInfo(
+                icon:
+                    Icons.folder_outlined,
+
+                text:
+                    '${group.materialCount} materiali',
+              ),
+
+              if (group.isOwner) ...[
+                const SizedBox(
+                  height:
+                      7,
+                ),
+
+                const Text(
+                  'PROPRIETARIO',
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.materialSky,
+
+                    fontSize:
+                        8,
+
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -4405,8 +3728,99 @@ class _UserCard
 
 
 // =============================================================================
-// PROFILE INFO ROW
+// HELPERS
 // =============================================================================
+
+class _GuestGroupFeatureChip
+    extends StatelessWidget {
+
+  final IconData icon;
+
+  final String label;
+
+
+  const _GuestGroupFeatureChip({
+    required this.icon,
+    required this.label,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            9,
+
+        vertical:
+            6,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.brandNightBlue,
+
+        borderRadius:
+            BorderRadius.circular(
+          9,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withOpacity(
+            0.10,
+          ),
+        ),
+      ),
+
+      child:
+          Row(
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+          Icon(
+            icon,
+
+            size:
+                14,
+
+            color:
+                AppColors.materialSky,
+          ),
+
+          const SizedBox(
+            width:
+                5,
+          ),
+
+          Text(
+            label,
+
+            style:
+                const TextStyle(
+              color:
+                  AppColors.materialSky,
+
+              fontSize:
+                  9,
+
+              fontWeight:
+                  FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _ProfileInfoRow
     extends StatelessWidget {
@@ -4420,9 +3834,7 @@ class _ProfileInfoRow
 
   const _ProfileInfoRow({
     required this.icon,
-
     required this.title,
-
     required this.value,
   });
 
@@ -4462,12 +3874,9 @@ class _ProfileInfoRow
                 title,
 
                 style:
-                    TextStyle(
+                    const TextStyle(
                   color:
-                      AppColors.pureWhite
-                          .withOpacity(
-                    0.40,
-                  ),
+                      Colors.white38,
 
                   fontSize:
                       10,
@@ -4483,12 +3892,9 @@ class _ProfileInfoRow
                 value,
 
                 style:
-                    TextStyle(
+                    const TextStyle(
                   color:
-                      AppColors.pureWhite
-                          .withOpacity(
-                    0.78,
-                  ),
+                      Colors.white70,
 
                   fontSize:
                       12,
@@ -4503,9 +3909,138 @@ class _ProfileInfoRow
 }
 
 
-// =============================================================================
-// SUBJECT CHIP
-// =============================================================================
+class _AvailabilityBadge
+    extends StatelessWidget {
+
+  final bool available;
+
+
+  const _AvailabilityBadge({
+    required this.available,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            8,
+
+        vertical:
+            6,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.brandNightBlue,
+
+        borderRadius:
+            BorderRadius.circular(
+          9,
+        ),
+      ),
+
+      child:
+          Row(
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+          Icon(
+            Icons.circle,
+
+            size:
+                7,
+
+            color:
+                available
+                    ? Colors.greenAccent
+                    : Colors.white30,
+          ),
+
+          const SizedBox(
+            width:
+                5,
+          ),
+
+          Text(
+            available
+                ? 'Disponibile'
+                : 'Non disponibile',
+
+            style:
+                const TextStyle(
+              color:
+                  AppColors.pureWhite,
+
+              fontSize:
+                  9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileCapability
+    extends StatelessWidget {
+
+  final IconData icon;
+
+  final String label;
+
+
+  const _ProfileCapability({
+    required this.icon,
+    required this.label,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+
+          color:
+              AppColors.materialSky,
+
+          size:
+              18,
+        ),
+
+        const SizedBox(
+          width:
+              7,
+        ),
+
+        Text(
+          label,
+
+          style:
+              const TextStyle(
+            color:
+                Colors.white70,
+
+            fontSize:
+                11,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 
 class _SubjectChip
     extends StatelessWidget {
@@ -4541,15 +4076,6 @@ class _SubjectChip
             BorderRadius.circular(
           10,
         ),
-
-        border:
-            Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.12,
-          ),
-        ),
       ),
 
       child:
@@ -4557,12 +4083,9 @@ class _SubjectChip
         label,
 
         style:
-            TextStyle(
+            const TextStyle(
           color:
-              AppColors.pureWhite
-                  .withOpacity(
-            0.80,
-          ),
+              Colors.white70,
 
           fontSize:
               11,
@@ -4572,10 +4095,6 @@ class _SubjectChip
   }
 }
 
-
-// =============================================================================
-// STATISTIC CARD
-// =============================================================================
 
 class _StatisticCard
     extends StatelessWidget {
@@ -4589,9 +4108,7 @@ class _StatisticCard
 
   const _StatisticCard({
     required this.icon,
-
     required this.value,
-
     required this.label,
   });
 
@@ -4604,10 +4121,7 @@ class _StatisticCard
       padding:
           const EdgeInsets.symmetric(
         vertical:
-            15,
-
-        horizontal:
-            8,
+            14,
       ),
 
       decoration:
@@ -4617,16 +4131,7 @@ class _StatisticCard
 
         borderRadius:
             BorderRadius.circular(
-          16,
-        ),
-
-        border:
-            Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.12,
-          ),
+          14,
         ),
       ),
 
@@ -4637,15 +4142,15 @@ class _StatisticCard
             icon,
 
             color:
-                AppColors.materialSky,
+                AppColors.skyBlue,
 
             size:
-                21,
+                20,
           ),
 
           const SizedBox(
             height:
-                7,
+                6,
           ),
 
           Text(
@@ -4657,35 +4162,89 @@ class _StatisticCard
                   AppColors.pureWhite,
 
               fontSize:
-                  19,
+                  17,
 
               fontWeight:
                   FontWeight.bold,
             ),
           ),
 
-          const SizedBox(
-            height:
-                2,
-          ),
-
           Text(
             label,
 
             style:
-                TextStyle(
+                const TextStyle(
               color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.45,
-              ),
+                  Colors.white38,
 
               fontSize:
-                  10,
+                  9,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+
+class _MiniGroupInfo
+    extends StatelessWidget {
+
+  final IconData icon;
+
+  final String text;
+
+
+  const _MiniGroupInfo({
+    required this.icon,
+    required this.text,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+
+          color:
+              Colors.white38,
+
+          size:
+              13,
+        ),
+
+        const SizedBox(
+          width:
+              4,
+        ),
+
+        Expanded(
+          child:
+              Text(
+            text,
+
+            maxLines:
+                1,
+
+            overflow:
+                TextOverflow.ellipsis,
+
+            style:
+                const TextStyle(
+              color:
+                  Colors.white54,
+
+              fontSize:
+                  9,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -4706,7 +4265,6 @@ class _ErrorCard
 
   const _ErrorCard({
     required this.message,
-
     required this.onRetry,
   });
 
@@ -4716,9 +4274,6 @@ class _ErrorCard
     BuildContext context,
   ) {
     return Container(
-      width:
-          double.infinity,
-
       padding:
           const EdgeInsets.all(
         20,
@@ -4733,55 +4288,24 @@ class _ErrorCard
             BorderRadius.circular(
           18,
         ),
-
-        border:
-            Border.all(
-          color:
-              Colors.redAccent
-                  .withOpacity(
-            0.25,
-          ),
-        ),
       ),
 
       child:
           Column(
         children: [
           const Icon(
-            Icons
-                .error_outline_rounded,
+            Icons.error_outline_rounded,
 
             color:
                 Colors.redAccent,
 
             size:
-                38,
+                35,
           ),
 
           const SizedBox(
             height:
-                12,
-          ),
-
-          const Text(
-            'Errore di connessione',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite,
-
-              fontSize:
-                  15,
-
-              fontWeight:
-                  FontWeight.w600,
-            ),
-          ),
-
-          const SizedBox(
-            height:
-                7,
+                10,
           ),
 
           Text(
@@ -4790,25 +4314,13 @@ class _ErrorCard
             textAlign:
                 TextAlign.center,
 
-            maxLines:
-                4,
-
-            overflow:
-                TextOverflow.ellipsis,
-
             style:
-                TextStyle(
+                const TextStyle(
               color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.50,
-              ),
+                  Colors.white60,
 
               fontSize:
-                  10,
-
-              height:
-                  1.4,
+                  11,
             ),
           ),
 
@@ -4856,9 +4368,7 @@ class _EmptyCard
 
   const _EmptyCard({
     required this.icon,
-
     required this.title,
-
     required this.message,
   });
 
@@ -4884,15 +4394,6 @@ class _EmptyCard
         borderRadius:
             BorderRadius.circular(
           18,
-        ),
-
-        border:
-            Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.10,
-          ),
         ),
       ),
 
@@ -4942,12 +4443,9 @@ class _EmptyCard
                 TextAlign.center,
 
             style:
-                TextStyle(
+                const TextStyle(
               color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.45,
-              ),
+                  Colors.white54,
 
               fontSize:
                   11,
@@ -4961,20 +4459,13 @@ class _EmptyCard
 
 
 // =============================================================================
-// CARICAMENTO GRUPPI DAL BACKEND
+// LOAD GROUPS FROM BACKEND
 // =============================================================================
-//
-// Per ora arricchiamo ogni gruppo con membri e materiali tramite gli endpoint
-// di dettaglio. In futuro conviene far restituire questi conteggi direttamente
-// da /groups e /user_groups per evitare richieste aggiuntive.
-//
 
 Future<List<StudyGroup>>
     _loadGroupsFromBackend({
   required ApiService apiService,
-
   required int currentUserId,
-
   required bool onlyUserGroups,
 }) async {
 
@@ -4993,11 +4484,10 @@ Future<List<StudyGroup>>
       [];
 
 
-  for (final rawGroup
-      in rawGroups) {
+  for (final Map<String, dynamic>
+      rawGroup in rawGroups) {
 
-    Map<String, dynamic>
-        merged =
+    final Map<String, dynamic> merged =
         Map<String, dynamic>.from(
       rawGroup,
     );
@@ -5011,16 +4501,18 @@ Future<List<StudyGroup>>
         rawId is int
             ? rawId
             : int.tryParse(
-                rawId?.toString() ??
+                rawId
+                        ?.toString() ??
                     '',
               );
 
 
-    if (groupId != null) {
+    if (groupId !=
+        null) {
       try {
-        final detail =
-            await apiService
-                .getGroup(
+        final Map<String, dynamic>
+            detail =
+            await apiService.getGroup(
           groupId,
         );
 
@@ -5028,9 +4520,7 @@ Future<List<StudyGroup>>
         merged.addAll(
           detail,
         );
-      } catch (_) {
-        // Manteniamo comunque il gruppo ricevuto dalla lista.
-      }
+      } catch (_) {}
 
 
       try {
@@ -5043,9 +4533,7 @@ Future<List<StudyGroup>>
 
         merged['material_count'] =
             materials.length;
-      } catch (_) {
-        // Il gruppo rimane visualizzabile anche se i materiali non rispondono.
-      }
+      } catch (_) {}
     }
 
 

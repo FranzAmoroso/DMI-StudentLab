@@ -1,53 +1,219 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/nightTheme.dart';
+import '../../services/api_service.dart';
+
 import '../social_models.dart';
+
 import 'social_profile_preview.dart';
 
+
 class StudentSocialForm extends StatefulWidget {
-  const StudentSocialForm({super.key});
+  const StudentSocialForm({
+    super.key,
+  });
 
   @override
   State<StudentSocialForm> createState() =>
       _StudentSocialFormState();
 }
 
+
 class _StudentSocialFormState
     extends State<StudentSocialForm> {
 
-  final _formKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _formKey =
+      GlobalKey<FormState>();
 
-  final _nameController =
+  final ApiService _apiService =
+      ApiService();
+
+
+  // ===========================================================================
+  // DATI UTENTE
+  // ===========================================================================
+
+  final TextEditingController
+      _firstNameController =
       TextEditingController();
 
-  final _universityController =
+  final TextEditingController
+      _lastNameController =
       TextEditingController();
 
-  final _courseController =
+  final TextEditingController
+      _emailController =
       TextEditingController();
 
-  final _descriptionController =
+  final TextEditingController
+      _passwordController =
       TextEditingController();
 
-  bool _available = true;
+  final TextEditingController
+      _confirmPasswordController =
+      TextEditingController();
+
+  final TextEditingController
+      _departmentController =
+      TextEditingController(
+    text: 'DMI',
+  );
+
+  final TextEditingController
+      _courseController =
+      TextEditingController(
+    text: 'Informatica',
+  );
+
+  final TextEditingController
+      _descriptionController =
+      TextEditingController();
+
+
+  // ===========================================================================
+  // STATO
+  // ===========================================================================
+
+  bool _available =
+      true;
+
+  bool _willingToTeach =
+      false;
+
+  bool _loadingSubjects =
+      false;
+
+  bool _passwordVisible =
+      false;
+
+  bool _confirmPasswordVisible =
+      false;
+
+  String? _subjectsError;
+
+
+  // ===========================================================================
+  // MATERIE DISPONIBILI DAL BACKEND
+  // ===========================================================================
+
+  List<SocialSubject> _availableSubjects =
+      [];
+
+
+  // ===========================================================================
+  // MATERIE SELEZIONATE
+  // ===========================================================================
 
   final List<_StudentSubjectData> _subjects = [
     _StudentSubjectData(),
   ];
 
+
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadSubjects();
+  }
+
+
+  // ===========================================================================
+  // DISPOSE
+  // ===========================================================================
+
   @override
   void dispose() {
-    _nameController.dispose();
-    _universityController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+
+    _departmentController.dispose();
     _courseController.dispose();
     _descriptionController.dispose();
 
-    for (final subject in _subjects) {
+    for (final _StudentSubjectData subject
+        in _subjects) {
       subject.dispose();
     }
 
     super.dispose();
   }
+
+
+  // ===========================================================================
+  // CARICA MATERIE
+  // ===========================================================================
+
+  Future<void> _loadSubjects() async {
+    final String department =
+        _departmentController.text.trim();
+
+    final String course =
+        _courseController.text.trim();
+
+    if (department.isEmpty ||
+        course.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _loadingSubjects =
+          true;
+
+      _subjectsError =
+          null;
+    });
+
+    try {
+      final List<SocialSubject> loadedSubjects =
+          await _apiService.getSocialSubjects(
+        department,
+        course,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _availableSubjects =
+            loadedSubjects;
+
+        _loadingSubjects =
+            false;
+
+        for (final _StudentSubjectData item
+            in _subjects) {
+          item.selectedSubject =
+              null;
+        }
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadingSubjects =
+            false;
+
+        _subjectsError =
+            e.toString();
+      });
+    }
+  }
+
+
+  // ===========================================================================
+  // AGGIUNGI MATERIA
+  // ===========================================================================
 
   void _addSubject() {
     setState(() {
@@ -57,69 +223,151 @@ class _StudentSocialFormState
     });
   }
 
-  // ============================================================
-  // RIMUOVI MATERIA
-  // ============================================================
 
-  void _removeSubject(int index) {
-    if (_subjects.length == 1) {
+  // ===========================================================================
+  // RIMUOVI MATERIA
+  // ===========================================================================
+
+  void _removeSubject(
+    int index,
+  ) {
+    if (_subjects.length ==
+        1) {
       return;
     }
 
     setState(() {
-      _subjects[index].dispose();
-      _subjects.removeAt(index);
+      _subjects[index]
+          .dispose();
+
+      _subjects.removeAt(
+        index,
+      );
     });
   }
 
-  void _continue() {
 
-    if (!_formKey.currentState!.validate()) {
+  // ===========================================================================
+  // CONTINUA
+  // ===========================================================================
+
+  Future<void> _continue() async {
+    if (!_formKey.currentState!
+        .validate()) {
       return;
     }
 
-    final subjects =
-        _subjects.map(
-      (item) {
 
-        final gradeText =
-            item.gradeController.text.trim();
+    final List<SocialSubject> subjects =
+        [];
 
-        final int? grade =
-            gradeText.isEmpty
-                ? null
-                : int.tryParse(gradeText);
+    final Set<int> usedSubjectIds =
+        {};
 
-        return SocialSubject(
+
+    for (final _StudentSubjectData item
+        in _subjects) {
+      final SocialSubject? selected =
+          item.selectedSubject;
+
+
+      if (selected == null) {
+        _showMessage(
+          'Seleziona tutte le materie.',
+        );
+
+        return;
+      }
+
+
+      if (usedSubjectIds.contains(
+        selected.id,
+      )) {
+        _showMessage(
+          'Hai selezionato la stessa materia più di una volta.',
+        );
+
+        return;
+      }
+
+
+      usedSubjectIds.add(
+        selected.id,
+      );
+
+
+      final String gradeText =
+          item.gradeController.text
+              .trim();
+
+
+      final int? grade =
+          gradeText.isEmpty
+              ? null
+              : int.tryParse(
+                  gradeText,
+                );
+
+
+      subjects.add(
+        SocialSubject(
+          id:
+              selected.id,
+
           name:
-              item.nameController.text.trim(),
+              selected.name,
+
+          department:
+              selected.department,
+
+          course:
+              selected.course,
 
           grade:
               grade,
 
           note:
-              item.noteController.text.trim(),
-        );
-      },
-    ).toList();
+              item.noteController.text
+                  .trim(),
 
-    final draft =
+          canHelp:
+              item.canHelp,
+        ),
+      );
+    }
+
+
+    final SocialProfileDraft draft =
         SocialProfileDraft(
+      firstName:
+          _firstNameController.text
+              .trim(),
 
-      name:
-          _nameController.text.trim(),
+      lastName:
+          _lastNameController.text
+              .trim(),
 
-      university:
-          _universityController.text.trim(),
+      email:
+          _emailController.text
+              .trim(),
+
+      password:
+          _passwordController.text,
+
+      department:
+          _departmentController.text
+              .trim(),
 
       course:
-          _courseController.text.trim(),
+          _courseController.text
+              .trim(),
 
       subjects:
           subjects,
 
       description:
-          _descriptionController.text.trim(),
+          _descriptionController.text
+              .trim(),
 
       type:
           SocialUserType.student,
@@ -127,98 +375,151 @@ class _StudentSocialFormState
       available:
           _available,
 
-      privateLessons:
-          false,
+      willingToTeach:
+          _willingToTeach,
     );
 
-    Navigator.push(
+
+    final SocialUser? user =
+        await Navigator.push<SocialUser>(
       context,
 
       MaterialPageRoute(
         builder: (_) =>
             SocialProfilePreview(
-          draft: draft,
+          draft:
+              draft,
         ),
       ),
     );
+
+
+    if (user != null &&
+        mounted) {
+      Navigator.pop(
+        context,
+        user,
+      );
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
 
+  // ===========================================================================
+  // BUILD
+  // ===========================================================================
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       backgroundColor:
           AppColors.darkElegance,
 
-      appBar: AppBar(
+      appBar:
+          AppBar(
         backgroundColor:
             AppColors.brandNightBlue,
 
         foregroundColor:
             AppColors.pureWhite,
 
-        title: const Text(
+        title:
+            const Text(
           'Profilo studente',
         ),
       ),
 
-      body: SafeArea(
-        child: Center(
-          child: LayoutBuilder(
+      body:
+          SafeArea(
+        child:
+            Center(
+          child:
+              LayoutBuilder(
             builder:
-                (context, constraints) {
+                (
+              context,
+              constraints,
+            ) {
+              final double width =
+                  constraints.maxWidth >
+                          700
+                      ? 650
+                      : constraints
+                          .maxWidth;
 
-              final width =
-                  constraints.maxWidth > 700
-                      ? 650.0
-                      : constraints.maxWidth;
 
               return SizedBox(
-                width: width,
+                width:
+                    width,
 
-                child: Form(
-                  key: _formKey,
+                child:
+                    Form(
+                  key:
+                      _formKey,
 
-                  child: ListView(
+                  child:
+                      ListView(
                     padding:
-                        const EdgeInsets.all(20),
+                        const EdgeInsets.all(
+                      20,
+                    ),
 
                     children: [
-
-
                       const Text(
                         'Crea il tuo profilo',
-                        style: TextStyle(
+
+                        style:
+                            TextStyle(
                           color:
                               AppColors.pureWhite,
-                          fontSize: 24,
+
+                          fontSize:
+                              24,
+
                           fontWeight:
                               FontWeight.bold,
                         ),
                       ),
 
-                      const SizedBox(height: 8),
+                      const SizedBox(
+                        height:
+                            8,
+                      ),
 
                       Text(
-                        'Presentati agli altri studenti e '
-                        'indica le materie in cui puoi '
-                        'condividere le tue conoscenze.',
+                        'Crea il tuo account StudentLab e presentati '
+                        'agli altri studenti.',
 
-                        style: TextStyle(
-                          color: AppColors
-                              .pureWhite
-                              .withOpacity(0.60),
-                          fontSize: 14,
-                          height: 1.4,
+                        style:
+                            TextStyle(
+                          color:
+                              AppColors.pureWhite
+                                  .withOpacity(
+                            0.60,
+                          ),
+
+                          fontSize:
+                              14,
+
+                          height:
+                              1.4,
                         ),
                       ),
 
-                      const SizedBox(height: 28),
+                      const SizedBox(
+                        height:
+                            28,
+                      ),
 
 
-                      _buildField(
+                      // =======================================================
+                      // NOME
+                      // =======================================================
+
+                      _buildRequiredField(
                         controller:
-                            _nameController,
+                            _firstNameController,
 
                         label:
                             'Nome',
@@ -230,25 +531,244 @@ class _StudentSocialFormState
                             Icons.person_outline,
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(
+                        height:
+                            16,
+                      ),
 
-                      _buildField(
+
+                      // =======================================================
+                      // COGNOME
+                      // =======================================================
+
+                      _buildRequiredField(
                         controller:
-                            _universityController,
+                            _lastNameController,
 
                         label:
-                            'Università',
+                            'Cognome',
 
                         hint:
-                            'Es. Università di Catania',
+                            'Es. Amoroso',
+
+                        icon:
+                            Icons.person_outline,
+                      ),
+
+                      const SizedBox(
+                        height:
+                            16,
+                      ),
+
+
+                      // =======================================================
+                      // EMAIL
+                      // =======================================================
+
+                      TextFormField(
+                        controller:
+                            _emailController,
+
+                        keyboardType:
+                            TextInputType.emailAddress,
+
+                        autofillHints:
+                            const [
+                          AutofillHints.email,
+                        ],
+
+                        style:
+                            const TextStyle(
+                          color:
+                              AppColors.pureWhite,
+                        ),
+
+                        validator:
+                            _validateEmail,
+
+                        decoration:
+                            _decoration(
+                          label:
+                              'Email',
+
+                          hint:
+                              'nome@example.com',
+
+                          icon:
+                              Icons.email_outlined,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                            16,
+                      ),
+
+
+                      // =======================================================
+                      // PASSWORD
+                      // =======================================================
+
+                      TextFormField(
+                        controller:
+                            _passwordController,
+
+                        obscureText:
+                            !_passwordVisible,
+
+                        enableSuggestions:
+                            false,
+
+                        autocorrect:
+                            false,
+
+                        autofillHints:
+                            const [
+                          AutofillHints.newPassword,
+                        ],
+
+                        style:
+                            const TextStyle(
+                          color:
+                              AppColors.pureWhite,
+                        ),
+
+                        validator:
+                            _validatePassword,
+
+                        decoration:
+                            _passwordDecoration(
+                          label:
+                              'Password',
+
+                          hint:
+                              'Inserisci una password',
+
+                          visible:
+                              _passwordVisible,
+
+                          onVisibilityPressed:
+                              () {
+                            setState(() {
+                              _passwordVisible =
+                                  !_passwordVisible;
+                            });
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                            8,
+                      ),
+
+                      Text(
+                        'Usa almeno 8 caratteri.',
+
+                        style:
+                            TextStyle(
+                          color:
+                              AppColors.pureWhite
+                                  .withOpacity(
+                            0.40,
+                          ),
+
+                          fontSize:
+                              11,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                            16,
+                      ),
+
+
+                      // =======================================================
+                      // CONFERMA PASSWORD
+                      // =======================================================
+
+                      TextFormField(
+                        controller:
+                            _confirmPasswordController,
+
+                        obscureText:
+                            !_confirmPasswordVisible,
+
+                        enableSuggestions:
+                            false,
+
+                        autocorrect:
+                            false,
+
+                        textInputAction:
+                            TextInputAction.next,
+
+                        style:
+                            const TextStyle(
+                          color:
+                              AppColors.pureWhite,
+                        ),
+
+                        validator:
+                            _validateConfirmPassword,
+
+                        decoration:
+                            _passwordDecoration(
+                          label:
+                              'Conferma password',
+
+                          hint:
+                              'Ripeti la password',
+
+                          visible:
+                              _confirmPasswordVisible,
+
+                          onVisibilityPressed:
+                              () {
+                            setState(() {
+                              _confirmPasswordVisible =
+                                  !_confirmPasswordVisible;
+                            });
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                            24,
+                      ),
+
+
+                      // =======================================================
+                      // DIPARTIMENTO
+                      // =======================================================
+
+                      _buildRequiredField(
+                        controller:
+                            _departmentController,
+
+                        label:
+                            'Dipartimento',
+
+                        hint:
+                            'Es. DMI',
 
                         icon:
                             Icons.account_balance_outlined,
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(
+                        height:
+                            16,
+                      ),
 
-                      _buildField(
+
+                      // =======================================================
+                      // CORSO
+                      // =======================================================
+
+                      _buildRequiredField(
                         controller:
                             _courseController,
 
@@ -256,31 +776,111 @@ class _StudentSocialFormState
                             'Corso',
 
                         hint:
-                            'Es. Informatica L-31',
+                            'Es. Informatica',
 
                         icon:
                             Icons.school_outlined,
                       ),
 
-                      const SizedBox(height: 28),
+                      const SizedBox(
+                        height:
+                            12,
+                      ),
 
-                      Row(
+
+                      // =======================================================
+                      // CARICA MATERIE
+                      // =======================================================
+
+                      OutlinedButton.icon(
+                        onPressed:
+                            _loadingSubjects
+                                ? null
+                                : _loadSubjects,
+
+                        icon:
+                            _loadingSubjects
+                                ? const SizedBox(
+                                    width:
+                                        17,
+
+                                    height:
+                                        17,
+
+                                    child:
+                                        CircularProgressIndicator(
+                                      strokeWidth:
+                                          2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.refresh_rounded,
+                                  ),
+
+                        label:
+                            const Text(
+                          'Carica materie',
+                        ),
+                      ),
+
+
+                      if (_subjectsError !=
+                          null) ...[
+                        const SizedBox(
+                          height:
+                              8,
+                        ),
+
+                        Text(
+                          _subjectsError!,
+
+                          style:
+                              const TextStyle(
+                            color:
+                                Colors.redAccent,
+
+                            fontSize:
+                                11,
+                          ),
+                        ),
+                      ],
+
+
+                      const SizedBox(
+                        height:
+                            28,
+                      ),
+
+
+                      // =======================================================
+                      // MATERIE
+                      // =======================================================
+
+                      const Row(
                         children: [
-
-                          const Icon(
+                          Icon(
                             Icons.menu_book_outlined,
+
                             color:
                                 AppColors.skyBlue,
                           ),
 
-                          const SizedBox(width: 9),
+                          SizedBox(
+                            width:
+                                9,
+                          ),
 
-                          const Text(
+                          Text(
                             'Materie',
-                            style: TextStyle(
+
+                            style:
+                                TextStyle(
                               color:
                                   AppColors.pureWhite,
-                              fontSize: 17,
+
+                              fontSize:
+                                  17,
+
                               fontWeight:
                                   FontWeight.bold,
                             ),
@@ -288,31 +888,44 @@ class _StudentSocialFormState
                         ],
                       ),
 
-                      const SizedBox(height: 8),
+                      const SizedBox(
+                        height:
+                            8,
+                      ),
 
                       Text(
-                        'Puoi aggiungere più materie. '
-                        'Per ogni materia puoi indicare '
-                        'facoltativamente il voto e una nota.',
+                        'Scegli le materie disponibili per il tuo '
+                        'dipartimento e corso.',
 
-                        style: TextStyle(
-                          color: AppColors
-                              .pureWhite
-                              .withOpacity(0.50),
-                          fontSize: 12,
+                        style:
+                            TextStyle(
+                          color:
+                              AppColors.pureWhite
+                                  .withOpacity(
+                            0.50,
+                          ),
+
+                          fontSize:
+                              12,
                         ),
                       ),
 
-                      const SizedBox(height: 14),
+                      const SizedBox(
+                        height:
+                            14,
+                      ),
+
 
                       ...List.generate(
                         _subjects.length,
-                        (index) {
-
+                        (
+                          int index,
+                        ) {
                           return Padding(
                             padding:
                                 const EdgeInsets.only(
-                              bottom: 14,
+                              bottom:
+                                  14,
                             ),
 
                             child:
@@ -343,25 +956,33 @@ class _StudentSocialFormState
                           foregroundColor:
                               AppColors.skyBlue,
 
-                          side: BorderSide(
-                            color: AppColors
-                                .skyBlue
-                                .withOpacity(0.30),
+                          side:
+                              BorderSide(
+                            color:
+                                AppColors.skyBlue
+                                    .withOpacity(
+                              0.30,
+                            ),
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 28),
+                      const SizedBox(
+                        height:
+                            28,
+                      ),
 
-                      // ==================================================
+
+                      // =======================================================
                       // DESCRIZIONE
-                      // ==================================================
+                      // =======================================================
 
                       TextFormField(
                         controller:
                             _descriptionController,
 
-                        maxLines: 5,
+                        maxLines:
+                            5,
 
                         style:
                             const TextStyle(
@@ -378,47 +999,86 @@ class _StudentSocialFormState
                               'Presentati agli altri studenti...',
 
                           icon:
-                              Icons
-                                  .description_outlined,
+                              Icons.description_outlined,
                         ),
                       ),
 
-                      const SizedBox(height: 20),
+                      const SizedBox(
+                        height:
+                            20,
+                      ),
 
-                      // ==================================================
-                      // DISPONIBILITÀ
-                      // ==================================================
+
+                      // =======================================================
+                      // DISPONIBILE
+                      // =======================================================
 
                       _switchCard(
                         title:
                             'Disponibile',
 
                         subtitle:
-                            'Gli altri studenti potranno '
-                            'vedere che sei disponibile.',
+                            'Gli altri utenti vedranno che sei disponibile.',
 
                         value:
                             _available,
 
                         onChanged:
-                            (value) {
-
+                            (
+                          bool value,
+                        ) {
                           setState(() {
                             _available =
                                 value;
                           });
-
                         },
                       ),
 
-                      const SizedBox(height: 28),
+                      const SizedBox(
+                        height:
+                            12,
+                      ),
 
-                      // ==================================================
+
+                      // =======================================================
+                      // DISPONIBILE AD AIUTARE
+                      // =======================================================
+
+                      _switchCard(
+                        title:
+                            'Disponibile ad aiutare',
+
+                        subtitle:
+                            'Indica se vuoi renderti disponibile '
+                            'per aiutare altri studenti.',
+
+                        value:
+                            _willingToTeach,
+
+                        onChanged:
+                            (
+                          bool value,
+                        ) {
+                          setState(() {
+                            _willingToTeach =
+                                value;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(
+                        height:
+                            28,
+                      ),
+
+
+                      // =======================================================
                       // PREVIEW
-                      // ==================================================
+                      // =======================================================
 
                       SizedBox(
-                        height: 54,
+                        height:
+                            54,
 
                         child:
                             ElevatedButton.icon(
@@ -427,8 +1087,7 @@ class _StudentSocialFormState
 
                           icon:
                               const Icon(
-                            Icons
-                                .arrow_forward_rounded,
+                            Icons.arrow_forward_rounded,
                           ),
 
                           label:
@@ -437,7 +1096,9 @@ class _StudentSocialFormState
 
                             style:
                                 TextStyle(
-                              fontSize: 16,
+                              fontSize:
+                                  16,
+
                               fontWeight:
                                   FontWeight.w600,
                             ),
@@ -446,24 +1107,26 @@ class _StudentSocialFormState
                           style:
                               ElevatedButton.styleFrom(
                             backgroundColor:
-                                AppColors
-                                    .socialBlue,
+                                AppColors.socialBlue,
 
                             foregroundColor:
-                                AppColors
-                                    .pureWhite,
+                                AppColors.pureWhite,
 
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
                                   BorderRadius.circular(
-                                      16),
+                                16,
+                              ),
                             ),
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 20),
+                      const SizedBox(
+                        height:
+                            20,
+                      ),
                     ],
                   ),
                 ),
@@ -475,72 +1138,85 @@ class _StudentSocialFormState
     );
   }
 
-  // ============================================================
+
+  // ===========================================================================
   // BLOCCO MATERIA
-  // ============================================================
+  // ===========================================================================
 
-  Widget _buildSubject(int index) {
-
-    final subject =
+  Widget _buildSubject(
+    int index,
+  ) {
+    final _StudentSubjectData item =
         _subjects[index];
 
     return Container(
       padding:
-          const EdgeInsets.all(16),
+          const EdgeInsets.all(
+        16,
+      ),
 
-      decoration: BoxDecoration(
+      decoration:
+          BoxDecoration(
         color:
             AppColors.brandNightBlue,
 
         borderRadius:
-            BorderRadius.circular(18),
+            BorderRadius.circular(
+          18,
+        ),
 
-        border: Border.all(
+        border:
+            Border.all(
           color:
               AppColors.socialBlue
-                  .withOpacity(0.20),
+                  .withOpacity(
+            0.20,
+          ),
         ),
       ),
 
-      child: Column(
+      child:
+          Column(
         children: [
-
-          // ==========================================================
-          // HEADER MATERIA
-          // ==========================================================
-
           Row(
             children: [
-
               const Icon(
                 Icons.menu_book_outlined,
+
                 color:
                     AppColors.skyBlue,
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(
+                width:
+                    10,
+              ),
 
               Expanded(
-                child: Text(
+                child:
+                    Text(
                   'Materia ${index + 1}',
 
                   style:
                       const TextStyle(
                     color:
                         AppColors.pureWhite,
+
                     fontWeight:
                         FontWeight.bold,
                   ),
                 ),
               ),
 
-              if (_subjects.length > 1)
+              if (_subjects.length >
+                  1)
                 IconButton(
                   onPressed:
-                      () =>
-                          _removeSubject(
-                            index,
-                          ),
+                      () {
+                    _removeSubject(
+                      index,
+                    );
+                  },
 
                   icon:
                       const Icon(
@@ -553,29 +1229,32 @@ class _StudentSocialFormState
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(
+            height:
+                12,
+          ),
 
-          // ==========================================================
-          // NOME MATERIA
-          // ==========================================================
 
-          TextFormField(
-            controller:
-                subject.nameController,
+          // ===================================================================
+          // SELECT MATERIA
+          // ===================================================================
 
-            style:
-                const TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
+          DropdownButtonFormField<SocialSubject>(
+            value:
+                item.selectedSubject,
+
+            isExpanded:
+                true,
+
+            dropdownColor:
+                AppColors.eleganceDeepNavy,
 
             validator:
-                (value) {
-
-              if (value == null ||
-                  value.trim().isEmpty) {
-
-                return 'Inserisci la materia';
+                (
+              SocialSubject? value,
+            ) {
+              if (value == null) {
+                return 'Seleziona una materia';
               }
 
               return null;
@@ -587,22 +1266,63 @@ class _StudentSocialFormState
                   'Materia',
 
               hint:
-                  'Es. Programmazione',
+                  'Seleziona una materia',
 
               icon:
                   Icons.book_outlined,
             ),
+
+            items:
+                _availableSubjects.map(
+              (
+                SocialSubject subject,
+              ) {
+                return DropdownMenuItem<
+                    SocialSubject>(
+                  value:
+                      subject,
+
+                  child:
+                      Text(
+                    subject.name,
+
+                    overflow:
+                        TextOverflow.ellipsis,
+
+                    style:
+                        const TextStyle(
+                      color:
+                          AppColors.pureWhite,
+                    ),
+                  ),
+                );
+              },
+            ).toList(),
+
+            onChanged:
+                (
+              SocialSubject? value,
+            ) {
+              setState(() {
+                item.selectedSubject =
+                    value;
+              });
+            },
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(
+            height:
+                12,
+          ),
 
-          // ==========================================================
+
+          // ===================================================================
           // VOTO
-          // ==========================================================
+          // ===================================================================
 
           TextFormField(
             controller:
-                subject.gradeController,
+                item.gradeController,
 
             keyboardType:
                 TextInputType.number,
@@ -614,14 +1334,15 @@ class _StudentSocialFormState
             ),
 
             validator:
-                (value) {
-
+                (
+              String? value,
+            ) {
               if (value == null ||
                   value.trim().isEmpty) {
                 return null;
               }
 
-              final grade =
+              final int? grade =
                   int.tryParse(
                 value.trim(),
               );
@@ -651,17 +1372,87 @@ class _StudentSocialFormState
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(
+            height:
+                12,
+          ),
 
-          // ==========================================================
+
+          // ===================================================================
+          // CAN HELP
+          // ===================================================================
+
+          SwitchListTile(
+            contentPadding:
+                EdgeInsets.zero,
+
+            value:
+                item.canHelp,
+
+            onChanged:
+                (
+              bool value,
+            ) {
+              setState(() {
+                item.canHelp =
+                    value;
+              });
+            },
+
+            activeColor:
+                AppColors.skyBlue,
+
+            title:
+                const Text(
+              'Posso aiutare',
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite,
+
+                fontSize:
+                    13,
+
+                fontWeight:
+                    FontWeight.w600,
+              ),
+            ),
+
+            subtitle:
+                Text(
+              'Gli altri utenti potranno chiederti aiuto su questa materia.',
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.45,
+                ),
+
+                fontSize:
+                    10,
+              ),
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                4,
+          ),
+
+
+          // ===================================================================
           // NOTA
-          // ==========================================================
+          // ===================================================================
 
           TextFormField(
             controller:
-                subject.noteController,
+                item.noteController,
 
-            maxLines: 3,
+            maxLines:
+                3,
 
             style:
                 const TextStyle(
@@ -686,17 +1477,88 @@ class _StudentSocialFormState
     );
   }
 
-  // ============================================================
-  // CAMPO GENERICO
-  // ============================================================
 
-  Widget _buildField({
+  // ===========================================================================
+  // EMAIL VALIDATION
+  // ===========================================================================
+
+  String? _validateEmail(
+    String? value,
+  ) {
+    if (value == null ||
+        value.trim().isEmpty) {
+      return 'Campo obbligatorio';
+    }
+
+    final String email =
+        value.trim();
+
+    final RegExp emailRegex =
+        RegExp(
+      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+    );
+
+    if (!emailRegex.hasMatch(
+      email,
+    )) {
+      return 'Inserisci una email valida';
+    }
+
+    return null;
+  }
+
+
+  // ===========================================================================
+  // PASSWORD VALIDATION
+  // ===========================================================================
+
+  String? _validatePassword(
+    String? value,
+  ) {
+    if (value == null ||
+        value.isEmpty) {
+      return 'Inserisci una password';
+    }
+
+    if (value.length < 8) {
+      return 'La password deve contenere almeno 8 caratteri';
+    }
+
+    return null;
+  }
+
+
+  // ===========================================================================
+  // CONFIRM PASSWORD
+  // ===========================================================================
+
+  String? _validateConfirmPassword(
+    String? value,
+  ) {
+    if (value == null ||
+        value.isEmpty) {
+      return 'Conferma la password';
+    }
+
+    if (value !=
+        _passwordController.text) {
+      return 'Le password non coincidono';
+    }
+
+    return null;
+  }
+
+
+  // ===========================================================================
+  // CAMPO GENERICO
+  // ===========================================================================
+
+  Widget _buildRequiredField({
     required TextEditingController controller,
     required String label,
     required String hint,
     required IconData icon,
   }) {
-
     return TextFormField(
       controller:
           controller,
@@ -708,11 +1570,11 @@ class _StudentSocialFormState
       ),
 
       validator:
-          (value) {
-
+          (
+        String? value,
+      ) {
         if (value == null ||
             value.trim().isEmpty) {
-
           return 'Campo obbligatorio';
         }
 
@@ -733,16 +1595,16 @@ class _StudentSocialFormState
     );
   }
 
-  // ============================================================
+
+  // ===========================================================================
   // DECORAZIONE
-  // ============================================================
+  // ===========================================================================
 
   InputDecoration _decoration({
     required String label,
     required String hint,
     required IconData icon,
   }) {
-
     return InputDecoration(
       labelText:
           label,
@@ -752,21 +1614,26 @@ class _StudentSocialFormState
 
       labelStyle:
           TextStyle(
-        color: AppColors
-            .pureWhite
-            .withOpacity(0.60),
+        color:
+            AppColors.pureWhite
+                .withOpacity(
+          0.60,
+        ),
       ),
 
       hintStyle:
           TextStyle(
-        color: AppColors
-            .pureWhite
-            .withOpacity(0.30),
+        color:
+            AppColors.pureWhite
+                .withOpacity(
+          0.30,
+        ),
       ),
 
       prefixIcon:
           Icon(
         icon,
+
         color:
             AppColors.skyBlue,
       ),
@@ -780,7 +1647,9 @@ class _StudentSocialFormState
       border:
           OutlineInputBorder(
         borderRadius:
-            BorderRadius.circular(14),
+            BorderRadius.circular(
+          14,
+        ),
 
         borderSide:
             BorderSide.none,
@@ -789,7 +1658,9 @@ class _StudentSocialFormState
       enabledBorder:
           OutlineInputBorder(
         borderRadius:
-            BorderRadius.circular(14),
+            BorderRadius.circular(
+          14,
+        ),
 
         borderSide:
             BorderSide.none,
@@ -798,7 +1669,9 @@ class _StudentSocialFormState
       focusedBorder:
           OutlineInputBorder(
         borderRadius:
-            BorderRadius.circular(14),
+            BorderRadius.circular(
+          14,
+        ),
 
         borderSide:
             const BorderSide(
@@ -809,9 +1682,122 @@ class _StudentSocialFormState
     );
   }
 
-  // ============================================================
-  // SWITCH CARD
-  // ============================================================
+
+  // ===========================================================================
+  // PASSWORD DECORATION
+  // ===========================================================================
+
+  InputDecoration _passwordDecoration({
+    required String label,
+    required String hint,
+    required bool visible,
+    required VoidCallback onVisibilityPressed,
+  }) {
+    return InputDecoration(
+      labelText:
+          label,
+
+      hintText:
+          hint,
+
+      labelStyle:
+          TextStyle(
+        color:
+            AppColors.pureWhite
+                .withOpacity(
+          0.60,
+        ),
+      ),
+
+      hintStyle:
+          TextStyle(
+        color:
+            AppColors.pureWhite
+                .withOpacity(
+          0.30,
+        ),
+      ),
+
+      prefixIcon:
+          const Icon(
+        Icons.lock_outline_rounded,
+
+        color:
+            AppColors.skyBlue,
+      ),
+
+      suffixIcon:
+          IconButton(
+        tooltip:
+            visible
+                ? 'Nascondi password'
+                : 'Mostra password',
+
+        onPressed:
+            onVisibilityPressed,
+
+        icon:
+            Icon(
+          visible
+              ? Icons.visibility_off_outlined
+              : Icons.visibility_outlined,
+
+          color:
+              AppColors.pureWhite
+                  .withOpacity(
+            0.55,
+          ),
+        ),
+      ),
+
+      filled:
+          true,
+
+      fillColor:
+          AppColors.darkElegance,
+
+      border:
+          OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(
+          14,
+        ),
+
+        borderSide:
+            BorderSide.none,
+      ),
+
+      enabledBorder:
+          OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(
+          14,
+        ),
+
+        borderSide:
+            BorderSide.none,
+      ),
+
+      focusedBorder:
+          OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(
+          14,
+        ),
+
+        borderSide:
+            const BorderSide(
+          color:
+              AppColors.socialBlue,
+        ),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // SWITCH
+  // ===========================================================================
 
   Widget _switchCard({
     required String title,
@@ -819,7 +1805,6 @@ class _StudentSocialFormState
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-
     return Container(
       decoration:
           BoxDecoration(
@@ -827,7 +1812,9 @@ class _StudentSocialFormState
             AppColors.brandNightBlue,
 
         borderRadius:
-            BorderRadius.circular(16),
+            BorderRadius.circular(
+          16,
+        ),
       ),
 
       child:
@@ -842,13 +1829,14 @@ class _StudentSocialFormState
             AppColors.skyBlue,
 
         title:
-            const Text(
-          'Disponibile',
+            Text(
+          title,
 
           style:
-              TextStyle(
+              const TextStyle(
             color:
                 AppColors.pureWhite,
+
             fontWeight:
                 FontWeight.w600,
           ),
@@ -860,35 +1848,67 @@ class _StudentSocialFormState
 
           style:
               TextStyle(
-            color: AppColors
-                .pureWhite
-                .withOpacity(0.50),
-            fontSize: 12,
+            color:
+                AppColors.pureWhite
+                    .withOpacity(
+              0.50,
+            ),
+
+            fontSize:
+                12,
           ),
+        ),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
+  // MESSAGE
+  // ===========================================================================
+
+  void _showMessage(
+    String message,
+  ) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+      SnackBar(
+        content:
+            Text(
+          message,
         ),
       ),
     );
   }
 }
 
-// ============================================================================
+
+// =============================================================================
 // STUDENT SUBJECT DATA
-// ============================================================================
+// =============================================================================
 
 class _StudentSubjectData {
+  SocialSubject? selectedSubject;
 
-  final nameController =
+
+  final TextEditingController
+      gradeController =
       TextEditingController();
 
-  final gradeController =
+
+  final TextEditingController
+      noteController =
       TextEditingController();
 
-  final noteController =
-      TextEditingController();
+
+  bool canHelp =
+      false;
+
 
   void dispose() {
-    nameController.dispose();
     gradeController.dispose();
+
     noteController.dispose();
   }
 }

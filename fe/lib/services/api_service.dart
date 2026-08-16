@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/quiz_model.dart';
 
 import '../social/social_models.dart';
+import 'auth_session.dart';
 
 
 // =============================================================================
@@ -413,81 +414,49 @@ class ApiService {
   // SOCIAL - CREA UTENTE
   // ===========================================================================
 
-  Future<SocialUser> createUser({
-    required String firstName,
+    Future<SocialUser> createUser({
+      required String firstName,
+      required String lastName,
+      required String email,
+      required String department,
+      required String course,
+      String? description,
+      String role = 'student',
+      bool available = true,
+      bool willingToTeach = false,
+    }) async {
+      final Uri url = Uri.parse(
+        '$socialBaseUrl/create_user',
+      );
 
-    required String lastName,
+      final http.Response response =
+          await http.post(
+        url,
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'first_name': firstName,
+          'last_name': lastName,
+          'email': email,
+          'department': department,
+          'course': course,
+          'description': description,
+          'role': role,
+          'available': available,
+          'willing_to_teach':
+              willingToTeach,
+        }),
+      );
 
-    required String email,
+      final Map<String, dynamic> data =
+          _decodeMapResponse(
+        response,
+        'Errore creazione utente',
+      );
 
-    required String department,
-
-    required String course,
-
-    String? description,
-
-    String role = 'student',
-
-    bool available = true,
-
-    bool willingToTeach = false,
-  }) async {
-    final Uri url =
-        Uri.parse(
-      '$socialBaseUrl/create_user',
-    );
-
-
-    final response =
-        await http.post(
-      url,
-
-      headers:
-          _jsonHeaders,
-
-      body: jsonEncode({
-        'first_name':
-            firstName,
-
-        'last_name':
-            lastName,
-
-        'email':
-            email,
-
-        'department':
-            department,
-
-        'course':
-            course,
-
-        'description':
-            description,
-
-        'role':
-            role,
-
-        'available':
-            available,
-
-        'willing_to_teach':
-            willingToTeach,
-      }),
-    );
-
-
-    final data =
-        _decodeMapResponse(
-      response,
-
-      'Errore creazione utente',
-    );
-
-
-    return SocialUser.fromJson(
-      data,
-    );
-  }
+      return SocialUser.fromJson(
+        data,
+      );
+    }
 
 
   // ===========================================================================
@@ -530,34 +499,29 @@ class ApiService {
   // SOCIAL - UTENTE PER ID
   // ===========================================================================
 
-  Future<SocialUser>
-      getSocialUser(
-    int userId,
-  ) async {
-    final Uri url =
-        Uri.parse(
-      '$socialBaseUrl/user/$userId',
-    );
+    Future<SocialUser> getSocialUser(
+      int userId,
+    ) async {
+      final Uri url = Uri.parse(
+        '$socialBaseUrl/user/$userId',
+      );
 
+      final http.Response response =
+          await http.get(
+        url,
+        headers: _jsonHeaders,
+      );
 
-    final response =
-        await http.get(
-      url,
-    );
+      final Map<String, dynamic> data =
+          _decodeMapResponse(
+        response,
+        'Errore caricamento utente',
+      );
 
-
-    final data =
-        _decodeMapResponse(
-      response,
-
-      'Errore caricamento utente',
-    );
-
-
-    return SocialUser.fromJson(
-      data,
-    );
-  }
+      return SocialUser.fromJson(
+        data,
+      );
+    }
 
 
   // ===========================================================================
@@ -1656,6 +1620,200 @@ class ApiService {
   }
 
   return participants;
+}
+
+// ===========================================================================
+// AUTH - REGISTER
+// ===========================================================================
+
+Future<String> register({
+  required String firstName,
+  required String lastName,
+  required String email,
+  required String password,
+  required String department,
+  required String course,
+  required String description,
+  required String role,
+  required bool available,
+  required bool willingToTeach,
+}) async {
+  final Uri url =
+      Uri.parse(
+    '$socialBaseUrl/register',
+  );
+
+
+  final http.Response response =
+      await http.post(
+    url,
+
+    headers:
+        _jsonHeaders,
+
+    body:
+        jsonEncode({
+      'first_name':
+          firstName,
+
+      'last_name':
+          lastName,
+
+      'email':
+          email,
+
+      'password':
+          password,
+
+      'department':
+          department,
+
+      'course':
+          course,
+
+      'description':
+          description,
+
+      'role':
+          role,
+
+      'available':
+          available,
+
+      'willing_to_teach':
+          willingToTeach,
+    }),
+  );
+
+
+  final Map<String, dynamic> data =
+      _decodeMapResponse(
+    response,
+    'Errore registrazione',
+  );
+
+
+  final String? token =
+      data['access_token']
+          ?.toString();
+
+
+  if (token == null ||
+      token.isEmpty) {
+    throw Exception(
+      'Token di accesso non restituito dal server.',
+    );
+  }
+
+
+  return token;
+}
+// ===========================================================================
+// AUTH - LOGIN
+// ===========================================================================
+
+Future<String> login({
+  required String email,
+  required String password,
+}) async {
+  final Uri url =
+      Uri.parse(
+    '$socialBaseUrl/login',
+  );
+
+
+  final http.Response response =
+      await http.post(
+    url,
+
+    headers:
+        _jsonHeaders,
+
+    body:
+        jsonEncode({
+      'email':
+          email,
+
+      'password':
+          password,
+    }),
+  );
+
+
+  final Map<String, dynamic> data =
+      _decodeMapResponse(
+    response,
+    'Errore accesso',
+  );
+
+
+  final String? token =
+      data['access_token']
+          ?.toString();
+
+
+  if (token == null ||
+      token.isEmpty) {
+    throw Exception(
+      'Token di accesso non restituito dal server.',
+    );
+  }
+
+
+  return token;
+}
+// ===========================================================================
+// AUTH - CURRENT USER
+// ===========================================================================
+
+Future<SocialUser> getCurrentUser({
+  String? token,
+}) async {
+  final String? accessToken =
+      token ??
+          AuthSession
+              .instance
+              .accessToken;
+
+
+  if (accessToken == null ||
+      accessToken.isEmpty) {
+    throw Exception(
+      'Nessun token di autenticazione disponibile.',
+    );
+  }
+
+
+  final Uri url =
+      Uri.parse(
+    '$socialBaseUrl/me',
+  );
+
+
+  final http.Response response =
+      await http.get(
+    url,
+
+    headers: {
+      'Accept':
+          'application/json',
+
+      'Authorization':
+          'Bearer $accessToken',
+    },
+  );
+
+
+  final Map<String, dynamic> data =
+      _decodeMapResponse(
+    response,
+    'Errore caricamento utente corrente',
+  );
+
+
+  return SocialUser.fromJson(
+    data,
+  );
 }
 }
 

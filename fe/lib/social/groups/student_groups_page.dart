@@ -3,33 +3,22 @@ import 'package:flutter/material.dart';
 import '../../theme/nightTheme.dart';
 
 import '../../services/api_service.dart';
+import '../../services/auth_session.dart';
 
 import '../social_models.dart';
 
 import 'models/study_group.dart';
 
 import 'study_group_detail_page.dart';
-
 import 'create_group_page.dart';
-
-
-// =============================================================================
-// UTENTE TEMPORANEO
-// =============================================================================
-//
-// In futuro arriverà da AuthService / sessione.
-//
-
-const int _currentUserId = 1;
+import 'public_groups_page.dart';
 
 
 // =============================================================================
 // STUDENT GROUPS PAGE
 // =============================================================================
 
-class StudentGroupsPage
-    extends StatefulWidget {
-
+class StudentGroupsPage extends StatefulWidget {
   const StudentGroupsPage({
     super.key,
   });
@@ -52,9 +41,21 @@ class _StudentGroupsPageState
       ApiService();
 
 
+  final AuthSession _session =
+      AuthSession.instance;
+
+
+  // ===========================================================================
+  // DATA
+  // ===========================================================================
+
   List<StudyGroup> _groups =
       [];
 
+
+  // ===========================================================================
+  // STATE
+  // ===========================================================================
 
   bool _loading =
       true;
@@ -63,26 +64,123 @@ class _StudentGroupsPageState
   String? _error;
 
 
+  // ===========================================================================
+  // GETTERS
+  // ===========================================================================
+
+  int? get currentUserId {
+    return _session.currentUserId;
+  }
+
+
+  bool get isAuthenticated {
+    return _session.isAuthenticated;
+  }
+
+
+  // ===========================================================================
+  // INIT
+  // ===========================================================================
+
   @override
   void initState() {
     super.initState();
+
+
+    _session.addListener(
+      _onSessionChanged,
+    );
+
 
     _loadGroups();
   }
 
 
   // ===========================================================================
-  // CARICAMENTO GRUPPI
+  // DISPOSE
+  // ===========================================================================
+
+  @override
+  void dispose() {
+    _session.removeListener(
+      _onSessionChanged,
+    );
+
+
+    super.dispose();
+  }
+
+
+  // ===========================================================================
+  // SESSION CHANGED
+  // ===========================================================================
+
+  void _onSessionChanged() {
+    if (!mounted) {
+      return;
+    }
+
+
+    if (!_session.isAuthenticated) {
+      setState(() {
+        _groups =
+            [];
+
+        _loading =
+            false;
+
+        _error =
+            null;
+      });
+
+      return;
+    }
+
+
+    _loadGroups();
+  }
+
+
+  // ===========================================================================
+  // LOAD GROUPS
   // ===========================================================================
 
   Future<void> _loadGroups() async {
-    setState(() {
-      _loading =
-          true;
+    final int? userId =
+        currentUserId;
 
-      _error =
-          null;
-    });
+
+    if (userId ==
+        null) {
+      if (!mounted) {
+        return;
+      }
+
+
+      setState(() {
+        _groups =
+            [];
+
+        _loading =
+            false;
+
+        _error =
+            null;
+      });
+
+      return;
+    }
+
+
+    if (mounted) {
+      setState(() {
+        _loading =
+            true;
+
+        _error =
+            null;
+      });
+    }
 
 
     try {
@@ -91,48 +189,46 @@ class _StudentGroupsPageState
 
 
       // =========================================================================
-      // PRIMO TENTATIVO
+      // ENDPOINT DELL'UTENTE
       // =========================================================================
-      //
-      // Endpoint specifico dell'utente.
-      //
 
       try {
         rawGroups =
             await _apiService
                 .getUserGroups(
-          _currentUserId,
+          userId,
         );
       } catch (_) {
 
         // =======================================================================
         // FALLBACK
         // =======================================================================
-        //
-        // Finché /user_groups/{user_id} non è completamente stabile,
-        // recuperiamo tutti i gruppi e verifichiamo i membri tramite /group/{id}.
-        //
 
         rawGroups =
-            await _loadUserGroupsFallback();
+            await _loadUserGroupsFallback(
+          userId,
+        );
       }
 
 
-      final List<StudyGroup>
-          groups =
+      final List<StudyGroup> groups =
           [];
 
 
-      for (final rawGroup
-          in rawGroups) {
+      for (final Map<String, dynamic>
+          rawGroup in rawGroups) {
 
         final StudyGroup? group =
             await _buildStudyGroup(
           rawGroup,
+
+          userId:
+              userId,
         );
 
 
-        if (group != null) {
+        if (group !=
+            null) {
           groups.add(
             group,
           );
@@ -163,7 +259,9 @@ class _StudentGroupsPageState
             false;
 
         _error =
-            e.toString();
+            _cleanError(
+          e,
+        );
       });
     }
   }
@@ -174,11 +272,14 @@ class _StudentGroupsPageState
   // ===========================================================================
 
   Future<List<Map<String, dynamic>>>
-      _loadUserGroupsFallback() async {
+      _loadUserGroupsFallback(
+    int userId,
+  ) async {
 
     final List<Map<String, dynamic>>
         allGroups =
-        await _apiService.getGroups();
+        await _apiService
+            .getGroups();
 
 
     final List<Map<String, dynamic>>
@@ -186,8 +287,8 @@ class _StudentGroupsPageState
         [];
 
 
-    for (final rawGroup
-        in allGroups) {
+    for (final Map<String, dynamic>
+        rawGroup in allGroups) {
 
       final int? groupId =
           _toInt(
@@ -195,7 +296,8 @@ class _StudentGroupsPageState
       );
 
 
-      if (groupId == null) {
+      if (groupId ==
+          null) {
         continue;
       }
 
@@ -203,7 +305,8 @@ class _StudentGroupsPageState
       try {
         final Map<String, dynamic>
             detail =
-            await _apiService.getGroup(
+            await _apiService
+                .getGroup(
           groupId,
         );
 
@@ -235,9 +338,10 @@ class _StudentGroupsPageState
 
 
             return _toInt(
-                  memberData['user_id'],
+                  memberData[
+                      'user_id'],
                 ) ==
-                _currentUserId;
+                userId;
           },
         );
 
@@ -263,8 +367,8 @@ class _StudentGroupsPageState
           merged,
         );
       } catch (_) {
-        // Se un singolo gruppo non può essere letto,
-        // non blocchiamo l'intera pagina.
+        // Un singolo gruppo non deve
+        // bloccare l'intera pagina.
       }
     }
 
@@ -274,12 +378,13 @@ class _StudentGroupsPageState
 
 
   // ===========================================================================
-  // CREA STUDY GROUP DAL BACKEND
+  // BUILD STUDY GROUP
   // ===========================================================================
 
   Future<StudyGroup?> _buildStudyGroup(
-    Map<String, dynamic> rawGroup,
-  ) async {
+    Map<String, dynamic> rawGroup, {
+    required int userId,
+  }) async {
 
     final int? groupId =
         _toInt(
@@ -287,7 +392,8 @@ class _StudentGroupsPageState
     );
 
 
-    if (groupId == null) {
+    if (groupId ==
+        null) {
       return null;
     }
 
@@ -304,7 +410,8 @@ class _StudentGroupsPageState
     // =========================================================================
 
     try {
-      final detail =
+      final Map<String, dynamic>
+          detail =
           await _apiService.getGroup(
         groupId,
       );
@@ -314,7 +421,8 @@ class _StudentGroupsPageState
         detail,
       );
     } catch (_) {
-      // I dati base del gruppo rimangono comunque utilizzabili.
+      // I dati base rimangono comunque
+      // utilizzabili.
     }
 
 
@@ -323,7 +431,8 @@ class _StudentGroupsPageState
     // =========================================================================
 
     try {
-      final materials =
+      final List<Map<String, dynamic>>
+          materials =
           await _apiService
               .getGroupMaterials(
         groupId,
@@ -334,6 +443,10 @@ class _StudentGroupsPageState
           materials.length;
     } catch (_) {
       merged['material_count'] =
+          _toInt(
+            merged[
+                'material_count'],
+          ) ??
           0;
     }
 
@@ -374,11 +487,47 @@ class _StudentGroupsPageState
             '';
 
 
-    if (subjectId != null &&
+    bool hasSubjectName =
+        false;
+
+
+    final dynamic subjectData =
+        merged['subject'];
+
+
+    if (subjectData is Map) {
+      final String name =
+          subjectData['name']
+                  ?.toString() ??
+              '';
+
+
+      if (name.isNotEmpty) {
+        hasSubjectName =
+            true;
+      }
+    }
+
+
+    final String currentSubjectName =
+        merged['subject_name']
+                ?.toString() ??
+            '';
+
+
+    if (currentSubjectName
+        .isNotEmpty) {
+      hasSubjectName =
+          true;
+    }
+
+
+    if (!hasSubjectName &&
+        subjectId != null &&
         department.isNotEmpty &&
         course.isNotEmpty) {
 
-      final String? subjectName =
+      final String? loadedSubjectName =
           await _loadSubjectName(
         subjectId:
             subjectId,
@@ -391,9 +540,10 @@ class _StudentGroupsPageState
       );
 
 
-      if (subjectName != null) {
+      if (loadedSubjectName !=
+          null) {
         merged['subject_name'] =
-            subjectName;
+            loadedSubjectName;
       }
     }
 
@@ -402,22 +552,21 @@ class _StudentGroupsPageState
       merged,
 
       currentUserId:
-          _currentUserId,
+          userId,
     );
   }
 
 
   // ===========================================================================
-  // NOME MATERIA
+  // LOAD SUBJECT NAME
   // ===========================================================================
 
   Future<String?> _loadSubjectName({
     required int subjectId,
-
     required String department,
-
     required String course,
   }) async {
+
     try {
       final List<SocialSubject>
           subjects =
@@ -428,7 +577,7 @@ class _StudentGroupsPageState
       );
 
 
-      for (final subject
+      for (final SocialSubject subject
           in subjects) {
 
         if (subject.id ==
@@ -437,8 +586,9 @@ class _StudentGroupsPageState
         }
       }
     } catch (_) {
-      // Se la materia non è disponibile,
-      // mostreremo comunque il gruppo.
+      // Il gruppo può essere mostrato
+      // anche se il nome materia non
+      // è disponibile.
     }
 
 
@@ -454,6 +604,12 @@ class _StudentGroupsPageState
   Widget build(
     BuildContext context,
   ) {
+
+    if (!isAuthenticated) {
+      return _buildGuestPage();
+    }
+
+
     return Scaffold(
       backgroundColor:
           AppColors.darkElegance,
@@ -494,7 +650,9 @@ class _StudentGroupsPageState
             ),
 
             onPressed:
-                _loadGroups,
+                _loading
+                    ? null
+                    : _loadGroups,
           ),
 
           IconButton(
@@ -550,12 +708,243 @@ class _StudentGroupsPageState
 
 
   // ===========================================================================
+  // GUEST PAGE
+  // ===========================================================================
+
+  Widget _buildGuestPage() {
+    return Scaffold(
+      backgroundColor:
+          AppColors.darkElegance,
+
+      appBar:
+          AppBar(
+        backgroundColor:
+            AppColors.brandNightBlue,
+
+        foregroundColor:
+            AppColors.pureWhite,
+
+        elevation:
+            0,
+
+        title:
+            const Text(
+          'Gruppi',
+        ),
+      ),
+
+      body:
+          SafeArea(
+        child:
+            Center(
+          child:
+              SingleChildScrollView(
+            padding:
+                const EdgeInsets.all(
+              24,
+            ),
+
+            child:
+                ConstrainedBox(
+              constraints:
+                  const BoxConstraints(
+                maxWidth:
+                    520,
+              ),
+
+              child:
+                  Container(
+                width:
+                    double.infinity,
+
+                padding:
+                    const EdgeInsets.all(
+                  24,
+                ),
+
+                decoration:
+                    BoxDecoration(
+                  color:
+                      AppColors
+                          .eleganceMidnight,
+
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
+                  ),
+
+                  border:
+                      Border.all(
+                    color:
+                        AppColors.skyBlue
+                            .withOpacity(
+                      0.12,
+                    ),
+                  ),
+                ),
+
+                child:
+                    Column(
+                  mainAxisSize:
+                      MainAxisSize.min,
+
+                  children: [
+                    Container(
+                      width:
+                          74,
+
+                      height:
+                          74,
+
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            AppColors
+                                .brandNightBlue,
+
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          21,
+                        ),
+                      ),
+
+                      child:
+                          const Icon(
+                        Icons
+                            .groups_2_outlined,
+
+                        color:
+                            AppColors.skyBlue,
+
+                        size:
+                            39,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          18,
+                    ),
+
+                    const Text(
+                      'Gruppi',
+
+                      style:
+                          TextStyle(
+                        color:
+                            AppColors
+                                .pureWhite,
+
+                        fontSize:
+                            21,
+
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          8,
+                    ),
+
+                    Text(
+                      'Esplora i gruppi della community, '
+                      'trova materiale relativo alle materie '
+                      'e scopri studenti con cui studiare.',
+
+                      textAlign:
+                          TextAlign.center,
+
+                      style:
+                          TextStyle(
+                        color:
+                            AppColors
+                                .pureWhite
+                                .withOpacity(
+                          0.52,
+                        ),
+
+                        fontSize:
+                            12,
+
+                        height:
+                            1.45,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          20,
+                    ),
+
+                    SizedBox(
+                      width:
+                          double.infinity,
+
+                      child:
+                          ElevatedButton.icon(
+                        onPressed:
+                            _exploreGroups,
+
+                        icon:
+                            const Icon(
+                          Icons.search_rounded,
+                        ),
+
+                        label:
+                            const Text(
+                          'Esplora i gruppi',
+                        ),
+
+                        style:
+                            ElevatedButton.styleFrom(
+                          backgroundColor:
+                              AppColors
+                                  .socialBlue,
+
+                          foregroundColor:
+                              AppColors
+                                  .pureWhite,
+
+                          padding:
+                              const EdgeInsets
+                                  .symmetric(
+                            vertical:
+                                13,
+                          ),
+
+                          shape:
+                              RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  // ===========================================================================
   // BODY
   // ===========================================================================
 
   Widget _buildBody(
     BoxConstraints constraints,
   ) {
+
     if (_loading) {
       return const Center(
         child:
@@ -564,7 +953,8 @@ class _StudentGroupsPageState
     }
 
 
-    if (_error != null) {
+    if (_error !=
+        null) {
       return RefreshIndicator(
         onRefresh:
             _loadGroups,
@@ -624,12 +1014,13 @@ class _StudentGroupsPageState
 
 
   // ===========================================================================
-  // CONTENUTO
+  // GROUP CONTENT
   // ===========================================================================
 
   Widget _buildGroupsContent(
     BoxConstraints constraints,
   ) {
+
     return ListView(
       physics:
           const AlwaysScrollableScrollPhysics(),
@@ -657,7 +1048,8 @@ class _StudentGroupsPageState
                 style:
                     TextStyle(
                   color:
-                      AppColors.pureWhite,
+                      AppColors
+                          .pureWhite,
 
                   fontSize:
                       20,
@@ -686,7 +1078,8 @@ class _StudentGroupsPageState
                         .brandNightBlue,
 
                 borderRadius:
-                    BorderRadius.circular(
+                    BorderRadius
+                        .circular(
                   8,
                 ),
               ),
@@ -698,7 +1091,8 @@ class _StudentGroupsPageState
                 style:
                     const TextStyle(
                   color:
-                      AppColors.materialSky,
+                      AppColors
+                          .materialSky,
 
                   fontSize:
                       11,
@@ -717,7 +1111,7 @@ class _StudentGroupsPageState
         ),
 
         Text(
-          'Gruppi di studio a cui partecipi.',
+          'Gruppi a cui partecipi.',
 
           style:
               TextStyle(
@@ -746,7 +1140,7 @@ class _StudentGroupsPageState
 
 
   // ===========================================================================
-  // AZIONI
+  // MAIN ACTIONS
   // ===========================================================================
 
   Widget _buildMainActions() {
@@ -761,7 +1155,7 @@ class _StudentGroupsPageState
               'Crea un gruppo',
 
           description:
-              'Crea un nuovo gruppo di studio e invita altri studenti o insegnanti.',
+              'Crea un nuovo gruppo e invita studenti o insegnanti.',
 
           onTap:
               _createGroup,
@@ -774,17 +1168,16 @@ class _StudentGroupsPageState
 
         _GroupActionCard(
           icon:
-              Icons
-                  .person_add_alt_1_rounded,
+              Icons.search_rounded,
 
           title:
-              'Partecipa a un gruppo',
+              'Esplora i gruppi',
 
           description:
-              'Cerca un gruppo esistente e invia una richiesta di partecipazione.',
+              'Cerca gruppi per materia, corso, dipartimento o nome.',
 
           onTap:
-              _joinGroup,
+              _exploreGroups,
         ),
       ],
     );
@@ -792,12 +1185,13 @@ class _StudentGroupsPageState
 
 
   // ===========================================================================
-  // GRIGLIA
+  // GROUP GRID
   // ===========================================================================
 
   Widget _buildGroupsGrid(
     BoxConstraints constraints,
   ) {
+
     final bool singleColumn =
         constraints.maxWidth <
             560;
@@ -859,87 +1253,90 @@ class _StudentGroupsPageState
 
 
   // ===========================================================================
-  // APERTURA GRUPPO
+  // OPEN GROUP
   // ===========================================================================
 
-  void _openGroup(
+  Future<void> _openGroup(
     StudyGroup group,
-  ) {
-    Navigator.of(
+  ) async {
+
+    await Navigator.of(
       context,
-    )
-        .push(
+    ).push(
       MaterialPageRoute(
         builder:
-            (
-          _,
-        ) =>
+            (_) =>
                 StudyGroupDetailPage(
           group:
               group,
         ),
       ),
-    )
-        .then(
-      (
-        _,
-      ) {
-        _loadGroups();
-      },
     );
+
+
+    if (mounted &&
+        isAuthenticated) {
+      await _loadGroups();
+    }
   }
 
 
   // ===========================================================================
-  // CREA GRUPPO
+  // CREATE GROUP
   // ===========================================================================
 
-  void _createGroup() {
-    Navigator.of(
+  Future<void> _createGroup() async {
+    if (!isAuthenticated) {
+      _showMessage(
+        'Accedi per creare un gruppo.',
+      );
+
+      return;
+    }
+
+
+    await Navigator.of(
       context,
-    )
-        .push(
+    ).push(
       MaterialPageRoute(
         builder:
-            (
-          _,
-        ) =>
+            (_) =>
                 const CreateGroupPage(),
       ),
-    )
-        .then(
-      (
-        _,
-      ) {
-        _loadGroups();
-      },
     );
+
+
+    if (mounted) {
+      await _loadGroups();
+    }
   }
 
 
   // ===========================================================================
-  // PARTECIPA A UN GRUPPO
+  // EXPLORE GROUPS
   // ===========================================================================
 
-  void _joinGroup() {
-    /*
-     * In futuro questa azione aprirà la ricerca di tutti
-     * i gruppi disponibili e utilizzerà:
-     *
-     * requestJoinGroup()
-     *
-     * Gruppo pubblico -> ingresso diretto.
-     * Gruppo privato  -> richiesta pending.
-     */
-
-    _showMessage(
-      'Ricerca gruppi: da collegare alla lista dei gruppi disponibili.',
+  Future<void> _exploreGroups() async {
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const PublicGroupsPage(),
+      ),
     );
+
+
+    if (mounted &&
+        isAuthenticated) {
+      await _loadGroups();
+    }
   }
 
 
   // ===========================================================================
-  // EMPTY
+  // EMPTY GROUPS
   // ===========================================================================
 
   Widget _buildEmptyGroups() {
@@ -1007,7 +1404,8 @@ class _StudentGroupsPageState
                           .brandNightBlue,
 
                   borderRadius:
-                      BorderRadius.circular(
+                      BorderRadius
+                          .circular(
                     20,
                   ),
                 ),
@@ -1051,7 +1449,7 @@ class _StudentGroupsPageState
               ),
 
               Text(
-                'Non partecipi ancora a nessun gruppo di studio.',
+                'Non partecipi ancora a nessun gruppo.',
 
                 textAlign:
                     TextAlign.center,
@@ -1066,6 +1464,34 @@ class _StudentGroupsPageState
 
                   fontSize:
                       13,
+                ),
+              ),
+
+              const SizedBox(
+                height:
+                    7,
+              ),
+
+              Text(
+                'Puoi crearne uno oppure esplorare '
+                'quelli già presenti nella community.',
+
+                textAlign:
+                    TextAlign.center,
+
+                style:
+                    TextStyle(
+                  color:
+                      AppColors.pureWhite
+                          .withOpacity(
+                    0.38,
+                  ),
+
+                  fontSize:
+                      11,
+
+                  height:
+                      1.4,
                 ),
               ),
             ],
@@ -1083,6 +1509,12 @@ class _StudentGroupsPageState
   void _showMessage(
     String message,
   ) {
+
+    if (!mounted) {
+      return;
+    }
+
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(
@@ -1097,12 +1529,39 @@ class _StudentGroupsPageState
 
 
   // ===========================================================================
-  // UTILITY
+  // CLEAN ERROR
+  // ===========================================================================
+
+  String _cleanError(
+    Object error,
+  ) {
+
+    String message =
+        error.toString();
+
+
+    if (message.startsWith(
+      'Exception: ',
+    )) {
+      message =
+          message.substring(
+        'Exception: '.length,
+      );
+    }
+
+
+    return message;
+  }
+
+
+  // ===========================================================================
+  // TO INT
   // ===========================================================================
 
   static int? _toInt(
     dynamic value,
   ) {
+
     if (value is int) {
       return value;
     }
@@ -1122,7 +1581,7 @@ class _StudentGroupsPageState
 
 
 // =============================================================================
-// CARD AZIONE
+// GROUP ACTION CARD
 // =============================================================================
 
 class _GroupActionCard
@@ -1139,11 +1598,8 @@ class _GroupActionCard
 
   const _GroupActionCard({
     required this.icon,
-
     required this.title,
-
     required this.description,
-
     required this.onTap,
   });
 
@@ -1152,6 +1608,7 @@ class _GroupActionCard
   Widget build(
     BuildContext context,
   ) {
+
     return Material(
       color:
           Colors.transparent,
@@ -1214,7 +1671,8 @@ class _GroupActionCard
                           .brandNightBlue,
 
                   borderRadius:
-                      BorderRadius.circular(
+                      BorderRadius
+                          .circular(
                     13,
                   ),
                 ),
@@ -1249,7 +1707,8 @@ class _GroupActionCard
                       style:
                           const TextStyle(
                         color:
-                            AppColors.pureWhite,
+                            AppColors
+                                .pureWhite,
 
                         fontSize:
                             15,
@@ -1277,7 +1736,8 @@ class _GroupActionCard
                       style:
                           TextStyle(
                         color:
-                            AppColors.pureWhite
+                            AppColors
+                                .pureWhite
                                 .withOpacity(
                           0.55,
                         ),
@@ -1318,7 +1778,7 @@ class _GroupActionCard
 
 
 // =============================================================================
-// CARD GRUPPO
+// STUDY GROUP CARD
 // =============================================================================
 
 class _StudyGroupCard
@@ -1331,7 +1791,6 @@ class _StudyGroupCard
 
   const _StudyGroupCard({
     required this.group,
-
     required this.onTap,
   });
 
@@ -1340,6 +1799,7 @@ class _StudyGroupCard
   Widget build(
     BuildContext context,
   ) {
+
     return Material(
       color:
           Colors.transparent,
@@ -1423,7 +1883,8 @@ class _StudyGroupCard
                               .brandNightBlue,
 
                       borderRadius:
-                          BorderRadius.circular(
+                          BorderRadius
+                              .circular(
                         14,
                       ),
                     ),
@@ -1458,13 +1919,15 @@ class _StudyGroupCard
                       decoration:
                           BoxDecoration(
                         color:
-                            AppColors.skyBlue
+                            AppColors
+                                .skyBlue
                                 .withOpacity(
                           0.10,
                         ),
 
                         borderRadius:
-                            BorderRadius.circular(
+                            BorderRadius
+                                .circular(
                           8,
                         ),
                       ),
@@ -1476,7 +1939,8 @@ class _StudyGroupCard
                         style:
                             TextStyle(
                           color:
-                              AppColors.materialSky,
+                              AppColors
+                                  .materialSky,
 
                           fontSize:
                               9,
@@ -1515,7 +1979,8 @@ class _StudyGroupCard
                                 .brandNightBlue,
 
                         borderRadius:
-                            BorderRadius.circular(
+                            BorderRadius
+                                .circular(
                           8,
                         ),
                       ),
@@ -1531,7 +1996,8 @@ class _StudyGroupCard
                                 .lock_outline,
 
                             color:
-                                AppColors.skyBlue,
+                                AppColors
+                                    .skyBlue,
 
                             size:
                                 13,
@@ -1548,7 +2014,8 @@ class _StudyGroupCard
                             style:
                                 TextStyle(
                               color:
-                                  AppColors.pureWhite,
+                                  AppColors
+                                      .pureWhite,
 
                               fontSize:
                                   10,
@@ -1612,7 +2079,8 @@ class _StudyGroupCard
                   style:
                       const TextStyle(
                     color:
-                        AppColors.materialSky,
+                        AppColors
+                            .materialSky,
 
                     fontSize:
                         11,
@@ -1677,7 +2145,8 @@ class _StudyGroupCard
                   style:
                       TextStyle(
                     color:
-                        AppColors.pureWhite
+                        AppColors
+                            .pureWhite
                             .withOpacity(
                       0.60,
                     ),
@@ -1733,7 +2202,8 @@ class _StudyGroupCard
                         .arrow_forward_ios_rounded,
 
                     color:
-                        AppColors.pureWhite
+                        AppColors
+                            .pureWhite
                             .withOpacity(
                       0.30,
                     ),
@@ -1753,7 +2223,7 @@ class _StudyGroupCard
 
 
 // =============================================================================
-// INFO GRUPPO
+// GROUP INFO
 // =============================================================================
 
 class _GroupInfo
@@ -1768,9 +2238,7 @@ class _GroupInfo
 
   const _GroupInfo({
     required this.icon,
-
     required this.value,
-
     required this.label,
   });
 
@@ -1779,6 +2247,7 @@ class _GroupInfo
   Widget build(
     BuildContext context,
   ) {
+
     return Row(
       mainAxisSize:
           MainAxisSize.min,
@@ -1856,7 +2325,6 @@ class _GroupsErrorCard
 
   const _GroupsErrorCard({
     required this.message,
-
     required this.onRetry,
   });
 
@@ -1865,6 +2333,7 @@ class _GroupsErrorCard
   Widget build(
     BuildContext context,
   ) {
+
     return Container(
       width:
           double.infinity,

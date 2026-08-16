@@ -531,12 +531,20 @@ class SocialUser {
 // DRAFT PROFILO SOCIAL
 // =============================================================================
 
+// =============================================================================
+// DRAFT PROFILO SOCIAL
+// =============================================================================
+
 class SocialProfileDraft {
   final String firstName;
 
   final String lastName;
 
   final String email;
+
+  // Utilizzata esclusivamente durante la registrazione.
+  // Non viene mai inserita in SocialUser.
+  final String password;
 
   final String department;
 
@@ -559,6 +567,8 @@ class SocialProfileDraft {
     required this.lastName,
 
     required this.email,
+
+    required this.password,
 
     required this.department,
 
@@ -591,6 +601,17 @@ class SocialProfileDraft {
   }
 
 
+  String get role {
+    switch (type) {
+      case SocialUserType.student:
+        return 'student';
+
+      case SocialUserType.teacher:
+        return 'teacher';
+    }
+  }
+
+
   // ===========================================================================
   // DRAFT -> SOCIAL USER
   // ===========================================================================
@@ -601,38 +622,27 @@ class SocialProfileDraft {
     return SocialUser(
       id: id,
 
-      firstName:
-          firstName,
+      firstName: firstName,
 
-      lastName:
-          lastName,
+      lastName: lastName,
 
-      email:
-          email,
+      email: email,
 
-      department:
-          department,
+      department: department,
 
-      course:
-          course,
+      course: course,
 
-      subjects:
-          subjects,
+      subjects: subjects,
 
-      description:
-          description,
+      description: description,
 
-      type:
-          type,
+      type: type,
 
-      available:
-          available,
+      available: available,
 
-      willingToTeach:
-          willingToTeach,
+      willingToTeach: willingToTeach,
 
-      isActive:
-          true,
+      isActive: true,
     );
   }
 }
