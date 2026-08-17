@@ -1,25 +1,22 @@
 import uuid
 
-from sqlalchemy.orm import (
-    Session,
-)
+from sqlalchemy.orm import Session
 
-from models.subject import (
-    Subject,
-    UserSubject,
-)
+from models.subject import Subject
 
 from models.teacher_material import (
     TeacherMaterial,
 )
 
-from models.user import (
-    User,
-)
+from models.user import User
 
 from schemas.teacher_material import (
     TeacherMaterialCompleteRequest,
     TeacherMaterialUpdate,
+)
+
+from services.teacher_assignment import (
+    get_verified_teacher_assignment,
 )
 
 
@@ -54,25 +51,6 @@ ALLOWED_TEACHER_MIME_TYPES = {
 }
 
 
-def get_teacher_subject(
-    db: Session,
-    teacher_id: int,
-    subject_id: int,
-):
-    return (
-        db.query(
-            UserSubject,
-        )
-        .filter(
-            UserSubject.user_id ==
-            teacher_id,
-            UserSubject.subject_id ==
-            subject_id,
-        )
-        .first()
-    )
-
-
 def require_teacher_subject(
     db: Session,
     teacher_id: int,
@@ -94,15 +72,17 @@ def require_teacher_subject(
             "Materia non trovata.",
         )
 
-    relation = get_teacher_subject(
-        db,
-        teacher_id,
-        subject_id,
+    assignment = (
+        get_verified_teacher_assignment(
+            db,
+            teacher_id,
+            subject_id,
+        )
     )
 
-    if relation is None:
+    if assignment is None:
         raise PermissionError(
-            "La materia non è associata al docente.",
+            "Il docente non possiede un insegnamento verificato per questa materia.",
         )
 
     return subject
@@ -214,8 +194,7 @@ def ensure_teacher_material_not_duplicate(
 def create_teacher_material(
     db: Session,
     teacher: User,
-    request:
-        TeacherMaterialCompleteRequest,
+    request: TeacherMaterialCompleteRequest,
 ):
     require_teacher_subject(
         db,
@@ -253,24 +232,15 @@ def create_teacher_material(
         )
 
     material = TeacherMaterial(
-        subject_id=
-            request.subject_id,
-        uploaded_by=
-            teacher.id,
-        title=
-            request.title.strip(),
-        description=
-            request.description.strip(),
-        original_name=
-            request.original_name.strip(),
-        stored_name=
-            request.stored_name.strip(),
-        file_path=
-            request.file_path.strip(),
-        mime_type=
-            request.mime_type.strip(),
-        size=
-            request.size,
+        subject_id=request.subject_id,
+        uploaded_by=teacher.id,
+        title=request.title.strip(),
+        description=request.description.strip(),
+        original_name=request.original_name.strip(),
+        stored_name=request.stored_name.strip(),
+        file_path=request.file_path.strip(),
+        mime_type=request.mime_type.strip(),
+        size=request.size,
         file_hash=(
             request.file_hash
             .strip()
@@ -278,10 +248,8 @@ def create_teacher_material(
             if request.file_hash
             else None
         ),
-        visibility=
-            visibility,
-        is_active=
-            True,
+        visibility=visibility,
+        is_active=True,
     )
 
     db.add(
@@ -352,18 +320,15 @@ def update_teacher_material(
     db: Session,
     material: TeacherMaterial,
     teacher: User,
-    request:
-        TeacherMaterialUpdate,
+    request: TeacherMaterialUpdate,
 ):
     require_teacher_material_owner(
         material,
         teacher.id,
     )
 
-    values = (
-        request.model_dump(
-            exclude_unset=True,
-        )
+    values = request.model_dump(
+        exclude_unset=True,
     )
 
     if (

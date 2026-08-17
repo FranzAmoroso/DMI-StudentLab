@@ -19,6 +19,10 @@ from models.subject import (
     UserSubject,
 )
 
+from models.teacher_assignment import (
+    TeacherAssignment,
+)
+
 from schemas.user import (
     UserAcademicPathCreate,
     UserAcademicPathUpdate,
@@ -194,6 +198,27 @@ def get_users(
             .joinedload(
                 SubjectOffering.teachers,
             ),
+            joinedload(
+                User.teacher_assignments,
+            )
+            .joinedload(
+                TeacherAssignment.subject,
+            )
+            .joinedload(
+                Subject.offerings,
+            )
+            .joinedload(
+                SubjectOffering.teachers,
+            ),
+            joinedload(
+                User.teacher_assignments,
+            )
+            .joinedload(
+                TeacherAssignment.offering,
+            )
+            .joinedload(
+                SubjectOffering.teachers,
+            ),
         )
         .order_by(
             User.last_name.asc(),
@@ -223,6 +248,27 @@ def get_user_by_id(
             )
             .joinedload(
                 Subject.offerings,
+            )
+            .joinedload(
+                SubjectOffering.teachers,
+            ),
+            joinedload(
+                User.teacher_assignments,
+            )
+            .joinedload(
+                TeacherAssignment.subject,
+            )
+            .joinedload(
+                Subject.offerings,
+            )
+            .joinedload(
+                SubjectOffering.teachers,
+            ),
+            joinedload(
+                User.teacher_assignments,
+            )
+            .joinedload(
+                TeacherAssignment.offering,
             )
             .joinedload(
                 SubjectOffering.teachers,

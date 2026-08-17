@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -67,6 +68,28 @@ class StudyGroup(Base):
         default=False,
     )
 
+    status = Column(
+        String(30),
+        nullable=False,
+        default="active",
+        index=True,
+    )
+
+    deletion_requested_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=True,
+    )
+
+    deletion_deadline = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=True,
+        index=True,
+    )
+
     created_by = Column(
         Integer,
         ForeignKey(
@@ -78,9 +101,20 @@ class StudyGroup(Base):
     )
 
     created_at = Column(
-        DateTime,
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         default=datetime.utcnow,
+    )
+
+    updated_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
     subject = relationship(
@@ -109,6 +143,38 @@ class StudyGroup(Base):
     materials = relationship(
         "GroupMaterial",
         cascade="all, delete-orphan",
+    )
+
+    ownership_transfers = relationship(
+        "GroupOwnershipTransfer",
+        foreign_keys="GroupOwnershipTransfer.group_id",
+        cascade="all, delete-orphan",
+        order_by="GroupOwnershipTransfer.id",
+    )
+
+    reports = relationship(
+        "GroupReport",
+        foreign_keys="GroupReport.group_id",
+        cascade="all, delete-orphan",
+        order_by="GroupReport.id",
+    )
+
+    content_reports = relationship(
+        "GroupContentReport",
+        foreign_keys="GroupContentReport.group_id",
+        cascade="all, delete-orphan",
+        order_by="GroupContentReport.id",
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ("
+            "'active', "
+            "'pending_deletion', "
+            "'deleted'"
+            ")",
+            name="chk_study_group_status",
+        ),
     )
 
 
@@ -145,10 +211,13 @@ class GroupMember(Base):
         String(20),
         nullable=False,
         default="member",
+        index=True,
     )
 
     joined_at = Column(
-        DateTime,
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         default=datetime.utcnow,
     )
@@ -167,6 +236,14 @@ class GroupMember(Base):
             "group_id",
             "user_id",
             name="uq_group_member",
+        ),
+        CheckConstraint(
+            "role IN ("
+            "'owner', "
+            "'admin', "
+            "'member'"
+            ")",
+            name="chk_group_member_role",
         ),
     )
 
@@ -204,12 +281,41 @@ class GroupJoinRequest(Base):
         String(20),
         nullable=False,
         default="pending",
+        index=True,
+    )
+
+    reviewed_by = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    reviewed_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=True,
     )
 
     created_at = Column(
-        DateTime,
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         default=datetime.utcnow,
+    )
+
+    updated_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
     group = relationship(
@@ -219,6 +325,16 @@ class GroupJoinRequest(Base):
 
     user = relationship(
         "User",
+        foreign_keys=[
+            user_id,
+        ],
+    )
+
+    reviewer = relationship(
+        "User",
+        foreign_keys=[
+            reviewed_by,
+        ],
     )
 
     __table_args__ = (
@@ -226,5 +342,14 @@ class GroupJoinRequest(Base):
             "group_id",
             "user_id",
             name="uq_group_join_request",
+        ),
+        CheckConstraint(
+            "status IN ("
+            "'pending', "
+            "'accepted', "
+            "'rejected', "
+            "'cancelled'"
+            ")",
+            name="chk_group_join_request_status",
         ),
     )

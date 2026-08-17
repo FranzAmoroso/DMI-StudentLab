@@ -239,9 +239,99 @@ from services.review import (
     update_review,
 )
 
+from models.account_deletion_request import (
+    AccountDeletionRequest,
+)
+
+from models.group_content_report import (
+    GroupContentReport,
+)
+
+from models.group_ownership_transfer import (
+    GroupOwnershipTransfer,
+)
+
+from models.group_report import (
+    GroupReport,
+)
+
+from models.notification import (
+    Notification,
+)
+
+from models.profile_error_report import (
+    ProfileErrorReport,
+)
+
+from models.user_report import (
+    UserReport,
+)
+
+from routes.teacher_assignment import (
+    router as teacher_assignment_router,
+)
+
+from routes.user_report import (
+    router as user_report_router,
+)
+
+from routes.profile_error_report import (
+    router as profile_error_report_router,
+)
+
+from routes.account_deletion_request import (
+    router as account_deletion_request_router,
+)
+
+from routes.group_ownership_transfer import (
+    router as group_ownership_transfer_router,
+)
+
+from routes.notification import (
+    router as notification_router,
+)
+
+from routes.group_report import (
+    router as group_report_router,
+)
+
+from routes.group_content_report import (
+    router as group_content_report_router,
+)
 
 app = FastAPI()
 
+app.include_router(
+    teacher_assignment_router,
+)
+
+app.include_router(
+    user_report_router,
+)
+
+app.include_router(
+    profile_error_report_router,
+)
+
+app.include_router(
+    account_deletion_request_router,
+)
+
+app.include_router(
+    group_ownership_transfer_router,
+)
+
+app.include_router(
+    notification_router,
+)
+
+app.include_router(
+    group_report_router,
+)
+
+app.include_router(
+    group_content_report_router,
+)
 
 @app.on_event(
     "startup",

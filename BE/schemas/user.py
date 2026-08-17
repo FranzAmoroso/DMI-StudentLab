@@ -12,6 +12,10 @@ from schemas.subject import (
     UserSubjectResponse,
 )
 
+from schemas.teacher_assignment import (
+    TeacherAssignmentResponse,
+)
+
 
 AcademicPathStatus = Literal[
     "enrolled",
@@ -245,6 +249,12 @@ class UserResponse(BaseModel):
 
     academic_paths: list[
         UserAcademicPathResponse
+    ] = Field(
+        default_factory=list,
+    )
+
+    teacher_assignments: list[
+        TeacherAssignmentResponse
     ] = Field(
         default_factory=list,
     )

@@ -131,6 +131,13 @@ class Subject(Base):
         passive_deletes=True,
     )
 
+    teacher_assignments = relationship(
+        "TeacherAssignment",
+        back_populates="subject",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     __table_args__ = (
         UniqueConstraint(
             "university_code",
@@ -197,6 +204,13 @@ class SubjectOffering(Base):
         "AcademicTeacher",
         secondary=subject_offering_teachers,
         back_populates="offerings",
+    )
+
+    teacher_assignments = relationship(
+        "TeacherAssignment",
+        back_populates="offering",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     __table_args__ = (
