@@ -13,18 +13,23 @@ class GroupMaterialResponse(BaseModel):
     )
 
     id: int
+
     group_id: int
+
     uploaded_by: int
+
     original_name: str
+
     mime_type: str
+
     size: int
+
     file_hash: str | None
+
     created_at: datetime
 
 
 class GroupMaterialUploadRequest(BaseModel):
-    uploaded_by: int
-
     original_name: str
 
     mime_type: str
@@ -39,8 +44,6 @@ class GroupMaterialUploadRequest(BaseModel):
 
 
 class GroupMaterialCompleteRequest(BaseModel):
-    uploaded_by: int
-
     original_name: str
 
     stored_name: str

@@ -2,14 +2,29 @@ import uuid
 
 from pathlib import Path
 
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import (
+    Session,
+)
 
-from vercel.blob import AsyncBlobClient
+from sqlalchemy.exc import (
+    IntegrityError,
+)
 
-from core.config import settings
+from vercel.blob import (
+    AsyncBlobClient,
+)
 
-from models.material import GroupMaterial
+from core.config import (
+    settings,
+)
+
+from models.group import (
+    StudyGroup,
+)
+
+from models.material import (
+    GroupMaterial,
+)
 
 
 ALLOWED_MIME_TYPES = {
@@ -22,7 +37,11 @@ ALLOWED_MIME_TYPES = {
 }
 
 
-MAX_FILE_SIZE = 250 * 1024 * 1024
+MAX_FILE_SIZE = (
+    250
+    * 1024
+    * 1024
+)
 
 
 def generate_stored_name(
@@ -30,10 +49,12 @@ def generate_stored_name(
     original_name: str,
 ) -> str:
     extension = Path(
-        original_name
+        original_name,
     ).suffix.lower()
 
-    unique_id = uuid.uuid4().hex
+    unique_id = (
+        uuid.uuid4().hex
+    )
 
     return (
         f"groups/"
@@ -47,22 +68,25 @@ def validate_material_size(
 ) -> None:
     if size <= 0:
         raise ValueError(
-            "Il file è vuoto."
+            "Il file è vuoto.",
         )
 
     if size > MAX_FILE_SIZE:
         raise ValueError(
             "Il file supera la dimensione "
-            "massima consentita di 250 MB."
+            "massima consentita di 250 MB.",
         )
 
 
 def validate_material_mime_type(
     mime_type: str,
 ) -> None:
-    if mime_type not in ALLOWED_MIME_TYPES:
+    if (
+        mime_type
+        not in ALLOWED_MIME_TYPES
+    ):
         raise ValueError(
-            "Tipo di file non supportato."
+            "Tipo di file non supportato.",
         )
 
 
@@ -75,19 +99,24 @@ def normalize_file_hash(
         .lower()
     )
 
-    if len(normalized_hash) != 64:
+    if (
+        len(
+            normalized_hash,
+        )
+        != 64
+    ):
         raise ValueError(
-            "Hash del file non valido."
+            "Hash del file non valido.",
         )
 
     if not all(
-        character in
-        "0123456789abcdef"
+        character
+        in "0123456789abcdef"
         for character
         in normalized_hash
     ):
         raise ValueError(
-            "Hash del file non valido."
+            "Hash del file non valido.",
         )
 
     return normalized_hash
@@ -102,10 +131,10 @@ def validate_stored_name(
     )
 
     if not stored_name.startswith(
-        expected_prefix
+        expected_prefix,
     ):
         raise ValueError(
-            "Percorso storage non valido."
+            "Percorso storage non valido.",
         )
 
 
@@ -114,19 +143,23 @@ def get_group_material_by_hash(
     group_id: int,
     file_hash: str,
 ):
-    normalized_hash = normalize_file_hash(
-        file_hash,
+    normalized_hash = (
+        normalize_file_hash(
+            file_hash,
+        )
     )
 
     return (
         db.query(
-            GroupMaterial
+            GroupMaterial,
         )
         .filter(
             GroupMaterial.group_id
-            == group_id,
+            ==
+            group_id,
             GroupMaterial.file_hash
-            == normalized_hash,
+            ==
+            normalized_hash,
         )
         .first()
     )
@@ -159,7 +192,7 @@ def ensure_material_not_duplicate(
     ):
         raise ValueError(
             "Questo materiale è già presente "
-            "nel gruppo."
+            "nel gruppo.",
         )
 
 
@@ -187,8 +220,10 @@ def create_group_material_record(
         stored_name,
     )
 
-    normalized_hash = normalize_file_hash(
-        file_hash,
+    normalized_hash = (
+        normalize_file_hash(
+            file_hash,
+        )
     )
 
     ensure_material_not_duplicate(
@@ -210,13 +245,13 @@ def create_group_material_record(
 
     try:
         db.add(
-            material
+            material,
         )
 
         db.commit()
 
         db.refresh(
-            material
+            material,
         )
 
         return material
@@ -226,7 +261,7 @@ def create_group_material_record(
 
         raise ValueError(
             "Questo materiale è già presente "
-            "nel gruppo."
+            "nel gruppo.",
         ) from exception
 
     except Exception:
@@ -240,16 +275,45 @@ def get_group_materials(
 ):
     return (
         db.query(
-            GroupMaterial
+            GroupMaterial,
         )
         .filter(
             GroupMaterial.group_id
-            == group_id
+            ==
+            group_id,
         )
         .order_by(
-            GroupMaterial.created_at.desc()
+            GroupMaterial.created_at.desc(),
         )
         .all()
+    )
+
+
+def get_public_group_materials(
+    db: Session,
+    group_id: int,
+):
+    group = (
+        db.query(
+            StudyGroup,
+        )
+        .filter(
+            StudyGroup.id
+            ==
+            group_id,
+            StudyGroup.is_private.is_(
+                False,
+            ),
+        )
+        .first()
+    )
+
+    if group is None:
+        return None
+
+    return get_group_materials(
+        db,
+        group_id,
     )
 
 
@@ -259,24 +323,69 @@ def get_group_material_by_id(
 ):
     return (
         db.query(
-            GroupMaterial
+            GroupMaterial,
         )
         .filter(
             GroupMaterial.id
-            == material_id
+            ==
+            material_id,
         )
         .first()
+    )
+
+
+def get_public_group_material_by_id(
+    db: Session,
+    material_id: int,
+):
+    return (
+        db.query(
+            GroupMaterial,
+        )
+        .join(
+            StudyGroup,
+            StudyGroup.id
+            ==
+            GroupMaterial.group_id,
+        )
+        .filter(
+            GroupMaterial.id
+            ==
+            material_id,
+            StudyGroup.is_private.is_(
+                False,
+            ),
+        )
+        .first()
+    )
+
+
+def is_material_from_public_group(
+    db: Session,
+    material_id: int,
+) -> bool:
+    material = (
+        get_public_group_material_by_id(
+            db,
+            material_id,
+        )
+    )
+
+    return (
+        material is not None
     )
 
 
 def get_blob_client():
     if not settings.blob_read_write_token:
         raise RuntimeError(
-            "Token Vercel Blob non configurato."
+            "Token Vercel Blob non configurato.",
         )
 
     return AsyncBlobClient(
-        token=settings.blob_read_write_token,
+        token=(
+            settings.blob_read_write_token
+        ),
     )
 
 
@@ -284,7 +393,9 @@ async def delete_group_material(
     db: Session,
     material: GroupMaterial,
 ):
-    client = get_blob_client()
+    client = (
+        get_blob_client()
+    )
 
     await client.delete(
         material.stored_name,
@@ -292,7 +403,7 @@ async def delete_group_material(
 
     try:
         db.delete(
-            material
+            material,
         )
 
         db.commit()

@@ -1,19 +1,42 @@
+from datetime import date
+
 from typing import Literal
 
 from pydantic import (
     BaseModel,
     EmailStr,
+    Field,
 )
 
 
 class RegisterRequest(BaseModel):
-    first_name: str
+    first_name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
 
-    last_name: str
+    last_name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    date_of_birth: date
 
     email: EmailStr
 
-    password: str
+    password: str = Field(
+        min_length=8,
+        max_length=128,
+    )
+
+    policy_version: str = Field(
+        min_length=1,
+        max_length=30,
+    )
+
+    privacy_acknowledged: bool
+
+    terms_accepted: bool
 
     university: str | None = None
 

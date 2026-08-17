@@ -9,6 +9,10 @@ from models.group import (
     StudyGroup,
 )
 
+from models.user import (
+    User,
+)
+
 from schemas.group import (
     GroupCreate,
     GroupUpdate,
@@ -65,7 +69,28 @@ def get_groups(
 ):
     return (
         db.query(
-            StudyGroup
+            StudyGroup,
+        )
+        .order_by(
+            StudyGroup.created_at.desc(),
+        )
+        .all()
+    )
+
+
+def get_public_groups(
+    db: Session,
+):
+    return (
+        db.query(
+            StudyGroup,
+        )
+        .filter(
+            StudyGroup.is_private.is_(
+                False,
+            ),
+            StudyGroup.status ==
+            "active",
         )
         .order_by(
             StudyGroup.created_at.desc(),
@@ -80,15 +105,39 @@ def get_group_by_id(
 ):
     return (
         db.query(
-            StudyGroup
+            StudyGroup,
         )
         .options(
             joinedload(
-                StudyGroup.members
+                StudyGroup.members,
+            ).joinedload(
+                GroupMember.user,
             )
         )
         .filter(
-            StudyGroup.id == group_id
+            StudyGroup.id ==
+            group_id,
+        )
+        .first()
+    )
+
+
+def get_public_group_by_id(
+    db: Session,
+    group_id: int,
+):
+    return (
+        db.query(
+            StudyGroup,
+        )
+        .filter(
+            StudyGroup.id ==
+            group_id,
+            StudyGroup.is_private.is_(
+                False,
+            ),
+            StudyGroup.status ==
+            "active",
         )
         .first()
     )
@@ -100,16 +149,16 @@ def get_groups_by_user(
 ):
     return (
         db.query(
-            StudyGroup
+            StudyGroup,
         )
         .join(
             GroupMember,
-            GroupMember.group_id
-            == StudyGroup.id,
+            GroupMember.group_id ==
+            StudyGroup.id,
         )
         .filter(
-            GroupMember.user_id
-            == user_id
+            GroupMember.user_id ==
+            user_id,
         )
         .order_by(
             StudyGroup.created_at.desc(),
@@ -125,16 +174,98 @@ def get_group_member(
 ):
     return (
         db.query(
-            GroupMember
+            GroupMember,
         )
         .filter(
-            GroupMember.group_id
-            == group_id,
-
-            GroupMember.user_id
-            == user_id,
+            GroupMember.group_id ==
+            group_id,
+            GroupMember.user_id ==
+            user_id,
         )
         .first()
+    )
+
+
+def get_group_members(
+    db: Session,
+    group_id: int,
+):
+    return (
+        db.query(
+            GroupMember,
+        )
+        .options(
+            joinedload(
+                GroupMember.user,
+            )
+        )
+        .filter(
+            GroupMember.group_id ==
+            group_id,
+        )
+        .order_by(
+            GroupMember.id.asc(),
+        )
+        .all()
+    )
+
+
+def get_available_group_members(
+    db: Session,
+    group_id: int,
+):
+    return (
+        db.query(
+            GroupMember,
+        )
+        .options(
+            joinedload(
+                GroupMember.user,
+            )
+        )
+        .join(
+            User,
+            User.id ==
+            GroupMember.user_id,
+        )
+        .filter(
+            GroupMember.group_id ==
+            group_id,
+            User.is_active.is_(
+                True,
+            ),
+            User.available.is_(
+                True,
+            ),
+            User.role.in_(
+                [
+                    "student",
+                    "teacher",
+                ]
+            ),
+        )
+        .order_by(
+            GroupMember.id.asc(),
+        )
+        .all()
+    )
+
+
+def get_available_public_group_members(
+    db: Session,
+    group_id: int,
+):
+    group = get_public_group_by_id(
+        db,
+        group_id,
+    )
+
+    if group is None:
+        return None
+
+    return get_available_group_members(
+        db,
+        group_id,
     )
 
 
@@ -251,6 +382,29 @@ def delete_group(
         raise
 
 
+def is_group_public(
+    db: Session,
+    group_id: int,
+) -> bool:
+    group = (
+        db.query(
+            StudyGroup,
+        )
+        .filter(
+            StudyGroup.id ==
+            group_id,
+            StudyGroup.is_private.is_(
+                False,
+            ),
+            StudyGroup.status ==
+            "active",
+        )
+        .first()
+    )
+
+    return group is not None
+
+
 def is_group_admin(
     db: Session,
     group_id: int,
@@ -324,11 +478,13 @@ def get_group_join_request(
 ):
     return (
         db.query(
-            GroupJoinRequest
+            GroupJoinRequest,
         )
         .filter(
-            GroupJoinRequest.group_id == group_id,
-            GroupJoinRequest.user_id == user_id,
+            GroupJoinRequest.group_id ==
+            group_id,
+            GroupJoinRequest.user_id ==
+            user_id,
         )
         .first()
     )
@@ -340,10 +496,11 @@ def get_group_join_request_by_id(
 ):
     return (
         db.query(
-            GroupJoinRequest
+            GroupJoinRequest,
         )
         .filter(
-            GroupJoinRequest.id == request_id
+            GroupJoinRequest.id ==
+            request_id,
         )
         .first()
     )
@@ -355,11 +512,13 @@ def get_group_join_requests(
 ):
     return (
         db.query(
-            GroupJoinRequest
+            GroupJoinRequest,
         )
         .filter(
-            GroupJoinRequest.group_id == group_id,
-            GroupJoinRequest.status == "pending",
+            GroupJoinRequest.group_id ==
+            group_id,
+            GroupJoinRequest.status ==
+            "pending",
         )
         .order_by(
             GroupJoinRequest.created_at.asc(),

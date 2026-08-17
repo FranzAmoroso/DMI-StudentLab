@@ -3,52 +3,33 @@ from datetime import (
     timezone,
 )
 
+
 from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
 )
 
-from models.teacher_material import (
-    TeacherMaterial,
-)
-
-from schemas.teacher_material import (
-    TeacherMaterialCompleteRequest,
-    TeacherMaterialResponse,
-    TeacherMaterialUpdate,
-    TeacherMaterialUploadRequest,
-)
-
-from services.teacher_material import (
-    create_teacher_material,
-    delete_teacher_material,
-    ensure_teacher_material_not_duplicate,
-    generate_teacher_material_stored_name,
-    get_student_teacher_materials,
-    get_teacher_material_by_id,
-    get_teacher_materials,
-    require_teacher_subject,
-    update_teacher_material,
-    validate_teacher_material_mime_type,
-    validate_teacher_material_size,
-)
 
 from fastapi.middleware.cors import (
     CORSMiddleware,
 )
 
+
 from fastapi.responses import (
     StreamingResponse,
 )
+
 
 from sqlalchemy.exc import (
     IntegrityError,
 )
 
+
 from sqlalchemy.orm import (
     Session,
 )
+
 
 from vercel.blob import (
     AsyncBlobClient,
@@ -59,15 +40,18 @@ from core.config import (
     settings,
 )
 
+
 from core.database import (
     create_tables,
     get_db,
 )
 
+
 from core.security import (
     get_admin_user,
     get_current_user,
     get_creator_user,
+    get_optional_current_user,
     get_verified_teacher,
     get_verified_teacher_user,
 )
@@ -77,6 +61,12 @@ from models.user import (
     User,
     UserAcademicPath,
 )
+
+
+from models.user_policy_acceptance import (
+    UserPolicyAcceptance,
+)
+
 
 from models.subject import (
     Subject,
@@ -93,12 +83,65 @@ from models.filter import (
 )
 
 
+from models.teacher_material import (
+    TeacherMaterial,
+)
+
+
+from models.account_deletion_request import (
+    AccountDeletionRequest,
+)
+
+
+from models.group_content_report import (
+    GroupContentReport,
+)
+
+
+from models.group_ownership_transfer import (
+    GroupOwnershipTransfer,
+)
+
+
+from models.group_report import (
+    GroupReport,
+)
+
+
+from models.notification import (
+    Notification,
+)
+
+
+from models.profile_error_report import (
+    ProfileErrorReport,
+)
+
+
+from models.user_report import (
+    UserReport,
+)
+
+
+from models.material_publication_request import (
+    MaterialPublicationRequest,
+)
+
+
+from models.public_material import (
+    PublicMaterial,
+)
+
+
 from schemas.app_config import (
     AppConfigResponse,
 )
 
+
 from schemas.user import (
     AcademicPathVerificationUpdate,
+    PublicUserAcademicPathResponse,
+    PublicUserResponse,
     TeacherVerificationUpdate,
     UserAcademicPathCreate,
     UserAcademicPathResponse,
@@ -108,17 +151,20 @@ from schemas.user import (
     UserUpdate,
 )
 
+
 from schemas.auth import (
     LoginRequest,
     RegisterRequest,
     TokenResponse,
 )
 
+
 from schemas.subject import (
     SubjectCreate,
     SubjectResponse,
     UserSubjectCreate,
 )
+
 
 from schemas.group import (
     AddGroupMemberRequest,
@@ -131,13 +177,18 @@ from schemas.group import (
     GroupResponse,
     GroupUpdate,
     JoinGroupResponse,
+    PublicGroupDetailResponse,
+    PublicGroupMemberResponse,
+    PublicGroupResponse,
 )
+
 
 from schemas.material import (
     GroupMaterialCompleteRequest,
     GroupMaterialResponse,
     GroupMaterialUploadRequest,
 )
+
 
 from schemas.review import (
     AdminReviewsResponse,
@@ -149,15 +200,31 @@ from schemas.review import (
 )
 
 
+from schemas.teacher_material import (
+    TeacherMaterialCompleteRequest,
+    TeacherMaterialResponse,
+    TeacherMaterialUpdate,
+    TeacherMaterialUploadRequest,
+)
+
+
 from services.app_config import (
     get_app_config,
 )
+
 
 from services.auth import (
     authenticate_user,
     create_access_token,
     hash_password,
 )
+
+
+from services.registration import (
+    validate_policy_acceptance,
+    validate_registration_age,
+)
+
 
 from services.filter import (
     arguments,
@@ -167,10 +234,14 @@ from services.filter import (
     validate_answer,
 )
 
+
 from services.user import (
     add_subject_to_user,
     create_academic_path,
     get_academic_path_by_id,
+    get_available_user_academic_paths,
+    get_available_user_by_id,
+    get_available_users,
     get_pending_academic_path_verifications,
     get_user_academic_paths,
     get_user_by_email,
@@ -190,6 +261,7 @@ from services.user import (
     verify_teacher,
 )
 
+
 from services.subject import (
     create_subject,
     get_existing_subject,
@@ -197,24 +269,32 @@ from services.subject import (
     get_subjects_by_course,
 )
 
+
 from services.group import (
     accept_group_join_request,
     add_group_member,
     create_group,
     create_group_join_request,
     delete_group,
+    get_available_group_members,
+    get_available_public_group_members,
     get_group_by_id,
     get_group_join_request,
     get_group_join_request_by_id,
     get_group_join_requests,
     get_group_member,
+    get_group_members,
     get_groups,
     get_groups_by_user,
+    get_public_group_by_id,
+    get_public_groups,
+    is_group_public,
     reject_group_join_request,
     remove_group_member,
     update_group,
     update_group_member_role,
 )
+
 
 from services.material import (
     create_group_material_record,
@@ -223,9 +303,13 @@ from services.material import (
     generate_stored_name,
     get_group_material_by_id,
     get_group_materials,
+    get_public_group_material_by_id,
+    get_public_group_materials,
+    is_material_from_public_group,
     validate_material_mime_type,
     validate_material_size,
 )
+
 
 from services.review import (
     create_review,
@@ -239,99 +323,124 @@ from services.review import (
     update_review,
 )
 
-from models.account_deletion_request import (
-    AccountDeletionRequest,
+
+from services.teacher_material import (
+    create_teacher_material,
+    delete_teacher_material,
+    ensure_teacher_material_not_duplicate,
+    generate_teacher_material_stored_name,
+    get_student_teacher_materials,
+    get_teacher_material_by_id,
+    get_teacher_materials,
+    require_teacher_subject,
+    update_teacher_material,
+    validate_teacher_material_mime_type,
+    validate_teacher_material_size,
 )
 
-from models.group_content_report import (
-    GroupContentReport,
-)
-
-from models.group_ownership_transfer import (
-    GroupOwnershipTransfer,
-)
-
-from models.group_report import (
-    GroupReport,
-)
-
-from models.notification import (
-    Notification,
-)
-
-from models.profile_error_report import (
-    ProfileErrorReport,
-)
-
-from models.user_report import (
-    UserReport,
-)
 
 from routes.teacher_assignment import (
     router as teacher_assignment_router,
 )
 
+
 from routes.user_report import (
     router as user_report_router,
 )
+
 
 from routes.profile_error_report import (
     router as profile_error_report_router,
 )
 
+
 from routes.account_deletion_request import (
     router as account_deletion_request_router,
 )
+
 
 from routes.group_ownership_transfer import (
     router as group_ownership_transfer_router,
 )
 
+
 from routes.notification import (
     router as notification_router,
 )
+
 
 from routes.group_report import (
     router as group_report_router,
 )
 
+
 from routes.group_content_report import (
     router as group_content_report_router,
 )
 
+
+from routes.material_publication_request import (
+    router as material_publication_request_router,
+)
+
+
+from routes.public_material import (
+    router as public_material_router,
+)
+
+
 app = FastAPI()
+
 
 app.include_router(
     teacher_assignment_router,
 )
 
+
 app.include_router(
     user_report_router,
 )
+
 
 app.include_router(
     profile_error_report_router,
 )
 
+
 app.include_router(
     account_deletion_request_router,
 )
+
 
 app.include_router(
     group_ownership_transfer_router,
 )
 
+
 app.include_router(
     notification_router,
 )
+
 
 app.include_router(
     group_report_router,
 )
 
+
 app.include_router(
     group_content_report_router,
 )
+
+
+app.include_router(
+    material_publication_request_router,
+)
+
+
+app.include_router(
+    public_material_router,
+)
+
 
 @app.on_event(
     "startup",
@@ -343,8 +452,13 @@ def startup_event():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "*",
+        "https://dmi-student-lab.vercel.app",
     ],
+    allow_origin_regex=(
+        r"^https://dmi-student-lab(?:-[a-zA-Z0-9-]+)*\.vercel\.app$"
+        r"|^http://localhost(?::\d+)?$"
+        r"|^http://127\.0\.0\.1(?::\d+)?$"
+    ),
     allow_credentials=True,
     allow_methods=[
         "*",
@@ -353,7 +467,6 @@ app.add_middleware(
         "*",
     ],
 )
-
 
 def require_group_member(
     db: Session,
@@ -670,36 +783,30 @@ def api_catalog_subjects(
 @app.get(
     "/users",
     response_model=list[
-        UserResponse
+        PublicUserResponse
     ],
 )
 def api_users(
-    current_user: User = Depends(
-        get_current_user,
-    ),
     db: Session = Depends(
         get_db,
     ),
 ):
-    return get_users(
+    return get_available_users(
         db,
     )
 
 
 @app.get(
     "/user/{user_id}",
-    response_model=UserResponse,
+    response_model=PublicUserResponse,
 )
 def api_user(
     user_id: int,
-    current_user: User = Depends(
-        get_current_user,
-    ),
     db: Session = Depends(
         get_db,
     ),
 ):
-    user = get_user_by_id(
+    user = get_available_user_by_id(
         db,
         user_id,
     )
@@ -757,33 +864,29 @@ def api_update_user(
 @app.get(
     "/user/{user_id}/academic_paths",
     response_model=list[
-        UserAcademicPathResponse
+        PublicUserAcademicPathResponse
     ],
 )
 def api_user_academic_paths(
     user_id: int,
-    current_user: User = Depends(
-        get_current_user,
-    ),
     db: Session = Depends(
         get_db,
     ),
 ):
-    user = get_user_by_id(
-        db,
-        user_id,
+    academic_paths = (
+        get_available_user_academic_paths(
+            db,
+            user_id,
+        )
     )
 
-    if user is None:
+    if academic_paths is None:
         raise HTTPException(
             status_code=404,
             detail="Utente non trovato.",
         )
 
-    return get_user_academic_paths(
-        db,
-        user_id,
-    )
+    return academic_paths
 
 
 @app.post(
@@ -1751,7 +1854,7 @@ def api_create_group(
 @app.get(
     "/groups",
     response_model=list[
-        GroupResponse
+        PublicGroupResponse
     ],
 )
 def api_groups(
@@ -1759,17 +1862,23 @@ def api_groups(
         get_db,
     ),
 ):
-    return get_groups(
+    return get_public_groups(
         db,
     )
 
 
 @app.get(
     "/group/{group_id}",
-    response_model=GroupDetailResponse,
+    response_model=(
+        PublicGroupDetailResponse
+        | GroupDetailResponse
+    ),
 )
 def api_group(
     group_id: int,
+    current_user: User | None = Depends(
+        get_optional_current_user,
+    ),
     db: Session = Depends(
         get_db,
     ),
@@ -1784,6 +1893,42 @@ def api_group(
             status_code=404,
             detail="Gruppo non trovato.",
         )
+
+    if (
+        not group.is_private
+        and group.status ==
+        "active"
+    ):
+        members = (
+            get_available_public_group_members(
+                db,
+                group_id,
+            )
+        )
+
+        return PublicGroupDetailResponse(
+            id=group.id,
+            name=group.name,
+            description=group.description,
+            subject_id=group.subject_id,
+            university=group.university,
+            department=group.department,
+            course=group.course,
+            created_at=group.created_at,
+            members=members or [],
+        )
+
+    if current_user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Gruppo non trovato.",
+        )
+
+    require_group_member(
+        db,
+        group_id,
+        current_user.id,
+    )
 
     return group
 
@@ -2536,8 +2681,8 @@ def api_group_material_complete(
 )
 def api_group_materials(
     group_id: int,
-    current_user: User = Depends(
-        get_current_user,
+    current_user: User | None = Depends(
+        get_optional_current_user,
     ),
     db: Session = Depends(
         get_db,
@@ -2549,6 +2694,22 @@ def api_group_materials(
     )
 
     if group is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Gruppo non trovato.",
+        )
+
+    if (
+        not group.is_private
+        and group.status ==
+        "active"
+    ):
+        return get_group_materials(
+            db,
+            group_id,
+        )
+
+    if current_user is None:
         raise HTTPException(
             status_code=404,
             detail="Gruppo non trovato.",
@@ -2571,8 +2732,8 @@ def api_group_materials(
 )
 async def api_group_material(
     material_id: int,
-    current_user: User = Depends(
-        get_current_user,
+    current_user: User | None = Depends(
+        get_optional_current_user,
     ),
     db: Session = Depends(
         get_db,
@@ -2589,11 +2750,33 @@ async def api_group_material(
             detail="Materiale non trovato.",
         )
 
-    require_group_member(
+    group = get_group_by_id(
         db,
         material.group_id,
-        current_user.id,
     )
+
+    if group is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Gruppo non trovato.",
+        )
+
+    if not (
+        not group.is_private
+        and group.status ==
+        "active"
+    ):
+        if current_user is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Materiale non trovato.",
+            )
+
+        require_group_member(
+            db,
+            material.group_id,
+            current_user.id,
+        )
 
     if not settings.blob_read_write_token:
         raise HTTPException(
@@ -2716,6 +2899,35 @@ def api_register(
         get_db,
     ),
 ):
+    try:
+        validate_registration_age(
+            request.date_of_birth,
+            settings.minimum_registration_age,
+        )
+
+        validate_policy_acceptance(
+            policy_version=(
+                request.policy_version
+            ),
+            current_policy_version=(
+                settings.current_policy_version
+            ),
+            privacy_acknowledged=(
+                request.privacy_acknowledged
+            ),
+            terms_accepted=(
+                request.terms_accepted
+            ),
+        )
+
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exception,
+            ),
+        )
+
     normalized_email = (
         request.email
         .strip()
@@ -2817,6 +3029,9 @@ def api_register(
             request.last_name
             .strip()
         ),
+        date_of_birth=(
+            request.date_of_birth
+        ),
         email=normalized_email,
         password_hash=(
             hash_password(
@@ -2860,6 +3075,26 @@ def api_register(
 
     try:
         db.flush()
+
+        policy_acceptance = (
+            UserPolicyAcceptance(
+                user_id=user.id,
+                policy_version=(
+                    settings.current_policy_version
+                ),
+                privacy_acknowledged=True,
+                terms_accepted=True,
+                accepted_at=(
+                    datetime.now(
+                        timezone.utc,
+                    )
+                ),
+            )
+        )
+
+        db.add(
+            policy_acceptance,
+        )
 
         if has_complete_academic_data:
             academic_status = (
@@ -2931,6 +3166,10 @@ def api_register(
             detail="Impossibile registrare l'utente.",
         )
 
+    except Exception:
+        db.rollback()
+        raise
+
     token = create_access_token(
         user_id=user.id,
         secret_key=(
@@ -2941,6 +3180,7 @@ def api_register(
     return TokenResponse(
         access_token=token,
     )
+
 
 
 @app.post(
@@ -3392,18 +3632,6 @@ def api_admin_users(
         )
         .all()
     )
-@app.get(
-    "/teacher/access",
-)
-def api_teacher_access(
-    current_user: User = Depends(
-        get_verified_teacher_user,
-    ),
-):
-    return {
-        "authorized":
-            True,
-    }
 
 
 @app.get(

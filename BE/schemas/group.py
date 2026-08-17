@@ -55,6 +55,50 @@ class GroupMemberResponse(BaseModel):
     joined_at: datetime
 
 
+class PublicGroupUserResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+
+    first_name: str
+
+    last_name: str
+
+    role: str
+
+    university: str | None
+
+    department: str | None
+
+    course: str | None
+
+    teacher_verification_status: str
+
+    available: bool
+
+    available_for_help: bool
+
+    available_for_private_lessons: bool
+
+
+class PublicGroupMemberResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+
+    user_id: int
+
+    role: str
+
+    joined_at: datetime
+
+    user: PublicGroupUserResponse
+
+
 class GroupResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
@@ -81,8 +125,44 @@ class GroupResponse(BaseModel):
     created_at: datetime
 
 
-class GroupDetailResponse(GroupResponse):
-    members: list[GroupMemberResponse] = Field(
+class PublicGroupResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+
+    name: str
+
+    description: str | None
+
+    subject_id: int | None
+
+    university: str
+
+    department: str
+
+    course: str
+
+    created_at: datetime
+
+
+class GroupDetailResponse(
+    GroupResponse,
+):
+    members: list[
+        GroupMemberResponse
+    ] = Field(
+        default_factory=list,
+    )
+
+
+class PublicGroupDetailResponse(
+    PublicGroupResponse,
+):
+    members: list[
+        PublicGroupMemberResponse
+    ] = Field(
         default_factory=list,
     )
 

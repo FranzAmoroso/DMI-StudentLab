@@ -1,6 +1,7 @@
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -30,6 +31,12 @@ class User(Base):
     last_name = Column(
         String(100),
         nullable=False,
+    )
+
+    date_of_birth = Column(
+        Date,
+        nullable=True,
+        index=True,
     )
 
     email = Column(
@@ -242,6 +249,13 @@ class User(Base):
         "GroupContentReport",
         foreign_keys="GroupContentReport.reviewed_by",
         order_by="GroupContentReport.id",
+    )
+
+    policy_acceptances = relationship(
+        "UserPolicyAcceptance",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="UserPolicyAcceptance.accepted_at.desc()",
     )
 
 

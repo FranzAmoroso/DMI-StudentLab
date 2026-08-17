@@ -36,6 +36,10 @@ from services.user import (
 
 security = HTTPBearer()
 
+optional_security = HTTPBearer(
+    auto_error=False,
+)
+
 
 ADMIN_ROLES = {
     "admin",
@@ -63,6 +67,46 @@ def get_current_user(
         get_db,
     ),
 ) -> User:
+    user_id = decode_access_token(
+        token=credentials.credentials,
+        secret_key=settings.secret_key,
+    )
+
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token non valido o scaduto.",
+        )
+
+    user = get_user_by_id(
+        db,
+        user_id,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Utente non trovato.",
+        )
+
+    require_active_user(
+        user,
+    )
+
+    return user
+
+
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(
+        optional_security,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+) -> User | None:
+    if credentials is None:
+        return None
+
     user_id = decode_access_token(
         token=credentials.credentials,
         secret_key=settings.secret_key,

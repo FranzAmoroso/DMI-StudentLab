@@ -175,7 +175,7 @@ def create_user(
     )
 
 
-def get_users(
+def _user_query(
     db: Session,
 ):
     return (
@@ -218,6 +218,45 @@ def get_users(
             )
             .joinedload(
                 SubjectOffering.teachers,
+            ),
+        )
+    )
+
+
+def get_users(
+    db: Session,
+):
+    return (
+        _user_query(
+            db,
+        )
+        .order_by(
+            User.last_name.asc(),
+            User.first_name.asc(),
+        )
+        .all()
+    )
+
+
+def get_available_users(
+    db: Session,
+):
+    return (
+        _user_query(
+            db,
+        )
+        .filter(
+            User.is_active.is_(
+                True,
+            ),
+            User.available.is_(
+                True,
+            ),
+            User.role.in_(
+                [
+                    "student",
+                    "teacher",
+                ]
             ),
         )
         .order_by(
@@ -228,51 +267,41 @@ def get_users(
     )
 
 
+def get_available_user_by_id(
+    db: Session,
+    user_id: int,
+):
+    return (
+        _user_query(
+            db,
+        )
+        .filter(
+            User.id ==
+            user_id,
+            User.is_active.is_(
+                True,
+            ),
+            User.available.is_(
+                True,
+            ),
+            User.role.in_(
+                [
+                    "student",
+                    "teacher",
+                ]
+            ),
+        )
+        .first()
+    )
+
+
 def get_user_by_id(
     db: Session,
     user_id: int,
 ):
     return (
-        db.query(
-            User,
-        )
-        .options(
-            joinedload(
-                User.academic_paths,
-            ),
-            joinedload(
-                User.subjects,
-            )
-            .joinedload(
-                UserSubject.subject,
-            )
-            .joinedload(
-                Subject.offerings,
-            )
-            .joinedload(
-                SubjectOffering.teachers,
-            ),
-            joinedload(
-                User.teacher_assignments,
-            )
-            .joinedload(
-                TeacherAssignment.subject,
-            )
-            .joinedload(
-                Subject.offerings,
-            )
-            .joinedload(
-                SubjectOffering.teachers,
-            ),
-            joinedload(
-                User.teacher_assignments,
-            )
-            .joinedload(
-                TeacherAssignment.offering,
-            )
-            .joinedload(
-                SubjectOffering.teachers,
-            ),
+        _user_query(
+            db,
         )
         .filter(
             User.id ==
@@ -532,6 +561,24 @@ def get_user_academic_paths(
             UserAcademicPath.id.asc(),
         )
         .all()
+    )
+
+
+def get_available_user_academic_paths(
+    db: Session,
+    user_id: int,
+):
+    user = get_available_user_by_id(
+        db,
+        user_id,
+    )
+
+    if user is None:
+        return None
+
+    return get_user_academic_paths(
+        db,
+        user_id,
     )
 
 

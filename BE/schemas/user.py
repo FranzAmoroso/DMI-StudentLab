@@ -132,6 +132,40 @@ class UserAcademicPathResponse(BaseModel):
     is_primary: bool
 
 
+class PublicUserAcademicPathResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+
+    university: str
+
+    university_code: str
+
+    department: str
+
+    department_code: str
+
+    course: str
+
+    course_code: str
+
+    degree_type: str | None
+
+    status: str
+
+    verification_status: str
+
+    start_year: int | None
+
+    graduation_year: int | None
+
+    is_current: bool
+
+    is_primary: bool
+
+
 class UserCreate(BaseModel):
     first_name: str
 
@@ -200,6 +234,56 @@ class TeacherVerificationUpdate(BaseModel):
 
 class UserAdminStatusUpdate(BaseModel):
     is_active: bool
+
+
+class PublicUserResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+
+    first_name: str
+
+    last_name: str
+
+    university: str | None
+
+    department: str | None
+
+    course: str | None
+
+    description: str | None
+
+    role: str
+
+    teacher_verification_status: str
+
+    available: bool
+
+    available_for_help: bool
+
+    available_for_private_lessons: bool
+
+    willing_to_teach: bool
+
+    subjects: list[
+        UserSubjectResponse
+    ] = Field(
+        default_factory=list,
+    )
+
+    academic_paths: list[
+        PublicUserAcademicPathResponse
+    ] = Field(
+        default_factory=list,
+    )
+
+    teacher_assignments: list[
+        TeacherAssignmentResponse
+    ] = Field(
+        default_factory=list,
+    )
 
 
 class UserResponse(BaseModel):

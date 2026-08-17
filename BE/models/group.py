@@ -1,4 +1,7 @@
-from datetime import datetime
+from datetime import (
+    datetime,
+    timezone,
+)
 
 from sqlalchemy import (
     Boolean,
@@ -15,6 +18,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from core.database import Base
+
+
+def utc_now():
+    return datetime.now(
+        timezone.utc,
+    )
 
 
 class StudyGroup(Base):
@@ -66,6 +75,7 @@ class StudyGroup(Base):
         Boolean,
         nullable=False,
         default=False,
+        index=True,
     )
 
     status = Column(
@@ -105,7 +115,7 @@ class StudyGroup(Base):
             timezone=True,
         ),
         nullable=False,
-        default=datetime.utcnow,
+        default=utc_now,
     )
 
     updated_at = Column(
@@ -113,8 +123,8 @@ class StudyGroup(Base):
             timezone=True,
         ),
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=utc_now,
+        onupdate=utc_now,
     )
 
     subject = relationship(
@@ -147,21 +157,29 @@ class StudyGroup(Base):
 
     ownership_transfers = relationship(
         "GroupOwnershipTransfer",
-        foreign_keys="GroupOwnershipTransfer.group_id",
+        foreign_keys=(
+            "GroupOwnershipTransfer.group_id"
+        ),
         cascade="all, delete-orphan",
-        order_by="GroupOwnershipTransfer.id",
+        order_by=(
+            "GroupOwnershipTransfer.id"
+        ),
     )
 
     reports = relationship(
         "GroupReport",
-        foreign_keys="GroupReport.group_id",
+        foreign_keys=(
+            "GroupReport.group_id"
+        ),
         cascade="all, delete-orphan",
         order_by="GroupReport.id",
     )
 
     content_reports = relationship(
         "GroupContentReport",
-        foreign_keys="GroupContentReport.group_id",
+        foreign_keys=(
+            "GroupContentReport.group_id"
+        ),
         cascade="all, delete-orphan",
         order_by="GroupContentReport.id",
     )
@@ -173,7 +191,9 @@ class StudyGroup(Base):
             "'pending_deletion', "
             "'deleted'"
             ")",
-            name="chk_study_group_status",
+            name=(
+                "chk_study_group_status"
+            ),
         ),
     )
 
@@ -219,7 +239,7 @@ class GroupMember(Base):
             timezone=True,
         ),
         nullable=False,
-        default=datetime.utcnow,
+        default=utc_now,
     )
 
     group = relationship(
@@ -243,13 +263,17 @@ class GroupMember(Base):
             "'admin', "
             "'member'"
             ")",
-            name="chk_group_member_role",
+            name=(
+                "chk_group_member_role"
+            ),
         ),
     )
 
 
 class GroupJoinRequest(Base):
-    __tablename__ = "group_join_requests"
+    __tablename__ = (
+        "group_join_requests"
+    )
 
     id = Column(
         Integer,
@@ -306,7 +330,7 @@ class GroupJoinRequest(Base):
             timezone=True,
         ),
         nullable=False,
-        default=datetime.utcnow,
+        default=utc_now,
     )
 
     updated_at = Column(
@@ -314,8 +338,8 @@ class GroupJoinRequest(Base):
             timezone=True,
         ),
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=utc_now,
+        onupdate=utc_now,
     )
 
     group = relationship(
@@ -341,7 +365,9 @@ class GroupJoinRequest(Base):
         UniqueConstraint(
             "group_id",
             "user_id",
-            name="uq_group_join_request",
+            name=(
+                "uq_group_join_request"
+            ),
         ),
         CheckConstraint(
             "status IN ("
@@ -350,6 +376,8 @@ class GroupJoinRequest(Base):
             "'rejected', "
             "'cancelled'"
             ")",
-            name="chk_group_join_request_status",
+            name=(
+                "chk_group_join_request_status"
+            ),
         ),
     )
