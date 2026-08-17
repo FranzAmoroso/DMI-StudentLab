@@ -1,74 +1,78 @@
-from sqlalchemy.orm import Session
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Integer,
+    String,
+)
 
-from models.app_config import AppConfig
-from schemas.app_config import AppConfigUpdate
+from core.database import Base
 
 
-def get_app_config(
-    db: Session,
-) -> AppConfig:
-    config = (
-        db.query(AppConfig)
-        .filter(
-            AppConfig.id == 1
-        )
-        .first()
+class AppConfig(Base):
+    __tablename__ = "app_config"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
     )
 
-    if config is not None:
-        return config
-
-    config = AppConfig(
-        id=1,
-        latest_version="1.0.0",
-        minimum_version="1.0.0",
-        force_update=False,
-        maintenance=False,
-        message="",
-        android_url="",
-        ios_url="",
-        windows_url="",
-        linux_url="",
-        macos_url="",
+    latest_version = Column(
+        String,
+        nullable=False,
+        default="1.0.0",
     )
 
-    try:
-        db.add(config)
-        db.commit()
-        db.refresh(config)
-
-        return config
-
-    except Exception:
-        db.rollback()
-        raise
-
-
-def update_app_config(
-    db: Session,
-    request: AppConfigUpdate,
-) -> AppConfig:
-    config = get_app_config(
-        db,
+    minimum_version = Column(
+        String,
+        nullable=False,
+        default="1.0.0",
     )
 
-    values = request.model_dump(
-        exclude_unset=True,
+    force_update = Column(
+        Boolean,
+        nullable=False,
+        default=False,
     )
 
-    for key, value in values.items():
-        setattr(
-            config,
-            key,
-            value,
-        )
+    maintenance = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
 
-    try:
-        db.commit()
-        db.refresh(config)
+    message = Column(
+        String,
+        nullable=False,
+        default="",
+    )
 
-        return config
+    android_url = Column(
+        String,
+        nullable=False,
+        default="",
+    )
 
-    except Exception:
-        db.rollback()
-        raise
+    ios_url = Column(
+        String,
+        nullable=False,
+        default="",
+    )
+
+    windows_url = Column(
+        String,
+        nullable=False,
+        default="",
+    )
+
+    linux_url = Column(
+        String,
+        nullable=False,
+        default="",
+    )
+
+    macos_url = Column(
+        String,
+        nullable=False,
+        default="",
+    )
