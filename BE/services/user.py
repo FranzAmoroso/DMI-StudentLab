@@ -249,6 +249,9 @@ def get_available_users(
             User.is_active.is_(
                 True,
             ),
+            User.email_verified_at.is_not(
+                None,
+            ),
             User.available.is_(
                 True,
             ),
@@ -280,6 +283,9 @@ def get_available_user_by_id(
             user_id,
             User.is_active.is_(
                 True,
+            ),
+            User.email_verified_at.is_not(
+                None,
             ),
             User.available.is_(
                 True,
@@ -901,7 +907,7 @@ def verify_academic_path(
         "graduated"
     ):
         raise ValueError(
-            "Solo un percorso dichiarato come laureato può essere verificato.",
+            "Solo un percorso completato con titolo conseguito può essere verificato.",
         )
 
     academic_path.verification_status = (
@@ -937,7 +943,7 @@ def reject_academic_path(
         "graduated"
     ):
         raise ValueError(
-            "Solo un percorso dichiarato come laureato può essere verificato.",
+            "Solo un percorso completato con titolo conseguito può essere verificato.",
         )
 
     academic_path.verification_status = (

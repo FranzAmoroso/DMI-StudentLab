@@ -1,15 +1,30 @@
 from datetime import date
-
 from typing import Literal
 
 from pydantic import (
     BaseModel,
-    EmailStr,
     Field,
 )
 
 
-class RegisterRequest(BaseModel):
+AcademicPathStatusValue = Literal[
+    "enrolled",
+    "graduated",
+    "suspended",
+    "withdrawn",
+    "transferred",
+]
+
+
+UserRoleValue = Literal[
+    "student",
+    "teacher",
+]
+
+
+class RegisterRequest(
+    BaseModel,
+):
     first_name: str = Field(
         min_length=1,
         max_length=100,
@@ -20,72 +35,159 @@ class RegisterRequest(BaseModel):
         max_length=100,
     )
 
-    date_of_birth: date
-
-    email: EmailStr
+    email: str = Field(
+        min_length=3,
+        max_length=320,
+    )
 
     password: str = Field(
         min_length=8,
         max_length=128,
     )
 
+    date_of_birth: date
+
     policy_version: str = Field(
         min_length=1,
-        max_length=30,
+        max_length=50,
     )
 
     privacy_acknowledged: bool
 
     terms_accepted: bool
 
-    university: str | None = None
+    university: str | None = Field(
+        default=None,
+        max_length=255,
+    )
 
-    university_code: str | None = None
+    university_code: str | None = Field(
+        default=None,
+        max_length=100,
+    )
 
-    department: str | None = None
+    department: str | None = Field(
+        default=None,
+        max_length=255,
+    )
 
-    department_code: str | None = None
+    department_code: str | None = Field(
+        default=None,
+        max_length=100,
+    )
 
-    course: str | None = None
+    course: str | None = Field(
+        default=None,
+        max_length=255,
+    )
 
-    course_code: str | None = None
+    course_code: str | None = Field(
+        default=None,
+        max_length=100,
+    )
 
-    degree_type: str | None = None
+    degree_type: str | None = Field(
+        default=None,
+        max_length=100,
+    )
 
-    academic_status: Literal[
-        "enrolled",
-        "graduated",
-        "withdrawn",
-        "transferred",
-    ] = "enrolled"
+    academic_status: AcademicPathStatusValue = (
+        "enrolled"
+    )
 
-    start_year: int | None = None
+    start_year: int | None = Field(
+        default=None,
+        ge=1900,
+        le=2200,
+    )
 
-    graduation_year: int | None = None
+    graduation_year: int | None = Field(
+        default=None,
+        ge=1900,
+        le=2200,
+    )
 
-    description: str | None = None
+    description: str = Field(
+        default="",
+        max_length=2000,
+    )
 
-    role: Literal[
-        "student",
-        "teacher",
-    ] = "student"
+    role: UserRoleValue
 
-    available: bool = True
+    available: bool = False
 
-    available_for_help: bool = False
+    available_for_help: bool | None = None
 
-    available_for_private_lessons: bool = False
+    available_for_private_lessons: bool | None = (
+        None
+    )
 
     willing_to_teach: bool | None = None
 
 
-class LoginRequest(BaseModel):
-    email: EmailStr
+class RegistrationResponse(
+    BaseModel,
+):
+    registration_id: str
 
-    password: str
+    email: str
+
+    email_verification_required: bool = True
+
+    expires_in: int
 
 
-class TokenResponse(BaseModel):
+class EmailVerificationRequest(
+    BaseModel,
+):
+    registration_id: str = Field(
+        min_length=1,
+        max_length=255,
+    )
+
+    code: str = Field(
+        pattern=r"^\d{6}$",
+    )
+
+
+class EmailVerificationResendRequest(
+    BaseModel,
+):
+    registration_id: str = Field(
+        min_length=1,
+        max_length=255,
+    )
+
+
+class EmailVerificationResendResponse(
+    BaseModel,
+):
+    registration_id: str
+
+    email: str
+
+    expires_in: int
+
+    message: str
+
+
+class LoginRequest(
+    BaseModel,
+):
+    email: str = Field(
+        min_length=3,
+        max_length=320,
+    )
+
+    password: str = Field(
+        min_length=1,
+        max_length=128,
+    )
+
+
+class TokenResponse(
+    BaseModel,
+):
     access_token: str
 
     token_type: str = "bearer"

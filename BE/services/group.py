@@ -234,6 +234,9 @@ def get_available_group_members(
             User.is_active.is_(
                 True,
             ),
+            User.email_verified_at.is_not(
+                None,
+            ),
             User.available.is_(
                 True,
             ),

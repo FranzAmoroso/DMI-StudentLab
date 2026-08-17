@@ -153,8 +153,12 @@ from schemas.user import (
 
 
 from schemas.auth import (
+    EmailVerificationRequest,
+    EmailVerificationResendRequest,
+    EmailVerificationResendResponse,
     LoginRequest,
     RegisterRequest,
+    RegistrationResponse,
     TokenResponse,
 )
 
@@ -215,8 +219,11 @@ from services.app_config import (
 
 from services.auth import (
     authenticate_user,
+    begin_email_verification,
     create_access_token,
     hash_password,
+    resend_email_verification,
+    verify_user_email,
 )
 
 
@@ -1221,7 +1228,7 @@ def api_admin_academic_path_verification(
     ):
         raise HTTPException(
             status_code=400,
-            detail="Il percorso non risulta concluso con laurea.",
+            detail="Il percorso non risulta completato con titolo conseguito.",
         )
 
     try:
@@ -2891,7 +2898,7 @@ async def api_remove_group_material(
 
 @app.post(
     "/register",
-    response_model=TokenResponse,
+    response_model=RegistrationResponse,
 )
 def api_register(
     request: RegisterRequest,
@@ -2980,6 +2987,41 @@ def api_register(
             detail="I dati del percorso accademico sono incompleti.",
         )
 
+    if (
+        request.academic_status !=
+        "graduated"
+        and request.graduation_year
+        is not None
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="L'anno di conseguimento può essere indicato solo per un percorso completato.",
+        )
+
+    if (
+        request.academic_status ==
+        "graduated"
+        and request.graduation_year
+        is None
+        and has_complete_academic_data
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Inserisci l'anno di conseguimento del percorso completato.",
+        )
+
+    if (
+        request.start_year is not None
+        and request.graduation_year
+        is not None
+        and request.graduation_year <
+        request.start_year
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="L'anno di conseguimento non può precedere l'anno di inizio.",
+        )
+
     role = (
         request.role
         .strip()
@@ -2999,6 +3041,9 @@ def api_register(
             request.available
         )
 
+    if available_for_help is None:
+        available_for_help = False
+
     available_for_private_lessons = (
         request.available_for_private_lessons
     )
@@ -3013,6 +3058,12 @@ def api_register(
         available_for_private_lessons = (
             request.willing_to_teach
         )
+
+    if (
+        available_for_private_lessons
+        is None
+    ):
+        available_for_private_lessons = False
 
     teacher_verification_status = (
         "pending"
@@ -3170,6 +3221,77 @@ def api_register(
         db.rollback()
         raise
 
+    try:
+        expires_in = (
+            begin_email_verification(
+                db,
+                user=user,
+                secret_key=(
+                    settings.secret_key
+                ),
+            )
+        )
+
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exception,
+            ),
+        )
+
+    except RuntimeError:
+        raise HTTPException(
+            status_code=503,
+            detail="Non è stato possibile inviare il codice di verifica. Riprova.",
+        )
+
+    if not user.email_verification_id:
+        raise HTTPException(
+            status_code=500,
+            detail="Impossibile completare la verifica dell'email.",
+        )
+
+    return RegistrationResponse(
+        registration_id=(
+            user.email_verification_id
+        ),
+        email=user.email,
+        email_verification_required=True,
+        expires_in=expires_in,
+    )
+
+
+@app.post(
+    "/auth/email/verify",
+    response_model=TokenResponse,
+)
+def api_verify_email(
+    request: EmailVerificationRequest,
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    try:
+        user = verify_user_email(
+            db,
+            registration_id=(
+                request.registration_id
+            ),
+            code=request.code,
+            secret_key=(
+                settings.secret_key
+            ),
+        )
+
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exception,
+            ),
+        )
+
     token = create_access_token(
         user_id=user.id,
         secret_key=(
@@ -3181,6 +3303,58 @@ def api_register(
         access_token=token,
     )
 
+
+@app.post(
+    "/auth/email/resend",
+    response_model=EmailVerificationResendResponse,
+)
+def api_resend_email_verification(
+    request: EmailVerificationResendRequest,
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    try:
+        user, expires_in = (
+            resend_email_verification(
+                db,
+                registration_id=(
+                    request.registration_id
+                ),
+                secret_key=(
+                    settings.secret_key
+                ),
+            )
+        )
+
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exception,
+            ),
+        )
+
+    except RuntimeError:
+        raise HTTPException(
+            status_code=503,
+            detail="Non è stato possibile inviare il nuovo codice. Riprova.",
+        )
+
+    if not user.email_verification_id:
+        raise HTTPException(
+            status_code=500,
+            detail="Impossibile completare il reinvio del codice.",
+        )
+
+    return EmailVerificationResendResponse(
+        registration_id=(
+            user.email_verification_id
+        ),
+        email=user.email,
+        expires_in=expires_in,
+        message="Un nuovo codice di verifica è stato inviato.",
+    )
 
 
 @app.post(
@@ -3203,6 +3377,15 @@ def api_login(
         raise HTTPException(
             status_code=401,
             detail="Email o password non corrette.",
+        )
+
+    if (
+        user.email_verified_at
+        is None
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Verifica la tua email prima di accedere.",
         )
 
     token = create_access_token(

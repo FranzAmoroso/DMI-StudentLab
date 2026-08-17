@@ -51,6 +51,53 @@ class User(Base):
         nullable=False,
     )
 
+    email_verified_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    email_verification_id = Column(
+        String(64),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+
+    email_verification_code_hash = Column(
+        String(255),
+        nullable=True,
+    )
+
+    email_verification_expires_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    email_verification_attempts = Column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    email_verification_resend_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    email_verification_last_sent_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=True,
+    )
+
     university = Column(
         String(200),
         nullable=True,

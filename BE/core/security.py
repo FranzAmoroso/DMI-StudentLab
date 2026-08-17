@@ -52,9 +52,47 @@ def require_active_user(
 ) -> User:
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account non attivo.",
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "Account non attivo."
+            ),
         )
+
+    return user
+
+
+def require_verified_email(
+    user: User,
+) -> User:
+    if (
+        user.email_verified_at
+        is None
+    ):
+        raise HTTPException(
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "Verifica la tua email "
+                "prima di continuare."
+            ),
+        )
+
+    return user
+
+
+def require_authenticated_user(
+    user: User,
+) -> User:
+    require_active_user(
+        user,
+    )
+
+    require_verified_email(
+        user,
+    )
 
     return user
 
@@ -68,14 +106,22 @@ def get_current_user(
     ),
 ) -> User:
     user_id = decode_access_token(
-        token=credentials.credentials,
-        secret_key=settings.secret_key,
+        token=(
+            credentials.credentials
+        ),
+        secret_key=(
+            settings.secret_key
+        ),
     )
 
     if user_id is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token non valido o scaduto.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Token non valido o scaduto."
+            ),
         )
 
     user = get_user_by_id(
@@ -85,11 +131,15 @@ def get_current_user(
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Utente non trovato.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Utente non trovato."
+            ),
         )
 
-    require_active_user(
+    require_authenticated_user(
         user,
     )
 
@@ -108,14 +158,22 @@ def get_optional_current_user(
         return None
 
     user_id = decode_access_token(
-        token=credentials.credentials,
-        secret_key=settings.secret_key,
+        token=(
+            credentials.credentials
+        ),
+        secret_key=(
+            settings.secret_key
+        ),
     )
 
     if user_id is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token non valido o scaduto.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Token non valido o scaduto."
+            ),
         )
 
     user = get_user_by_id(
@@ -125,11 +183,15 @@ def get_optional_current_user(
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Utente non trovato.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Utente non trovato."
+            ),
         )
 
-    require_active_user(
+    require_authenticated_user(
         user,
     )
 
@@ -151,11 +213,15 @@ def get_admin_user(
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Utente non trovato.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Utente non trovato."
+            ),
         )
 
-    require_active_user(
+    require_authenticated_user(
         user,
     )
 
@@ -166,8 +232,13 @@ def get_admin_user(
 
     if role not in ADMIN_ROLES:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accesso riservato agli amministratori.",
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "Accesso riservato "
+                "agli amministratori."
+            ),
         )
 
     return user
@@ -188,11 +259,15 @@ def get_verified_teacher_user(
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Utente non trovato.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Utente non trovato."
+            ),
         )
 
-    require_active_user(
+    require_authenticated_user(
         user,
     )
 
@@ -203,8 +278,13 @@ def get_verified_teacher_user(
 
     if role != "teacher":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accesso riservato ai docenti.",
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "Accesso riservato "
+                "ai docenti."
+            ),
         )
 
     teacher_status = (
@@ -212,10 +292,18 @@ def get_verified_teacher_user(
         or ""
     ).strip().lower()
 
-    if teacher_status != "verified":
+    if (
+        teacher_status !=
+        "verified"
+    ):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Docente non ancora verificato.",
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "Docente non ancora "
+                "verificato."
+            ),
         )
 
     return user
@@ -244,11 +332,15 @@ def get_creator_user(
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Utente non trovato.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Utente non trovato."
+            ),
         )
 
-    require_active_user(
+    require_authenticated_user(
         user,
     )
 
@@ -259,8 +351,13 @@ def get_creator_user(
 
     if role != "creator":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accesso riservato al creator.",
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "Accesso riservato "
+                "al creator."
+            ),
         )
 
     return user

@@ -20,6 +20,7 @@ from schemas.teacher_assignment import (
 AcademicPathStatus = Literal[
     "enrolled",
     "graduated",
+    "suspended",
     "withdrawn",
     "transferred",
 ]
@@ -115,9 +116,9 @@ class UserAcademicPathResponse(BaseModel):
 
     degree_type: str | None
 
-    status: str
+    status: AcademicPathStatus
 
-    verification_status: str
+    verification_status: AcademicPathVerificationStatus
 
     verified_by: int | None
 
@@ -153,9 +154,9 @@ class PublicUserAcademicPathResponse(BaseModel):
 
     degree_type: str | None
 
-    status: str
+    status: AcademicPathStatus
 
-    verification_status: str
+    verification_status: AcademicPathVerificationStatus
 
     start_year: int | None
 
@@ -298,6 +299,8 @@ class UserResponse(BaseModel):
     last_name: str
 
     email: str
+
+    email_verified_at: datetime | None
 
     university: str | None
 
