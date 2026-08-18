@@ -10,10 +10,6 @@ import 'local_file_service.dart';
 import 'local_storage_identity.dart';
 
 
-// =============================================================================
-// MATERIAL DOWNLOAD SERVICE
-// =============================================================================
-
 class MaterialDownloadService {
   final ApiService _apiService;
 
@@ -44,29 +40,11 @@ class MaterialDownloadService {
                 LocalFileService();
 
 
-  // ===========================================================================
-  // CURRENT LOCAL USER
-  // ===========================================================================
-
   int get currentLocalUserId {
     return LocalStorageIdentity
         .currentLocalUserId;
   }
 
-
-  // ===========================================================================
-  // DOWNLOAD
-  // ===========================================================================
-  //
-  // Se il file è già presente:
-  //
-  // SQLite + filesystem
-  //      ↓
-  // ritorniamo quello esistente.
-  //
-  // Nessun duplicato.
-  //
-  // ===========================================================================
 
   Future<DownloadedMaterialLocal>
       download({
@@ -76,13 +54,15 @@ class MaterialDownloadService {
 
     required int groupId,
 
-    int? subjectId,
+    String? university,
 
-    String? subjectName,
+    String? department,
 
     String? course,
 
-    String? department,
+    int? subjectId,
+
+    String? subjectName,
 
     required String originalName,
 
@@ -90,17 +70,11 @@ class MaterialDownloadService {
 
     int? size,
   }) async {
-
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
-
-
-    // -------------------------------------------------------------------------
-    // 1. CERCA MATERIAL IN SQLITE
-    // -------------------------------------------------------------------------
 
     final DownloadedMaterialLocal?
         existing =
@@ -112,48 +86,30 @@ class MaterialDownloadService {
           materialId,
     );
 
-
-    if (existing !=
-        null) {
-
-      // -----------------------------------------------------------------------
-      // CONTROLLA FILE FISICO
-      // -----------------------------------------------------------------------
-
+    if (existing != null) {
       final bool fileExists =
           await _fileService.exists(
         existing.localPath,
       );
 
-
-      // -----------------------------------------------------------------------
-      // ESISTE GIÀ
-      // -----------------------------------------------------------------------
-
       if (fileExists) {
-
-        // ---------------------------------------------------------------------
-        // AGGIORNA EVENTUALI METADATI MANCANTI
-        // ---------------------------------------------------------------------
-        //
-        // Utile per file scaricati prima della migration v4.
-        //
-        // ---------------------------------------------------------------------
-
         final DownloadedMaterialLocal
             updated =
             existing.copyWith(
+          university:
+              university,
+
+          department:
+              department,
+
+          course:
+              course,
+
           subjectId:
               subjectId,
 
           subjectName:
               subjectName,
-
-          course:
-              course,
-
-          department:
-              department,
 
           mimeType:
               mimeType,
@@ -162,19 +118,12 @@ class MaterialDownloadService {
               size,
         );
 
-
         await _repository.save(
           updated,
         );
 
-
         return updated;
       }
-
-
-      // -----------------------------------------------------------------------
-      // SQLITE ORFANO
-      // -----------------------------------------------------------------------
 
       await _repository.delete(
         userId:
@@ -185,21 +134,11 @@ class MaterialDownloadService {
       );
     }
 
-
-    // -------------------------------------------------------------------------
-    // 2. DOWNLOAD DAL BACKEND
-    // -------------------------------------------------------------------------
-
     final bytes =
         await _apiService
             .downloadGroupMaterial(
       materialId,
     );
-
-
-    // -------------------------------------------------------------------------
-    // 3. SALVA NEL FILESYSTEM
-    // -------------------------------------------------------------------------
 
     final String localPath =
         await _fileService
@@ -217,11 +156,6 @@ class MaterialDownloadService {
           bytes,
     );
 
-
-    // -------------------------------------------------------------------------
-    // 4. MODELLO SQLITE
-    // -------------------------------------------------------------------------
-
     final DownloadedMaterialLocal material =
         DownloadedMaterialLocal(
       userId:
@@ -233,17 +167,20 @@ class MaterialDownloadService {
       groupId:
           groupId,
 
+      university:
+          university,
+
+      department:
+          department,
+
+      course:
+          course,
+
       subjectId:
           subjectId,
 
       subjectName:
           subjectName,
-
-      course:
-          course,
-
-      department:
-          department,
 
       originalName:
           originalName,
@@ -262,35 +199,13 @@ class MaterialDownloadService {
           DateTime.now(),
     );
 
-
-    // -------------------------------------------------------------------------
-    // 5. SQLITE
-    // -------------------------------------------------------------------------
-
     await _repository.save(
       material,
     );
 
-
     return material;
   }
 
-
-  // ===========================================================================
-  // GET OR DOWNLOAD
-  // ===========================================================================
-  //
-  // Questo sarà il metodo principale utilizzato dalla UI.
-  //
-  // È già presente?
-  //     ↓
-  // ritorna file locale
-  //
-  // Non è presente?
-  //     ↓
-  // scarica + filesystem + SQLite
-  //
-  // ===========================================================================
 
   Future<DownloadedMaterialLocal>
       getOrDownload({
@@ -300,13 +215,15 @@ class MaterialDownloadService {
 
     required int groupId,
 
-    int? subjectId,
+    String? university,
 
-    String? subjectName,
+    String? department,
 
     String? course,
 
-    String? department,
+    int? subjectId,
+
+    String? subjectName,
 
     required String originalName,
 
@@ -314,7 +231,6 @@ class MaterialDownloadService {
 
     int? size,
   }) async {
-
     final DownloadedMaterialLocal?
         existing =
         await getLocalMaterial(
@@ -325,28 +241,24 @@ class MaterialDownloadService {
           materialId,
     );
 
-
-    if (existing !=
-        null) {
-
-      // -----------------------------------------------------------------------
-      // AGGIORNA METADATI
-      // -----------------------------------------------------------------------
-
+    if (existing != null) {
       final DownloadedMaterialLocal
           updated =
           existing.copyWith(
+        university:
+            university,
+
+        department:
+            department,
+
+        course:
+            course,
+
         subjectId:
             subjectId,
 
         subjectName:
             subjectName,
-
-        course:
-            course,
-
-        department:
-            department,
 
         mimeType:
             mimeType,
@@ -355,15 +267,12 @@ class MaterialDownloadService {
             size,
       );
 
-
       await _repository.save(
         updated,
       );
 
-
       return updated;
     }
-
 
     return download(
       userId:
@@ -375,17 +284,20 @@ class MaterialDownloadService {
       groupId:
           groupId,
 
+      university:
+          university,
+
+      department:
+          department,
+
+      course:
+          course,
+
       subjectId:
           subjectId,
 
       subjectName:
           subjectName,
-
-      course:
-          course,
-
-      department:
-          department,
 
       originalName:
           originalName,
@@ -399,22 +311,16 @@ class MaterialDownloadService {
   }
 
 
-  // ===========================================================================
-  // È SCARICATO?
-  // ===========================================================================
-
   Future<bool> isDownloaded({
     int? userId,
 
     required int materialId,
   }) async {
-
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
-
 
     final DownloadedMaterialLocal?
         material =
@@ -426,21 +332,16 @@ class MaterialDownloadService {
           materialId,
     );
 
-
-    if (material ==
-        null) {
+    if (material == null) {
       return false;
     }
-
 
     final bool exists =
         await _fileService.exists(
       material.localPath,
     );
 
-
     if (!exists) {
-
       await _repository.delete(
         userId:
             resolvedUserId,
@@ -449,18 +350,12 @@ class MaterialDownloadService {
             materialId,
       );
 
-
       return false;
     }
-
 
     return true;
   }
 
-
-  // ===========================================================================
-  // GET LOCAL MATERIAL
-  // ===========================================================================
 
   Future<DownloadedMaterialLocal?>
       getLocalMaterial({
@@ -468,13 +363,11 @@ class MaterialDownloadService {
 
     required int materialId,
   }) async {
-
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
-
 
     final DownloadedMaterialLocal?
         material =
@@ -486,21 +379,16 @@ class MaterialDownloadService {
           materialId,
     );
 
-
-    if (material ==
-        null) {
+    if (material == null) {
       return null;
     }
-
 
     final bool exists =
         await _fileService.exists(
       material.localPath,
     );
 
-
     if (!exists) {
-
       await _repository.delete(
         userId:
             resolvedUserId,
@@ -509,25 +397,18 @@ class MaterialDownloadService {
             materialId,
       );
 
-
       return null;
     }
-
 
     return material;
   }
 
-
-  // ===========================================================================
-  // GET FILE
-  // ===========================================================================
 
   Future<File?> getFile({
     int? userId,
 
     required int materialId,
   }) async {
-
     final DownloadedMaterialLocal?
         material =
         await getLocalMaterial(
@@ -538,12 +419,9 @@ class MaterialDownloadService {
           materialId,
     );
 
-
-    if (material ==
-        null) {
+    if (material == null) {
       return null;
     }
-
 
     return File(
       material.localPath,
@@ -551,21 +429,15 @@ class MaterialDownloadService {
   }
 
 
-  // ===========================================================================
-  // DOWNLOADS
-  // ===========================================================================
-
   Future<List<DownloadedMaterialLocal>>
       getDownloadedMaterials({
     int? userId,
   }) async {
-
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
-
 
     final List<DownloadedMaterialLocal>
         materials =
@@ -573,49 +445,200 @@ class MaterialDownloadService {
       resolvedUserId,
     );
 
-
-    final List<DownloadedMaterialLocal>
-        validMaterials =
-        [];
-
-
-    for (final DownloadedMaterialLocal
-        material in materials) {
-
-      final bool exists =
-          await _fileService.exists(
-        material.localPath,
-      );
-
-
-      if (exists) {
-
-        validMaterials.add(
-          material,
-        );
-
-
-        continue;
-      }
-
-
-      await _repository.delete(
-        userId:
-            resolvedUserId,
-
-        materialId:
-            material.materialId,
-      );
-    }
-
-
-    return validMaterials;
+    return _removeMissingFiles(
+      resolvedUserId,
+      materials,
+    );
   }
 
 
-  // ===========================================================================
-  // DOWNLOADS BY SUBJECT
-  // ===========================================================================
+  Future<List<String>>
+      getUniversities({
+    int? userId,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
+
+    return _repository.getUniversities(
+      resolvedUserId,
+    );
+  }
+
+
+  Future<List<String>>
+      getDepartments({
+    int? userId,
+
+    required String university,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
+
+    return _repository.getDepartments(
+      userId:
+          resolvedUserId,
+
+      university:
+          university,
+    );
+  }
+
+
+  Future<List<String>>
+      getCourses({
+    int? userId,
+
+    required String university,
+
+    required String department,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
+
+    return _repository.getCourses(
+      userId:
+          resolvedUserId,
+
+      university:
+          university,
+
+      department:
+          department,
+    );
+  }
+
+
+  Future<List<DownloadedMaterialLocal>>
+      getSubjects({
+    int? userId,
+
+    required String university,
+
+    required String department,
+
+    required String course,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
+
+    final List<DownloadedMaterialLocal>
+        subjects =
+        await _repository.getSubjects(
+      userId:
+          resolvedUserId,
+
+      university:
+          university,
+
+      department:
+          department,
+
+      course:
+          course,
+    );
+
+    final List<DownloadedMaterialLocal>
+        valid =
+        [];
+
+    for (
+      final DownloadedMaterialLocal subject
+      in subjects
+    ) {
+      final List<DownloadedMaterialLocal>
+          materials =
+          await getDownloadedMaterialsByHierarchy(
+        userId:
+            resolvedUserId,
+
+        university:
+            university,
+
+        department:
+            department,
+
+        course:
+            course,
+
+        subjectId:
+            subject.subjectId,
+
+        subjectName:
+            subject.subjectName,
+      );
+
+      if (materials.isNotEmpty) {
+        valid.add(
+          subject,
+        );
+      }
+    }
+
+    return valid;
+  }
+
+
+  Future<List<DownloadedMaterialLocal>>
+      getDownloadedMaterialsByHierarchy({
+    int? userId,
+
+    required String university,
+
+    required String department,
+
+    required String course,
+
+    int? subjectId,
+
+    String? subjectName,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
+
+    final List<DownloadedMaterialLocal>
+        materials =
+        await _repository
+            .getMaterialsByHierarchy(
+      userId:
+          resolvedUserId,
+
+      university:
+          university,
+
+      department:
+          department,
+
+      course:
+          course,
+
+      subjectId:
+          subjectId,
+
+      subjectName:
+          subjectName,
+    );
+
+    return _removeMissingFiles(
+      resolvedUserId,
+      materials,
+    );
+  }
+
 
   Future<List<DownloadedMaterialLocal>>
       getDownloadedMaterialsBySubject({
@@ -624,18 +647,49 @@ class MaterialDownloadService {
     int? subjectId,
 
     String? subjectName,
-  }) async {
 
+    String? university,
+
+    String? department,
+
+    String? course,
+  }) async {
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
 
+    if (
+      university != null &&
+      university.trim().isNotEmpty &&
+      department != null &&
+      department.trim().isNotEmpty &&
+      course != null &&
+      course.trim().isNotEmpty
+    ) {
+      return getDownloadedMaterialsByHierarchy(
+        userId:
+            resolvedUserId,
 
-    if (subjectId !=
-        null) {
+        university:
+            university,
 
+        department:
+            department,
+
+        course:
+            course,
+
+        subjectId:
+            subjectId,
+
+        subjectName:
+            subjectName,
+      );
+    }
+
+    if (subjectId != null) {
       final List<DownloadedMaterialLocal>
           materials =
           await _repository.getBySubject(
@@ -646,18 +700,16 @@ class MaterialDownloadService {
             subjectId,
       );
 
-
       return _removeMissingFiles(
         resolvedUserId,
         materials,
       );
     }
 
-
-    if (subjectName !=
-            null &&
-        subjectName.trim().isNotEmpty) {
-
+    if (
+      subjectName != null &&
+      subjectName.trim().isNotEmpty
+    ) {
       final List<DownloadedMaterialLocal>
           materials =
           await _repository
@@ -669,33 +721,25 @@ class MaterialDownloadService {
             subjectName,
       );
 
-
       return _removeMissingFiles(
         resolvedUserId,
         materials,
       );
     }
 
-
     return [];
   }
 
-
-  // ===========================================================================
-  // DOWNLOADED SUBJECTS
-  // ===========================================================================
 
   Future<List<DownloadedMaterialLocal>>
       getDownloadedSubjects({
     int? userId,
   }) async {
-
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
-
 
     return _repository
         .getDownloadedSubjects(
@@ -704,9 +748,83 @@ class MaterialDownloadService {
   }
 
 
-  // ===========================================================================
-  // COUNT BY SUBJECT
-  // ===========================================================================
+  Future<int> countByUniversity({
+    int? userId,
+
+    required String university,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
+
+    return _repository.countByUniversity(
+      userId:
+          resolvedUserId,
+
+      university:
+          university,
+    );
+  }
+
+
+  Future<int> countByDepartment({
+    int? userId,
+
+    required String university,
+
+    required String department,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
+
+    return _repository.countByDepartment(
+      userId:
+          resolvedUserId,
+
+      university:
+          university,
+
+      department:
+          department,
+    );
+  }
+
+
+  Future<int> countByCourse({
+    int? userId,
+
+    required String university,
+
+    required String department,
+
+    required String course,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
+
+    return _repository.countByCourse(
+      userId:
+          resolvedUserId,
+
+      university:
+          university,
+
+      department:
+          department,
+
+      course:
+          course,
+    );
+  }
+
 
   Future<int> countBySubject({
     int? userId,
@@ -714,14 +832,18 @@ class MaterialDownloadService {
     int? subjectId,
 
     String? subjectName,
-  }) async {
 
+    String? university,
+
+    String? department,
+
+    String? course,
+  }) async {
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
-
 
     return _repository.countBySubject(
       userId:
@@ -732,26 +854,44 @@ class MaterialDownloadService {
 
       subjectName:
           subjectName,
+
+      university:
+          university,
+
+      department:
+          department,
+
+      course:
+          course,
     );
   }
 
 
-  // ===========================================================================
-  // REMOVE DOWNLOAD
-  // ===========================================================================
-
-  Future<void> removeDownload({
+  Future<int> countDownloadedMaterials({
     int? userId,
-
-    required int materialId,
   }) async {
-
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
 
+    return _repository.countByUser(
+      resolvedUserId,
+    );
+  }
+
+
+  Future<void> removeDownload({
+    int? userId,
+
+    required int materialId,
+  }) async {
+    final int resolvedUserId =
+        LocalStorageIdentity.resolve(
+      userId:
+          userId,
+    );
 
     final DownloadedMaterialLocal?
         material =
@@ -763,25 +903,13 @@ class MaterialDownloadService {
           materialId,
     );
 
-
-    if (material ==
-        null) {
+    if (material == null) {
       return;
     }
-
-
-    // -------------------------------------------------------------------------
-    // FILESYSTEM
-    // -------------------------------------------------------------------------
 
     await _fileService.delete(
       material.localPath,
     );
-
-
-    // -------------------------------------------------------------------------
-    // SQLITE
-    // -------------------------------------------------------------------------
 
     await _repository.delete(
       userId:
@@ -793,22 +921,16 @@ class MaterialDownloadService {
   }
 
 
-  // ===========================================================================
-  // REMOVE SUBJECT DOWNLOADS
-  // ===========================================================================
-
   Future<int> removeSubjectDownloads({
     int? userId,
 
     required int subjectId,
   }) async {
-
     final int resolvedUserId =
         LocalStorageIdentity.resolve(
       userId:
           userId,
     );
-
 
     final List<DownloadedMaterialLocal>
         materials =
@@ -820,20 +942,18 @@ class MaterialDownloadService {
           subjectId,
     );
 
-
     int removed =
         0;
 
-
-    for (final DownloadedMaterialLocal
-        material in materials) {
-
+    for (
+      final DownloadedMaterialLocal material
+      in materials
+    ) {
       try {
         await _fileService.delete(
           material.localPath,
         );
       } finally {
-
         await _repository.delete(
           userId:
               resolvedUserId,
@@ -842,19 +962,13 @@ class MaterialDownloadService {
               material.materialId,
         );
 
-
         removed++;
       }
     }
 
-
     return removed;
   }
 
-
-  // ===========================================================================
-  // REMOVE MISSING FILES
-  // ===========================================================================
 
   Future<List<DownloadedMaterialLocal>>
       _removeMissingFiles(
@@ -863,31 +977,26 @@ class MaterialDownloadService {
     List<DownloadedMaterialLocal>
         materials,
   ) async {
-
     final List<DownloadedMaterialLocal>
         valid =
         [];
 
-
-    for (final DownloadedMaterialLocal
-        material in materials) {
-
+    for (
+      final DownloadedMaterialLocal material
+      in materials
+    ) {
       final bool exists =
           await _fileService.exists(
         material.localPath,
       );
 
-
       if (exists) {
-
         valid.add(
           material,
         );
 
-
         continue;
       }
-
 
       await _repository.delete(
         userId:
@@ -897,7 +1006,6 @@ class MaterialDownloadService {
             material.materialId,
       );
     }
-
 
     return valid;
   }

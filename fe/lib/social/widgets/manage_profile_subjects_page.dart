@@ -8,10 +8,6 @@ import '../../services/auth_session.dart';
 import '../social_models.dart';
 
 
-// =============================================================================
-// MANAGE PROFILE SUBJECTS PAGE
-// =============================================================================
-
 class ManageProfileSubjectsPage
     extends StatefulWidget {
 
@@ -31,24 +27,15 @@ class ManageProfileSubjectsPage
 }
 
 
-// =============================================================================
-// STATE
-// =============================================================================
-
 class _ManageProfileSubjectsPageState
     extends State<ManageProfileSubjectsPage> {
 
   final ApiService _apiService =
       ApiService();
 
-
   final AuthSession _session =
       AuthSession.instance;
 
-
-  // ===========================================================================
-  // DATA
-  // ===========================================================================
 
   late SocialUser _user;
 
@@ -57,41 +44,38 @@ class _ManageProfileSubjectsPageState
       [];
 
 
-  // ===========================================================================
-  // STATE
-  // ===========================================================================
-
   bool _loading =
       true;
-
 
   bool _working =
       false;
 
-
   String? _error;
 
 
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
+  SocialAcademicPath?
+      get _academicPath {
+    return _user.primaryAcademicPath ??
+        _user.currentAcademicPath;
+  }
+
+
+  bool get _isTeacher {
+    return _user.type ==
+        SocialUserType.teacher;
+  }
+
 
   @override
   void initState() {
     super.initState();
 
-
     _user =
         widget.user;
-
 
     _load();
   }
 
-
-  // ===========================================================================
-  // LOAD
-  // ===========================================================================
 
   Future<void> _load() async {
     setState(() {
@@ -102,38 +86,47 @@ class _ManageProfileSubjectsPageState
           null;
     });
 
-
     try {
-      // =======================================================================
-      // MATERIE DISPONIBILI PER DIPARTIMENTO / CORSO
-      // =======================================================================
-
-      final List<SocialSubject> subjects =
-          await _apiService
-              .getSocialSubjects(
-        _user.department,
-        _user.course,
-      );
-
-
-      // =======================================================================
-      // RICARICA PROFILO CORRENTE
-      // =======================================================================
-
       final SocialUser user =
           await _apiService
               .getCurrentUser();
-
-
-      if (!mounted) {
-        return;
-      }
-
 
       _session.updateUser(
         user,
       );
 
+      _user =
+          user;
+
+      final SocialAcademicPath? path =
+          _academicPath;
+
+      List<SocialSubject> subjects =
+          [];
+
+      if (
+        path != null &&
+        path.universityCode.isNotEmpty &&
+        path.departmentCode.isNotEmpty &&
+        path.courseCode.isNotEmpty
+      ) {
+        subjects =
+            await _apiService
+                .getCatalogSubjects(
+          universityCode:
+              path.universityCode,
+
+          departmentCode:
+              path.departmentCode,
+
+          courseCode:
+              path.courseCode,
+        );
+      }
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _user =
@@ -150,7 +143,6 @@ class _ManageProfileSubjectsPageState
         return;
       }
 
-
       setState(() {
         _error =
             _cleanError(
@@ -164,33 +156,45 @@ class _ManageProfileSubjectsPageState
   }
 
 
-  // ===========================================================================
-  // ADD SUBJECT
-  // ===========================================================================
-
   Future<void> _openAddSubject() async {
     if (_working) {
       return;
     }
 
+    final SocialAcademicPath? path =
+        _academicPath;
+
+    if (path == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content:
+              Text(
+            'Aggiungi prima un percorso accademico al profilo.',
+          ),
+        ),
+      );
+
+      return;
+    }
 
     final List<SocialSubject>
         notAssociated =
         _availableSubjects
             .where(
               (
-                subject,
+                SocialSubject subject,
               ) =>
                   !_user.subjects.any(
                 (
-                  current,
+                  SocialSubject current,
                 ) =>
                     current.id ==
                     subject.id,
               ),
             )
             .toList();
-
 
     if (notAssociated.isEmpty) {
       ScaffoldMessenger.of(
@@ -206,7 +210,6 @@ class _ManageProfileSubjectsPageState
 
       return;
     }
-
 
     final _SubjectFormResult? result =
         await showModalBottomSheet<
@@ -238,27 +241,25 @@ class _ManageProfileSubjectsPageState
         return _AddSubjectSheet(
           subjects:
               notAssociated,
+
+          showGrade:
+              !_isTeacher,
         );
       },
     );
 
-
-    if (result ==
-            null ||
-        !mounted) {
+    if (
+      result == null ||
+      !mounted
+    ) {
       return;
     }
-
 
     await _addSubject(
       result,
     );
   }
 
-
-  // ===========================================================================
-  // ADD
-  // ===========================================================================
 
   Future<void> _addSubject(
     _SubjectFormResult result,
@@ -271,7 +272,6 @@ class _ManageProfileSubjectsPageState
           null;
     });
 
-
     try {
       await _apiService
           .addUserSubject(
@@ -282,23 +282,26 @@ class _ManageProfileSubjectsPageState
             result.subject.id,
 
         grade:
-            result.grade,
+            _isTeacher
+                ? null
+                : result.grade,
 
         note:
             result.note,
 
         canHelp:
             result.canHelp,
+
+        canGivePrivateLessons:
+            result
+                .canGivePrivateLessons,
       );
 
-
       await _refreshUser();
-
 
       if (!mounted) {
         return;
       }
-
 
       ScaffoldMessenger.of(
         context,
@@ -314,7 +317,6 @@ class _ManageProfileSubjectsPageState
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _error =
@@ -333,17 +335,12 @@ class _ManageProfileSubjectsPageState
   }
 
 
-  // ===========================================================================
-  // REMOVE
-  // ===========================================================================
-
   Future<void> _removeSubject(
     SocialSubject subject,
   ) async {
     if (_working) {
       return;
     }
-
 
     final bool? confirmed =
         await showDialog<bool>(
@@ -424,12 +421,10 @@ class _ManageProfileSubjectsPageState
       },
     );
 
-
     if (confirmed !=
         true) {
       return;
     }
-
 
     setState(() {
       _working =
@@ -438,7 +433,6 @@ class _ManageProfileSubjectsPageState
       _error =
           null;
     });
-
 
     try {
       await _apiService
@@ -450,14 +444,11 @@ class _ManageProfileSubjectsPageState
             subject.id,
       );
 
-
       await _refreshUser();
-
 
       if (!mounted) {
         return;
       }
-
 
       ScaffoldMessenger.of(
         context,
@@ -473,7 +464,6 @@ class _ManageProfileSubjectsPageState
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _error =
@@ -492,25 +482,18 @@ class _ManageProfileSubjectsPageState
   }
 
 
-  // ===========================================================================
-  // REFRESH USER
-  // ===========================================================================
-
   Future<void> _refreshUser() async {
     final SocialUser user =
         await _apiService
             .getCurrentUser();
 
-
     _session.updateUser(
       user,
     );
 
-
     if (!mounted) {
       return;
     }
-
 
     setState(() {
       _user =
@@ -518,10 +501,6 @@ class _ManageProfileSubjectsPageState
     });
   }
 
-
-  // ===========================================================================
-  // RETURN
-  // ===========================================================================
 
   void _close() {
     Navigator.pop(
@@ -531,34 +510,26 @@ class _ManageProfileSubjectsPageState
   }
 
 
-  // ===========================================================================
-  // CLEAN ERROR
-  // ===========================================================================
-
   String _cleanError(
     Object error,
   ) {
     String value =
         error.toString();
 
-
-    if (value.startsWith(
-      'Exception: ',
-    )) {
+    if (
+      value.startsWith(
+        'Exception: ',
+      )
+    ) {
       value =
           value.substring(
         'Exception: '.length,
       );
     }
 
-
     return value;
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -570,8 +541,8 @@ class _ManageProfileSubjectsPageState
 
       onPopInvokedWithResult:
           (
-        didPop,
-        result,
+        bool didPop,
+        dynamic result,
       ) {
         if (!didPop) {
           _close();
@@ -679,10 +650,6 @@ class _ManageProfileSubjectsPageState
   }
 
 
-  // ===========================================================================
-  // BODY
-  // ===========================================================================
-
   Widget _buildBody() {
     if (_loading) {
       return const Center(
@@ -691,10 +658,10 @@ class _ManageProfileSubjectsPageState
       );
     }
 
-
-    if (_error !=
-        null &&
-        _user.subjects.isEmpty) {
+    if (
+      _error != null &&
+      _user.subjects.isEmpty
+    ) {
       return ListView(
         padding:
             const EdgeInsets.all(
@@ -712,7 +679,6 @@ class _ManageProfileSubjectsPageState
         ],
       );
     }
-
 
     return RefreshIndicator(
       onRefresh:
@@ -732,10 +698,6 @@ class _ManageProfileSubjectsPageState
         ),
 
         children: [
-          // ===================================================================
-          // HEADER
-          // ===================================================================
-
           _buildHeader(),
 
           if (_error !=
@@ -758,11 +720,6 @@ class _ManageProfileSubjectsPageState
             height:
                 24,
           ),
-
-
-          // ===================================================================
-          // SUBJECTS
-          // ===================================================================
 
           Row(
             children: [
@@ -823,7 +780,6 @@ class _ManageProfileSubjectsPageState
                 14,
           ),
 
-
           if (_user.subjects.isEmpty)
             const _EmptySubjects()
           else
@@ -846,6 +802,9 @@ class _ManageProfileSubjectsPageState
                   disabled:
                       _working,
 
+                  showGrade:
+                      !_isTeacher,
+
                   onRemove:
                       () {
                     _removeSubject(
@@ -861,11 +820,10 @@ class _ManageProfileSubjectsPageState
   }
 
 
-  // ===========================================================================
-  // HEADER
-  // ===========================================================================
-
   Widget _buildHeader() {
+    final SocialAcademicPath? path =
+        _academicPath;
+
     return Container(
       padding:
           const EdgeInsets.all(
@@ -962,9 +920,9 @@ class _ManageProfileSubjectsPageState
                 ),
 
                 Text(
-                  'Aggiungi le materie che studi o insegni. '
-                  'Puoi indicare il voto, inserire una nota '
-                  'e specificare se puoi aiutare altri utenti.',
+                  _isTeacher
+                      ? 'Aggiungi le materie che insegni o su cui offri supporto. Puoi scegliere separatamente aiuto e lezioni private.'
+                      : 'Aggiungi le materie che studi. Puoi indicare il voto e scegliere separatamente aiuto e lezioni private.',
 
                   style:
                       TextStyle(
@@ -981,6 +939,49 @@ class _ManageProfileSubjectsPageState
                         1.4,
                   ),
                 ),
+
+                if (path != null) ...[
+                  const SizedBox(
+                    height:
+                        8,
+                  ),
+
+                  Text(
+                    path.degreeType.isEmpty
+                        ? '${path.department} • ${path.course}'
+                        : '${path.department} • ${path.course} ${path.degreeType}',
+
+                    style:
+                        const TextStyle(
+                      color:
+                          AppColors.materialSky,
+
+                      fontSize:
+                          9,
+
+                      fontWeight:
+                          FontWeight.w500,
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(
+                    height:
+                        8,
+                  ),
+
+                  const Text(
+                    'Nessun percorso accademico principale disponibile.',
+
+                    style:
+                        TextStyle(
+                      color:
+                          Colors.amber,
+
+                      fontSize:
+                          9,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -991,10 +992,6 @@ class _ManageProfileSubjectsPageState
 }
 
 
-// =============================================================================
-// SUBJECT CARD
-// =============================================================================
-
 class _SubjectCard
     extends StatelessWidget {
 
@@ -1002,12 +999,15 @@ class _SubjectCard
 
   final bool disabled;
 
+  final bool showGrade;
+
   final VoidCallback onRemove;
 
 
   const _SubjectCard({
     required this.subject,
     required this.disabled,
+    required this.showGrade,
     required this.onRemove,
   });
 
@@ -1108,10 +1108,12 @@ class _SubjectCard
                       ),
                     ),
 
-                    if (subject.department
-                            .isNotEmpty ||
-                        subject.course
-                            .isNotEmpty) ...[
+                    if (
+                      subject.department
+                              .isNotEmpty ||
+                          subject.course
+                              .isNotEmpty
+                    ) ...[
                       const SizedBox(
                         height:
                             3,
@@ -1154,9 +1156,15 @@ class _SubjectCard
             ],
           ),
 
-          if (subject.grade !=
-                  null ||
-              subject.canHelp) ...[
+          if (
+            (
+              showGrade &&
+              subject.grade != null
+            ) ||
+            subject.canHelp ||
+            subject
+                .canGivePrivateLessons
+          ) ...[
             const SizedBox(
               height:
                   12,
@@ -1170,15 +1178,13 @@ class _SubjectCard
                   7,
 
               children: [
-                if (subject.grade !=
-                    null)
-                  _SubjectBadge(
-                    icon:
-                        Icons
-                            .workspace_premium_outlined,
-
-                    label:
-                        '${subject.grade}/30',
+                if (
+                  showGrade &&
+                  subject.grade != null
+                )
+                  _GradeBadge(
+                    subject:
+                        subject,
                   ),
 
                 if (subject.canHelp)
@@ -1189,6 +1195,19 @@ class _SubjectCard
 
                     label:
                         'Posso aiutare',
+                  ),
+
+                if (
+                  subject
+                      .canGivePrivateLessons
+                )
+                  const _SubjectBadge(
+                    icon:
+                        Icons
+                            .cast_for_education_outlined,
+
+                    label:
+                        'Lezioni private',
                   ),
               ],
             ),
@@ -1224,18 +1243,17 @@ class _SubjectCard
 }
 
 
-// =============================================================================
-// ADD SUBJECT SHEET
-// =============================================================================
-
 class _AddSubjectSheet
     extends StatefulWidget {
 
   final List<SocialSubject> subjects;
 
+  final bool showGrade;
+
 
   const _AddSubjectSheet({
     required this.subjects,
+    required this.showGrade,
   });
 
 
@@ -1246,21 +1264,15 @@ class _AddSubjectSheet
 }
 
 
-// =============================================================================
-// ADD SUBJECT STATE
-// =============================================================================
-
 class _AddSubjectSheetState
     extends State<_AddSubjectSheet> {
 
   final GlobalKey<FormState> _formKey =
       GlobalKey<FormState>();
 
-
   final TextEditingController
       _gradeController =
       TextEditingController();
-
 
   final TextEditingController
       _noteController =
@@ -1269,14 +1281,12 @@ class _AddSubjectSheetState
 
   SocialSubject? _subject;
 
-
   bool _canHelp =
       false;
 
+  bool _canGivePrivateLessons =
+      false;
 
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
 
   @override
   void dispose() {
@@ -1288,45 +1298,38 @@ class _AddSubjectSheetState
   }
 
 
-  // ===========================================================================
-  // SUBMIT
-  // ===========================================================================
-
   void _submit() {
-    if (!_formKey.currentState!
-        .validate()) {
+    if (
+      !_formKey.currentState!
+          .validate()
+    ) {
       return;
     }
-
 
     final SocialSubject? subject =
         _subject;
 
-
-    if (subject ==
-        null) {
+    if (subject == null) {
       return;
     }
-
 
     final String gradeText =
         _gradeController.text
             .trim();
 
-
     Navigator.pop(
       context,
-
       _SubjectFormResult(
         subject:
             subject,
 
         grade:
-            gradeText.isEmpty
-                ? null
-                : int.tryParse(
+            widget.showGrade &&
+                    gradeText.isNotEmpty
+                ? int.tryParse(
                     gradeText,
-                  ),
+                  )
+                : null,
 
         note:
             _noteController.text
@@ -1334,14 +1337,13 @@ class _AddSubjectSheetState
 
         canHelp:
             _canHelp,
+
+        canGivePrivateLessons:
+            _canGivePrivateLessons,
       ),
     );
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -1352,15 +1354,13 @@ class _AddSubjectSheetState
       context,
     ).viewInsets.bottom;
 
-
     return Padding(
       padding:
           EdgeInsets.fromLTRB(
         20,
         18,
         20,
-        keyboard +
-            20,
+        keyboard + 20,
       ),
 
       child:
@@ -1401,8 +1401,7 @@ class _AddSubjectSheetState
               ),
 
               Text(
-                'Seleziona una materia e aggiungi le informazioni '
-                'che vuoi mostrare sul tuo profilo.',
+                'Seleziona una materia e scegli come vuoi utilizzarla nel tuo profilo.',
 
                 style:
                     TextStyle(
@@ -1425,15 +1424,13 @@ class _AddSubjectSheetState
                     18,
               ),
 
-
-              // ===============================================================
-              // SUBJECT
-              // ===============================================================
-
               DropdownButtonFormField<
                   SocialSubject>(
                 value:
                     _subject,
+
+                isExpanded:
+                    true,
 
                 dropdownColor:
                     AppColors.eleganceDeepNavy,
@@ -1457,15 +1454,20 @@ class _AddSubjectSheetState
                     widget.subjects
                         .map(
                           (
-                            subject,
+                            SocialSubject subject,
                           ) =>
-                              DropdownMenuItem(
+                              DropdownMenuItem<
+                                  SocialSubject>(
                             value:
                                 subject,
 
                             child:
                                 Text(
                               subject.name,
+
+                              overflow:
+                                  TextOverflow
+                                      .ellipsis,
                             ),
                           ),
                         )
@@ -1473,10 +1475,9 @@ class _AddSubjectSheetState
 
                 validator:
                     (
-                  value,
+                  SocialSubject? value,
                 ) {
-                  if (value ==
-                      null) {
+                  if (value == null) {
                     return 'Seleziona una materia';
                   }
 
@@ -1485,7 +1486,7 @@ class _AddSubjectSheetState
 
                 onChanged:
                     (
-                  value,
+                  SocialSubject? value,
                 ) {
                   setState(() {
                     _subject =
@@ -1494,83 +1495,72 @@ class _AddSubjectSheetState
                 },
               ),
 
-              const SizedBox(
-                height:
-                    13,
-              ),
-
-
-              // ===============================================================
-              // GRADE
-              // ===============================================================
-
-              TextFormField(
-                controller:
-                    _gradeController,
-
-                keyboardType:
-                    TextInputType.number,
-
-                style:
-                    const TextStyle(
-                  color:
-                      AppColors.pureWhite,
+              if (widget.showGrade) ...[
+                const SizedBox(
+                  height:
+                      13,
                 ),
 
-                decoration:
-                    _sheetDecoration(
-                  label:
-                      'Voto (opzionale)',
+                TextFormField(
+                  controller:
+                      _gradeController,
 
-                  icon:
-                      Icons
-                          .workspace_premium_outlined,
+                  keyboardType:
+                      TextInputType.number,
 
-                  hint:
-                      '18 - 30',
-                ),
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.pureWhite,
+                  ),
 
-                validator:
-                    (
-                  value,
-                ) {
-                  if (value ==
-                          null ||
+                  decoration:
+                      _sheetDecoration(
+                    label:
+                        'Voto (opzionale)',
+
+                    icon:
+                        Icons
+                            .workspace_premium_outlined,
+
+                    hint:
+                        '18 - 30',
+                  ),
+
+                  validator:
+                      (
+                    String? value,
+                  ) {
+                    if (
+                      value == null ||
                       value.trim()
-                          .isEmpty) {
+                          .isEmpty
+                    ) {
+                      return null;
+                    }
+
+                    final int? grade =
+                        int.tryParse(
+                      value.trim(),
+                    );
+
+                    if (
+                      grade == null ||
+                      grade < 18 ||
+                      grade > 30
+                    ) {
+                      return 'Il voto deve essere tra 18 e 30';
+                    }
+
                     return null;
-                  }
-
-
-                  final int? grade =
-                      int.tryParse(
-                    value.trim(),
-                  );
-
-
-                  if (grade ==
-                          null ||
-                      grade <
-                          18 ||
-                      grade >
-                          30) {
-                    return 'Il voto deve essere tra 18 e 30';
-                  }
-
-
-                  return null;
-                },
-              ),
+                  },
+                ),
+              ],
 
               const SizedBox(
                 height:
                     13,
               ),
-
-
-              // ===============================================================
-              // NOTE
-              // ===============================================================
 
               TextFormField(
                 controller:
@@ -1606,11 +1596,6 @@ class _AddSubjectSheetState
                     12,
               ),
 
-
-              // ===============================================================
-              // CAN HELP
-              // ===============================================================
-
               SwitchListTile(
                 contentPadding:
                     EdgeInsets.zero,
@@ -1620,7 +1605,7 @@ class _AddSubjectSheetState
 
                 onChanged:
                     (
-                  value,
+                  bool value,
                 ) {
                   setState(() {
                     _canHelp =
@@ -1666,15 +1651,65 @@ class _AddSubjectSheetState
                 ),
               ),
 
+              SwitchListTile(
+                contentPadding:
+                    EdgeInsets.zero,
+
+                value:
+                    _canGivePrivateLessons,
+
+                onChanged:
+                    (
+                  bool value,
+                ) {
+                  setState(() {
+                    _canGivePrivateLessons =
+                        value;
+                  });
+                },
+
+                activeColor:
+                    AppColors.skyBlue,
+
+                title:
+                    const Text(
+                  'Lezioni private',
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite,
+
+                    fontSize:
+                        12,
+
+                    fontWeight:
+                        FontWeight.w500,
+                  ),
+                ),
+
+                subtitle:
+                    const Text(
+                  'Mostra agli altri utenti che offri lezioni private su questa materia.',
+
+                  style:
+                      TextStyle(
+                    color:
+                        Colors.white38,
+
+                    fontSize:
+                        9,
+
+                    height:
+                        1.35,
+                  ),
+                ),
+              ),
+
               const SizedBox(
                 height:
                     18,
               ),
-
-
-              // ===============================================================
-              // ADD
-              // ===============================================================
 
               SizedBox(
                 width:
@@ -1811,10 +1846,6 @@ class _AddSubjectSheetState
 }
 
 
-// =============================================================================
-// RESULT
-// =============================================================================
-
 class _SubjectFormResult {
   final SocialSubject subject;
 
@@ -1824,19 +1855,18 @@ class _SubjectFormResult {
 
   final bool canHelp;
 
+  final bool canGivePrivateLessons;
+
 
   const _SubjectFormResult({
     required this.subject,
     required this.grade,
     required this.note,
     required this.canHelp,
+    required this.canGivePrivateLessons,
   });
 }
 
-
-// =============================================================================
-// BADGE
-// =============================================================================
 
 class _SubjectBadge
     extends StatelessWidget {
@@ -1923,9 +1953,167 @@ class _SubjectBadge
 }
 
 
-// =============================================================================
-// EMPTY
-// =============================================================================
+class _GradeBadge
+    extends StatelessWidget {
+
+  final SocialSubject subject;
+
+
+  const _GradeBadge({
+    required this.subject,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final int? grade =
+        subject.grade;
+
+    if (grade == null) {
+      return const SizedBox.shrink();
+    }
+
+    switch (
+      subject.gradeVerificationStatus
+    ) {
+      case GradeVerificationStatus.verified:
+        return _VerificationBadge(
+          icon:
+              Icons.verified_rounded,
+
+          label:
+              '$grade/30 verificato',
+
+          color:
+              Colors.greenAccent,
+        );
+
+      case GradeVerificationStatus.pending:
+        return _VerificationBadge(
+          icon:
+              Icons.schedule_rounded,
+
+          label:
+              '$grade/30 in verifica',
+
+          color:
+              Colors.amber,
+        );
+
+      case GradeVerificationStatus.rejected:
+        return _VerificationBadge(
+          icon:
+              Icons.cancel_outlined,
+
+          label:
+              '$grade/30 rifiutato',
+
+          color:
+              Colors.redAccent,
+        );
+
+      case GradeVerificationStatus.none:
+        return _SubjectBadge(
+          icon:
+              Icons
+                  .workspace_premium_outlined,
+
+          label:
+              '$grade/30',
+        );
+    }
+  }
+}
+
+
+class _VerificationBadge
+    extends StatelessWidget {
+
+  final IconData icon;
+
+  final String label;
+
+  final Color color;
+
+
+  const _VerificationBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            7,
+
+        vertical:
+            5,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            color.withOpacity(
+          0.10,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          8,
+        ),
+      ),
+
+      child:
+          Row(
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+          Icon(
+            icon,
+
+            color:
+                color,
+
+            size:
+                11,
+          ),
+
+          const SizedBox(
+            width:
+                4,
+          ),
+
+          Text(
+            label,
+
+            style:
+                TextStyle(
+              color:
+                  color,
+
+              fontSize:
+                  8,
+
+              fontWeight:
+                  FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _EmptySubjects
     extends StatelessWidget {
@@ -2014,10 +2202,6 @@ class _EmptySubjects
   }
 }
 
-
-// =============================================================================
-// ERROR
-// =============================================================================
 
 class _SubjectErrorCard
     extends StatelessWidget {

@@ -6,18 +6,10 @@ import '../database/database_tables.dart';
 import '../models/downloaded_material_local.dart';
 
 
-// =============================================================================
-// DOWNLOADED MATERIAL REPOSITORY
-// =============================================================================
-
 class DownloadedMaterialRepository {
   final AppDatabase _database =
       AppDatabase.instance;
 
-
-  // ===========================================================================
-  // SAVE
-  // ===========================================================================
 
   Future<void> save(
     DownloadedMaterialLocal material,
@@ -25,21 +17,14 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     await db.insert(
       DatabaseTables.downloadedMaterials,
-
       material.toMap(),
-
       conflictAlgorithm:
           ConflictAlgorithm.replace,
     );
   }
 
-
-  // ===========================================================================
-  // IS DOWNLOADED
-  // ===========================================================================
 
   Future<bool> isDownloaded({
     required int userId,
@@ -48,37 +33,27 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     final List<Map<String, dynamic>>
         result =
         await db.query(
       DatabaseTables.downloadedMaterials,
-
       columns: [
         'id',
       ],
-
       where:
           'user_id = ? '
           'AND material_id = ?',
-
       whereArgs: [
         userId,
         materialId,
       ],
-
       limit:
           1,
     );
 
-
     return result.isNotEmpty;
   }
 
-
-  // ===========================================================================
-  // GET MATERIAL
-  // ===========================================================================
 
   Future<DownloadedMaterialLocal?>
       getMaterial({
@@ -88,41 +63,30 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     final List<Map<String, dynamic>>
         result =
         await db.query(
       DatabaseTables.downloadedMaterials,
-
       where:
           'user_id = ? '
           'AND material_id = ?',
-
       whereArgs: [
         userId,
         materialId,
       ],
-
       limit:
           1,
     );
-
 
     if (result.isEmpty) {
       return null;
     }
 
-
-    return DownloadedMaterialLocal
-        .fromMap(
+    return DownloadedMaterialLocal.fromMap(
       result.first,
     );
   }
 
-
-  // ===========================================================================
-  // GET BY USER
-  // ===========================================================================
 
   Future<List<DownloadedMaterialLocal>>
       getByUser(
@@ -131,23 +95,18 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     final List<Map<String, dynamic>>
         result =
         await db.query(
       DatabaseTables.downloadedMaterials,
-
       where:
           'user_id = ?',
-
       whereArgs: [
         userId,
       ],
-
       orderBy:
           'downloaded_at DESC',
     );
-
 
     return result
         .map(
@@ -156,10 +115,6 @@ class DownloadedMaterialRepository {
         .toList();
   }
 
-
-  // ===========================================================================
-  // GET BY GROUP
-  // ===========================================================================
 
   Future<List<DownloadedMaterialLocal>>
       getByGroup({
@@ -169,25 +124,20 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     final List<Map<String, dynamic>>
         result =
         await db.query(
       DatabaseTables.downloadedMaterials,
-
       where:
           'user_id = ? '
           'AND group_id = ?',
-
       whereArgs: [
         userId,
         groupId,
       ],
-
       orderBy:
           'downloaded_at DESC',
     );
-
 
     return result
         .map(
@@ -196,10 +146,6 @@ class DownloadedMaterialRepository {
         .toList();
   }
 
-
-  // ===========================================================================
-  // GET BY SUBJECT
-  // ===========================================================================
 
   Future<List<DownloadedMaterialLocal>>
       getBySubject({
@@ -209,25 +155,20 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     final List<Map<String, dynamic>>
         result =
         await db.query(
       DatabaseTables.downloadedMaterials,
-
       where:
           'user_id = ? '
           'AND subject_id = ?',
-
       whereArgs: [
         userId,
         subjectId,
       ],
-
       orderBy:
           'downloaded_at DESC',
     );
-
 
     return result
         .map(
@@ -236,15 +177,6 @@ class DownloadedMaterialRepository {
         .toList();
   }
 
-
-  // ===========================================================================
-  // GET BY SUBJECT NAME
-  // ===========================================================================
-  //
-  // Fallback utile soprattutto per eventuali vecchi dati
-  // oppure materiali per cui subjectId non fosse disponibile.
-  //
-  // ===========================================================================
 
   Future<List<DownloadedMaterialLocal>>
       getBySubjectName({
@@ -254,25 +186,20 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     final List<Map<String, dynamic>>
         result =
         await db.query(
       DatabaseTables.downloadedMaterials,
-
       where:
           'user_id = ? '
           'AND subject_name = ?',
-
       whereArgs: [
         userId,
-        subjectName,
+        subjectName.trim(),
       ],
-
       orderBy:
           'downloaded_at DESC',
     );
-
 
     return result
         .map(
@@ -282,24 +209,243 @@ class DownloadedMaterialRepository {
   }
 
 
-  // ===========================================================================
-  // GET UNIQUE SUBJECTS
-  // ===========================================================================
-  //
-  // Questo metodo sarà particolarmente importante per StudentMaterialPage.
-  //
-  // Restituisce un materiale rappresentativo per ogni materia presente
-  // nella libreria locale.
-  //
-  // La UI potrà usarlo per creare:
-  //
-  // Programmazione 1
-  // 4 materiali
-  //
-  // Algebra
-  // 2 materiali
-  //
-  // ===========================================================================
+  Future<List<String>>
+      getUniversities(
+    int userId,
+  ) async {
+    final Database db =
+        await _database.database;
+
+    final List<Map<String, Object?>>
+        result =
+        await db.rawQuery(
+      '''
+      SELECT DISTINCT
+        TRIM(university) AS value
+      FROM ${DatabaseTables.downloadedMaterials}
+      WHERE user_id = ?
+      AND university IS NOT NULL
+      AND TRIM(university) <> ''
+      ORDER BY value COLLATE NOCASE ASC
+      ''',
+      [
+        userId,
+      ],
+    );
+
+    return _extractStrings(
+      result,
+    );
+  }
+
+
+  Future<List<String>>
+      getDepartments({
+    required int userId,
+    required String university,
+  }) async {
+    final Database db =
+        await _database.database;
+
+    final List<Map<String, Object?>>
+        result =
+        await db.rawQuery(
+      '''
+      SELECT DISTINCT
+        TRIM(department) AS value
+      FROM ${DatabaseTables.downloadedMaterials}
+      WHERE user_id = ?
+      AND university = ?
+      AND department IS NOT NULL
+      AND TRIM(department) <> ''
+      ORDER BY value COLLATE NOCASE ASC
+      ''',
+      [
+        userId,
+        university.trim(),
+      ],
+    );
+
+    return _extractStrings(
+      result,
+    );
+  }
+
+
+  Future<List<String>>
+      getCourses({
+    required int userId,
+    required String university,
+    required String department,
+  }) async {
+    final Database db =
+        await _database.database;
+
+    final List<Map<String, Object?>>
+        result =
+        await db.rawQuery(
+      '''
+      SELECT DISTINCT
+        TRIM(course) AS value
+      FROM ${DatabaseTables.downloadedMaterials}
+      WHERE user_id = ?
+      AND university = ?
+      AND department = ?
+      AND course IS NOT NULL
+      AND TRIM(course) <> ''
+      ORDER BY value COLLATE NOCASE ASC
+      ''',
+      [
+        userId,
+        university.trim(),
+        department.trim(),
+      ],
+    );
+
+    return _extractStrings(
+      result,
+    );
+  }
+
+
+  Future<List<DownloadedMaterialLocal>>
+      getSubjects({
+    required int userId,
+    required String university,
+    required String department,
+    required String course,
+  }) async {
+    final Database db =
+        await _database.database;
+
+    final List<Map<String, dynamic>>
+        result =
+        await db.query(
+      DatabaseTables.downloadedMaterials,
+      where:
+          'user_id = ? '
+          'AND university = ? '
+          'AND department = ? '
+          'AND course = ?',
+      whereArgs: [
+        userId,
+        university.trim(),
+        department.trim(),
+        course.trim(),
+      ],
+      orderBy:
+          'subject_name COLLATE NOCASE ASC, '
+          'downloaded_at DESC',
+    );
+
+    final Map<String, DownloadedMaterialLocal>
+        subjects =
+        {};
+
+    for (
+      final Map<String, dynamic> row
+      in result
+    ) {
+      final DownloadedMaterialLocal material =
+          DownloadedMaterialLocal.fromMap(
+        row,
+      );
+
+      final String key;
+
+      if (material.subjectId != null) {
+        key =
+            'id:${material.subjectId}';
+      } else {
+        final String name =
+            material.subjectName
+                    ?.trim()
+                    .toLowerCase() ??
+                '';
+
+        if (name.isEmpty) {
+          continue;
+        }
+
+        key =
+            'name:$name';
+      }
+
+      subjects.putIfAbsent(
+        key,
+        () =>
+            material,
+      );
+    }
+
+    return subjects.values
+        .toList();
+  }
+
+
+  Future<List<DownloadedMaterialLocal>>
+      getMaterialsByHierarchy({
+    required int userId,
+    required String university,
+    required String department,
+    required String course,
+    int? subjectId,
+    String? subjectName,
+  }) async {
+    final Database db =
+        await _database.database;
+
+    String where =
+        'user_id = ? '
+        'AND university = ? '
+        'AND department = ? '
+        'AND course = ?';
+
+    final List<Object?> whereArgs = [
+      userId,
+      university.trim(),
+      department.trim(),
+      course.trim(),
+    ];
+
+    if (subjectId != null) {
+      where +=
+          ' AND subject_id = ?';
+
+      whereArgs.add(
+        subjectId,
+      );
+    } else if (
+      subjectName != null &&
+      subjectName.trim().isNotEmpty
+    ) {
+      where +=
+          ' AND subject_name = ?';
+
+      whereArgs.add(
+        subjectName.trim(),
+      );
+    }
+
+    final List<Map<String, dynamic>>
+        result =
+        await db.query(
+      DatabaseTables.downloadedMaterials,
+      where:
+          where,
+      whereArgs:
+          whereArgs,
+      orderBy:
+          'downloaded_at DESC',
+    );
+
+    return result
+        .map(
+          DownloadedMaterialLocal.fromMap,
+        )
+        .toList();
+  }
+
 
   Future<List<DownloadedMaterialLocal>>
       getDownloadedSubjects(
@@ -311,24 +457,22 @@ class DownloadedMaterialRepository {
       userId,
     );
 
-
-    final Map<String,
-            DownloadedMaterialLocal>
+    final Map<String, DownloadedMaterialLocal>
         uniqueSubjects =
         {};
 
-
-    for (final DownloadedMaterialLocal
-        material in materials) {
-
-      // Preferiamo subjectId quando disponibile.
+    for (
+      final DownloadedMaterialLocal material
+      in materials
+    ) {
       final String key;
 
-
-      if (material.subjectId !=
-          null) {
+      if (material.subjectId != null) {
         key =
-            'id:${material.subjectId}';
+            '${material.university}|'
+            '${material.department}|'
+            '${material.course}|'
+            '${material.subjectId}';
       } else {
         final String name =
             material.subjectName
@@ -336,16 +480,16 @@ class DownloadedMaterialRepository {
                     .toLowerCase() ??
                 '';
 
-
         if (name.isEmpty) {
           continue;
         }
 
-
         key =
-            'name:$name';
+            '${material.university}|'
+            '${material.department}|'
+            '${material.course}|'
+            '$name';
       }
-
 
       uniqueSubjects.putIfAbsent(
         key,
@@ -354,90 +498,201 @@ class DownloadedMaterialRepository {
       );
     }
 
-
     return uniqueSubjects.values
         .toList();
   }
 
 
-  // ===========================================================================
-  // COUNT BY SUBJECT
-  // ===========================================================================
+  Future<int> countByUniversity({
+    required int userId,
+    required String university,
+  }) async {
+    final Database db =
+        await _database.database;
+
+    final List<Map<String, Object?>>
+        result =
+        await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM ${DatabaseTables.downloadedMaterials}
+      WHERE user_id = ?
+      AND university = ?
+      ''',
+      [
+        userId,
+        university.trim(),
+      ],
+    );
+
+    return _extractCount(
+      result,
+    );
+  }
+
+
+  Future<int> countByDepartment({
+    required int userId,
+    required String university,
+    required String department,
+  }) async {
+    final Database db =
+        await _database.database;
+
+    final List<Map<String, Object?>>
+        result =
+        await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM ${DatabaseTables.downloadedMaterials}
+      WHERE user_id = ?
+      AND university = ?
+      AND department = ?
+      ''',
+      [
+        userId,
+        university.trim(),
+        department.trim(),
+      ],
+    );
+
+    return _extractCount(
+      result,
+    );
+  }
+
+
+  Future<int> countByCourse({
+    required int userId,
+    required String university,
+    required String department,
+    required String course,
+  }) async {
+    final Database db =
+        await _database.database;
+
+    final List<Map<String, Object?>>
+        result =
+        await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM ${DatabaseTables.downloadedMaterials}
+      WHERE user_id = ?
+      AND university = ?
+      AND department = ?
+      AND course = ?
+      ''',
+      [
+        userId,
+        university.trim(),
+        department.trim(),
+        course.trim(),
+      ],
+    );
+
+    return _extractCount(
+      result,
+    );
+  }
+
 
   Future<int> countBySubject({
     required int userId,
     int? subjectId,
     String? subjectName,
+    String? university,
+    String? department,
+    String? course,
   }) async {
     final Database db =
         await _database.database;
 
+    String where =
+        'user_id = ?';
 
-    if (subjectId !=
-        null) {
-      final List<Map<String, Object?>>
-          result =
-          await db.rawQuery(
-        '''
-        SELECT COUNT(*) AS count
-        FROM ${DatabaseTables.downloadedMaterials}
-        WHERE user_id = ?
-        AND subject_id = ?
-        ''',
+    final List<Object?> args = [
+      userId,
+    ];
 
-        [
-          userId,
-          subjectId,
-        ],
-      );
+    if (
+      university != null &&
+      university.trim().isNotEmpty
+    ) {
+      where +=
+          ' AND university = ?';
 
-
-      return _extractCount(
-        result,
+      args.add(
+        university.trim(),
       );
     }
 
+    if (
+      department != null &&
+      department.trim().isNotEmpty
+    ) {
+      where +=
+          ' AND department = ?';
 
-    if (subjectName !=
-            null &&
-        subjectName.trim().isNotEmpty) {
-      final List<Map<String, Object?>>
-          result =
-          await db.rawQuery(
-        '''
-        SELECT COUNT(*) AS count
-        FROM ${DatabaseTables.downloadedMaterials}
-        WHERE user_id = ?
-        AND subject_name = ?
-        ''',
-
-        [
-          userId,
-          subjectName,
-        ],
-      );
-
-
-      return _extractCount(
-        result,
+      args.add(
+        department.trim(),
       );
     }
 
+    if (
+      course != null &&
+      course.trim().isNotEmpty
+    ) {
+      where +=
+          ' AND course = ?';
 
-    return 0;
+      args.add(
+        course.trim(),
+      );
+    }
+
+    if (subjectId != null) {
+      where +=
+          ' AND subject_id = ?';
+
+      args.add(
+        subjectId,
+      );
+    } else if (
+      subjectName != null &&
+      subjectName.trim().isNotEmpty
+    ) {
+      where +=
+          ' AND subject_name = ?';
+
+      args.add(
+        subjectName.trim(),
+      );
+    } else {
+      return 0;
+    }
+
+    final List<Map<String, Object?>>
+        result =
+        await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM ${DatabaseTables.downloadedMaterials}
+      WHERE $where
+      ''',
+      args,
+    );
+
+    return _extractCount(
+      result,
+    );
   }
 
-
-  // ===========================================================================
-  // COUNT USER DOWNLOADS
-  // ===========================================================================
 
   Future<int> countByUser(
     int userId,
   ) async {
     final Database db =
         await _database.database;
-
 
     final List<Map<String, Object?>>
         result =
@@ -447,22 +702,16 @@ class DownloadedMaterialRepository {
       FROM ${DatabaseTables.downloadedMaterials}
       WHERE user_id = ?
       ''',
-
       [
         userId,
       ],
     );
-
 
     return _extractCount(
       result,
     );
   }
 
-
-  // ===========================================================================
-  // DELETE MATERIAL
-  // ===========================================================================
 
   Future<void> delete({
     required int userId,
@@ -471,14 +720,11 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     await db.delete(
       DatabaseTables.downloadedMaterials,
-
       where:
           'user_id = ? '
           'AND material_id = ?',
-
       whereArgs: [
         userId,
         materialId,
@@ -487,18 +733,6 @@ class DownloadedMaterialRepository {
   }
 
 
-  // ===========================================================================
-  // DELETE SUBJECT
-  // ===========================================================================
-  //
-  // Cancella i RECORD SQLite.
-  //
-  // ATTENZIONE:
-  // i file fisici devono essere cancellati dal MaterialDownloadService
-  // prima di richiamare questa funzione.
-  //
-  // ===========================================================================
-
   Future<int> deleteSubject({
     required int userId,
     required int subjectId,
@@ -506,14 +740,11 @@ class DownloadedMaterialRepository {
     final Database db =
         await _database.database;
 
-
     return db.delete(
       DatabaseTables.downloadedMaterials,
-
       where:
           'user_id = ? '
           'AND subject_id = ?',
-
       whereArgs: [
         userId,
         subjectId,
@@ -522,23 +753,16 @@ class DownloadedMaterialRepository {
   }
 
 
-  // ===========================================================================
-  // DELETE USER
-  // ===========================================================================
-
   Future<int> deleteByUser(
     int userId,
   ) async {
     final Database db =
         await _database.database;
 
-
     return db.delete(
       DatabaseTables.downloadedMaterials,
-
       where:
           'user_id = ?',
-
       whereArgs: [
         userId,
       ],
@@ -546,9 +770,28 @@ class DownloadedMaterialRepository {
   }
 
 
-  // ===========================================================================
-  // EXTRACT COUNT
-  // ===========================================================================
+  static List<String> _extractStrings(
+    List<Map<String, Object?>> result,
+  ) {
+    return result
+        .map(
+          (
+            Map<String, Object?> row,
+          ) =>
+              row['value']
+                  ?.toString()
+                  .trim() ??
+              '',
+        )
+        .where(
+          (
+            String value,
+          ) =>
+              value.isNotEmpty,
+        )
+        .toList();
+  }
+
 
   static int _extractCount(
     List<Map<String, Object?>> result,
@@ -557,20 +800,16 @@ class DownloadedMaterialRepository {
       return 0;
     }
 
-
     final dynamic value =
         result.first['count'];
-
 
     if (value is int) {
       return value;
     }
 
-
     if (value is num) {
       return value.toInt();
     }
-
 
     return int.tryParse(
           value?.toString() ??

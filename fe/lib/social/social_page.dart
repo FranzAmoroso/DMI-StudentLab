@@ -17,6 +17,7 @@ import 'groups/create_group_page.dart';
 import 'groups/public_groups_page.dart';
 
 import 'widgets/social_intro.dart';
+import 'widgets/social_login_intro.dart';
 import 'widgets/student_help_card.dart';
 import 'widgets/teacher_help_card.dart';
 import 'widgets/social_user_profile_page.dart';
@@ -348,7 +349,6 @@ class _SocialPageState
 
 class _GuestSocialPage
     extends StatefulWidget {
-
   final Future<void> Function()
       onLogin;
 
@@ -371,7 +371,6 @@ class _GuestSocialPage
 
 class _GuestSocialPageState
     extends State<_GuestSocialPage> {
-
   final ApiService _apiService =
       ApiService();
 
@@ -503,23 +502,6 @@ class _GuestSocialPageState
                 FontWeight.w500,
           ),
         ),
-
-        actions: [
-          IconButton(
-            tooltip:
-                'Accedi',
-
-            icon:
-                const Icon(
-              Icons.login_rounded,
-            ),
-
-            onPressed:
-                () {
-              widget.onLogin();
-            },
-          ),
-        ],
       ),
 
       body:
@@ -533,13 +515,11 @@ class _GuestSocialPageState
               context,
               constraints,
             ) {
-
               final double width =
                   constraints.maxWidth >
                           850
                       ? 850
-                      : constraints
-                          .maxWidth;
+                      : constraints.maxWidth;
 
               return SizedBox(
                 width:
@@ -574,6 +554,16 @@ class _GuestSocialPageState
 
                       const SizedBox(
                         height:
+                            16,
+                      ),
+
+                      SocialLoginIntro(
+                        onLogin:
+                            widget.onLogin,
+                      ),
+
+                      const SizedBox(
+                        height:
                             24,
                       ),
 
@@ -594,7 +584,8 @@ class _GuestSocialPageState
                       const Row(
                         children: [
                           Icon(
-                            Icons.people_outline_rounded,
+                            Icons
+                                .people_outline_rounded,
 
                             color:
                                 AppColors.skyBlue,
@@ -1178,7 +1169,9 @@ class _GuestSocialPageState
     final List<SocialUser> users =
         _users
             .where(
-              (user) =>
+              (
+                SocialUser user,
+              ) =>
                   user.type ==
                   _selectedType,
             )
@@ -1200,7 +1193,9 @@ class _GuestSocialPageState
     return Column(
       children:
           users.map(
-        (SocialUser user) {
+        (
+          SocialUser user,
+        ) {
           return Padding(
             padding:
                 const EdgeInsets.only(
@@ -1564,6 +1559,10 @@ class _SocialProfilePageState
   Widget _buildProfileCard(
     SocialUser user,
   ) {
+    final bool isTeacher =
+        user.type ==
+            SocialUserType.teacher;
+
     return Container(
       padding:
           const EdgeInsets.all(
@@ -1583,9 +1582,12 @@ class _SocialProfilePageState
         border:
             Border.all(
           color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.16,
+              (
+                isTeacher
+                    ? AppColors.teacherIndigo
+                    : AppColors.studentBlue
+              ).withOpacity(
+            0.22,
           ),
         ),
       ),
@@ -1601,33 +1603,33 @@ class _SocialProfilePageState
                 CrossAxisAlignment.start,
 
             children: [
-              Container(
-                width:
-                    70,
+              CircleAvatar(
+                radius:
+                    35,
 
-                height:
-                    70,
-
-                decoration:
-                    BoxDecoration(
-                  color:
-                      AppColors.brandNightBlue,
-
-                  borderRadius:
-                      BorderRadius.circular(
-                    20,
-                  ),
-                ),
+                backgroundColor:
+                    isTeacher
+                        ? AppColors.teacherIndigo
+                        : AppColors.studentBlue,
 
                 child:
-                    const Icon(
-                  Icons.person_rounded,
+                    Text(
+                  user.name.isNotEmpty
+                      ? user.name[0]
+                          .toUpperCase()
+                      : '?',
 
-                  color:
-                      AppColors.skyBlue,
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.pureWhite,
 
-                  size:
-                      38,
+                    fontSize:
+                        24,
+
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
                 ),
               ),
 
@@ -1644,7 +1646,9 @@ class _SocialProfilePageState
 
                   children: [
                     Text(
-                      user.name,
+                      user.name.isEmpty
+                          ? 'Profilo StudentLab'
+                          : user.name,
 
                       style:
                           const TextStyle(
@@ -1664,23 +1668,48 @@ class _SocialProfilePageState
                           5,
                     ),
 
-                    Text(
-                      user.type ==
-                              SocialUserType.teacher
-                          ? 'Insegnante'
-                          : 'Studente',
+                    Row(
+                      children: [
+                        Text(
+                          isTeacher
+                              ? 'Insegnante'
+                              : 'Studente',
 
-                      style:
-                          const TextStyle(
-                        color:
-                            AppColors.materialSky,
+                          style:
+                              TextStyle(
+                            color:
+                                isTeacher
+                                    ? AppColors.teacherIndigo
+                                    : AppColors.studentBlue,
 
-                        fontSize:
-                            13,
+                            fontSize:
+                                13,
 
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
+                            fontWeight:
+                                FontWeight.w600,
+                          ),
+                        ),
+
+                        if (
+                          isTeacher &&
+                          user.isVerifiedTeacher
+                        ) ...[
+                          const SizedBox(
+                            width:
+                                5,
+                          ),
+
+                          const Icon(
+                            Icons.verified_rounded,
+
+                            color:
+                                Colors.greenAccent,
+
+                            size:
+                                15,
+                          ),
+                        ],
+                      ],
                     ),
 
                     const SizedBox(
@@ -1692,9 +1721,12 @@ class _SocialProfilePageState
                       user.email,
 
                       style:
-                          const TextStyle(
+                          TextStyle(
                         color:
-                            Colors.white70,
+                            AppColors.pureWhite
+                                .withOpacity(
+                          0.48,
+                        ),
 
                         fontSize:
                             11,
@@ -1711,48 +1743,152 @@ class _SocialProfilePageState
             ],
           ),
 
+          if (
+            user.availableForHelp ||
+            user.availableForPrivateLessons
+          ) ...[
+            const SizedBox(
+              height:
+                  18,
+            ),
+
+            Wrap(
+              spacing:
+                  8,
+
+              runSpacing:
+                  8,
+
+              children: [
+                if (user.availableForHelp)
+                  const _ProfileCapabilityChip(
+                    icon:
+                        Icons.volunteer_activism_outlined,
+
+                    label:
+                        'Disponibile ad aiutare',
+                  ),
+
+                if (
+                  user.availableForPrivateLessons
+                )
+                  const _ProfileCapabilityChip(
+                    icon:
+                        Icons.school_outlined,
+
+                    label:
+                        'Lezioni private',
+                  ),
+              ],
+            ),
+          ],
+
+          if (user.academicTitles.isNotEmpty) ...[
+            const SizedBox(
+              height:
+                  22,
+            ),
+
+            const Text(
+              'Titoli conseguiti',
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite,
+
+                fontSize:
+                    15,
+
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              height:
+                  10,
+            ),
+
+            ...user.academicTitles.map(
+              (
+                SocialAcademicTitle title,
+              ) =>
+                  Padding(
+                padding:
+                    const EdgeInsets.only(
+                  bottom:
+                      10,
+                ),
+
+                child:
+                    _ProfileAcademicTitleCard(
+                  title:
+                      title,
+                ),
+              ),
+            ),
+          ],
+
+          if (user.academicPaths.isNotEmpty) ...[
+            const SizedBox(
+              height:
+                  18,
+            ),
+
+            const Text(
+              'Percorsi accademici',
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite,
+
+                fontSize:
+                    15,
+
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              height:
+                  10,
+            ),
+
+            ...user.academicPaths.map(
+              (
+                SocialAcademicPath path,
+              ) =>
+                  Padding(
+                padding:
+                    const EdgeInsets.only(
+                  bottom:
+                      10,
+                ),
+
+                child:
+                    _ProfileAcademicPathCard(
+                  path:
+                      path,
+                ),
+              ),
+            ),
+          ],
+
           const SizedBox(
             height:
-                22,
+                18,
           ),
 
-          _ProfileInfoRow(
-            icon:
-                Icons.school_outlined,
-
-            title:
-                'Corso',
-
-            value:
-                user.course,
-          ),
-
-          const SizedBox(
-            height:
-                12,
-          ),
-
-          _ProfileInfoRow(
-            icon:
-                Icons.account_balance_outlined,
-
-            title:
-                'Dipartimento',
-
-            value:
-                user.department,
-          ),
-
-          const SizedBox(
-            height:
-                20,
-          ),
-
-          const Text(
-            'Materie',
+          Text(
+            isTeacher
+                ? 'Insegnamenti'
+                : 'Materie',
 
             style:
-                TextStyle(
+                const TextStyle(
               color:
                   AppColors.pureWhite,
 
@@ -1769,39 +1905,49 @@ class _SocialProfilePageState
                 10,
           ),
 
-          if (user.subjects.isEmpty)
-            const Text(
-              'Nessuna materia associata.',
+          if (
+            isTeacher &&
+            user.teacherAssignments.isNotEmpty
+          )
+            ...user.teacherAssignments.map(
+              (
+                TeacherAssignment assignment,
+              ) =>
+                  _ProfileTeacherAssignmentCard(
+                assignment:
+                    assignment,
+              ),
+            )
+          else if (
+            !isTeacher &&
+            user.subjects.isNotEmpty
+          )
+            ...user.subjects.map(
+              (
+                SocialSubject subject,
+              ) =>
+                  _ProfileSubjectCard(
+                subject:
+                    subject,
+              ),
+            )
+          else
+            Text(
+              isTeacher
+                  ? 'Nessun insegnamento associato.'
+                  : 'Nessuna materia associata.',
 
               style:
                   TextStyle(
                 color:
-                    Colors.white54,
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.45,
+                ),
 
                 fontSize:
                     11,
               ),
-            )
-          else
-            Wrap(
-              spacing:
-                  8,
-
-              runSpacing:
-                  8,
-
-              children:
-                  user.subjects
-                      .map(
-                        (
-                          subject,
-                        ) =>
-                            _SubjectChip(
-                          label:
-                              subject.name,
-                        ),
-                      )
-                      .toList(),
             ),
 
           const SizedBox(
@@ -1840,56 +1986,26 @@ class _SocialProfilePageState
               color:
                   AppColors.pureWhite
                       .withOpacity(
-                0.58,
+                0.66,
               ),
 
               fontSize:
-                  12,
+                  13,
 
               height:
                   1.45,
             ),
           ),
 
-          if (user.willingToTeach) ...[
-            const SizedBox(
-              height:
-                  16,
-            ),
+          const SizedBox(
+            height:
+                18,
+          ),
 
-            const Row(
-              children: [
-                Icon(
-                  Icons
-                      .volunteer_activism_outlined,
-
-                  color:
-                      AppColors.materialSky,
-
-                  size:
-                      18,
-                ),
-
-                SizedBox(
-                  width:
-                      7,
-                ),
-
-                Text(
-                  'Disponibile ad aiutare',
-
-                  style:
-                      TextStyle(
-                    color:
-                        Colors.white70,
-
-                    fontSize:
-                        11,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          _ProfileReviewSummary(
+            user:
+                user,
+          ),
 
           const SizedBox(
             height:
@@ -3565,6 +3681,1452 @@ class _SubjectChip
 }
 
 
+class _ProfileCapabilityChip
+    extends StatelessWidget {
+  final IconData icon;
+
+  final String label;
+
+  const _ProfileCapabilityChip({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            9,
+        vertical:
+            6,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.skyBlue
+                .withOpacity(
+          0.08,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          9,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withOpacity(
+            0.15,
+          ),
+        ),
+      ),
+
+      child:
+          Row(
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+          Icon(
+            icon,
+
+            color:
+                AppColors.materialSky,
+
+            size:
+                15,
+          ),
+
+          const SizedBox(
+            width:
+                5,
+          ),
+
+          Text(
+            label,
+
+            style:
+                const TextStyle(
+              color:
+                  AppColors.materialSky,
+
+              fontSize:
+                  10,
+
+              fontWeight:
+                  FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileAcademicTitleCard
+    extends StatelessWidget {
+  final SocialAcademicTitle title;
+
+  const _ProfileAcademicTitleCard({
+    required this.title,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final String label =
+        title.titleTypeLabel
+            .trim()
+            .isEmpty
+        ? 'Titolo accademico'
+        : title.titleTypeLabel;
+
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        13,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.brandNightBlue,
+
+        borderRadius:
+            BorderRadius.circular(
+          12,
+        ),
+
+        border:
+            Border.all(
+          color:
+              Colors.amber
+                  .withOpacity(
+            0.18,
+          ),
+        ),
+      ),
+
+      child:
+          Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              Container(
+                width:
+                    34,
+
+                height:
+                    34,
+
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.amber
+                          .withOpacity(
+                    0.10,
+                  ),
+
+                  borderRadius:
+                      BorderRadius.circular(
+                    10,
+                  ),
+                ),
+
+                child:
+                    const Icon(
+                  Icons.workspace_premium_outlined,
+
+                  color:
+                      Colors.amber,
+
+                  size:
+                      19,
+                ),
+              ),
+
+              const SizedBox(
+                width:
+                    10,
+              ),
+
+              Expanded(
+                child:
+                    Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+
+                  children: [
+                    Text(
+                      label,
+
+                      style:
+                          const TextStyle(
+                        color:
+                            AppColors.pureWhite,
+
+                        fontSize:
+                            13,
+
+                        fontWeight:
+                            FontWeight.w700,
+                      ),
+                    ),
+
+                    if (
+                      title.course
+                          .trim()
+                          .isNotEmpty
+                    ) ...[
+                      const SizedBox(
+                        height:
+                            3,
+                      ),
+
+                      Text(
+                        title.course,
+
+                        style:
+                            TextStyle(
+                          color:
+                              AppColors.pureWhite
+                                  .withOpacity(
+                            0.62,
+                          ),
+
+                          fontSize:
+                              11,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              _ProfileVerificationBadge(
+                verified:
+                    title.isVerified,
+
+                rejected:
+                    title.isVerificationRejected,
+
+                pending:
+                    title.isVerificationPending,
+              ),
+            ],
+          ),
+
+          if (
+            title.university
+                    .trim()
+                    .isNotEmpty ||
+                title.department
+                    .trim()
+                    .isNotEmpty
+          ) ...[
+            const SizedBox(
+              height:
+                  10,
+            ),
+
+            Text(
+              [
+                if (
+                  title.university
+                      .trim()
+                      .isNotEmpty
+                )
+                  title.university
+                      .trim(),
+
+                if (
+                  title.department
+                      .trim()
+                      .isNotEmpty
+                )
+                  title.department
+                      .trim(),
+              ].join(
+                ' • ',
+              ),
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.42,
+                ),
+
+                fontSize:
+                    10,
+              ),
+            ),
+          ],
+
+          if (
+            title.graduationYear != null ||
+            title.isPrimary
+          ) ...[
+            const SizedBox(
+              height:
+                  9,
+            ),
+
+            Wrap(
+              spacing:
+                  7,
+
+              runSpacing:
+                  7,
+
+              children: [
+                if (
+                  title.graduationYear !=
+                      null
+                )
+                  _ProfileSmallBadge(
+                    label:
+                        'Conseguito ${title.graduationYear}',
+                  ),
+
+                if (title.isPrimary)
+                  const _ProfileSmallBadge(
+                    label:
+                        'Principale',
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileAcademicPathCard
+    extends StatelessWidget {
+  final SocialAcademicPath path;
+
+  const _ProfileAcademicPathCard({
+    required this.path,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        13,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.brandNightBlue,
+
+        borderRadius:
+            BorderRadius.circular(
+          12,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withOpacity(
+            0.12,
+          ),
+        ),
+      ),
+
+      child:
+          Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              const Icon(
+                Icons.account_balance_outlined,
+
+                color:
+                    AppColors.skyBlue,
+
+                size:
+                    17,
+              ),
+
+              const SizedBox(
+                width:
+                    7,
+              ),
+
+              Expanded(
+                child:
+                    Text(
+                  path.university
+                          .trim()
+                          .isEmpty
+                      ? 'Ateneo non specificato'
+                      : path.university,
+
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.pureWhite,
+
+                    fontSize:
+                        12,
+
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              _ProfileVerificationBadge(
+                verified:
+                    path.isVerified,
+
+                rejected:
+                    path.isVerificationRejected,
+
+                pending:
+                    path.isVerificationPending,
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height:
+                10,
+          ),
+
+          _ProfileAcademicInfoRow(
+            label:
+                'Dipartimento',
+
+            value:
+                path.department
+                        .trim()
+                        .isEmpty
+                    ? 'Non specificato'
+                    : path.department,
+          ),
+
+          const SizedBox(
+            height:
+                7,
+          ),
+
+          _ProfileAcademicInfoRow(
+            label:
+                'Corso',
+
+            value:
+                path.course
+                        .trim()
+                        .isEmpty
+                    ? 'Non specificato'
+                    : path.course,
+          ),
+
+          const SizedBox(
+            height:
+                10,
+          ),
+
+          Wrap(
+            spacing:
+                7,
+
+            runSpacing:
+                7,
+
+            children: [
+              _ProfileAcademicStatusBadge(
+                status:
+                    path.status,
+              ),
+
+              if (path.startYear != null)
+                _ProfileSmallBadge(
+                  label:
+                      'Dal ${path.startYear}',
+                ),
+
+              if (path.isCurrent)
+                const _ProfileSmallBadge(
+                  label:
+                      'Corrente',
+                ),
+
+              if (path.isPrimary)
+                const _ProfileSmallBadge(
+                  label:
+                      'Principale',
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileAcademicInfoRow
+    extends StatelessWidget {
+  final String label;
+
+  final String value;
+
+  const _ProfileAcademicInfoRow({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+
+      children: [
+        SizedBox(
+          width:
+              90,
+
+          child:
+              Text(
+            label,
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite
+                      .withOpacity(
+                0.38,
+              ),
+
+              fontSize:
+                  10,
+            ),
+          ),
+        ),
+
+        const SizedBox(
+          width:
+              7,
+        ),
+
+        Expanded(
+          child:
+              Text(
+            value,
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite
+                      .withOpacity(
+                0.72,
+              ),
+
+              fontSize:
+                  11,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+class _ProfileAcademicStatusBadge
+    extends StatelessWidget {
+  final AcademicPathStatus status;
+
+  const _ProfileAcademicStatusBadge({
+    required this.status,
+  });
+
+  String get label {
+    switch (status) {
+      case AcademicPathStatus.enrolled:
+        return 'Iscritto';
+
+      case AcademicPathStatus.graduated:
+        return 'Laureato';
+
+      case AcademicPathStatus.suspended:
+        return 'Percorso sospeso';
+
+      case AcademicPathStatus.withdrawn:
+        return 'Percorso interrotto';
+
+      case AcademicPathStatus.transferred:
+        return 'Trasferito';
+    }
+  }
+
+  IconData get icon {
+    switch (status) {
+      case AcademicPathStatus.enrolled:
+        return Icons.school_outlined;
+
+      case AcademicPathStatus.graduated:
+        return Icons.workspace_premium_outlined;
+
+      case AcademicPathStatus.suspended:
+        return Icons.pause_circle_outline_rounded;
+
+      case AcademicPathStatus.withdrawn:
+        return Icons.remove_circle_outline;
+
+      case AcademicPathStatus.transferred:
+        return Icons.swap_horiz_rounded;
+    }
+  }
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            8,
+
+        vertical:
+            5,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.skyBlue
+                .withOpacity(
+          0.10,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          8,
+        ),
+      ),
+
+      child:
+          Row(
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+          Icon(
+            icon,
+
+            color:
+                AppColors.materialSky,
+
+            size:
+                12,
+          ),
+
+          const SizedBox(
+            width:
+                4,
+          ),
+
+          Text(
+            label,
+
+            style:
+                const TextStyle(
+              color:
+                  AppColors.materialSky,
+
+              fontSize:
+                  9,
+
+              fontWeight:
+                  FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileSmallBadge
+    extends StatelessWidget {
+  final String label;
+
+  const _ProfileSmallBadge({
+    required this.label,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            8,
+
+        vertical:
+            5,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.pureWhite
+                .withOpacity(
+          0.05,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          8,
+        ),
+      ),
+
+      child:
+          Text(
+        label,
+
+        style:
+            TextStyle(
+          color:
+              AppColors.pureWhite
+                  .withOpacity(
+            0.60,
+          ),
+
+          fontSize:
+              9,
+
+          fontWeight:
+              FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+
+class _ProfileVerificationBadge
+    extends StatelessWidget {
+  final bool verified;
+
+  final bool rejected;
+
+  final bool pending;
+
+  const _ProfileVerificationBadge({
+    required this.verified,
+    required this.rejected,
+    required this.pending,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final String label;
+    final Color color;
+    final IconData icon;
+
+    if (verified) {
+      label =
+          'VERIFICATO';
+      color =
+          Colors.greenAccent;
+      icon =
+          Icons.verified_rounded;
+    } else if (rejected) {
+      label =
+          'RIFIUTATO';
+      color =
+          Colors.redAccent;
+      icon =
+          Icons.cancel_outlined;
+    } else if (pending) {
+      label =
+          'DA VERIFICARE';
+      color =
+          Colors.amber;
+      icon =
+          Icons.schedule_rounded;
+    } else {
+      label =
+          'DICHIARATO';
+      color =
+          AppColors.materialSky;
+      icon =
+          Icons.info_outline_rounded;
+    }
+
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            7,
+
+        vertical:
+            4,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            color.withOpacity(
+          0.10,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          8,
+        ),
+      ),
+
+      child:
+          Row(
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+          Icon(
+            icon,
+
+            color:
+                color,
+
+            size:
+                10,
+          ),
+
+          const SizedBox(
+            width:
+                3,
+          ),
+
+          Text(
+            label,
+
+            style:
+                TextStyle(
+              color:
+                  color,
+
+              fontSize:
+                  8,
+
+              fontWeight:
+                  FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileSubjectCard
+    extends StatelessWidget {
+  final SocialSubject subject;
+
+  const _ProfileSubjectCard({
+    required this.subject,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      width:
+          double.infinity,
+
+      margin:
+          const EdgeInsets.only(
+        bottom:
+            8,
+      ),
+
+      padding:
+          const EdgeInsets.all(
+        11,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.socialBlue
+                .withOpacity(
+          0.08,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          12,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.socialBlue
+                  .withOpacity(
+            0.18,
+          ),
+        ),
+      ),
+
+      child:
+          Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.menu_book_outlined,
+
+                color:
+                    AppColors.skyBlue,
+
+                size:
+                    17,
+              ),
+
+              const SizedBox(
+                width:
+                    7,
+              ),
+
+              Expanded(
+                child:
+                    Text(
+                  subject.name,
+
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.skyBlue,
+
+                    fontSize:
+                        13,
+
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              if (
+                subject.grade != null &&
+                subject.isGradeVerified
+              )
+                _ProfileSubjectBadge(
+                  label:
+                      '${subject.grade}/30',
+
+                  icon:
+                      Icons.verified_rounded,
+                ),
+            ],
+          ),
+
+          if (
+            subject.canHelp ||
+            subject.canGivePrivateLessons
+          ) ...[
+            const SizedBox(
+              height:
+                  8,
+            ),
+
+            Wrap(
+              spacing:
+                  6,
+
+              runSpacing:
+                  6,
+
+              children: [
+                if (subject.canHelp)
+                  const _ProfileSubjectBadge(
+                    label:
+                        'Aiuto',
+
+                    icon:
+                        Icons.volunteer_activism_outlined,
+                  ),
+
+                if (
+                  subject.canGivePrivateLessons
+                )
+                  const _ProfileSubjectBadge(
+                    label:
+                        'Lezioni private',
+
+                    icon:
+                        Icons.school_outlined,
+                  ),
+              ],
+            ),
+          ],
+
+          if (
+            subject.note
+                .trim()
+                .isNotEmpty
+          ) ...[
+            const SizedBox(
+              height:
+                  8,
+            ),
+
+            Text(
+              subject.note,
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.55,
+                ),
+
+                fontSize:
+                    12,
+
+                height:
+                    1.3,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileTeacherAssignmentCard
+    extends StatelessWidget {
+  final TeacherAssignment assignment;
+
+  const _ProfileTeacherAssignmentCard({
+    required this.assignment,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final SubjectOffering? offering =
+        assignment.offering;
+
+    final List<String> details =
+        [];
+
+    if (
+      offering != null &&
+      offering.module
+          .trim()
+          .isNotEmpty
+    ) {
+      details.add(
+        offering.module,
+      );
+    }
+
+    if (
+      offering != null &&
+      offering.channel
+          .trim()
+          .isNotEmpty
+    ) {
+      details.add(
+        'Canale ${offering.channel}',
+      );
+    }
+
+    if (
+      offering != null &&
+      offering.academicYear
+          .trim()
+          .isNotEmpty
+    ) {
+      details.add(
+        offering.academicYear,
+      );
+    }
+
+    return Container(
+      width:
+          double.infinity,
+
+      margin:
+          const EdgeInsets.only(
+        bottom:
+            8,
+      ),
+
+      padding:
+          const EdgeInsets.all(
+        11,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.teacherIndigo
+                .withOpacity(
+          0.08,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          12,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.teacherIndigo
+                  .withOpacity(
+            0.18,
+          ),
+        ),
+      ),
+
+      child:
+          Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              const Icon(
+                Icons.school_outlined,
+
+                color:
+                    AppColors.skyBlue,
+
+                size:
+                    17,
+              ),
+
+              const SizedBox(
+                width:
+                    7,
+              ),
+
+              Expanded(
+                child:
+                    Text(
+                  assignment.subject.name,
+
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.skyBlue,
+
+                    fontSize:
+                        13,
+
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              _ProfileVerificationBadge(
+                verified:
+                    assignment.isVerified,
+
+                rejected:
+                    assignment.isRejected,
+
+                pending:
+                    assignment.isPending,
+              ),
+            ],
+          ),
+
+          if (details.isNotEmpty) ...[
+            const SizedBox(
+              height:
+                  9,
+            ),
+
+            Wrap(
+              spacing:
+                  6,
+
+              runSpacing:
+                  6,
+
+              children:
+                  details
+                      .map(
+                        (
+                          String detail,
+                        ) =>
+                            _ProfileSubjectBadge(
+                          label:
+                              detail,
+
+                          icon:
+                              Icons.class_outlined,
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileSubjectBadge
+    extends StatelessWidget {
+  final String label;
+
+  final IconData icon;
+
+  const _ProfileSubjectBadge({
+    required this.label,
+    required this.icon,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal:
+            7,
+
+        vertical:
+            4,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.skyBlue
+                .withOpacity(
+          0.10,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(
+          8,
+        ),
+      ),
+
+      child:
+          Row(
+        mainAxisSize:
+            MainAxisSize.min,
+
+        children: [
+          Icon(
+            icon,
+
+            color:
+                AppColors.materialSky,
+
+            size:
+                11,
+          ),
+
+          const SizedBox(
+            width:
+                4,
+          ),
+
+          Text(
+            label,
+
+            style:
+                const TextStyle(
+              color:
+                  AppColors.materialSky,
+
+              fontSize:
+                  8,
+
+              fontWeight:
+                  FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProfileReviewSummary
+    extends StatelessWidget {
+  final SocialUser user;
+
+  const _ProfileReviewSummary({
+    required this.user,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        12,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.brandNightBlue,
+
+        borderRadius:
+            BorderRadius.circular(
+          12,
+        ),
+      ),
+
+      child:
+          Row(
+        children: [
+          const Icon(
+            Icons.star_rounded,
+
+            color:
+                Colors.amber,
+
+            size:
+                20,
+          ),
+
+          const SizedBox(
+            width:
+                6,
+          ),
+
+          if (user.reviews.isEmpty)
+            const Text(
+              'Nessuna recensione',
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite,
+
+                fontSize:
+                    12,
+              ),
+            )
+          else ...[
+            Text(
+              user.averageRating
+                  .toStringAsFixed(
+                1,
+              ),
+
+              style:
+                  const TextStyle(
+                color:
+                    AppColors.pureWhite,
+
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              width:
+                  6,
+            ),
+
+            Text(
+              '(${user.reviewCount} '
+              '${user.reviewCount == 1 ? 'recensione' : 'recensioni'})',
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite
+                        .withOpacity(
+                  0.50,
+                ),
+
+                fontSize:
+                    12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+
 class _StatisticCard
     extends StatelessWidget {
 
@@ -3952,17 +5514,152 @@ int? _toInt(
 String _cleanError(
   Object error,
 ) {
-  String message =
-      error.toString();
+  final String message =
+      error
+          .toString()
+          .toLowerCase();
 
-  if (message.startsWith(
-    'Exception: ',
-  )) {
-    message =
-        message.substring(
-      'Exception: '.length,
-    );
+  if (
+    message.contains(
+          'socket',
+        ) ||
+    message.contains(
+          'network',
+        ) ||
+    message.contains(
+          'connection',
+        ) ||
+    message.contains(
+          'host lookup',
+        ) ||
+    message.contains(
+          'failed host',
+        )
+  ) {
+    return 'Non è stato possibile connettersi a StudentLab. Controlla la connessione e riprova.';
   }
 
-  return message;
+  if (
+    message.contains(
+          'timeout',
+        ) ||
+    message.contains(
+          'timed out',
+        ) ||
+    message.contains(
+          '408',
+        )
+  ) {
+    return 'La richiesta sta impiegando troppo tempo. Riprova tra qualche momento.';
+  }
+
+  if (
+    message.contains(
+          '401',
+        ) ||
+    message.contains(
+          'unauthorized',
+        ) ||
+    (
+      message.contains(
+        'token',
+      ) &&
+      (
+        message.contains(
+          'expired',
+        ) ||
+        message.contains(
+          'invalid',
+        )
+      )
+    )
+  ) {
+    return 'La sessione non è più valida. Accedi nuovamente per continuare.';
+  }
+
+  if (
+    message.contains(
+          '403',
+        ) ||
+    message.contains(
+          'forbidden',
+        )
+  ) {
+    return 'Non hai i permessi necessari per completare questa operazione.';
+  }
+
+  if (
+    message.contains(
+          '404',
+        ) ||
+    message.contains(
+          'not found',
+        )
+  ) {
+    return 'Le informazioni richieste non sono più disponibili. Aggiorna la pagina e riprova.';
+  }
+
+  if (
+    message.contains(
+          '409',
+        ) ||
+    message.contains(
+          'conflict',
+        ) ||
+    message.contains(
+          'already exists',
+        )
+  ) {
+    return 'Non è stato possibile completare l’operazione perché i dati risultano già aggiornati o presenti.';
+  }
+
+  if (
+    message.contains(
+          '422',
+        ) ||
+    message.contains(
+          'validation',
+        ) ||
+    message.contains(
+          'invalid',
+        )
+  ) {
+    return 'Alcune informazioni non risultano valide. Controlla i dati e riprova.';
+  }
+
+  if (
+    message.contains(
+          '429',
+        ) ||
+    message.contains(
+          'too many',
+        ) ||
+    message.contains(
+          'rate limit',
+        )
+  ) {
+    return 'Sono state effettuate troppe richieste in poco tempo. Riprova tra qualche momento.';
+  }
+
+  if (
+    message.contains(
+          '500',
+        ) ||
+    message.contains(
+          '502',
+        ) ||
+    message.contains(
+          '503',
+        ) ||
+    message.contains(
+          '504',
+        ) ||
+    message.contains(
+          'internal server',
+        )
+  ) {
+    return 'StudentLab è temporaneamente non disponibile. Riprova tra qualche momento.';
+  }
+
+  return 'Non è stato possibile completare l’operazione. Riprova.';
 }

@@ -5,17 +5,9 @@ import 'database_migrations.dart';
 import 'database_tables.dart';
 
 
-// =============================================================================
-// APP DATABASE
-// =============================================================================
-
 class AppDatabase {
   AppDatabase._();
 
-
-  // ===========================================================================
-  // SINGLETON
-  // ===========================================================================
 
   static final AppDatabase instance =
       AppDatabase._();
@@ -24,47 +16,31 @@ class AppDatabase {
   static Database? _database;
 
 
-  // ===========================================================================
-  // VERSION
-  // ===========================================================================
-
   static const int _databaseVersion =
-      4;
+      5;
 
-
-  // ===========================================================================
-  // DATABASE
-  // ===========================================================================
 
   Future<Database> get database async {
     if (_database != null) {
       return _database!;
     }
 
-
     _database =
         await _initDatabase();
-
 
     return _database!;
   }
 
 
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
-
   Future<Database> _initDatabase() async {
     final String databasePath =
         await getDatabasesPath();
-
 
     final String path =
         join(
       databasePath,
       'studentlab.db',
     );
-
 
     return openDatabase(
       path,
@@ -84,10 +60,6 @@ class AppDatabase {
   }
 
 
-  // ===========================================================================
-  // CONFIGURE
-  // ===========================================================================
-
   Future<void> _onConfigure(
     Database db,
   ) async {
@@ -97,33 +69,10 @@ class AppDatabase {
   }
 
 
-  // ===========================================================================
-  // CREATE
-  // ===========================================================================
-
   Future<void> _onCreate(
     Database db,
     int version,
   ) async {
-
-    // =========================================================================
-    // DOWNLOADED MATERIALS
-    // =========================================================================
-    //
-    // Registra le copie locali dei materiali.
-    //
-    // user_id:
-    //
-    // - ID reale per utente autenticato
-    // - 0 per Guest
-    //
-    // subject_id / subject_name / course / department:
-    //
-    // permettono di costruire automaticamente
-    // la libreria Materiale raggruppata per materia.
-    //
-    // =========================================================================
-
     await db.execute(
       '''
       CREATE TABLE ${DatabaseTables.downloadedMaterials} (
@@ -135,13 +84,15 @@ class AppDatabase {
 
         group_id INTEGER NOT NULL,
 
-        subject_id INTEGER,
+        university TEXT,
 
-        subject_name TEXT,
+        department TEXT,
 
         course TEXT,
 
-        department TEXT,
+        subject_id INTEGER,
+
+        subject_name TEXT,
 
         original_name TEXT NOT NULL,
 
@@ -160,11 +111,6 @@ class AppDatabase {
       )
       ''',
     );
-
-
-    // =========================================================================
-    // PENDING UPLOADS
-    // =========================================================================
 
     await db.execute(
       '''
@@ -200,11 +146,6 @@ class AppDatabase {
       ''',
     );
 
-
-    // =========================================================================
-    // MATERIAL CACHE
-    // =========================================================================
-
     await db.execute(
       '''
       CREATE TABLE ${DatabaseTables.materialCache} (
@@ -234,11 +175,6 @@ class AppDatabase {
       ''',
     );
 
-
-    // =========================================================================
-    // INDEX - DOWNLOADED MATERIALS USER
-    // =========================================================================
-
     await db.execute(
       '''
       CREATE INDEX idx_downloaded_materials_user
@@ -248,11 +184,6 @@ class AppDatabase {
       ''',
     );
 
-
-    // =========================================================================
-    // INDEX - DOWNLOADED MATERIALS GROUP
-    // =========================================================================
-
     await db.execute(
       '''
       CREATE INDEX idx_downloaded_materials_group
@@ -261,18 +192,6 @@ class AppDatabase {
       )
       ''',
     );
-
-
-    // =========================================================================
-    // INDEX - DOWNLOADED MATERIALS SUBJECT
-    // =========================================================================
-    //
-    // StudentMaterialPage utilizzerà spesso:
-    //
-    // WHERE user_id = ?
-    // AND subject_id = ?
-    //
-    // =========================================================================
 
     await db.execute(
       '''
@@ -284,10 +203,28 @@ class AppDatabase {
       ''',
     );
 
+    await db.execute(
+      '''
+      CREATE INDEX idx_downloaded_materials_user_university
+      ON ${DatabaseTables.downloadedMaterials}(
+        user_id,
+        university
+      )
+      ''',
+    );
 
-    // =========================================================================
-    // INDEX - PENDING UPLOADS USER STATUS
-    // =========================================================================
+    await db.execute(
+      '''
+      CREATE INDEX idx_downloaded_materials_hierarchy
+      ON ${DatabaseTables.downloadedMaterials}(
+        user_id,
+        university,
+        department,
+        course,
+        subject_id
+      )
+      ''',
+    );
 
     await db.execute(
       '''
@@ -299,11 +236,6 @@ class AppDatabase {
       ''',
     );
 
-
-    // =========================================================================
-    // INDEX - PENDING UPLOADS GROUP
-    // =========================================================================
-
     await db.execute(
       '''
       CREATE INDEX idx_pending_uploads_group
@@ -312,11 +244,6 @@ class AppDatabase {
       )
       ''',
     );
-
-
-    // =========================================================================
-    // INDEX - MATERIAL CACHE
-    // =========================================================================
 
     await db.execute(
       '''
@@ -330,22 +257,15 @@ class AppDatabase {
   }
 
 
-  // ===========================================================================
-  // CLOSE
-  // ===========================================================================
-
   Future<void> close() async {
     final Database? db =
         _database;
-
 
     if (db == null) {
       return;
     }
 
-
     await db.close();
-
 
     _database =
         null;

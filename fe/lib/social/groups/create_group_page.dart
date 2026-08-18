@@ -3,24 +3,10 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../theme/nightTheme.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_session.dart';
 
 import '../social_models.dart';
 
-
-// =============================================================================
-// UTENTE TEMPORANEO
-// =============================================================================
-//
-// Quando implementeremo autenticazione/sessione,
-// questo ID arriverà dall'utente autenticato.
-//
-
-const int _currentUserId = 1;
-
-
-// =============================================================================
-// CREATE GROUP PAGE
-// =============================================================================
 
 class CreateGroupPage extends StatefulWidget {
   const CreateGroupPage({
@@ -33,24 +19,10 @@ class CreateGroupPage extends StatefulWidget {
 }
 
 
-// =============================================================================
-// STATE
-// =============================================================================
-
 class _CreateGroupPageState
     extends State<CreateGroupPage> {
-
-  // ===========================================================================
-  // API
-  // ===========================================================================
-
   final ApiService _apiService =
       ApiService();
-
-
-  // ===========================================================================
-  // CONTROLLER
-  // ===========================================================================
 
   final TextEditingController
       _nameController =
@@ -61,34 +33,25 @@ class _CreateGroupPageState
       TextEditingController();
 
   final TextEditingController
+      _universityController =
+      TextEditingController();
+
+  final TextEditingController
       _participantSearchController =
       TextEditingController();
 
-
-  // ===========================================================================
-  // DATI UTENTE
-  // ===========================================================================
-
   SocialUser? _currentUser;
 
-  String _department = '';
+  String _department =
+      '';
 
-  String _course = '';
-
-
-  // ===========================================================================
-  // MATERIE
-  // ===========================================================================
+  String _course =
+      '';
 
   List<SocialSubject> _subjects =
       [];
 
   int? _selectedSubjectId;
-
-
-  // ===========================================================================
-  // UTENTI SOCIAL
-  // ===========================================================================
 
   List<SocialUser> _socialUsers =
       [];
@@ -97,19 +60,9 @@ class _CreateGroupPageState
       _invitedUsers =
       [];
 
-
-  // ===========================================================================
-  // MATERIALI
-  // ===========================================================================
-
   final List<_SelectedMaterial>
       _materials =
       [];
-
-
-  // ===========================================================================
-  // STATO FORM
-  // ===========================================================================
 
   bool _isPrivate =
       false;
@@ -122,10 +75,6 @@ class _CreateGroupPageState
 
   String? _loadError;
 
-
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
 
   @override
   void initState() {
@@ -140,12 +89,12 @@ class _CreateGroupPageState
     _descriptionController.addListener(
       _refreshSummary,
     );
+
+    _universityController.addListener(
+      _refreshSummary,
+    );
   }
 
-
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
 
   @override
   void dispose() {
@@ -157,9 +106,15 @@ class _CreateGroupPageState
       _refreshSummary,
     );
 
+    _universityController.removeListener(
+      _refreshSummary,
+    );
+
     _nameController.dispose();
 
     _descriptionController.dispose();
+
+    _universityController.dispose();
 
     _participantSearchController
         .dispose();
@@ -175,10 +130,6 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // CARICAMENTO DATI
-  // ===========================================================================
-
   Future<void> _loadInitialData() async {
     setState(() {
       _loading =
@@ -188,13 +139,21 @@ class _CreateGroupPageState
           null;
     });
 
-
     try {
-      final SocialUser currentUser =
-          await _apiService.getSocialUser(
-        _currentUserId,
-      );
+      final int? currentUserId =
+          AuthSession
+              .instance
+              .currentUserId;
 
+      if (currentUserId == null) {
+        throw Exception(
+          'Utente non autenticato.',
+        );
+      }
+
+      final SocialUser currentUser =
+          await _apiService
+              .getCurrentUser();
 
       final List<SocialSubject>
           subjects =
@@ -204,17 +163,14 @@ class _CreateGroupPageState
         currentUser.course,
       );
 
-
       final List<SocialUser>
           users =
           await _apiService
               .getSocialUsers();
 
-
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _currentUser =
@@ -229,20 +185,30 @@ class _CreateGroupPageState
         _subjects =
             subjects;
 
-        /*
-         * Escludiamo dalla lista degli invitabili
-         * l'utente che sta creando il gruppo.
-         */
         _socialUsers =
             users
                 .where(
                   (
-                    user,
+                    SocialUser user,
                   ) =>
                       user.id !=
-                      _currentUserId,
+                      currentUserId,
                 )
                 .toList();
+
+        if (
+          _universityController
+              .text
+              .trim()
+              .isEmpty &&
+          currentUser.university
+              .trim()
+              .isNotEmpty
+        ) {
+          _universityController.text =
+              currentUser.university
+                  .trim();
+        }
 
         _loading =
             false;
@@ -251,7 +217,6 @@ class _CreateGroupPageState
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _loading =
@@ -263,10 +228,6 @@ class _CreateGroupPageState
     }
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -311,10 +272,6 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // BODY
-  // ===========================================================================
-
   Widget _buildBody() {
     if (_loading) {
       return const Center(
@@ -322,7 +279,6 @@ class _CreateGroupPageState
             CircularProgressIndicator(),
       );
     }
-
 
     if (_loadError != null) {
       return Center(
@@ -354,14 +310,13 @@ class _CreateGroupPageState
       );
     }
 
-
     return Center(
       child:
           LayoutBuilder(
         builder:
             (
-          context,
-          constraints,
+          BuildContext context,
+          BoxConstraints constraints,
         ) {
           final double width =
               constraints.maxWidth >
@@ -369,7 +324,6 @@ class _CreateGroupPageState
                   ? 700
                   : constraints
                       .maxWidth;
-
 
           return SizedBox(
             width:
@@ -388,10 +342,6 @@ class _CreateGroupPageState
                     CrossAxisAlignment.start,
 
                 children: [
-                  // ===========================================================
-                  // INTRODUZIONE
-                  // ===========================================================
-
                   _buildIntro(),
 
                   const SizedBox(
@@ -399,14 +349,8 @@ class _CreateGroupPageState
                         24,
                   ),
 
-
-                  // ===========================================================
-                  // INFORMAZIONI
-                  // ===========================================================
-
                   _buildSectionTitle(
                     'Informazioni del gruppo',
-
                     'Definisci le informazioni principali.',
                   ),
 
@@ -422,14 +366,8 @@ class _CreateGroupPageState
                         24,
                   ),
 
-
-                  // ===========================================================
-                  // MATERIA
-                  // ===========================================================
-
                   _buildSectionTitle(
                     'Materia',
-
                     'Collega il gruppo a una materia del tuo corso.',
                   ),
 
@@ -445,14 +383,8 @@ class _CreateGroupPageState
                         24,
                   ),
 
-
-                  // ===========================================================
-                  // PRIVACY
-                  // ===========================================================
-
                   _buildSectionTitle(
                     'Accesso al gruppo',
-
                     'Scegli come potranno partecipare gli altri utenti.',
                   ),
 
@@ -468,14 +400,8 @@ class _CreateGroupPageState
                         24,
                   ),
 
-
-                  // ===========================================================
-                  // PARTECIPANTI
-                  // ===========================================================
-
                   _buildSectionTitle(
                     'Partecipanti',
-
                     'Puoi aggiungere subito studenti o insegnanti.',
                   ),
 
@@ -491,14 +417,8 @@ class _CreateGroupPageState
                         24,
                   ),
 
-
-                  // ===========================================================
-                  // MATERIALI
-                  // ===========================================================
-
                   _buildSectionTitle(
                     'Materiale iniziale',
-
                     'Puoi caricare file insieme alla creazione del gruppo.',
                   ),
 
@@ -514,22 +434,12 @@ class _CreateGroupPageState
                         28,
                   ),
 
-
-                  // ===========================================================
-                  // RIEPILOGO
-                  // ===========================================================
-
                   _buildSummaryCard(),
 
                   const SizedBox(
                     height:
                         20,
                   ),
-
-
-                  // ===========================================================
-                  // CREA
-                  // ===========================================================
 
                   _buildCreateButton(),
 
@@ -547,10 +457,6 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // INTRO
-  // ===========================================================================
-
   Widget _buildIntro() {
     return Container(
       width:
@@ -564,7 +470,8 @@ class _CreateGroupPageState
       decoration:
           BoxDecoration(
         color:
-            AppColors.eleganceDeepNavy,
+            AppColors
+                .eleganceDeepNavy,
 
         borderRadius:
             BorderRadius.circular(
@@ -594,7 +501,8 @@ class _CreateGroupPageState
             decoration:
                 BoxDecoration(
               color:
-                  AppColors.brandNightBlue,
+                  AppColors
+                      .brandNightBlue,
 
               borderRadius:
                   BorderRadius.circular(
@@ -632,7 +540,8 @@ class _CreateGroupPageState
                   style:
                       TextStyle(
                     color:
-                        AppColors.pureWhite,
+                        AppColors
+                            .pureWhite,
 
                     fontSize:
                         18,
@@ -653,10 +562,11 @@ class _CreateGroupPageState
                   style:
                       TextStyle(
                     color:
-                        AppColors.pureWhite
+                        AppColors
+                            .pureWhite
                             .withOpacity(
-                      0.55,
-                    ),
+                          0.55,
+                        ),
 
                     fontSize:
                         12,
@@ -673,10 +583,6 @@ class _CreateGroupPageState
     );
   }
 
-
-  // ===========================================================================
-  // SECTION TITLE
-  // ===========================================================================
 
   Widget _buildSectionTitle(
     String title,
@@ -728,10 +634,6 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // INFORMAZIONI BASE
-  // ===========================================================================
-
   Widget _buildBasicInformationCard() {
     return _SectionCard(
       child:
@@ -742,7 +644,6 @@ class _CreateGroupPageState
         children: [
           _buildFieldLabel(
             'Nome del gruppo',
-
             required:
                 true,
           ),
@@ -785,20 +686,45 @@ class _CreateGroupPageState
                 'Descrivi brevemente lo scopo del gruppo...',
 
             icon:
-                Icons.description_outlined,
+                Icons
+                    .description_outlined,
 
             maxLines:
                 4,
+          ),
+
+          const SizedBox(
+            height:
+                18,
+          ),
+
+          _buildFieldLabel(
+            'Ateneo',
+            required:
+                true,
+          ),
+
+          const SizedBox(
+            height:
+                8,
+          ),
+
+          _buildTextField(
+            controller:
+                _universityController,
+
+            hint:
+                'Es. Università degli Studi di Catania',
+
+            icon:
+                Icons
+                    .account_balance_outlined,
           ),
         ],
       ),
     );
   }
 
-
-  // ===========================================================================
-  // MATERIA
-  // ===========================================================================
 
   Widget _buildSubjectCard() {
     return _SectionCard(
@@ -820,7 +746,8 @@ class _CreateGroupPageState
                 decoration:
                     BoxDecoration(
                   color:
-                      AppColors.brandNightBlue,
+                      AppColors
+                          .brandNightBlue,
 
                   borderRadius:
                       BorderRadius.circular(
@@ -830,7 +757,8 @@ class _CreateGroupPageState
 
                 child:
                     const Icon(
-                  Icons.menu_book_outlined,
+                  Icons
+                      .menu_book_outlined,
 
                   color:
                       AppColors.skyBlue,
@@ -860,7 +788,8 @@ class _CreateGroupPageState
                       style:
                           const TextStyle(
                         color:
-                            AppColors.pureWhite,
+                            AppColors
+                                .pureWhite,
 
                         fontSize:
                             13,
@@ -883,10 +812,11 @@ class _CreateGroupPageState
                       style:
                           TextStyle(
                         color:
-                            AppColors.pureWhite
+                            AppColors
+                                .pureWhite
                                 .withOpacity(
-                          0.45,
-                        ),
+                              0.45,
+                            ),
 
                         fontSize:
                             10,
@@ -916,10 +846,11 @@ class _CreateGroupPageState
               decoration:
                   BoxDecoration(
                 color:
-                    AppColors.brandNightBlue
+                    AppColors
+                        .brandNightBlue
                         .withOpacity(
-                  0.35,
-                ),
+                      0.35,
+                    ),
 
                 borderRadius:
                     BorderRadius.circular(
@@ -934,10 +865,11 @@ class _CreateGroupPageState
                 style:
                     TextStyle(
                   color:
-                      AppColors.pureWhite
+                      AppColors
+                          .pureWhite
                           .withOpacity(
-                    0.55,
-                  ),
+                        0.55,
+                      ),
 
                   fontSize:
                       11,
@@ -950,7 +882,8 @@ class _CreateGroupPageState
                   _selectedSubjectId,
 
               dropdownColor:
-                  AppColors.eleganceDeepNavy,
+                  AppColors
+                      .eleganceDeepNavy,
 
               isExpanded:
                   true,
@@ -958,7 +891,8 @@ class _CreateGroupPageState
               style:
                   const TextStyle(
                 color:
-                    AppColors.pureWhite,
+                    AppColors
+                        .pureWhite,
 
                 fontSize:
                     13,
@@ -968,7 +902,8 @@ class _CreateGroupPageState
                   InputDecoration(
                 prefixIcon:
                     const Icon(
-                  Icons.menu_book_outlined,
+                  Icons
+                      .menu_book_outlined,
 
                   color:
                       AppColors.skyBlue,
@@ -980,20 +915,22 @@ class _CreateGroupPageState
                 hintStyle:
                     TextStyle(
                   color:
-                      AppColors.pureWhite
+                      AppColors
+                          .pureWhite
                           .withOpacity(
-                    0.40,
-                  ),
+                        0.40,
+                      ),
                 ),
 
                 filled:
                     true,
 
                 fillColor:
-                    AppColors.brandNightBlue
+                    AppColors
+                        .brandNightBlue
                         .withOpacity(
-                  0.55,
-                ),
+                      0.55,
+                    ),
 
                 border:
                     OutlineInputBorder(
@@ -1010,7 +947,7 @@ class _CreateGroupPageState
               items:
                   _subjects.map(
                 (
-                  subject,
+                  SocialSubject subject,
                 ) {
                   return DropdownMenuItem<int>(
                     value:
@@ -1021,7 +958,8 @@ class _CreateGroupPageState
                       subject.name,
 
                       overflow:
-                          TextOverflow.ellipsis,
+                          TextOverflow
+                              .ellipsis,
                     ),
                   );
                 },
@@ -1029,23 +967,23 @@ class _CreateGroupPageState
 
               onChanged:
                   (
-                value,
+                int? value,
               ) {
                 setState(() {
                   _selectedSubjectId =
                       value;
 
-
-                  if (_nameController.text
-                      .trim()
-                      .isEmpty) {
-
+                  if (
+                    _nameController
+                        .text
+                        .trim()
+                        .isEmpty
+                  ) {
                     final SocialSubject?
                         subject =
                         _subjectById(
                       value,
                     );
-
 
                     if (subject != null) {
                       _nameController.text =
@@ -1068,23 +1006,21 @@ class _CreateGroupPageState
       return null;
     }
 
-
-    for (final subject
-        in _subjects) {
-      if (subject.id ==
-          subjectId) {
+    for (
+      final SocialSubject subject
+      in _subjects
+    ) {
+      if (
+        subject.id ==
+        subjectId
+      ) {
         return subject;
       }
     }
 
-
     return null;
   }
 
-
-  // ===========================================================================
-  // PRIVACY
-  // ===========================================================================
 
   Widget _buildPrivacyCard() {
     return _SectionCard(
@@ -1120,7 +1056,8 @@ class _CreateGroupPageState
 
           _PrivacyOption(
             icon:
-                Icons.lock_outline_rounded,
+                Icons
+                    .lock_outline_rounded,
 
             title:
                 'Gruppo privato',
@@ -1145,10 +1082,6 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // PARTECIPANTI
-  // ===========================================================================
-
   Widget _buildParticipantsCard() {
     return _SectionCard(
       child:
@@ -1166,7 +1099,8 @@ class _CreateGroupPageState
                 decoration:
                     BoxDecoration(
                   color:
-                      AppColors.brandNightBlue,
+                      AppColors
+                          .brandNightBlue,
 
                   borderRadius:
                       BorderRadius.circular(
@@ -1176,7 +1110,8 @@ class _CreateGroupPageState
 
                 child:
                     const Icon(
-                  Icons.person_add_alt_1_rounded,
+                  Icons
+                      .person_add_alt_1_rounded,
 
                   color:
                       AppColors.skyBlue,
@@ -1204,7 +1139,8 @@ class _CreateGroupPageState
                       style:
                           TextStyle(
                         color:
-                            AppColors.pureWhite,
+                            AppColors
+                                .pureWhite,
 
                         fontSize:
                             14,
@@ -1227,10 +1163,11 @@ class _CreateGroupPageState
                       style:
                           TextStyle(
                         color:
-                            AppColors.pureWhite
+                            AppColors
+                                .pureWhite
                                 .withOpacity(
-                          0.50,
-                        ),
+                              0.50,
+                            ),
 
                         fontSize:
                             11,
@@ -1266,7 +1203,7 @@ class _CreateGroupPageState
 
             ..._invitedUsers.map(
               (
-                user,
+                _InvitedUser user,
               ) {
                 return Padding(
                   padding:
@@ -1300,10 +1237,6 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // MATERIALI
-  // ===========================================================================
-
   Widget _buildMaterialsCard() {
     return _SectionCard(
       child:
@@ -1333,10 +1266,11 @@ class _CreateGroupPageState
               decoration:
                   BoxDecoration(
                 color:
-                    AppColors.brandNightBlue
+                    AppColors
+                        .brandNightBlue
                         .withOpacity(
-                  0.50,
-                ),
+                      0.50,
+                    ),
 
                 borderRadius:
                     BorderRadius.circular(
@@ -1346,10 +1280,11 @@ class _CreateGroupPageState
                 border:
                     Border.all(
                   color:
-                      AppColors.skyBlue
+                      AppColors
+                          .skyBlue
                           .withOpacity(
-                    0.12,
-                  ),
+                        0.12,
+                      ),
                 ),
               ),
 
@@ -1376,7 +1311,8 @@ class _CreateGroupPageState
                           style:
                               TextStyle(
                             color:
-                                AppColors.pureWhite,
+                                AppColors
+                                    .pureWhite,
 
                             fontSize:
                                 14,
@@ -1426,7 +1362,7 @@ class _CreateGroupPageState
 
             ..._materials.map(
               (
-                material,
+                _SelectedMaterial material,
               ) {
                 return Padding(
                   padding:
@@ -1443,8 +1379,7 @@ class _CreateGroupPageState
                     onRemove:
                         () {
                       setState(() {
-                        _materials
-                            .remove(
+                        _materials.remove(
                           material,
                         );
                       });
@@ -1460,22 +1395,16 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // RIEPILOGO
-  // ===========================================================================
-
   Widget _buildSummaryCard() {
     final String groupName =
         _nameController.text
             .trim();
-
 
     final SocialSubject?
         selectedSubject =
         _subjectById(
       _selectedSubjectId,
     );
-
 
     return Container(
       width:
@@ -1489,7 +1418,8 @@ class _CreateGroupPageState
       decoration:
           BoxDecoration(
         color:
-            AppColors.eleganceDeepNavy,
+            AppColors
+                .eleganceDeepNavy,
 
         borderRadius:
             BorderRadius.circular(
@@ -1571,7 +1501,31 @@ class _CreateGroupPageState
 
           _SummaryRow(
             icon:
-                Icons.account_balance_outlined,
+                Icons
+                    .account_balance_outlined,
+
+            label:
+                'Ateneo',
+
+            value:
+                _universityController
+                        .text
+                        .trim()
+                        .isEmpty
+                    ? 'Non specificato'
+                    : _universityController
+                        .text
+                        .trim(),
+          ),
+
+          const SizedBox(
+            height:
+                10,
+          ),
+
+          _SummaryRow(
+            icon:
+                Icons.school_outlined,
 
             label:
                 'Corso',
@@ -1588,8 +1542,10 @@ class _CreateGroupPageState
           _SummaryRow(
             icon:
                 _isPrivate
-                    ? Icons.lock_outline
-                    : Icons.public_rounded,
+                    ? Icons
+                        .lock_outline
+                    : Icons
+                        .public_rounded,
 
             label:
                 'Accesso',
@@ -1607,7 +1563,8 @@ class _CreateGroupPageState
 
           _SummaryRow(
             icon:
-                Icons.people_outline_rounded,
+                Icons
+                    .people_outline_rounded,
 
             label:
                 'Invitati',
@@ -1636,10 +1593,6 @@ class _CreateGroupPageState
     );
   }
 
-
-  // ===========================================================================
-  // CREATE BUTTON
-  // ===========================================================================
 
   Widget _buildCreateButton() {
     return SizedBox(
@@ -1671,11 +1624,13 @@ class _CreateGroupPageState
                           2,
 
                       color:
-                          AppColors.brandNightBlue,
+                          AppColors
+                              .brandNightBlue,
                     ),
                   )
                 : const Icon(
-                    Icons.groups_rounded,
+                    Icons
+                        .groups_rounded,
                   ),
 
         label:
@@ -1700,10 +1655,11 @@ class _CreateGroupPageState
           ),
 
           disabledForegroundColor:
-              AppColors.brandNightBlue
+              AppColors
+                  .brandNightBlue
                   .withOpacity(
-            0.70,
-          ),
+                0.70,
+              ),
 
           elevation:
               0,
@@ -1729,10 +1685,6 @@ class _CreateGroupPageState
     );
   }
 
-
-  // ===========================================================================
-  // FIELD LABEL
-  // ===========================================================================
 
   Widget _buildFieldLabel(
     String label, {
@@ -1771,18 +1723,11 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // TEXT FIELD
-  // ===========================================================================
-
   Widget _buildTextField({
     required TextEditingController
         controller,
-
     required String hint,
-
     required IconData icon,
-
     int maxLines = 1,
   }) {
     return TextField(
@@ -1820,10 +1765,11 @@ class _CreateGroupPageState
         hintStyle:
             TextStyle(
           color:
-              AppColors.pureWhite
+              AppColors
+                  .pureWhite
                   .withOpacity(
-            0.35,
-          ),
+                0.35,
+              ),
 
           fontSize:
               12,
@@ -1833,10 +1779,11 @@ class _CreateGroupPageState
             true,
 
         fillColor:
-            AppColors.brandNightBlue
+            AppColors
+                .brandNightBlue
                 .withOpacity(
-          0.55,
-        ),
+              0.55,
+            ),
 
         border:
             OutlineInputBorder(
@@ -1879,16 +1826,11 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // ADD PARTICIPANT
-  // ===========================================================================
-
   void _addParticipant() {
     _participantSearchController
         .clear();
 
-
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context:
           context,
 
@@ -1896,7 +1838,8 @@ class _CreateGroupPageState
           true,
 
       backgroundColor:
-          AppColors.eleganceDeepNavy,
+          AppColors
+              .eleganceDeepNavy,
 
       shape:
           const RoundedRectangleBorder(
@@ -1911,55 +1854,53 @@ class _CreateGroupPageState
 
       builder:
           (
-        sheetContext,
+        BuildContext sheetContext,
       ) {
         return StatefulBuilder(
           builder:
               (
-            context,
-            setSheetState,
+            BuildContext context,
+            StateSetter setSheetState,
           ) {
-
             final String query =
                 _participantSearchController
                     .text
                     .trim()
                     .toLowerCase();
 
-
             final List<SocialUser>
                 users =
                 _socialUsers
                     .where(
                       (
-                        user,
+                        SocialUser user,
                       ) {
-
-                        final bool alreadySelected =
+                        final bool
+                            alreadySelected =
                             _invitedUsers.any(
                           (
-                            invited,
+                            _InvitedUser
+                                invited,
                           ) =>
                               invited.id ==
                               user.id,
                         );
 
-
                         if (alreadySelected) {
                           return false;
                         }
-
 
                         if (query.isEmpty) {
                           return true;
                         }
 
-
-                        final String subjectNames =
+                        final String
+                            subjectNames =
                             user.subjects
                                 .map(
                                   (
-                                    subject,
+                                    SocialSubject
+                                        subject,
                                   ) =>
                                       subject.name,
                                 )
@@ -1967,8 +1908,8 @@ class _CreateGroupPageState
                                   ' ',
                                 );
 
-
-                        final String searchable =
+                        final String
+                            searchable =
                             [
                           user.name,
                           user.email,
@@ -1979,7 +1920,6 @@ class _CreateGroupPageState
                           ' ',
                         ).toLowerCase();
 
-
                         return searchable
                             .contains(
                           query,
@@ -1987,7 +1927,6 @@ class _CreateGroupPageState
                       },
                     )
                     .toList();
-
 
             return SafeArea(
               child:
@@ -2034,7 +1973,8 @@ class _CreateGroupPageState
                               style:
                                   TextStyle(
                                 color:
-                                    AppColors.pureWhite,
+                                    AppColors
+                                        .pureWhite,
 
                                 fontSize:
                                     18,
@@ -2055,7 +1995,8 @@ class _CreateGroupPageState
 
                             icon:
                                 const Icon(
-                              Icons.close_rounded,
+                              Icons
+                                  .close_rounded,
 
                               color:
                                   Colors.white54,
@@ -2075,10 +2016,11 @@ class _CreateGroupPageState
                         style:
                             TextStyle(
                           color:
-                              AppColors.pureWhite
+                              AppColors
+                                  .pureWhite
                                   .withOpacity(
-                            0.50,
-                          ),
+                                0.50,
+                              ),
 
                           fontSize:
                               12,
@@ -2097,7 +2039,8 @@ class _CreateGroupPageState
                         style:
                             const TextStyle(
                           color:
-                              AppColors.pureWhite,
+                              AppColors
+                                  .pureWhite,
                         ),
 
                         decoration:
@@ -2113,17 +2056,20 @@ class _CreateGroupPageState
 
                           prefixIcon:
                               const Icon(
-                            Icons.search_rounded,
+                            Icons
+                                .search_rounded,
 
                             color:
-                                AppColors.skyBlue,
+                                AppColors
+                                    .skyBlue,
                           ),
 
                           filled:
                               true,
 
                           fillColor:
-                              AppColors.eleganceMidnight,
+                              AppColors
+                                  .eleganceMidnight,
 
                           border:
                               OutlineInputBorder(
@@ -2139,7 +2085,7 @@ class _CreateGroupPageState
 
                         onChanged:
                             (
-                          _,
+                          String _,
                         ) {
                           setSheetState(
                             () {},
@@ -2163,21 +2109,23 @@ class _CreateGroupPageState
                                       style:
                                           TextStyle(
                                         color:
-                                            AppColors.pureWhite
+                                            AppColors
+                                                .pureWhite
                                                 .withOpacity(
-                                          0.45,
-                                        ),
+                                              0.45,
+                                            ),
                                       ),
                                     ),
                                   )
-                                : ListView.separated(
+                                : ListView
+                                    .separated(
                                     itemCount:
                                         users.length,
 
                                     separatorBuilder:
                                         (
-                                      _,
-                                      __,
+                                      BuildContext _,
+                                      int __,
                                     ) =>
                                             const SizedBox(
                                       height:
@@ -2186,12 +2134,14 @@ class _CreateGroupPageState
 
                                     itemBuilder:
                                         (
-                                      context,
-                                      index,
+                                      BuildContext
+                                          context,
+                                      int index,
                                     ) {
-                                      final SocialUser user =
-                                          users[index];
-
+                                      final SocialUser
+                                          user =
+                                          users[
+                                              index];
 
                                       return _SocialUserOption(
                                         user:
@@ -2211,7 +2161,6 @@ class _CreateGroupPageState
                                                   '${_roleName(user)} • ${user.course}',
                                             ),
                                           );
-
 
                                           Navigator.pop(
                                             sheetContext,
@@ -2246,22 +2195,17 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // SELECT PARTICIPANT
-  // ===========================================================================
-
   void _selectParticipant(
     _InvitedUser user,
   ) {
     final bool exists =
         _invitedUsers.any(
       (
-        item,
+        _InvitedUser item,
       ) =>
           item.id ==
           user.id,
     );
-
 
     if (exists) {
       _showMessage(
@@ -2271,7 +2215,6 @@ class _CreateGroupPageState
       return;
     }
 
-
     setState(() {
       _invitedUsers.add(
         user,
@@ -2279,10 +2222,6 @@ class _CreateGroupPageState
     });
   }
 
-
-  // ===========================================================================
-  // FILE PICKER
-  // ===========================================================================
 
   Future<void> _addMaterial() async {
     try {
@@ -2304,21 +2243,20 @@ class _CreateGroupPageState
         ],
       );
 
-
       if (result == null) {
         return;
       }
 
-
       final PlatformFile file =
           result.files.single;
-
 
       final String? path =
           file.path;
 
-
-      if (path == null) {
+      if (
+        path == null ||
+        path.trim().isEmpty
+      ) {
         _showMessage(
           'Impossibile ottenere il percorso del file.',
         );
@@ -2326,16 +2264,14 @@ class _CreateGroupPageState
         return;
       }
 
-
       final bool alreadyExists =
           _materials.any(
         (
-          material,
+          _SelectedMaterial material,
         ) =>
             material.path ==
             path,
       );
-
 
       if (alreadyExists) {
         _showMessage(
@@ -2345,6 +2281,16 @@ class _CreateGroupPageState
         return;
       }
 
+      if (
+        file.size >
+        ApiService.maxMaterialFileSize
+      ) {
+        _showMessage(
+          'Il file supera la dimensione massima consentita di 250 MB.',
+        );
+
+        return;
+      }
 
       setState(() {
         _materials.add(
@@ -2368,7 +2314,6 @@ class _CreateGroupPageState
         );
       });
 
-
       _showMessage(
         'File aggiunto.',
       );
@@ -2389,11 +2334,9 @@ class _CreateGroupPageState
                 .toUpperCase() ??
             'FILE';
 
-
     if (value.isEmpty) {
       return 'FILE';
     }
-
 
     return value;
   }
@@ -2402,41 +2345,49 @@ class _CreateGroupPageState
   String _formatFileSize(
     int size,
   ) {
-    if (size <
-        1024) {
+    if (size < 1024) {
       return '$size B';
     }
 
-
-    if (size <
-        1024 * 1024) {
+    if (
+      size <
+      1024 * 1024
+    ) {
       return '${(size / 1024).toStringAsFixed(1)} KB';
     }
-
 
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-
-  // ===========================================================================
-  // CREA GRUPPO
-  // ===========================================================================
 
   Future<void> _createGroup() async {
     if (_creating) {
       return;
     }
 
-
     final String name =
         _nameController.text
             .trim();
-
 
     final String description =
         _descriptionController.text
             .trim();
 
+    final String university =
+        _universityController.text
+            .trim();
+
+    if (
+      !AuthSession
+          .instance
+          .isAuthenticated
+    ) {
+      _showMessage(
+        'Utente non autenticato.',
+      );
+
+      return;
+    }
 
     if (name.isEmpty) {
       _showMessage(
@@ -2446,9 +2397,15 @@ class _CreateGroupPageState
       return;
     }
 
+    if (university.isEmpty) {
+      _showMessage(
+        'Inserisci l\'ateneo.',
+      );
 
-    if (_selectedSubjectId ==
-        null) {
+      return;
+    }
+
+    if (_selectedSubjectId == null) {
       _showMessage(
         'Seleziona una materia.',
       );
@@ -2456,9 +2413,10 @@ class _CreateGroupPageState
       return;
     }
 
-
-    if (_department.isEmpty ||
-        _course.isEmpty) {
+    if (
+      _department.isEmpty ||
+      _course.isEmpty
+    ) {
       _showMessage(
         'Dipartimento o corso non disponibili.',
       );
@@ -2466,18 +2424,12 @@ class _CreateGroupPageState
       return;
     }
 
-
     setState(() {
       _creating =
           true;
     });
 
-
     try {
-      // =======================================================================
-      // 1. CREA GRUPPO
-      // =======================================================================
-
       final Map<String, dynamic>
           createdGroup =
           await _apiService
@@ -2491,6 +2443,9 @@ class _CreateGroupPageState
         subjectId:
             _selectedSubjectId!,
 
+        university:
+            university,
+
         department:
             _department,
 
@@ -2499,17 +2454,12 @@ class _CreateGroupPageState
 
         isPrivate:
             _isPrivate,
-
-        createdBy:
-            _currentUserId,
       );
-
 
       final int? groupId =
           _toInt(
         createdGroup['id'],
       );
-
 
       if (groupId == null) {
         throw Exception(
@@ -2517,14 +2467,10 @@ class _CreateGroupPageState
         );
       }
 
-
-      // =======================================================================
-      // 2. AGGIUNGI PARTECIPANTI
-      // =======================================================================
-
-      for (final _InvitedUser user
-          in _invitedUsers) {
-
+      for (
+        final _InvitedUser user
+        in _invitedUsers
+      ) {
         await _apiService
             .addGroupMember(
           groupId:
@@ -2538,37 +2484,28 @@ class _CreateGroupPageState
         );
       }
 
-
-      // =======================================================================
-      // 3. CARICA MATERIALI
-      // =======================================================================
-
-      for (final _SelectedMaterial material
-          in _materials) {
-
+      for (
+        final _SelectedMaterial
+            material
+        in _materials
+      ) {
         await _apiService
             .addGroupMaterial(
           groupId:
               groupId,
-
-          uploadedBy:
-              _currentUserId,
 
           filePath:
               material.path,
         );
       }
 
-
       if (!mounted) {
         return;
       }
 
-
       _showMessage(
         'Gruppo "$name" creato correttamente.',
       );
-
 
       Navigator.of(
         context,
@@ -2579,7 +2516,6 @@ class _CreateGroupPageState
       if (!mounted) {
         return;
       }
-
 
       _showMessage(
         'Errore creazione gruppo: $e',
@@ -2595,13 +2531,13 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // MESSAGE
-  // ===========================================================================
-
   void _showMessage(
     String message,
   ) {
+    if (!mounted) {
+      return;
+    }
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(
@@ -2615,10 +2551,6 @@ class _CreateGroupPageState
   }
 
 
-  // ===========================================================================
-  // UTILITY
-  // ===========================================================================
-
   static int? _toInt(
     dynamic value,
   ) {
@@ -2626,11 +2558,9 @@ class _CreateGroupPageState
       return value;
     }
 
-
     if (value is num) {
       return value.toInt();
     }
-
 
     return int.tryParse(
       value?.toString() ??
@@ -2640,13 +2570,8 @@ class _CreateGroupPageState
 }
 
 
-// =============================================================================
-// SECTION CARD
-// =============================================================================
-
 class _SectionCard
     extends StatelessWidget {
-
   final Widget child;
 
 
@@ -2671,7 +2596,8 @@ class _SectionCard
       decoration:
           BoxDecoration(
         color:
-            AppColors.eleganceMidnight,
+            AppColors
+                .eleganceMidnight,
 
         borderRadius:
             BorderRadius.circular(
@@ -2695,13 +2621,8 @@ class _SectionCard
 }
 
 
-// =============================================================================
-// PRIVACY OPTION
-// =============================================================================
-
 class _PrivacyOption
     extends StatelessWidget {
-
   final IconData icon;
 
   final String title;
@@ -2752,10 +2673,11 @@ class _PrivacyOption
             BoxDecoration(
           color:
               selected
-                  ? AppColors.brandNightBlue
+                  ? AppColors
+                      .brandNightBlue
                       .withOpacity(
-                      0.70,
-                    )
+                        0.70,
+                      )
                   : Colors.transparent,
 
           borderRadius:
@@ -2767,14 +2689,15 @@ class _PrivacyOption
               Border.all(
             color:
                 selected
-                    ? AppColors.skyBlue
+                    ? AppColors
+                        .skyBlue
                         .withOpacity(
-                        0.30,
-                      )
+                          0.30,
+                        )
                     : Colors.white
                         .withOpacity(
-                        0.06,
-                      ),
+                          0.06,
+                        ),
           ),
         ),
 
@@ -2792,11 +2715,13 @@ class _PrivacyOption
                   BoxDecoration(
                 color:
                     selected
-                        ? AppColors.skyBlue
+                        ? AppColors
+                            .skyBlue
                             .withOpacity(
-                            0.12,
-                          )
-                        : AppColors.brandNightBlue,
+                              0.12,
+                            )
+                        : AppColors
+                            .brandNightBlue,
 
                 borderRadius:
                     BorderRadius.circular(
@@ -2809,7 +2734,8 @@ class _PrivacyOption
                 icon,
 
                 color:
-                    AppColors.skyBlue,
+                    AppColors
+                        .skyBlue,
 
                 size:
                     21,
@@ -2834,7 +2760,8 @@ class _PrivacyOption
                     style:
                         const TextStyle(
                       color:
-                          AppColors.pureWhite,
+                          AppColors
+                              .pureWhite,
 
                       fontSize:
                           13,
@@ -2856,15 +2783,17 @@ class _PrivacyOption
                         2,
 
                     overflow:
-                        TextOverflow.ellipsis,
+                        TextOverflow
+                            .ellipsis,
 
                     style:
                         TextStyle(
                       color:
-                          AppColors.pureWhite
+                          AppColors
+                              .pureWhite
                               .withOpacity(
-                        0.48,
-                      ),
+                            0.48,
+                          ),
 
                       fontSize:
                           11,
@@ -2884,12 +2813,15 @@ class _PrivacyOption
 
             Icon(
               selected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_unchecked_rounded,
+                  ? Icons
+                      .radio_button_checked_rounded
+                  : Icons
+                      .radio_button_unchecked_rounded,
 
               color:
                   selected
-                      ? AppColors.skyBlue
+                      ? AppColors
+                          .skyBlue
                       : Colors.white30,
 
               size:
@@ -2903,13 +2835,8 @@ class _PrivacyOption
 }
 
 
-// =============================================================================
-// SOCIAL USER OPTION
-// =============================================================================
-
 class _SocialUserOption
     extends StatelessWidget {
-
   final SocialUser user;
 
   final VoidCallback onTap;
@@ -2931,13 +2858,13 @@ class _SocialUserOption
             ? 'Insegnante'
             : 'Studente';
 
-
     return ListTile(
       onTap:
           onTap,
 
       tileColor:
-          AppColors.eleganceMidnight,
+          AppColors
+              .eleganceMidnight,
 
       shape:
           RoundedRectangleBorder(
@@ -2950,11 +2877,13 @@ class _SocialUserOption
       leading:
           const CircleAvatar(
         backgroundColor:
-            AppColors.brandNightBlue,
+            AppColors
+                .brandNightBlue,
 
         child:
             Icon(
-          Icons.person_outline_rounded,
+          Icons
+              .person_outline_rounded,
 
           color:
               AppColors.skyBlue,
@@ -3016,13 +2945,8 @@ class _SocialUserOption
 }
 
 
-// =============================================================================
-// INVITED USER TILE
-// =============================================================================
-
 class _InvitedUserTile
     extends StatelessWidget {
-
   final _InvitedUser user;
 
   final VoidCallback onRemove;
@@ -3051,10 +2975,11 @@ class _InvitedUserTile
       decoration:
           BoxDecoration(
         color:
-            AppColors.brandNightBlue
+            AppColors
+                .brandNightBlue
                 .withOpacity(
-          0.45,
-        ),
+              0.45,
+            ),
 
         borderRadius:
             BorderRadius.circular(
@@ -3070,14 +2995,16 @@ class _InvitedUserTile
                 18,
 
             backgroundColor:
-                AppColors.skyBlue
+                AppColors
+                    .skyBlue
                     .withOpacity(
-              0.12,
-            ),
+                  0.12,
+                ),
 
             child:
                 const Icon(
-              Icons.person_outline_rounded,
+              Icons
+                  .person_outline_rounded,
 
               color:
                   AppColors.skyBlue,
@@ -3105,7 +3032,8 @@ class _InvitedUserTile
                   style:
                       const TextStyle(
                     color:
-                        AppColors.pureWhite,
+                        AppColors
+                            .pureWhite,
 
                     fontSize:
                         12,
@@ -3161,13 +3089,8 @@ class _InvitedUserTile
 }
 
 
-// =============================================================================
-// MATERIAL UPLOAD ICON
-// =============================================================================
-
 class _MaterialUploadIcon
     extends StatelessWidget {
-
   const _MaterialUploadIcon();
 
 
@@ -3185,10 +3108,11 @@ class _MaterialUploadIcon
       decoration:
           BoxDecoration(
         color:
-            AppColors.skyBlue
+            AppColors
+                .skyBlue
                 .withOpacity(
-          0.10,
-        ),
+              0.10,
+            ),
 
         borderRadius:
             BorderRadius.circular(
@@ -3211,13 +3135,8 @@ class _MaterialUploadIcon
 }
 
 
-// =============================================================================
-// SELECTED MATERIAL TILE
-// =============================================================================
-
 class _SelectedMaterialTile
     extends StatelessWidget {
-
   final _SelectedMaterial material;
 
   final VoidCallback onRemove;
@@ -3242,10 +3161,11 @@ class _SelectedMaterialTile
       decoration:
           BoxDecoration(
         color:
-            AppColors.brandNightBlue
+            AppColors
+                .brandNightBlue
                 .withOpacity(
-          0.45,
-        ),
+              0.45,
+            ),
 
         borderRadius:
             BorderRadius.circular(
@@ -3266,7 +3186,8 @@ class _SelectedMaterialTile
             decoration:
                 BoxDecoration(
               color:
-                  AppColors.brandNightBlue,
+                  AppColors
+                      .brandNightBlue,
 
               borderRadius:
                   BorderRadius.circular(
@@ -3278,11 +3199,14 @@ class _SelectedMaterialTile
                 Icon(
               material.type ==
                       'PDF'
-                  ? Icons.picture_as_pdf_rounded
+                  ? Icons
+                      .picture_as_pdf_rounded
                   : material.type ==
                           'ZIP'
-                      ? Icons.folder_zip_outlined
-                      : Icons.description_rounded,
+                      ? Icons
+                          .folder_zip_outlined
+                      : Icons
+                          .description_rounded,
 
               color:
                   AppColors.skyBlue,
@@ -3311,12 +3235,14 @@ class _SelectedMaterialTile
                       1,
 
                   overflow:
-                      TextOverflow.ellipsis,
+                      TextOverflow
+                          .ellipsis,
 
                   style:
                       const TextStyle(
                     color:
-                        AppColors.pureWhite,
+                        AppColors
+                            .pureWhite,
 
                     fontSize:
                         12,
@@ -3372,13 +3298,8 @@ class _SelectedMaterialTile
 }
 
 
-// =============================================================================
-// SUMMARY ROW
-// =============================================================================
-
 class _SummaryRow
     extends StatelessWidget {
-
   final IconData icon;
 
   final String label;
@@ -3406,7 +3327,8 @@ class _SummaryRow
           icon,
 
           color:
-              AppColors.materialSky,
+              AppColors
+                  .materialSky,
 
           size:
               17,
@@ -3428,10 +3350,11 @@ class _SummaryRow
             style:
                 TextStyle(
               color:
-                  AppColors.pureWhite
+                  AppColors
+                      .pureWhite
                       .withOpacity(
-                0.45,
-              ),
+                    0.45,
+                  ),
 
               fontSize:
                   11,
@@ -3450,7 +3373,8 @@ class _SummaryRow
             style:
                 const TextStyle(
               color:
-                  AppColors.pureWhite,
+                  AppColors
+                      .pureWhite,
 
               fontSize:
                   11,
@@ -3466,13 +3390,8 @@ class _SummaryRow
 }
 
 
-// =============================================================================
-// ERROR CARD
-// =============================================================================
-
 class _CreateGroupErrorCard
     extends StatelessWidget {
-
   final String message;
 
   final Future<void> Function()
@@ -3501,7 +3420,8 @@ class _CreateGroupErrorCard
       decoration:
           BoxDecoration(
         color:
-            AppColors.eleganceMidnight,
+            AppColors
+                .eleganceMidnight,
 
         borderRadius:
             BorderRadius.circular(
@@ -3525,7 +3445,8 @@ class _CreateGroupErrorCard
 
         children: [
           const Icon(
-            Icons.error_outline_rounded,
+            Icons
+                .error_outline_rounded,
 
             color:
                 Colors.redAccent,
@@ -3604,10 +3525,6 @@ class _CreateGroupErrorCard
 }
 
 
-// =============================================================================
-// INVITED USER MODEL
-// =============================================================================
-
 class _InvitedUser {
   final int id;
 
@@ -3623,10 +3540,6 @@ class _InvitedUser {
   });
 }
 
-
-// =============================================================================
-// SELECTED MATERIAL MODEL
-// =============================================================================
 
 class _SelectedMaterial {
   final String name;

@@ -1,0 +1,1304 @@
+import 'package:flutter/material.dart';
+
+import '../../services/api_service.dart';
+import '../../theme/nightTheme.dart';
+
+import 'admin_reviews_page.dart';
+import 'admin_teachers_page.dart';
+import 'admin_grades_page.dart';
+import 'admin_academic_paths_page.dart';
+import 'admin_user_page.dart';
+import 'admin_security_page.dart';
+import 'admin_material_publications_page.dart';
+
+
+class AdminPanelPage
+    extends StatefulWidget {
+  const AdminPanelPage({
+super.key,
+  });
+
+  @override
+  State<AdminPanelPage> createState() =>
+      _AdminPanelPageState();
+}
+
+
+class _AdminPanelPageState
+    extends State<AdminPanelPage> {
+  final ApiService _apiService =
+      ApiService();
+
+  bool _loading =
+      true;
+
+  bool _authorized =
+      false;
+
+  String? _error;
+
+
+  @override
+  void initState() {
+super.initState();
+
+    _verifyAccess();
+  }
+
+
+  Future<void> _verifyAccess() async {
+    if (mounted) {
+      setState(() {
+        _loading =
+            true;
+
+        _error =
+            null;
+      });
+    }
+
+    try {
+      final bool authorized =
+          await _apiService
+              .canAccessAdminPanel();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _authorized =
+            authorized;
+
+        _loading =
+            false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _authorized =
+            false;
+
+        _loading =
+            false;
+
+        _error =
+            _adminAccessErrorMessage(
+          e,
+        );
+      });
+    }
+  }
+
+
+  Future<void> _openProtectedPage(
+    Widget page,
+  ) async {
+    try {
+      final bool authorized =
+          await _apiService
+              .canAccessAdminPanel();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!authorized) {
+        setState(() {
+          _authorized =
+              false;
+        });
+
+        return;
+      }
+
+      await Navigator.of(
+        context,
+      ).push(
+        MaterialPageRoute(
+          builder:
+              (_) =>
+                  page,
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _verifyAccess();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content:
+              Text(
+            'Impossibile verificare i permessi amministrativi.',
+          ),
+        ),
+      );
+    }
+  }
+
+
+  String _adminAccessErrorMessage(
+    Object error,
+  ) {
+    final String message =
+        error
+            .toString()
+            .toLowerCase();
+
+    if (
+      message.contains(
+            '401',
+          ) ||
+      message.contains(
+            'unauthorized',
+          )
+    ) {
+      return 'La sessione non è più valida. Accedi nuovamente a StudentLab.';
+    }
+
+    if (
+      message.contains(
+            '403',
+          ) ||
+      message.contains(
+            'forbidden',
+          )
+    ) {
+      return 'Questa sessione non dispone dei permessi amministrativi.';
+    }
+
+    if (
+      message.contains(
+            'network',
+          ) ||
+      message.contains(
+            'socket',
+          ) ||
+      message.contains(
+            'connection',
+          ) ||
+      message.contains(
+            'timeout',
+          ) ||
+      message.contains(
+            'host lookup',
+          )
+    ) {
+      return 'Non è stato possibile verificare i permessi. Controlla la connessione e riprova.';
+    }
+
+    if (
+      message.contains(
+            '500',
+          ) ||
+      message.contains(
+            '502',
+          ) ||
+      message.contains(
+            '503',
+          )
+    ) {
+      return 'StudentLab non è temporaneamente disponibile. Riprova tra qualche momento.';
+    }
+
+    return 'Non è stato possibile verificare l’accesso amministrativo.';
+  }
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor:
+            AppColors.darkElegance,
+
+        body:
+            Center(
+          child:
+              Column(
+            mainAxisSize:
+                MainAxisSize.min,
+
+            children: [
+              CircularProgressIndicator(
+                color:
+                    AppColors.skyBlue,
+              ),
+
+              SizedBox(
+                height:
+                    16,
+              ),
+
+              Text(
+                'Verifica autorizzazione...',
+
+                style:
+                    TextStyle(
+                  color:
+                      Colors.white60,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_authorized) {
+      return _AdminAccessDeniedPage(
+        error:
+            _error,
+
+        onRetry:
+            _verifyAccess,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor:
+          AppColors.darkElegance,
+
+      appBar:
+          AppBar(
+        backgroundColor:
+            AppColors.brandNightBlue,
+
+        foregroundColor:
+            AppColors.pureWhite,
+
+        elevation:
+            0,
+
+        title:
+            const Text(
+          'Admin Panel',
+
+          style:
+              TextStyle(
+            fontSize:
+                18,
+
+            fontWeight:
+                FontWeight.w500,
+          ),
+        ),
+
+        actions: [
+          IconButton(
+            tooltip:
+                'Verifica accesso',
+
+            onPressed:
+                _verifyAccess,
+
+            icon:
+                const Icon(
+              Icons
+                  .verified_user_outlined,
+            ),
+          ),
+        ],
+      ),
+
+      body:
+          SafeArea(
+        child:
+            Center(
+          child:
+              ConstrainedBox(
+            constraints:
+                const BoxConstraints(
+              maxWidth:
+                  1000,
+            ),
+
+            child:
+                ListView(
+              padding:
+                  const EdgeInsets.all(
+                20,
+              ),
+
+              children: [
+                _buildHeader(),
+
+                const SizedBox(
+                  height:
+                      28,
+                ),
+
+                const _AdminSectionTitle(
+                  title:
+                      'Moderazione',
+
+                  subtitle:
+                      'Controlla e verifica i contenuti e le informazioni dichiarate dagli utenti.',
+                ),
+
+                const SizedBox(
+                  height:
+                      14,
+                ),
+
+                _buildModerationGrid(),
+
+                const SizedBox(
+                  height:
+                      30,
+                ),
+
+                const _AdminSectionTitle(
+                  title:
+                      'Gestione',
+
+                  subtitle:
+                      'Gestisci account e sicurezza della piattaforma.',
+                ),
+
+                const SizedBox(
+                  height:
+                      14,
+                ),
+
+                _buildManagementGrid(),
+
+                const SizedBox(
+                  height:
+                      30,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildHeader() {
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        22,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.eleganceMidnight,
+
+        borderRadius:
+            BorderRadius.circular(
+          20,
+        ),
+
+        border:
+            Border.all(
+          color:
+              Colors.greenAccent
+                  .withOpacity(
+            0.14,
+          ),
+        ),
+      ),
+
+      child:
+          Row(
+        children: [
+          Container(
+            width:
+                60,
+
+            height:
+                60,
+
+            decoration:
+                BoxDecoration(
+              color:
+                  Colors.greenAccent
+                      .withOpacity(
+                0.08,
+              ),
+
+              borderRadius:
+                  BorderRadius.circular(
+                17,
+              ),
+
+              border:
+                  Border.all(
+                color:
+                    Colors.greenAccent
+                        .withOpacity(
+                  0.16,
+                ),
+              ),
+            ),
+
+            child:
+                const Icon(
+              Icons
+                  .admin_panel_settings_outlined,
+
+              color:
+                  Colors.greenAccent,
+
+              size:
+                  31,
+            ),
+          ),
+
+          const SizedBox(
+            width:
+                15,
+          ),
+
+          Expanded(
+            child:
+                Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+
+              children: [
+                const Text(
+                  'Amministrazione StudentLab',
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite,
+
+                    fontSize:
+                        19,
+
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      5,
+                ),
+
+                Text(
+                  'Moderazione, verifica e gestione della piattaforma.',
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite
+                            .withOpacity(
+                      0.50,
+                    ),
+
+                    fontSize:
+                        11,
+
+                    height:
+                        1.4,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      9,
+                ),
+
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal:
+                        8,
+
+                    vertical:
+                        5,
+                  ),
+
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        Colors.greenAccent
+                            .withOpacity(
+                      0.08,
+                    ),
+
+                    borderRadius:
+                        BorderRadius.circular(
+                      8,
+                    ),
+                  ),
+
+                  child:
+                      const Row(
+                    mainAxisSize:
+                        MainAxisSize.min,
+
+                    children: [
+                      Icon(
+                        Icons
+                            .verified_user_outlined,
+
+                        color:
+                            Colors.greenAccent,
+
+                        size:
+                            12,
+                      ),
+
+                      SizedBox(
+                        width:
+                            5,
+                      ),
+
+                      Text(
+                        'Accesso verificato dal server',
+
+                        style:
+                            TextStyle(
+                          color:
+                              Colors.greenAccent,
+
+                          fontSize:
+                              8,
+
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildModerationGrid() {
+    return LayoutBuilder(
+      builder:
+          (
+        BuildContext context,
+        BoxConstraints constraints,
+      ) {
+        final int columns =
+            constraints.maxWidth >=
+                    800
+                ? 4
+                : constraints.maxWidth >=
+                        520
+                    ? 2
+                    : 1;
+
+        final double ratio =
+            columns == 1
+                ? 2.5
+                : columns == 2
+                    ? 1.55
+                    : 1.15;
+
+        return GridView.count(
+          crossAxisCount:
+              columns,
+
+          shrinkWrap:
+              true,
+
+          physics:
+              const NeverScrollableScrollPhysics(),
+
+          crossAxisSpacing:
+              12,
+
+          mainAxisSpacing:
+              12,
+
+          childAspectRatio:
+              ratio,
+
+          children: [
+            _AdminModuleCard(
+              icon:
+                  Icons.rate_review_outlined,
+
+              title:
+                  'Recensioni',
+
+              description:
+                  'Approva, rifiuta e nascondi le recensioni.',
+
+              onTap:
+                  () {
+                _openProtectedPage(
+                  const AdminReviewsPage(),
+                );
+              },
+            ),
+
+            _AdminModuleCard(
+              icon:
+                  Icons.fact_check_outlined,
+
+              title:
+                  'Materiali',
+
+              description:
+                  'Controlla, confronta e modera i materiali proposti dagli utenti.',
+
+              onTap:
+                  () {
+                _openProtectedPage(
+                  const AdminMaterialPublicationsPage(),
+                );
+              },
+            ),
+
+            _AdminModuleCard(
+              icon:
+                  Icons
+                      .cast_for_education_outlined,
+
+              title:
+                  'Docenti',
+
+              description:
+                  'Verifica gli account dei docenti.',
+
+              onTap:
+                  () {
+                _openProtectedPage(
+                  const AdminTeachersPage(),
+                );
+              },
+            ),
+
+            _AdminModuleCard(
+              icon:
+                  Icons
+                      .workspace_premium_outlined,
+
+              title:
+                  'Voti',
+
+              description:
+                  'Verifica i voti dichiarati dagli studenti.',
+
+              onTap:
+                  () {
+                _openProtectedPage(
+                  const AdminGradesPage(),
+                );
+              },
+            ),
+
+            _AdminModuleCard(
+              icon:
+                  Icons
+                      .account_balance_outlined,
+
+              title:
+                  'Percorsi',
+
+              description:
+                  'Verifica lauree e percorsi accademici.',
+
+              onTap:
+                  () {
+                _openProtectedPage(
+                  const AdminAcademicPathsPage(),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+  Widget _buildManagementGrid() {
+    return LayoutBuilder(
+      builder:
+          (
+        BuildContext context,
+        BoxConstraints constraints,
+      ) {
+        final int columns =
+            constraints.maxWidth >=
+                    520
+                ? 2
+                : 1;
+
+        return GridView.count(
+          crossAxisCount:
+              columns,
+
+          shrinkWrap:
+              true,
+
+          physics:
+              const NeverScrollableScrollPhysics(),
+
+          crossAxisSpacing:
+              12,
+
+          mainAxisSpacing:
+              12,
+
+          childAspectRatio:
+              columns == 1
+                  ? 2.5
+                  : 1.8,
+
+          children: [
+            _AdminModuleCard(
+              icon:
+                  Icons
+                      .manage_accounts_outlined,
+
+              title:
+                  'Utenti',
+
+              description:
+                  'Visualizza, abilita e disabilita gli account.',
+
+              onTap:
+                  () {
+                _openProtectedPage(
+                  const AdminUsersPage(),
+                );
+              },
+            ),
+
+            _AdminModuleCard(
+              icon:
+                  Icons.shield_outlined,
+
+              title:
+                  'Sicurezza',
+
+              description:
+                  'Controlla autorizzazioni e sicurezza della piattaforma.',
+
+              onTap:
+                  () {
+                _openProtectedPage(
+                  const AdminSecurityPage(),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+
+class _AdminSectionTitle
+    extends StatelessWidget {
+  final String title;
+
+  final String subtitle;
+
+
+  const _AdminSectionTitle({
+    required this.title,
+    required this.subtitle,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+
+      children: [
+        Text(
+          title,
+
+          style:
+              const TextStyle(
+            color:
+                AppColors.pureWhite,
+
+            fontSize:
+                18,
+
+            fontWeight:
+                FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(
+          height:
+              4,
+        ),
+
+        Text(
+          subtitle,
+
+          style:
+              TextStyle(
+            color:
+                AppColors.pureWhite
+                    .withOpacity(
+              0.45,
+            ),
+
+            fontSize:
+                11,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+class _AdminModuleCard
+    extends StatelessWidget {
+  final IconData icon;
+
+  final String title;
+
+  final String description;
+
+  final VoidCallback onTap;
+
+
+  const _AdminModuleCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Material(
+      color:
+          Colors.transparent,
+
+      child:
+          InkWell(
+        onTap:
+            onTap,
+
+        borderRadius:
+            BorderRadius.circular(
+          17,
+        ),
+
+        child:
+            Container(
+          padding:
+              const EdgeInsets.all(
+            16,
+          ),
+
+          decoration:
+              BoxDecoration(
+            color:
+                AppColors.eleganceMidnight,
+
+            borderRadius:
+                BorderRadius.circular(
+              17,
+            ),
+
+            border:
+                Border.all(
+              color:
+                  AppColors.skyBlue
+                      .withOpacity(
+                0.10,
+              ),
+            ),
+          ),
+
+          child:
+              Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width:
+                        42,
+
+                    height:
+                        42,
+
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          AppColors
+                              .brandNightBlue,
+
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        12,
+                      ),
+                    ),
+
+                    child:
+                        Icon(
+                      icon,
+
+                      color:
+                          AppColors
+                              .skyBlue,
+
+                      size:
+                          22,
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  const Icon(
+                    Icons
+                        .arrow_forward_ios_rounded,
+
+                    color:
+                        Colors.white30,
+
+                    size:
+                        14,
+                  ),
+                ],
+              ),
+
+              const SizedBox(
+                height:
+                    13,
+              ),
+
+              Text(
+                title,
+
+                style:
+                    const TextStyle(
+                  color:
+                      AppColors.pureWhite,
+
+                  fontSize:
+                      14,
+
+                  fontWeight:
+                      FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(
+                height:
+                    5,
+              ),
+
+              Expanded(
+                child:
+                    Text(
+                  description,
+
+                  style:
+                      const TextStyle(
+                    color:
+                        Colors.white54,
+
+                    fontSize:
+                        10,
+
+                    height:
+                        1.35,
+                  ),
+                ),
+              ),
+
+              const SizedBox(
+                height:
+                    8,
+              ),
+
+              const Text(
+                'Apri gestione',
+
+                style:
+                    TextStyle(
+                  color:
+                      AppColors.materialSky,
+
+                  fontSize:
+                      9,
+
+                  fontWeight:
+                      FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _AdminAccessDeniedPage
+    extends StatelessWidget {
+  final String? error;
+
+  final Future<void> Function()
+      onRetry;
+
+
+  const _AdminAccessDeniedPage({
+    required this.error,
+    required this.onRetry,
+  });
+
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Scaffold(
+      backgroundColor:
+          AppColors.darkElegance,
+
+      appBar:
+          AppBar(
+        backgroundColor:
+            AppColors.brandNightBlue,
+
+        foregroundColor:
+            AppColors.pureWhite,
+
+        title:
+            const Text(
+          'Admin Panel',
+        ),
+      ),
+
+      body:
+          Center(
+        child:
+            Padding(
+          padding:
+              const EdgeInsets.all(
+            24,
+          ),
+
+          child:
+              ConstrainedBox(
+            constraints:
+                const BoxConstraints(
+              maxWidth:
+                  480,
+            ),
+
+            child:
+                Container(
+              width:
+                  double.infinity,
+
+              padding:
+                  const EdgeInsets.all(
+                26,
+              ),
+
+              decoration:
+                  BoxDecoration(
+                color:
+                    AppColors
+                        .eleganceMidnight,
+
+                borderRadius:
+                    BorderRadius.circular(
+                  20,
+                ),
+
+                border:
+                    Border.all(
+                  color:
+                      Colors.redAccent
+                          .withOpacity(
+                    0.16,
+                  ),
+                ),
+              ),
+
+              child:
+                  Column(
+                mainAxisSize:
+                    MainAxisSize.min,
+
+                children: [
+                  Container(
+                    width:
+                        66,
+
+                    height:
+                        66,
+
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          Colors.redAccent
+                              .withOpacity(
+                        0.08,
+                      ),
+
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        18,
+                      ),
+                    ),
+
+                    child:
+                        const Icon(
+                      Icons
+                          .gpp_bad_outlined,
+
+                      color:
+                          Colors.redAccent,
+
+                      size:
+                          34,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height:
+                        18,
+                  ),
+
+                  const Text(
+                    'Accesso non autorizzato',
+
+                    textAlign:
+                        TextAlign.center,
+
+                    style:
+                        TextStyle(
+                      color:
+                          AppColors
+                              .pureWhite,
+
+                      fontSize:
+                          19,
+
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height:
+                        9,
+                  ),
+
+                  const Text(
+                    'Il server non ha autorizzato questa sessione ad accedere alle funzioni amministrative.',
+
+                    textAlign:
+                        TextAlign.center,
+
+                    style:
+                        TextStyle(
+                      color:
+                          Colors.white54,
+
+                      fontSize:
+                          11,
+
+                      height:
+                          1.45,
+                    ),
+                  ),
+
+                  if (error != null) ...[
+                    const SizedBox(
+                      height:
+                          10,
+                    ),
+
+                    Text(
+                      error!,
+
+                      textAlign:
+                          TextAlign.center,
+
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white30,
+
+                        fontSize:
+                            9,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(
+                    height:
+                        18,
+                  ),
+
+                  OutlinedButton.icon(
+                    onPressed:
+                        () {
+                      onRetry();
+                    },
+
+                    icon:
+                        const Icon(
+                      Icons.refresh_rounded,
+                    ),
+
+                    label:
+                        const Text(
+                      'Riprova',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

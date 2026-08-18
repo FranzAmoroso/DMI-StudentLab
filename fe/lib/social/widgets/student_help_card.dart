@@ -6,740 +6,2832 @@ import '../social_models.dart';
 
 import '../message/contact_user_page.dart';
 
-
-class StudentHelpCard
-    extends StatelessWidget {
+class StudentHelpCard extends StatelessWidget {
 
   final SocialUser student;
 
-
   const StudentHelpCard({
-    super.key,
+
+super.key,
+
     required this.student,
+
   });
 
+  List<SocialSubject> get _helpSubjects {
+
+    return student.subjects
+
+        .where(
+
+          (
+
+            SocialSubject subject,
+
+          ) =>
+
+              subject.canHelp,
+
+        )
+
+        .toList();
+
+  }
+
+  List<SocialSubject>
+
+      get _privateLessonSubjects {
+
+    return student.subjects
+
+        .where(
+
+          (
+
+            SocialSubject subject,
+
+          ) =>
+
+              subject
+
+                  .canGivePrivateLessons,
+
+        )
+
+        .toList();
+
+  }
+
+  SocialAcademicPath?
+
+      get _primaryAcademicPath {
+
+    for (
+
+      final SocialAcademicPath path
+
+      in student.academicPaths
+
+    ) {
+
+      if (
+
+        path.status !=
+
+            AcademicPathStatus.graduated &&
+
+        path.isCurrent
+
+      ) {
+
+        return path;
+
+      }
+
+    }
+
+    for (
+
+      final SocialAcademicPath path
+
+      in student.academicPaths
+
+    ) {
+
+      if (
+
+        path.status !=
+
+            AcademicPathStatus.graduated &&
+
+        path.isPrimary
+
+      ) {
+
+        return path;
+
+      }
+
+    }
+
+    for (
+
+      final SocialAcademicPath path
+
+      in student.academicPaths
+
+    ) {
+
+      if (
+
+        path.status !=
+
+            AcademicPathStatus.graduated
+
+      ) {
+
+        return path;
+
+      }
+
+    }
+
+    return null;
+
+  }
+
+  SocialAcademicTitle?
+
+      get _primaryAcademicTitle {
+
+    return student.primaryAcademicTitle;
+
+  }
+
+  SocialAcademicPath?
+
+      get _graduatedAcademicPath {
+
+    SocialAcademicPath? firstGraduated;
+
+    for (
+
+      final SocialAcademicPath path
+
+      in student.academicPaths
+
+    ) {
+
+      if (
+
+        path.status !=
+
+            AcademicPathStatus.graduated
+
+      ) {
+
+        continue;
+
+      }
+
+      firstGraduated ??=
+
+          path;
+
+      if (
+
+        path.isPrimary &&
+
+        path.isVerified
+
+      ) {
+
+        return path;
+
+      }
+
+    }
+
+    if (firstGraduated != null) {
+
+      return firstGraduated;
+
+    }
+
+    return null;
+
+  }
 
   @override
+
   Widget build(
+
     BuildContext context,
+
   ) {
+
+    final SocialAcademicPath? path =
+
+        _primaryAcademicPath;
+
+    final SocialAcademicTitle? title =
+
+        _primaryAcademicTitle;
+
+    final SocialAcademicPath? graduatedPath =
+
+        _graduatedAcademicPath;
+
     return Container(
+
       width:
+
           double.infinity,
 
       padding:
-          const EdgeInsets.all(18),
 
-      decoration: BoxDecoration(
+          const EdgeInsets.all(
+
+        18,
+
+      ),
+
+      decoration:
+
+          BoxDecoration(
+
         color:
+
             AppColors.eleganceDeepNavy,
 
         borderRadius:
-            BorderRadius.circular(18),
 
-        border: Border.all(
-          color:
-              AppColors.studentBlue
-                  .withOpacity(0.30),
+            BorderRadius.circular(
+
+          18,
+
         ),
+
+        border:
+
+            Border.all(
+
+          color:
+
+              AppColors.studentBlue
+
+                  .withOpacity(
+
+            0.30,
+
+          ),
+
+        ),
+
       ),
 
-      child: Column(
+      child:
+
+          Column(
+
         crossAxisAlignment:
+
             CrossAxisAlignment.start,
 
         children: [
-          // ===================================================================
-          // HEADER
-          // ===================================================================
 
           Row(
+
             children: [
+
               CircleAvatar(
+
                 radius:
+
                     25,
 
                 backgroundColor:
+
                     AppColors.studentBlue,
 
-                child: Text(
+                child:
+
+                    Text(
+
                   student.name.isNotEmpty
+
                       ? student.name[0]
+
                           .toUpperCase()
+
                       : '?',
 
                   style:
+
                       const TextStyle(
+
                     color:
+
                         AppColors.pureWhite,
 
                     fontWeight:
+
                         FontWeight.bold,
+
                   ),
+
                 ),
+
               ),
 
               const SizedBox(
+
                 width:
+
                     12,
+
               ),
 
               Expanded(
-                child: Column(
+
+                child:
+
+                    Column(
+
                   crossAxisAlignment:
+
                       CrossAxisAlignment.start,
 
                   children: [
+
                     Text(
+
                       student.name,
 
                       maxLines:
+
                           1,
 
                       overflow:
+
                           TextOverflow.ellipsis,
 
                       style:
+
                           const TextStyle(
+
                         color:
+
                             AppColors.pureWhite,
 
                         fontSize:
+
                             17,
 
                         fontWeight:
+
                             FontWeight.bold,
+
                       ),
+
                     ),
 
                     const SizedBox(
+
                       height:
-                          3,
+
+                          4,
+
                     ),
 
-                    const Text(
-                      'Studente',
+                    _AcademicIdentity(
 
-                      style: TextStyle(
-                        color:
-                            AppColors.studentBlue,
+                      path:
 
-                        fontSize:
-                            12,
+                          path,
 
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
+                      title:
+
+                          title,
+
+                      graduatedPath:
+
+                          graduatedPath,
+
                     ),
+
                   ],
+
                 ),
+
               ),
 
               if (student.available)
+
                 const _AvailableBadge(),
+
             ],
+
           ),
 
           const SizedBox(
+
             height:
+
                 16,
+
           ),
 
-
-          // ===================================================================
-          // DISPONIBILITÀ
-          // ===================================================================
-
           Wrap(
+
             spacing:
+
                 8,
 
             runSpacing:
+
                 8,
 
             children: [
-              if (student.available)
+
+              if (
+
+                student
+
+                    .availableForHelp
+
+              )
+
                 const _CapabilityChip(
+
                   icon:
-                      Icons.support_agent_rounded,
+
+                      Icons
+
+                          .volunteer_activism_outlined,
 
                   label:
-                      'Disponibile',
+
+                      'Aiuto allo studio',
+
                 ),
 
-              if (student.willingToTeach)
+              if (
+
+                student
+
+                    .availableForPrivateLessons
+
+              )
+
                 const _CapabilityChip(
+
                   icon:
+
                       Icons.school_outlined,
 
                   label:
+
                       'Lezioni private',
+
                 ),
+
             ],
+
           ),
 
+          if (
 
-          // ===================================================================
-          // MATERIE
-          // ===================================================================
+            title != null ||
 
-          if (student.subjects.isNotEmpty) ...[
+            graduatedPath != null ||
+
+            path != null
+
+          ) ...[
+
             const SizedBox(
+
               height:
+
+                  16,
+
+            ),
+
+            _CompactAcademicSummary(
+
+              title:
+
+                  title,
+
+              graduatedPath:
+
+                  graduatedPath,
+
+              path:
+
+                  path,
+
+            ),
+
+          ],
+
+          if (_helpSubjects.isNotEmpty) ...[
+
+            const SizedBox(
+
+              height:
+
                   18,
+
             ),
 
             const Text(
-              'Materie',
 
-              style: TextStyle(
+              'Può aiutarti in',
+
+              style:
+
+                  TextStyle(
+
                 color:
+
                     AppColors.pureWhite,
 
                 fontSize:
+
                     13,
 
                 fontWeight:
+
                     FontWeight.bold,
+
               ),
+
             ),
 
             const SizedBox(
+
               height:
+
                   8,
+
             ),
 
-            ...student.subjects.map(
-              (subject) =>
+            ..._helpSubjects.map(
+
+              (
+
+                SocialSubject subject,
+
+              ) =>
+
                   _StudentSubject(
+
                 subject:
+
                     subject,
+
+                type:
+
+                    _StudentSubjectType.help,
+
               ),
+
             ),
+
           ],
 
+          if (
 
-          // ===================================================================
-          // DESCRIZIONE
-          // ===================================================================
+            _privateLessonSubjects
 
-          if (student.description.isNotEmpty) ...[
+                .isNotEmpty
+
+          ) ...[
+
             const SizedBox(
+
               height:
-                  10,
+
+                  18,
+
+            ),
+
+            const Text(
+
+              'Lezioni private in',
+
+              style:
+
+                  TextStyle(
+
+                color:
+
+                    AppColors.pureWhite,
+
+                fontSize:
+
+                    13,
+
+                fontWeight:
+
+                    FontWeight.bold,
+
+              ),
+
+            ),
+
+            const SizedBox(
+
+              height:
+
+                  8,
+
+            ),
+
+            ..._privateLessonSubjects.map(
+
+              (
+
+                SocialSubject subject,
+
+              ) =>
+
+                  _StudentSubject(
+
+                subject:
+
+                    subject,
+
+                type:
+
+                    _StudentSubjectType
+
+                        .privateLesson,
+
+              ),
+
+            ),
+
+          ],
+
+          if (student.description
+
+              .isNotEmpty) ...[
+
+            const SizedBox(
+
+              height:
+
+                  14,
+
             ),
 
             Text(
+
               student.description,
 
-              style: TextStyle(
+              style:
+
+                  TextStyle(
+
                 color:
+
                     AppColors.pureWhite
-                        .withOpacity(0.70),
+
+                        .withOpacity(
+
+                  0.70,
+
+                ),
 
                 fontSize:
+
                     14,
 
                 height:
+
                     1.4,
+
               ),
+
             ),
+
           ],
 
+          if (student.reviews
 
-          const SizedBox(
-            height:
-                12,
-          ),
+              .isNotEmpty) ...[
 
-
-          // ===================================================================
-          // DIPARTIMENTO E CORSO
-          // ===================================================================
-
-          Text(
-            '${student.department} • ${student.course}',
-
-            maxLines:
-                2,
-
-            overflow:
-                TextOverflow.ellipsis,
-
-            style: TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(0.45),
-
-              fontSize:
-                  12,
-            ),
-          ),
-
-
-          // ===================================================================
-          // RECENSIONI
-          // ===================================================================
-
-          if (student.reviews.isNotEmpty) ...[
             const SizedBox(
+
               height:
+
                   14,
+
             ),
 
             _ReviewSummary(
+
               user:
+
                   student,
+
             ),
+
           ],
 
-
           const SizedBox(
+
             height:
+
                 16,
+
           ),
-
-
-          // ===================================================================
-          // CONTATTA
-          // ===================================================================
 
           SizedBox(
+
             width:
+
                 double.infinity,
 
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
+            child:
+
+                ElevatedButton.icon(
+
+              onPressed:
+
+                  () {
+
+                Navigator.of(
+
+                  context,
+
+                ).push(
+
                   MaterialPageRoute(
+
                     builder:
+
                         (_) =>
+
                             ContactUserPage(
+
                       user:
+
                           student,
+
                     ),
+
                   ),
+
                 );
+
               },
 
-              icon: const Icon(
-                Icons.mail_outline_rounded,
+              icon:
+
+                  const Icon(
+
+                Icons
+
+                    .mail_outline_rounded,
+
               ),
 
-              label: const Text(
+              label:
+
+                  const Text(
+
                 'Contatta',
+
               ),
+
+              style:
+
+                  ElevatedButton.styleFrom(
+
+                backgroundColor:
+
+                    AppColors.studentBlue,
+
+                foregroundColor:
+
+                    AppColors.pureWhite,
+
+              ),
+
             ),
+
           ),
+
         ],
+
       ),
+
     );
+
   }
+
+  String _academicPathDescription(
+
+    SocialAcademicPath path,
+
+  ) {
+
+    final String degree =
+
+        path.degreeType.trim();
+
+    if (
+
+      path.department.isNotEmpty &&
+
+      path.course.isNotEmpty
+
+    ) {
+
+      if (degree.isNotEmpty) {
+
+        return '${path.department} • ${path.course} · ${academicPathTypeLabel(degree)}';
+
+      }
+
+      return '${path.department} • ${path.course}';
+
+    }
+
+    if (path.course.isNotEmpty) {
+
+      if (degree.isNotEmpty) {
+
+        return '${path.course} · ${academicPathTypeLabel(degree)}';
+
+      }
+
+      return path.course;
+
+    }
+
+    return path.department;
+
+  }
+
 }
 
+enum _StudentSubjectType {
 
-// =============================================================================
-// AVAILABLE
-// =============================================================================
+  help,
+
+  privateLesson,
+
+}
+
+class _AcademicIdentity
+
+    extends StatelessWidget {
+
+  final SocialAcademicPath? path;
+
+  final SocialAcademicTitle? title;
+
+  final SocialAcademicPath? graduatedPath;
+
+  const _AcademicIdentity({
+
+    required this.path,
+
+    required this.title,
+
+    required this.graduatedPath,
+
+  });
+
+  @override
+
+  Widget build(
+
+    BuildContext context,
+
+  ) {
+
+    final SocialAcademicPath?
+
+        academicPath =
+
+        path;
+
+    if (academicPath != null) {
+
+      String label;
+
+      switch (academicPath.status) {
+
+        case AcademicPathStatus.enrolled:
+
+          label =
+
+              'Studente in ${academicPath.course}';
+
+          break;
+
+        case AcademicPathStatus.suspended:
+
+          label =
+
+              'Percorso in ${academicPath.course} sospeso';
+
+          break;
+
+        case AcademicPathStatus.withdrawn:
+
+          label =
+
+              'Percorso in ${academicPath.course} interrotto';
+
+          break;
+
+        case AcademicPathStatus.transferred:
+
+          label =
+
+              'Trasferito da ${academicPath.course}';
+
+          break;
+
+        case AcademicPathStatus.graduated:
+
+          label =
+
+              'Titolo conseguito in ${academicPath.course}';
+
+          break;
+
+      }
+
+      return Row(
+
+        crossAxisAlignment:
+
+            CrossAxisAlignment.start,
+
+        children: [
+
+          const Icon(
+
+            Icons.school_outlined,
+
+            color:
+
+                AppColors.studentBlue,
+
+            size:
+
+                14,
+
+          ),
+
+          const SizedBox(
+
+            width:
+
+                5,
+
+          ),
+
+          Expanded(
+
+            child:
+
+                Text(
+
+              label,
+
+              maxLines:
+
+                  2,
+
+              overflow:
+
+                  TextOverflow.ellipsis,
+
+              style:
+
+                  const TextStyle(
+
+                color:
+
+                    AppColors.studentBlue,
+
+                fontSize:
+
+                    11,
+
+                fontWeight:
+
+                    FontWeight.w600,
+
+              ),
+
+            ),
+
+          ),
+
+          if (
+
+            academicPath.isVerified
+
+          ) ...[
+
+            const SizedBox(
+
+              width:
+
+                  5,
+
+            ),
+
+            const Icon(
+
+              Icons.verified_rounded,
+
+              color:
+
+                  Colors.greenAccent,
+
+              size:
+
+                  14,
+
+            ),
+
+          ],
+
+        ],
+
+      );
+
+    }
+
+    final SocialAcademicTitle?
+
+        academicTitle =
+
+        title;
+
+    if (academicTitle != null) {
+
+      return Row(
+
+        crossAxisAlignment:
+
+            CrossAxisAlignment.start,
+
+        children: [
+
+          const Icon(
+
+            Icons.workspace_premium_outlined,
+
+            color:
+
+                Colors.amber,
+
+            size:
+
+                14,
+
+          ),
+
+          const SizedBox(
+
+            width:
+
+                5,
+
+          ),
+
+          Expanded(
+
+            child:
+
+                Text(
+
+              '${academicTitle.titleTypeLabel} in ${academicTitle.course}',
+
+              maxLines:
+
+                  2,
+
+              overflow:
+
+                  TextOverflow.ellipsis,
+
+              style:
+
+                  const TextStyle(
+
+                color:
+
+                    AppColors.studentBlue,
+
+                fontSize:
+
+                    11,
+
+                fontWeight:
+
+                    FontWeight.w600,
+
+              ),
+
+            ),
+
+          ),
+
+          if (
+
+            academicTitle.isVerified
+
+          ) ...[
+
+            const SizedBox(
+
+              width:
+
+                  5,
+
+            ),
+
+            const Icon(
+
+              Icons.verified_rounded,
+
+              color:
+
+                  Colors.greenAccent,
+
+              size:
+
+                  14,
+
+            ),
+
+          ],
+
+        ],
+
+      );
+
+    }
+
+    final SocialAcademicPath?
+
+        legacyGraduatedPath =
+
+        graduatedPath;
+
+    if (legacyGraduatedPath != null) {
+
+      return Row(
+
+        crossAxisAlignment:
+
+            CrossAxisAlignment.start,
+
+        children: [
+
+          const Icon(
+
+            Icons.workspace_premium_outlined,
+
+            color:
+
+                Colors.amber,
+
+            size:
+
+                14,
+
+          ),
+
+          const SizedBox(
+
+            width:
+
+                5,
+
+          ),
+
+          Expanded(
+
+            child:
+
+                Text(
+
+              legacyGraduatedPath.degreeType.trim().isEmpty
+
+                  ? 'Titolo conseguito in ${legacyGraduatedPath.course}'
+
+                  : '${academicPathTypeLabel(legacyGraduatedPath.degreeType)} in ${legacyGraduatedPath.course}',
+
+              maxLines:
+
+                  2,
+
+              overflow:
+
+                  TextOverflow.ellipsis,
+
+              style:
+
+                  const TextStyle(
+
+                color:
+
+                    AppColors.studentBlue,
+
+                fontSize:
+
+                    11,
+
+                fontWeight:
+
+                    FontWeight.w600,
+
+              ),
+
+            ),
+
+          ),
+
+          if (
+
+            legacyGraduatedPath.isVerified
+
+          ) ...[
+
+            const SizedBox(
+
+              width:
+
+                  5,
+
+            ),
+
+            const Icon(
+
+              Icons.verified_rounded,
+
+              color:
+
+                  Colors.greenAccent,
+
+              size:
+
+                  14,
+
+            ),
+
+          ],
+
+        ],
+
+      );
+
+    }
+
+    return const Text(
+
+      'Studente',
+
+      style:
+
+          TextStyle(
+
+        color:
+
+            AppColors.studentBlue,
+
+        fontSize:
+
+            12,
+
+        fontWeight:
+
+            FontWeight.w600,
+
+      ),
+
+    );
+
+  }
+
+}
+
+class _CompactAcademicSummary
+
+    extends StatelessWidget {
+
+  final SocialAcademicTitle? title;
+
+  final SocialAcademicPath? graduatedPath;
+
+  final SocialAcademicPath? path;
+
+  const _CompactAcademicSummary({
+
+    required this.title,
+
+    required this.graduatedPath,
+
+    required this.path,
+
+  });
+
+  @override
+
+  Widget build(
+
+    BuildContext context,
+
+  ) {
+
+    return Container(
+
+      width:
+
+          double.infinity,
+
+      padding:
+
+          const EdgeInsets.all(
+
+        11,
+
+      ),
+
+      decoration:
+
+          BoxDecoration(
+
+        color:
+
+            AppColors.brandNightBlue,
+
+        borderRadius:
+
+            BorderRadius.circular(
+
+          12,
+
+        ),
+
+        border:
+
+            Border.all(
+
+          color:
+
+              AppColors.skyBlue
+
+                  .withOpacity(
+
+            0.12,
+
+          ),
+
+        ),
+
+      ),
+
+      child:
+
+          Column(
+
+        crossAxisAlignment:
+
+            CrossAxisAlignment.start,
+
+        children: [
+
+          if (
+
+            title != null
+
+          )
+
+            _CompactAcademicTitleRow(
+
+              title:
+
+                  title!,
+
+            )
+
+          else if (
+
+            graduatedPath != null
+
+          )
+
+            _CompactGraduatedPathRow(
+
+              path:
+
+                  graduatedPath!,
+
+            ),
+
+          if (
+
+            (
+
+              title != null ||
+
+              graduatedPath != null
+
+            ) &&
+
+            path != null
+
+          )
+
+            const SizedBox(
+
+              height:
+
+                  9,
+
+            ),
+
+          if (path != null)
+
+            _CompactAcademicPathRow(
+
+              path:
+
+                  path!,
+
+            ),
+
+        ],
+
+      ),
+
+    );
+
+  }
+
+}
+
+class _CompactAcademicTitleRow
+
+    extends StatelessWidget {
+
+  final SocialAcademicTitle title;
+
+  const _CompactAcademicTitleRow({
+
+    required this.title,
+
+  });
+
+  @override
+
+  Widget build(
+
+    BuildContext context,
+
+  ) {
+
+    return Row(
+
+      crossAxisAlignment:
+
+          CrossAxisAlignment.start,
+
+      children: [
+
+        const Icon(
+
+          Icons.workspace_premium_outlined,
+
+          color:
+
+              Colors.amber,
+
+          size:
+
+              16,
+
+        ),
+
+        const SizedBox(
+
+          width:
+
+              7,
+
+        ),
+
+        Expanded(
+
+          child:
+
+              Column(
+
+            crossAxisAlignment:
+
+                CrossAxisAlignment.start,
+
+            children: [
+
+              Text(
+
+                title.titleTypeLabel,
+
+                maxLines:
+
+                    1,
+
+                overflow:
+
+                    TextOverflow.ellipsis,
+
+                style:
+
+                    const TextStyle(
+
+                  color:
+
+                      AppColors.pureWhite,
+
+                  fontSize:
+
+                      11,
+
+                  fontWeight:
+
+                      FontWeight.w600,
+
+                ),
+
+              ),
+
+              const SizedBox(
+
+                height:
+
+                    2,
+
+              ),
+
+              Text(
+
+                title.course,
+
+                maxLines:
+
+                    1,
+
+                overflow:
+
+                    TextOverflow.ellipsis,
+
+                style:
+
+                    TextStyle(
+
+                  color:
+
+                      AppColors.pureWhite
+
+                          .withOpacity(
+
+                    0.45,
+
+                  ),
+
+                  fontSize:
+
+                      9,
+
+                ),
+
+              ),
+
+            ],
+
+          ),
+
+        ),
+
+        if (title.isVerified)
+
+          const Icon(
+
+            Icons.verified_rounded,
+
+            color:
+
+                Colors.greenAccent,
+
+            size:
+
+                14,
+
+          ),
+
+      ],
+
+    );
+
+  }
+
+}
+
+class _CompactGraduatedPathRow
+
+    extends StatelessWidget {
+
+  final SocialAcademicPath path;
+
+  const _CompactGraduatedPathRow({
+
+    required this.path,
+
+  });
+
+  @override
+
+  Widget build(
+
+    BuildContext context,
+
+  ) {
+
+    final String title =
+
+        path.degreeType.trim().isEmpty
+
+            ? 'Titolo conseguito'
+
+            : academicPathTypeLabel(
+
+                path.degreeType,
+
+              );
+
+    return Row(
+
+      crossAxisAlignment:
+
+          CrossAxisAlignment.start,
+
+      children: [
+
+        const Icon(
+
+          Icons.workspace_premium_outlined,
+
+          color:
+
+              Colors.amber,
+
+          size:
+
+              16,
+
+        ),
+
+        const SizedBox(
+
+          width:
+
+              7,
+
+        ),
+
+        Expanded(
+
+          child:
+
+              Column(
+
+            crossAxisAlignment:
+
+                CrossAxisAlignment.start,
+
+            children: [
+
+              Text(
+
+                title,
+
+                maxLines:
+
+                    1,
+
+                overflow:
+
+                    TextOverflow.ellipsis,
+
+                style:
+
+                    const TextStyle(
+
+                  color:
+
+                      AppColors.pureWhite,
+
+                  fontSize:
+
+                      11,
+
+                  fontWeight:
+
+                      FontWeight.w600,
+
+                ),
+
+              ),
+
+              const SizedBox(
+
+                height:
+
+                    2,
+
+              ),
+
+              Text(
+
+                path.course,
+
+                maxLines:
+
+                    1,
+
+                overflow:
+
+                    TextOverflow.ellipsis,
+
+                style:
+
+                    TextStyle(
+
+                  color:
+
+                      AppColors.pureWhite
+
+                          .withOpacity(
+
+                    0.45,
+
+                  ),
+
+                  fontSize:
+
+                      9,
+
+                ),
+
+              ),
+
+            ],
+
+          ),
+
+        ),
+
+        if (path.isVerified)
+
+          const Icon(
+
+            Icons.verified_rounded,
+
+            color:
+
+                Colors.greenAccent,
+
+            size:
+
+                14,
+
+          ),
+
+      ],
+
+    );
+
+  }
+
+}
+
+class _CompactAcademicPathRow
+
+    extends StatelessWidget {
+
+  final SocialAcademicPath path;
+
+  const _CompactAcademicPathRow({
+
+    required this.path,
+
+  });
+
+  @override
+
+  Widget build(
+
+    BuildContext context,
+
+  ) {
+
+    return Row(
+
+      crossAxisAlignment:
+
+          CrossAxisAlignment.start,
+
+      children: [
+
+        const Icon(
+
+          Icons.school_outlined,
+
+          color:
+
+              AppColors.skyBlue,
+
+          size:
+
+              16,
+
+        ),
+
+        const SizedBox(
+
+          width:
+
+              7,
+
+        ),
+
+        Expanded(
+
+          child:
+
+              Column(
+
+            crossAxisAlignment:
+
+                CrossAxisAlignment.start,
+
+            children: [
+
+              Text(
+
+                path.course,
+
+                maxLines:
+
+                    1,
+
+                overflow:
+
+                    TextOverflow.ellipsis,
+
+                style:
+
+                    const TextStyle(
+
+                  color:
+
+                      AppColors.pureWhite,
+
+                  fontSize:
+
+                      11,
+
+                  fontWeight:
+
+                      FontWeight.w600,
+
+                ),
+
+              ),
+
+              const SizedBox(
+
+                height:
+
+                    2,
+
+              ),
+
+              Text(
+
+                _compactPathStatus(
+
+                  path.status,
+
+                ),
+
+                style:
+
+                    TextStyle(
+
+                  color:
+
+                      AppColors.materialSky
+
+                          .withOpacity(
+
+                    0.80,
+
+                  ),
+
+                  fontSize:
+
+                      9,
+
+                ),
+
+              ),
+
+            ],
+
+          ),
+
+        ),
+
+        if (path.isVerified)
+
+          const Icon(
+
+            Icons.verified_rounded,
+
+            color:
+
+                Colors.greenAccent,
+
+            size:
+
+                14,
+
+          ),
+
+      ],
+
+    );
+
+  }
+
+  String _compactPathStatus(
+
+    AcademicPathStatus status,
+
+  ) {
+
+    switch (status) {
+
+      case AcademicPathStatus.enrolled:
+
+        return 'Percorso in corso';
+
+      case AcademicPathStatus.suspended:
+
+        return 'Percorso sospeso';
+
+      case AcademicPathStatus.withdrawn:
+
+        return 'Percorso interrotto';
+
+      case AcademicPathStatus.transferred:
+
+        return 'Trasferito';
+
+      case AcademicPathStatus.graduated:
+
+        return 'Titolo conseguito';
+
+    }
+
+  }
+
+}
 
 class _AvailableBadge
+
     extends StatelessWidget {
 
   const _AvailableBadge();
 
-
   @override
+
   Widget build(
+
     BuildContext context,
+
   ) {
+
     return const Row(
+
       mainAxisSize:
+
           MainAxisSize.min,
 
       children: [
+
         Icon(
+
           Icons.circle,
 
           color:
+
               Colors.green,
 
           size:
+
               9,
+
         ),
 
         SizedBox(
+
           width:
+
               5,
+
         ),
 
         Text(
+
           'Disponibile',
 
-          style: TextStyle(
+          style:
+
+              TextStyle(
+
             color:
+
                 Colors.green,
 
             fontSize:
+
                 11,
+
           ),
+
         ),
+
       ],
+
     );
+
   }
+
 }
 
-
-// =============================================================================
-// CAPABILITY
-// =============================================================================
-
 class _CapabilityChip
+
     extends StatelessWidget {
 
   final IconData icon;
 
   final String label;
 
-
   const _CapabilityChip({
+
     required this.icon,
+
     required this.label,
+
   });
 
-
   @override
+
   Widget build(
+
     BuildContext context,
+
   ) {
+
     return Container(
+
       padding:
+
           const EdgeInsets.symmetric(
+
         horizontal:
+
             9,
 
         vertical:
+
             6,
+
       ),
 
-      decoration: BoxDecoration(
+      decoration:
+
+          BoxDecoration(
+
         color:
+
             AppColors.skyBlue
-                .withOpacity(0.08),
+
+                .withOpacity(
+
+          0.08,
+
+        ),
 
         borderRadius:
-            BorderRadius.circular(9),
 
-        border: Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(0.15),
+            BorderRadius.circular(
+
+          9,
+
         ),
+
+        border:
+
+            Border.all(
+
+          color:
+
+              AppColors.skyBlue
+
+                  .withOpacity(
+
+            0.15,
+
+          ),
+
+        ),
+
       ),
 
-      child: Row(
+      child:
+
+          Row(
+
         mainAxisSize:
+
             MainAxisSize.min,
 
         children: [
+
           Icon(
+
             icon,
 
             color:
+
                 AppColors.materialSky,
 
             size:
+
                 15,
+
           ),
 
           const SizedBox(
+
             width:
+
                 5,
+
           ),
 
           Text(
+
             label,
 
-            style: const TextStyle(
+            style:
+
+                const TextStyle(
+
               color:
+
                   AppColors.materialSky,
 
               fontSize:
+
                   10,
 
               fontWeight:
+
                   FontWeight.w500,
+
             ),
+
           ),
+
         ],
+
       ),
+
     );
+
   }
+
 }
 
-
-// =============================================================================
-// SUBJECT
-// =============================================================================
-
 class _StudentSubject
+
     extends StatelessWidget {
 
   final SocialSubject subject;
 
+  final _StudentSubjectType type;
 
   const _StudentSubject({
+
     required this.subject,
+
+    required this.type,
+
   });
 
-
   @override
+
   Widget build(
+
     BuildContext context,
+
   ) {
+
     return Container(
+
       width:
+
           double.infinity,
 
       margin:
+
           const EdgeInsets.only(
+
         bottom:
+
             8,
+
       ),
 
       padding:
+
           const EdgeInsets.all(
+
         11,
+
       ),
 
-      decoration: BoxDecoration(
+      decoration:
+
+          BoxDecoration(
+
         color:
+
             AppColors.socialBlue
-                .withOpacity(0.08),
+
+                .withOpacity(
+
+          0.08,
+
+        ),
 
         borderRadius:
-            BorderRadius.circular(12),
 
-        border: Border.all(
-          color:
-              AppColors.socialBlue
-                  .withOpacity(0.18),
+            BorderRadius.circular(
+
+          12,
+
         ),
+
+        border:
+
+            Border.all(
+
+          color:
+
+              AppColors.socialBlue
+
+                  .withOpacity(
+
+            0.18,
+
+          ),
+
+        ),
+
       ),
 
-      child: Column(
+      child:
+
+          Column(
+
         crossAxisAlignment:
+
             CrossAxisAlignment.start,
 
         children: [
+
           Row(
+
             children: [
+
               Expanded(
-                child: Text(
+
+                child:
+
+                    Text(
+
                   subject.name,
 
                   style:
+
                       const TextStyle(
+
                     color:
+
                         AppColors.skyBlue,
 
                     fontSize:
+
                         13,
 
                     fontWeight:
+
                         FontWeight.w600,
+
                   ),
+
                 ),
+
               ),
 
-              if (subject.canHelp)
-                Container(
-                  margin:
-                      const EdgeInsets.only(
-                    right: 6,
-                  ),
+              _SubjectCapabilityBadge(
 
-                  padding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 4,
-                  ),
+                type:
 
-                  decoration: BoxDecoration(
-                    color:
-                        AppColors.skyBlue
-                            .withOpacity(0.10),
+                    type,
 
-                    borderRadius:
-                        BorderRadius.circular(8),
-                  ),
+              ),
 
-                  child:
-                      const Text(
-                    'AIUTO',
+              if (
 
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.materialSky,
+                subject.grade != null &&
 
-                      fontSize:
-                          8,
+                subject
 
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
-                  ),
+                    .isGradeVerified
+
+              ) ...[
+
+                const SizedBox(
+
+                  width:
+
+                      6,
+
                 ),
 
-              if (subject.grade != null)
                 Container(
+
                   padding:
+
                       const EdgeInsets.symmetric(
+
                     horizontal:
+
                         8,
 
                     vertical:
+
                         4,
+
                   ),
 
-                  decoration: BoxDecoration(
+                  decoration:
+
+                      BoxDecoration(
+
                     color:
+
                         Colors.green
-                            .withOpacity(0.12),
+
+                            .withOpacity(
+
+                      0.12,
+
+                    ),
 
                     borderRadius:
-                        BorderRadius.circular(8),
-                  ),
 
-                  child: Text(
-                    '${subject.grade}/30',
+                        BorderRadius.circular(
 
-                    style:
-                        const TextStyle(
-                      color:
-                          Colors.green,
+                      8,
 
-                      fontSize:
-                          11,
-
-                      fontWeight:
-                          FontWeight.bold,
                     ),
+
                   ),
+
+                  child:
+
+                      Row(
+
+                    mainAxisSize:
+
+                        MainAxisSize.min,
+
+                    children: [
+
+                      const Icon(
+
+                        Icons
+
+                            .verified_rounded,
+
+                        color:
+
+                            Colors.greenAccent,
+
+                        size:
+
+                            11,
+
+                      ),
+
+                      const SizedBox(
+
+                        width:
+
+                            3,
+
+                      ),
+
+                      Text(
+
+                        '${subject.grade}/30',
+
+                        style:
+
+                            const TextStyle(
+
+                          color:
+
+                              Colors.greenAccent,
+
+                          fontSize:
+
+                              10,
+
+                          fontWeight:
+
+                              FontWeight.bold,
+
+                        ),
+
+                      ),
+
+                    ],
+
+                  ),
+
                 ),
+
+              ],
+
             ],
+
           ),
 
-          if (subject.note.isNotEmpty) ...[
+          if (subject.note
+
+              .isNotEmpty) ...[
+
             const SizedBox(
+
               height:
+
                   5,
+
             ),
 
             Text(
+
               subject.note,
 
-              style: TextStyle(
+              style:
+
+                  TextStyle(
+
                 color:
+
                     AppColors.pureWhite
-                        .withOpacity(0.55),
+
+                        .withOpacity(
+
+                  0.55,
+
+                ),
 
                 fontSize:
+
                     12,
 
                 height:
+
                     1.3,
+
               ),
+
             ),
+
           ],
+
         ],
+
       ),
+
     );
+
   }
+
 }
 
+class _SubjectCapabilityBadge
 
-// =============================================================================
-// REVIEW
-// =============================================================================
+    extends StatelessWidget {
+
+  final _StudentSubjectType type;
+
+  const _SubjectCapabilityBadge({
+
+    required this.type,
+
+  });
+
+  @override
+
+  Widget build(
+
+    BuildContext context,
+
+  ) {
+
+    final bool help =
+
+        type ==
+
+            _StudentSubjectType.help;
+
+    return Container(
+
+      padding:
+
+          const EdgeInsets.symmetric(
+
+        horizontal:
+
+            7,
+
+        vertical:
+
+            4,
+
+      ),
+
+      decoration:
+
+          BoxDecoration(
+
+        color:
+
+            AppColors.skyBlue
+
+                .withOpacity(
+
+          0.10,
+
+        ),
+
+        borderRadius:
+
+            BorderRadius.circular(
+
+          8,
+
+        ),
+
+      ),
+
+      child:
+
+          Row(
+
+        mainAxisSize:
+
+            MainAxisSize.min,
+
+        children: [
+
+          Icon(
+
+            help
+
+                ? Icons
+
+                    .volunteer_activism_outlined
+
+                : Icons
+
+                    .school_outlined,
+
+            color:
+
+                AppColors.materialSky,
+
+            size:
+
+                10,
+
+          ),
+
+          const SizedBox(
+
+            width:
+
+                4,
+
+          ),
+
+          Text(
+
+            help
+
+                ? 'AIUTO'
+
+                : 'LEZIONI',
+
+            style:
+
+                const TextStyle(
+
+              color:
+
+                  AppColors.materialSky,
+
+              fontSize:
+
+                  8,
+
+              fontWeight:
+
+                  FontWeight.bold,
+
+            ),
+
+          ),
+
+        ],
+
+      ),
+
+    );
+
+  }
+
+}
 
 class _ReviewSummary
+
     extends StatelessWidget {
 
   final SocialUser user;
 
-
   const _ReviewSummary({
+
     required this.user,
+
   });
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Container(
-      padding:
-          const EdgeInsets.all(12),
 
-      decoration: BoxDecoration(
+  Widget build(
+
+    BuildContext context,
+
+  ) {
+
+    return Container(
+
+      padding:
+
+          const EdgeInsets.all(
+
+        12,
+
+      ),
+
+      decoration:
+
+          BoxDecoration(
+
         color:
+
             AppColors.brandNightBlue,
 
         borderRadius:
-            BorderRadius.circular(12),
+
+            BorderRadius.circular(
+
+          12,
+
+        ),
+
       ),
 
-      child: Row(
+      child:
+
+          Row(
+
         children: [
+
           const Icon(
+
             Icons.star_rounded,
 
             color:
+
                 Colors.amber,
 
             size:
+
                 20,
+
           ),
 
           const SizedBox(
+
             width:
+
                 6,
+
           ),
 
           Text(
-            user.averageRating
-                .toStringAsFixed(1),
 
-            style: const TextStyle(
+            user.averageRating
+
+                .toStringAsFixed(
+
+              1,
+
+            ),
+
+            style:
+
+                const TextStyle(
+
               color:
+
                   AppColors.pureWhite,
 
               fontWeight:
+
                   FontWeight.bold,
+
             ),
+
           ),
 
           const SizedBox(
+
             width:
+
                 6,
+
           ),
 
           Text(
+
             '(${user.reviews.length} '
+
             '${user.reviews.length == 1 ? 'recensione' : 'recensioni'})',
 
-            style: TextStyle(
+            style:
+
+                TextStyle(
+
               color:
+
                   AppColors.pureWhite
-                      .withOpacity(0.50),
+
+                      .withOpacity(
+
+                0.50,
+
+              ),
 
               fontSize:
+
                   12,
+
             ),
+
           ),
+
         ],
+
       ),
+
     );
+
   }
+
 }

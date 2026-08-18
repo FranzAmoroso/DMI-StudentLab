@@ -4,25 +4,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../social/social_models.dart';
 
 
-// =============================================================================
-// AUTH SESSION
-// =============================================================================
-
 class AuthSession extends ChangeNotifier {
   AuthSession._();
 
 
-  // ===========================================================================
-  // SINGLETON
-  // ===========================================================================
-
   static final AuthSession instance =
       AuthSession._();
 
-
-  // ===========================================================================
-  // SECURE STORAGE
-  // ===========================================================================
 
   static const String _accessTokenKey =
       'studentlab_access_token';
@@ -32,10 +20,6 @@ class AuthSession extends ChangeNotifier {
       const FlutterSecureStorage();
 
 
-  // ===========================================================================
-  // STATE
-  // ===========================================================================
-
   SocialUser? _currentUser;
 
   String? _accessToken;
@@ -43,10 +27,6 @@ class AuthSession extends ChangeNotifier {
   bool _initialized =
       false;
 
-
-  // ===========================================================================
-  // GETTERS
-  // ===========================================================================
 
   SocialUser? get currentUser {
     return _currentUser;
@@ -60,7 +40,8 @@ class AuthSession extends ChangeNotifier {
 
   bool get isAuthenticated {
     return _currentUser != null &&
-        _accessToken != null;
+        _accessToken != null &&
+        _accessToken!.isNotEmpty;
   }
 
 
@@ -79,9 +60,73 @@ class AuthSession extends ChangeNotifier {
   }
 
 
-  // ===========================================================================
-  // LOAD TOKEN
-  // ===========================================================================
+  bool get isStudent {
+    return _currentUser?.type ==
+        SocialUserType.student;
+  }
+
+
+  bool get isTeacher {
+    return _currentUser?.type ==
+        SocialUserType.teacher;
+  }
+
+
+  bool get isTeacherPending {
+    final SocialUser? user =
+        _currentUser;
+
+    if (user == null) {
+      return false;
+    }
+
+    return user.isTeacherPending;
+  }
+
+
+  bool get isVerifiedTeacher {
+    final SocialUser? user =
+        _currentUser;
+
+    if (user == null) {
+      return false;
+    }
+
+    return user.isVerifiedTeacher;
+  }
+
+
+  bool get isTeacherRejected {
+    final SocialUser? user =
+        _currentUser;
+
+    if (user == null) {
+      return false;
+    }
+
+    return user.isTeacherRejected;
+  }
+
+
+  bool get canAccessTeacherArea {
+    return isAuthenticated &&
+        isVerifiedTeacher;
+  }
+
+
+  bool get availableForHelp {
+    return _currentUser
+            ?.availableForHelp ??
+        false;
+  }
+
+
+  bool get availableForPrivateLessons {
+    return _currentUser
+            ?.availableForPrivateLessons ??
+        false;
+  }
+
 
   Future<String?> loadStoredToken() async {
     final String? token =
@@ -97,10 +142,6 @@ class AuthSession extends ChangeNotifier {
   }
 
 
-  // ===========================================================================
-  // SET SESSION
-  // ===========================================================================
-
   Future<void> setSession({
     required String accessToken,
     required SocialUser user,
@@ -111,7 +152,6 @@ class AuthSession extends ChangeNotifier {
     _currentUser =
         user;
 
-
     await _secureStorage.write(
       key:
           _accessTokenKey,
@@ -120,18 +160,12 @@ class AuthSession extends ChangeNotifier {
           accessToken,
     );
 
-
     _initialized =
         true;
-
 
     notifyListeners();
   }
 
-
-  // ===========================================================================
-  // RESTORED SESSION
-  // ===========================================================================
 
   void setRestoredSession({
     required String accessToken,
@@ -150,10 +184,6 @@ class AuthSession extends ChangeNotifier {
   }
 
 
-  // ===========================================================================
-  // USER UPDATE
-  // ===========================================================================
-
   void updateUser(
     SocialUser user,
   ) {
@@ -164,10 +194,6 @@ class AuthSession extends ChangeNotifier {
   }
 
 
-  // ===========================================================================
-  // MARK INITIALIZED
-  // ===========================================================================
-
   void markInitialized() {
     _initialized =
         true;
@@ -175,10 +201,6 @@ class AuthSession extends ChangeNotifier {
     notifyListeners();
   }
 
-
-  // ===========================================================================
-  // CLEAR
-  // ===========================================================================
 
   Future<void> clear() async {
     _currentUser =

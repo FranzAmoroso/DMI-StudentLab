@@ -1,64 +1,21 @@
-// =============================================================================
-// DOWNLOADED MATERIAL LOCAL
-// =============================================================================
-//
-// Rappresenta una COPIA LOCALE di un materiale presente sul backend.
-//
-// Il materialId rimane l'identificatore principale del materiale server.
-//
-// subjectId / subjectName / course / department servono invece per
-// organizzare la libreria locale dell'utente.
-//
-// Esempio:
-//
-// Programmazione 1
-// ├── puntatori.pdf
-// ├── array.pdf
-// └── ricorsione.pdf
-//
-// =============================================================================
-
 class DownloadedMaterialLocal {
   final int? id;
 
-
-  // ===========================================================================
-  // OWNER LOCALE
-  // ===========================================================================
-  //
-  // userId reale per utenti autenticati.
-  //
-  // 0 per Guest.
-  // ===========================================================================
-
   final int userId;
-
-
-  // ===========================================================================
-  // SERVER REFERENCES
-  // ===========================================================================
 
   final int materialId;
 
   final int groupId;
 
+  final String? university;
 
-  // ===========================================================================
-  // SUBJECT
-  // ===========================================================================
+  final String? department;
+
+  final String? course;
 
   final int? subjectId;
 
   final String? subjectName;
-
-  final String? course;
-
-  final String? department;
-
-
-  // ===========================================================================
-  // FILE
-  // ===========================================================================
 
   final String originalName;
 
@@ -68,50 +25,26 @@ class DownloadedMaterialLocal {
 
   final int? size;
 
-
-  // ===========================================================================
-  // DATE
-  // ===========================================================================
-
   final DateTime downloadedAt;
 
 
-  // ===========================================================================
-  // CONSTRUCTOR
-  // ===========================================================================
-
   const DownloadedMaterialLocal({
     this.id,
-
     required this.userId,
-
     required this.materialId,
-
     required this.groupId,
-
-    this.subjectId,
-
-    this.subjectName,
-
-    this.course,
-
+    this.university,
     this.department,
-
+    this.course,
+    this.subjectId,
+    this.subjectName,
     required this.originalName,
-
     required this.localPath,
-
     this.mimeType,
-
     this.size,
-
     required this.downloadedAt,
   });
 
-
-  // ===========================================================================
-  // TO MAP
-  // ===========================================================================
 
   Map<String, dynamic> toMap() {
     return {
@@ -127,17 +60,20 @@ class DownloadedMaterialLocal {
       'group_id':
           groupId,
 
+      'university':
+          university,
+
+      'department':
+          department,
+
+      'course':
+          course,
+
       'subject_id':
           subjectId,
 
       'subject_name':
           subjectName,
-
-      'course':
-          course,
-
-      'department':
-          department,
 
       'original_name':
           originalName,
@@ -157,10 +93,6 @@ class DownloadedMaterialLocal {
     };
   }
 
-
-  // ===========================================================================
-  // FROM MAP
-  // ===========================================================================
 
   factory DownloadedMaterialLocal.fromMap(
     Map<String, dynamic> map,
@@ -186,6 +118,21 @@ class DownloadedMaterialLocal {
         map['group_id'],
       ),
 
+      university:
+          _toNullableString(
+        map['university'],
+      ),
+
+      department:
+          _toNullableString(
+        map['department'],
+      ),
+
+      course:
+          _toNullableString(
+        map['course'],
+      ),
+
       subjectId:
           _toNullableInt(
         map['subject_id'],
@@ -194,16 +141,6 @@ class DownloadedMaterialLocal {
       subjectName:
           _toNullableString(
         map['subject_name'],
-      ),
-
-      course:
-          _toNullableString(
-        map['course'],
-      ),
-
-      department:
-          _toNullableString(
-        map['department'],
       ),
 
       originalName:
@@ -234,10 +171,6 @@ class DownloadedMaterialLocal {
   }
 
 
-  // ===========================================================================
-  // COPY WITH
-  // ===========================================================================
-
   DownloadedMaterialLocal copyWith({
     int? id,
 
@@ -247,6 +180,18 @@ class DownloadedMaterialLocal {
 
     int? groupId,
 
+    String? university,
+
+    bool clearUniversity = false,
+
+    String? department,
+
+    bool clearDepartment = false,
+
+    String? course,
+
+    bool clearCourse = false,
+
     int? subjectId,
 
     bool clearSubjectId = false,
@@ -254,14 +199,6 @@ class DownloadedMaterialLocal {
     String? subjectName,
 
     bool clearSubjectName = false,
-
-    String? course,
-
-    bool clearCourse = false,
-
-    String? department,
-
-    bool clearDepartment = false,
 
     String? originalName,
 
@@ -294,6 +231,24 @@ class DownloadedMaterialLocal {
           groupId ??
               this.groupId,
 
+      university:
+          clearUniversity
+              ? null
+              : university ??
+                  this.university,
+
+      department:
+          clearDepartment
+              ? null
+              : department ??
+                  this.department,
+
+      course:
+          clearCourse
+              ? null
+              : course ??
+                  this.course,
+
       subjectId:
           clearSubjectId
               ? null
@@ -305,18 +260,6 @@ class DownloadedMaterialLocal {
               ? null
               : subjectName ??
                   this.subjectName,
-
-      course:
-          clearCourse
-              ? null
-              : course ??
-                  this.course,
-
-      department:
-          clearDepartment
-              ? null
-              : department ??
-                  this.department,
 
       originalName:
           originalName ??
@@ -345,18 +288,83 @@ class DownloadedMaterialLocal {
   }
 
 
-  // ===========================================================================
-  // HELPERS
-  // ===========================================================================
+  bool get hasUniversity {
+    return university != null &&
+        university!
+            .trim()
+            .isNotEmpty;
+  }
+
+
+  bool get hasDepartment {
+    return department != null &&
+        department!
+            .trim()
+            .isNotEmpty;
+  }
+
+
+  bool get hasCourse {
+    return course != null &&
+        course!
+            .trim()
+            .isNotEmpty;
+  }
+
 
   bool get hasSubject {
     return subjectId != null ||
         (
           subjectName != null &&
-              subjectName!
-                  .trim()
-                  .isNotEmpty
+          subjectName!
+              .trim()
+              .isNotEmpty
         );
+  }
+
+
+  String get displayUniversity {
+    final String? value =
+        university;
+
+    if (
+      value == null ||
+      value.trim().isEmpty
+    ) {
+      return 'Ateneo';
+    }
+
+    return value.trim();
+  }
+
+
+  String get displayDepartment {
+    final String? value =
+        department;
+
+    if (
+      value == null ||
+      value.trim().isEmpty
+    ) {
+      return 'Dipartimento';
+    }
+
+    return value.trim();
+  }
+
+
+  String get displayCourse {
+    final String? value =
+        course;
+
+    if (
+      value == null ||
+      value.trim().isEmpty
+    ) {
+      return 'Corso';
+    }
+
+    return value.trim();
   }
 
 
@@ -364,32 +372,16 @@ class DownloadedMaterialLocal {
     final String? value =
         subjectName;
 
-
-    if (value == null ||
-        value.trim().isEmpty) {
+    if (
+      value == null ||
+      value.trim().isEmpty
+    ) {
       return 'Materia';
     }
-
 
     return value.trim();
   }
 
-
-  String get displayCourse {
-    return course?.trim() ??
-        '';
-  }
-
-
-  String get displayDepartment {
-    return department?.trim() ??
-        '';
-  }
-
-
-  // ===========================================================================
-  // INT
-  // ===========================================================================
 
   static int _toInt(
     dynamic value,
@@ -398,11 +390,9 @@ class DownloadedMaterialLocal {
       return value;
     }
 
-
     if (value is num) {
       return value.toInt();
     }
-
 
     return int.tryParse(
           value?.toString() ??
@@ -415,21 +405,17 @@ class DownloadedMaterialLocal {
   static int? _toNullableInt(
     dynamic value,
   ) {
-    if (value ==
-        null) {
+    if (value == null) {
       return null;
     }
-
 
     if (value is int) {
       return value;
     }
 
-
     if (value is num) {
       return value.toInt();
     }
-
 
     return int.tryParse(
       value.toString(),
@@ -437,44 +423,32 @@ class DownloadedMaterialLocal {
   }
 
 
-  // ===========================================================================
-  // STRING
-  // ===========================================================================
-
   static String? _toNullableString(
     dynamic value,
   ) {
-    if (value ==
-        null) {
+    if (value == null) {
       return null;
     }
 
-
     final String result =
-        value.toString().trim();
-
+        value
+            .toString()
+            .trim();
 
     if (result.isEmpty) {
       return null;
     }
 
-
     return result;
   }
 
 
-  // ===========================================================================
-  // DATE
-  // ===========================================================================
-
   static DateTime _toDateTime(
     dynamic value,
   ) {
-    if (value
-        is DateTime) {
+    if (value is DateTime) {
       return value;
     }
-
 
     return DateTime.tryParse(
           value?.toString() ??

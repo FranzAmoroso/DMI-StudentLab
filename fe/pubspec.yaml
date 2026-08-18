@@ -43,6 +43,9 @@ dependencies:
   path_provider: ^2.1.5
   flutter_secure_storage: ^10.3.1
   open_filex: ^4.7.0
+  url_launcher: ^6.3.2
+  package_info_plus: ^9.0.1
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
@@ -73,6 +76,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/icons/favicon.png
+    - assets/mascot/
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
@@ -101,9 +105,20 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-flutter_icons:
+flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
+
+  # Icona standard / fallback
   image_path: "assets/icons/app_icon.png"
-  adaptive_icon_background: "#34495E"
+
+  # Adaptive Icon Android
+  adaptive_icon_background: "#050B24"
   adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+
+  # Web
+  web:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+    background_color: "#050B24"
+    theme_color: "#050B24"

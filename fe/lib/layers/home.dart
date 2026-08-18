@@ -1,31 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:fe/layers/homeLayer.dart';
 
 import 'package:fe/theme/nightTheme.dart';
 
+import 'package:fe/services/api_service.dart';
 import 'package:fe/services/auth_service.dart';
 import 'package:fe/services/auth_session.dart';
 
 import 'package:fe/social/social_models.dart';
 import 'package:fe/social/social_page.dart';
 
-import 'package:fe/social/auth/login_page.dart';
-
-import 'package:fe/social/widgets/social_profile_type.dart';
-
 import 'package:fe/social/message/message_page.dart';
 
+import 'package:fe/social/notifications/notifications_page.dart';
 
-// =============================================================================
-// HOME PAGE
-// =============================================================================
+import 'package:fe/social/admin/admin_panel_page.dart';
+
+import 'package:fe/social/teacher/techear_area_page.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
   });
-
 
   @override
   State<HomePage> createState() =>
@@ -33,54 +33,47 @@ class HomePage extends StatefulWidget {
 }
 
 
-// =============================================================================
-// HOME PAGE STATE
-// =============================================================================
-
 class _HomePageState
     extends State<HomePage> {
-
   final AuthSession _authSession =
       AuthSession.instance;
-
 
   final AuthService _authService =
       AuthService();
 
+  final ApiService _apiService =
+      ApiService();
 
   bool _restoringSession =
       true;
 
+  bool _loadingPermissions =
+      false;
 
-  // ===========================================================================
-  // INIT
-  // ===========================================================================
+  bool _loadingNotifications =
+      false;
+
+  bool _adminAccess =
+      false;
+
+  bool _teacherAccess =
+      false;
+
+  int _unreadNotificationCount =
+      0;
+
 
   @override
   void initState() {
     super.initState();
 
-
-    // =========================================================================
-    // ASCOLTA CAMBIAMENTI AUTH
-    // =========================================================================
-
     _authSession.addListener(
       _onAuthChanged,
     );
 
-
-    // =========================================================================
-    // RIPRISTINO SESSIONE
-    // =========================================================================
-
     _restoreSession();
   }
 
-
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
 
   @override
   void dispose() {
@@ -92,39 +85,68 @@ class _HomePageState
   }
 
 
-  // ===========================================================================
-  // AUTH CHANGED
-  // ===========================================================================
-
   void _onAuthChanged() {
     if (!mounted) {
       return;
     }
 
-
     setState(() {});
+
+    if (!_authSession.isAuthenticated) {
+      setState(() {
+        _adminAccess =
+            false;
+
+        _teacherAccess =
+            false;
+
+        _unreadNotificationCount =
+            0;
+      });
+
+      return;
+    }
+
+    unawaited(
+      Future.wait([
+        _loadPermissions(),
+        _loadUnreadNotifications(),
+      ]),
+    );
   }
 
 
-  // ===========================================================================
-  // RESTORE SESSION
-  // ===========================================================================
-
   Future<void> _restoreSession() async {
     try {
-      await _authService.restoreSession();
+      await _authService
+          .restoreSession();
+
+      if (
+        _authSession
+            .isAuthenticated
+      ) {
+        await Future.wait([
+          _loadPermissions(),
+          _loadUnreadNotifications(),
+        ]);
+      }
     } catch (_) {
-      // AuthService gestisce già:
-      // - token assente
-      // - token scaduto
-      // - token non valido
-      //
-      // In questi casi l'app rimane Guest.
+      if (mounted) {
+        setState(() {
+          _adminAccess =
+              false;
+
+          _teacherAccess =
+              false;
+
+          _unreadNotificationCount =
+              0;
+        });
+      }
     } finally {
       if (!mounted) {
         return;
       }
-
 
       setState(() {
         _restoringSession =
@@ -134,51 +156,155 @@ class _HomePageState
   }
 
 
-  // ===========================================================================
-  // GETTERS AUTH
-  // ===========================================================================
+  Future<void>
+      _loadPermissions() async {
+    if (
+      !_authSession
+          .isAuthenticated
+    ) {
+      if (mounted) {
+        setState(() {
+          _adminAccess =
+              false;
+
+          _teacherAccess =
+              false;
+        });
+      }
+
+      return;
+    }
+
+    if (_loadingPermissions) {
+      return;
+    }
+
+    _loadingPermissions =
+        true;
+
+    try {
+      final List<bool> permissions =
+          await Future.wait<bool>([
+        _apiService
+            .canAccessAdminPanel(),
+
+        _apiService
+            .canAccessTeacherArea(),
+      ]);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _adminAccess =
+            permissions[0];
+
+        _teacherAccess =
+            permissions[1];
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _adminAccess =
+            false;
+
+        _teacherAccess =
+            false;
+      });
+    } finally {
+      _loadingPermissions =
+          false;
+    }
+  }
+
+
+  Future<void>
+      _loadUnreadNotifications() async {
+    if (!_isAuthenticated) {
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount =
+              0;
+        });
+      }
+
+      return;
+    }
+
+    if (_loadingNotifications) {
+      return;
+    }
+
+    _loadingNotifications =
+        true;
+
+    try {
+      final int count =
+          await _apiService
+              .getUnreadNotificationCount();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _unreadNotificationCount =
+            count;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _unreadNotificationCount =
+            0;
+      });
+    } finally {
+      _loadingNotifications =
+          false;
+    }
+  }
+
 
   bool get _isAuthenticated {
-    return _authSession.isAuthenticated;
+    return _authSession
+        .isAuthenticated;
   }
 
 
   SocialUser? get _currentUser {
-    return _authSession.currentUser;
+    return _authSession
+        .currentUser;
   }
 
-
-  // ===========================================================================
-  // NOME UTENTE
-  // ===========================================================================
 
   String get _displayName {
     final SocialUser? user =
         _currentUser;
 
-
     if (user == null) {
       return 'Utente';
     }
 
-
-    if (user.firstName.isNotEmpty) {
+    if (
+      user.firstName
+          .isNotEmpty
+    ) {
       return user.firstName;
     }
-
 
     if (user.name.isNotEmpty) {
       return user.name;
     }
 
-
     return 'Utente';
   }
 
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
 
   @override
   Widget build(
@@ -187,11 +313,6 @@ class _HomePageState
     return Scaffold(
       backgroundColor:
           AppColors.darkElegance,
-
-
-      // =========================================================================
-      // APP BAR
-      // =========================================================================
 
       appBar:
           AppBar(
@@ -208,11 +329,6 @@ class _HomePageState
 
         centerTitle:
             false,
-
-
-        // =======================================================================
-        // LOGO
-        // =======================================================================
 
         leading:
             Padding(
@@ -235,11 +351,6 @@ class _HomePageState
                 BoxFit.contain,
           ),
         ),
-
-
-        // =======================================================================
-        // AZIONI
-        // =======================================================================
 
         actions: [
           if (_restoringSession)
@@ -268,16 +379,7 @@ class _HomePageState
                 ),
               ),
             )
-
-          // =====================================================================
-          // AUTENTICATO
-          // =====================================================================
-
           else if (_isAuthenticated) ...[
-            // -------------------------------------------------------------------
-            // MESSAGGI
-            // -------------------------------------------------------------------
-
             _NavbarIconButton(
               tooltip:
                   'Messaggi',
@@ -287,9 +389,7 @@ class _HomePageState
                       .chat_bubble_outline_rounded,
 
               onPressed:
-                  () {
-                _openMessages();
-              },
+                  _openMessages,
             ),
 
             const SizedBox(
@@ -297,61 +397,32 @@ class _HomePageState
                   7,
             ),
 
+            _NavbarIconButton(
+              tooltip:
+                  'Notifiche',
 
-            // -------------------------------------------------------------------
-            // USER MENU
-            // -------------------------------------------------------------------
+              icon:
+                  Icons
+                      .notifications_none_rounded,
+
+              badge:
+                  _unreadNotificationCount,
+
+              onPressed:
+                  _openNotifications,
+            ),
+
+            const SizedBox(
+              width:
+                  7,
+            ),
 
             _UserButton(
               name:
                   _displayName,
 
               onPressed:
-                  () {
-                _showUserMenu();
-              },
-            ),
-
-            const SizedBox(
-              width:
-                  12,
-            ),
-          ]
-
-          // =====================================================================
-          // GUEST
-          // =====================================================================
-
-          else ...[
-            _AuthButton(
-              text:
-                  'Accedi',
-
-              filled:
-                  false,
-
-              onPressed:
-                  () {
-                _openLogin();
-              },
-            ),
-
-            const SizedBox(
-              width:
-                  8,
-            ),
-
-            _AuthButton(
-              text:
-                  'Sign Up',
-
-              filled:
-                  true,
-
-              onPressed:
-                  () {
-                _openSignUp();
-              },
+                  _showUserMenu,
             ),
 
             const SizedBox(
@@ -362,100 +433,17 @@ class _HomePageState
         ],
       ),
 
-
-      // =========================================================================
-      // HOME
-      // =========================================================================
-
       body:
-          HomeLayer(
-        isAuthenticated:
-            _isAuthenticated,
-      ),
+          HomeLayer(),
     );
   }
 
 
-  // ===========================================================================
-  // LOGIN
-  // ===========================================================================
-
-  Future<void> _openLogin() async {
-    final SocialUser? user =
-        await Navigator.of(
-      context,
-    ).push<SocialUser>(
-      MaterialPageRoute(
-        builder:
-            (_) =>
-                const LoginPage(),
-      ),
-    );
-
-
-    if (!mounted ||
-        user == null) {
-      return;
-    }
-
-
-    // AuthService.login() ha già:
-    //
-    // - salvato JWT
-    // - recuperato /me
-    // - aggiornato AuthSession
-    // - preparato LocalStorage
-    //
-    // AuthSession notifica automaticamente
-    // questa Home tramite _onAuthChanged().
-
-    _showMessage(
-      'Accesso effettuato. Benvenuto ${user.firstName}.',
-    );
-  }
-
-
-  // ===========================================================================
-  // SIGN UP
-  // ===========================================================================
-
-  Future<void> _openSignUp() async {
-    final SocialUser? user =
-        await Navigator.of(
-      context,
-    ).push<SocialUser>(
-      MaterialPageRoute(
-        builder:
-            (_) =>
-                const SocialProfileType(),
-      ),
-    );
-
-
-    if (!mounted ||
-        user == null) {
-      return;
-    }
-
-
-    // Anche in questo caso AuthService.register()
-    // ha già creato e salvato la sessione.
-
-    _showMessage(
-      'Registrazione completata. Benvenuto ${user.firstName}.',
-    );
-  }
-
-
-  // ===========================================================================
-  // MESSAGGI
-  // ===========================================================================
-
-  Future<void> _openMessages() async {
+  Future<void>
+      _openMessages() async {
     if (!_isAuthenticated) {
       return;
     }
-
 
     await Navigator.of(
       context,
@@ -469,15 +457,35 @@ class _HomePageState
   }
 
 
-  // ===========================================================================
-  // PROFILO / SOCIAL
-  // ===========================================================================
-
-  Future<void> _openProfile() async {
+  Future<void>
+      _openNotifications() async {
     if (!_isAuthenticated) {
       return;
     }
 
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const NotificationsPage(),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _loadUnreadNotifications();
+  }
+
+
+  Future<void>
+      _openProfile() async {
+    if (!_isAuthenticated) {
+      return;
+    }
 
     await Navigator.of(
       context,
@@ -491,19 +499,134 @@ class _HomePageState
   }
 
 
-  // ===========================================================================
-  // LOGOUT
-  // ===========================================================================
+  Future<void>
+      _openAdminPanel() async {
+    if (!_isAuthenticated) {
+      return;
+    }
 
-  Future<void> _logout() async {
     try {
-      await _authService.logout();
-
+      final bool authorized =
+          await _apiService
+              .canAccessAdminPanel();
 
       if (!mounted) {
         return;
       }
 
+      if (!authorized) {
+        setState(() {
+          _adminAccess =
+              false;
+        });
+
+        _showMessage(
+          'Non hai i permessi per accedere all\'Admin Panel.',
+        );
+
+        return;
+      }
+
+      await Navigator.of(
+        context,
+      ).push(
+        MaterialPageRoute(
+          builder:
+              (_) =>
+                  const AdminPanelPage(),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _loadPermissions();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Impossibile verificare i permessi amministrativi.',
+      );
+    }
+  }
+
+
+  Future<void>
+      _openTeacherArea() async {
+    if (!_isAuthenticated) {
+      return;
+    }
+
+    try {
+      final bool authorized =
+          await _apiService
+              .canAccessTeacherArea();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!authorized) {
+        setState(() {
+          _teacherAccess =
+              false;
+        });
+
+        _showMessage(
+          'Non hai i permessi per accedere all\'Area Docenti.',
+        );
+
+        return;
+      }
+
+      await Navigator.of(
+        context,
+      ).push(
+        MaterialPageRoute(
+          builder:
+              (_) =>
+                  const TeacherAreaPage(),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _loadPermissions();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Impossibile verificare i permessi docente.',
+      );
+    }
+  }
+
+
+  Future<void> _logout() async {
+    try {
+      await _authService.logout();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _adminAccess =
+            false;
+
+        _teacherAccess =
+            false;
+
+        _unreadNotificationCount =
+            0;
+      });
 
       _showMessage(
         'Disconnessione completata.',
@@ -513,7 +636,6 @@ class _HomePageState
         return;
       }
 
-
       _showMessage(
         'Errore durante la disconnessione: $e',
       );
@@ -521,11 +643,8 @@ class _HomePageState
   }
 
 
-  // ===========================================================================
-  // CONFERMA LOGOUT
-  // ===========================================================================
-
-  Future<void> _confirmLogout() async {
+  Future<void>
+      _confirmLogout() async {
     final bool? confirmed =
         await showDialog<bool>(
       context:
@@ -533,11 +652,12 @@ class _HomePageState
 
       builder:
           (
-        dialogContext,
+        BuildContext dialogContext,
       ) {
         return AlertDialog(
           backgroundColor:
-              AppColors.eleganceDeepNavy,
+              AppColors
+                  .eleganceDeepNavy,
 
           title:
               const Text(
@@ -609,37 +729,29 @@ class _HomePageState
       },
     );
 
-
-    if (confirmed !=
-        true) {
+    if (confirmed != true) {
       return;
     }
-
 
     await _logout();
   }
 
 
-  // ===========================================================================
-  // MENU UTENTE
-  // ===========================================================================
-
   void _showUserMenu() {
     final SocialUser? user =
         _currentUser;
-
 
     if (user == null) {
       return;
     }
 
-
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context:
           context,
 
       backgroundColor:
-          AppColors.eleganceDeepNavy,
+          AppColors
+              .eleganceDeepNavy,
 
       shape:
           const RoundedRectangleBorder(
@@ -654,7 +766,7 @@ class _HomePageState
 
       builder:
           (
-        sheetContext,
+        BuildContext sheetContext,
       ) {
         return SafeArea(
           child:
@@ -668,14 +780,10 @@ class _HomePageState
                     8,
               ),
 
-
-              // ===============================================================
-              // HEADER UTENTE
-              // ===============================================================
-
               Padding(
                 padding:
-                    const EdgeInsets.fromLTRB(
+                    const EdgeInsets
+                        .fromLTRB(
                   18,
                   12,
                   18,
@@ -723,7 +831,8 @@ class _HomePageState
                       child:
                           Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                            CrossAxisAlignment
+                                .start,
 
                         children: [
                           Text(
@@ -733,12 +842,14 @@ class _HomePageState
                                 1,
 
                             overflow:
-                                TextOverflow.ellipsis,
+                                TextOverflow
+                                    .ellipsis,
 
                             style:
                                 const TextStyle(
                               color:
-                                  AppColors.pureWhite,
+                                  AppColors
+                                      .pureWhite,
 
                               fontSize:
                                   16,
@@ -760,15 +871,17 @@ class _HomePageState
                                 1,
 
                             overflow:
-                                TextOverflow.ellipsis,
+                                TextOverflow
+                                    .ellipsis,
 
                             style:
                                 TextStyle(
                               color:
-                                  AppColors.pureWhite
+                                  AppColors
+                                      .pureWhite
                                       .withOpacity(
-                                0.45,
-                              ),
+                                    0.45,
+                                  ),
 
                               fontSize:
                                   11,
@@ -781,15 +894,20 @@ class _HomePageState
                           ),
 
                           Text(
-                            user.type ==
-                                    SocialUserType.teacher
-                                ? 'Insegnante'
-                                : 'Studente',
+                            _adminAccess
+                                ? 'Amministratore'
+                                : _teacherAccess
+                                    ? 'Docente verificato'
+                                    : user.type ==
+                                            SocialUserType.teacher
+                                        ? 'Insegnante'
+                                        : 'Studente',
 
                             style:
                                 const TextStyle(
                               color:
-                                  AppColors.materialSky,
+                                  AppColors
+                                      .materialSky,
 
                               fontSize:
                                   10,
@@ -805,7 +923,6 @@ class _HomePageState
                 ),
               ),
 
-
               Divider(
                 height:
                     1,
@@ -816,11 +933,6 @@ class _HomePageState
                   0.08,
                 ),
               ),
-
-
-              // ===============================================================
-              // PROFILO
-              // ===============================================================
 
               ListTile(
                 leading:
@@ -882,11 +994,6 @@ class _HomePageState
                 },
               ),
 
-
-              // ===============================================================
-              // MESSAGGI
-              // ===============================================================
-
               ListTile(
                 leading:
                     const Icon(
@@ -930,6 +1037,238 @@ class _HomePageState
                 },
               ),
 
+              ListTile(
+                leading:
+                    const Icon(
+                  Icons
+                      .notifications_none_rounded,
+
+                  color:
+                      AppColors.skyBlue,
+                ),
+
+                title:
+                    const Text(
+                  'Notifiche',
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite,
+                  ),
+                ),
+
+                trailing:
+                    Row(
+                  mainAxisSize:
+                      MainAxisSize.min,
+
+                  children: [
+                    if (
+                      _unreadNotificationCount >
+                          0
+                    )
+                      Container(
+                        padding:
+                            const EdgeInsets
+                                .symmetric(
+                          horizontal:
+                              7,
+
+                          vertical:
+                              3,
+                        ),
+
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              Colors
+                                  .redAccent,
+
+                          borderRadius:
+                              BorderRadius
+                                  .circular(
+                            10,
+                          ),
+                        ),
+
+                        child:
+                            Text(
+                          _unreadNotificationCount >
+                                  99
+                              ? '99+'
+                              : '$_unreadNotificationCount',
+
+                          style:
+                              const TextStyle(
+                            color:
+                                Colors.white,
+
+                            fontSize:
+                                10,
+
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(
+                      width:
+                          8,
+                    ),
+
+                    const Icon(
+                      Icons
+                          .arrow_forward_ios_rounded,
+
+                      color:
+                          Colors.white30,
+
+                      size:
+                          14,
+                    ),
+                  ],
+                ),
+
+                onTap:
+                    () {
+                  Navigator.pop(
+                    sheetContext,
+                  );
+
+                  _openNotifications();
+                },
+              ),
+
+              if (_teacherAccess)
+                ListTile(
+                  leading:
+                      const Icon(
+                    Icons
+                        .cast_for_education_outlined,
+
+                    color:
+                        AppColors
+                            .teacherIndigo,
+                  ),
+
+                  title:
+                      const Text(
+                    'Area Docenti',
+
+                    style:
+                        TextStyle(
+                      color:
+                          AppColors.pureWhite,
+
+                      fontWeight:
+                          FontWeight.w600,
+                    ),
+                  ),
+
+                  subtitle:
+                      Text(
+                    'Materiali e strumenti docente',
+
+                    style:
+                        TextStyle(
+                      color:
+                          AppColors.pureWhite
+                              .withOpacity(
+                            0.42,
+                          ),
+
+                      fontSize:
+                          10,
+                    ),
+                  ),
+
+                  trailing:
+                      const Icon(
+                    Icons
+                        .arrow_forward_ios_rounded,
+
+                    color:
+                        Colors.white30,
+
+                    size:
+                        14,
+                  ),
+
+                  onTap:
+                      () {
+                    Navigator.pop(
+                      sheetContext,
+                    );
+
+                    _openTeacherArea();
+                  },
+                ),
+
+              if (_adminAccess)
+                ListTile(
+                  leading:
+                      const Icon(
+                    Icons
+                        .admin_panel_settings_outlined,
+
+                    color:
+                        Colors.greenAccent,
+                  ),
+
+                  title:
+                      const Text(
+                    'Admin Panel',
+
+                    style:
+                        TextStyle(
+                      color:
+                          AppColors.pureWhite,
+
+                      fontWeight:
+                          FontWeight.w600,
+                    ),
+                  ),
+
+                  subtitle:
+                      Text(
+                    'Moderazione e gestione StudentLab',
+
+                    style:
+                        TextStyle(
+                      color:
+                          AppColors.pureWhite
+                              .withOpacity(
+                            0.42,
+                          ),
+
+                      fontSize:
+                          10,
+                    ),
+                  ),
+
+                  trailing:
+                      const Icon(
+                    Icons
+                        .arrow_forward_ios_rounded,
+
+                    color:
+                        Colors.white30,
+
+                    size:
+                        14,
+                  ),
+
+                  onTap:
+                      () {
+                    Navigator.pop(
+                      sheetContext,
+                    );
+
+                    _openAdminPanel();
+                  },
+                ),
 
               Divider(
                 height:
@@ -941,11 +1280,6 @@ class _HomePageState
                   0.08,
                 ),
               ),
-
-
-              // ===============================================================
-              // LOGOUT
-              // ===============================================================
 
               ListTile(
                 leading:
@@ -989,13 +1323,13 @@ class _HomePageState
   }
 
 
-  // ===========================================================================
-  // MESSAGE
-  // ===========================================================================
-
   void _showMessage(
     String message,
   ) {
+    if (!mounted) {
+      return;
+    }
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(
@@ -1010,13 +1344,8 @@ class _HomePageState
 }
 
 
-// =============================================================================
-// ICONA NAVBAR
-// =============================================================================
-
 class _NavbarIconButton
     extends StatelessWidget {
-
   final String tooltip;
 
   final IconData icon;
@@ -1028,11 +1357,8 @@ class _NavbarIconButton
 
   const _NavbarIconButton({
     required this.tooltip,
-
     required this.icon,
-
     required this.onPressed,
-
     this.badge = 0,
   });
 
@@ -1120,9 +1446,7 @@ class _NavbarIconButton
                 ),
               ),
 
-
-              if (badge >
-                  0)
+              if (badge > 0)
                 Positioned(
                   top:
                       1,
@@ -1173,8 +1497,7 @@ class _NavbarIconButton
 
                     child:
                         Text(
-                      badge >
-                              99
+                      badge > 99
                           ? '99+'
                           : '$badge',
 
@@ -1201,108 +1524,8 @@ class _NavbarIconButton
 }
 
 
-// =============================================================================
-// AUTH BUTTON
-// =============================================================================
-
-class _AuthButton
-    extends StatelessWidget {
-
-  final String text;
-
-  final bool filled;
-
-  final VoidCallback onPressed;
-
-
-  const _AuthButton({
-    required this.text,
-
-    required this.filled,
-
-    required this.onPressed,
-  });
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return SizedBox(
-      height:
-          38,
-
-      child:
-          OutlinedButton(
-        onPressed:
-            onPressed,
-
-        style:
-            OutlinedButton.styleFrom(
-          backgroundColor:
-              filled
-                  ? AppColors.skyBlue
-                  : Colors.transparent,
-
-          side:
-              const BorderSide(
-            color:
-                AppColors.skyBlue,
-
-            width:
-                1.2,
-          ),
-
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(
-              10,
-            ),
-          ),
-
-          padding:
-              const EdgeInsets.symmetric(
-            horizontal:
-                14,
-          ),
-
-          elevation:
-              0,
-        ),
-
-        child:
-            Text(
-          text,
-
-          style:
-              TextStyle(
-            color:
-                filled
-                    ? AppColors
-                        .eleganceSoftNight
-                    : AppColors.skyBlue,
-
-            fontSize:
-                13,
-
-            fontWeight:
-                FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-// =============================================================================
-// USER BUTTON
-// =============================================================================
-
 class _UserButton
     extends StatelessWidget {
-
   final String name;
 
   final VoidCallback onPressed;
@@ -1310,7 +1533,6 @@ class _UserButton
 
   const _UserButton({
     required this.name,
-
     required this.onPressed,
   });
 

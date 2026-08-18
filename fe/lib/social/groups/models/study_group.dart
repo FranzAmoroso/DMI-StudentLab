@@ -13,6 +13,8 @@ class StudyGroup {
 
   final String department;
 
+  final String university;
+
   final int memberCount;
 
   final int materialCount;
@@ -21,128 +23,217 @@ class StudyGroup {
 
   final bool isOwner;
 
+  final bool isAdmin;
+
+  final String currentUserRole;
+
 
   const StudyGroup({
     required this.id,
-
     required this.name,
-
     required this.description,
-
     required this.subjectId,
-
     required this.subject,
-
     required this.course,
-
     required this.department,
-
+    required this.university,
     required this.memberCount,
-
     required this.materialCount,
-
     required this.isPrivate,
-
     required this.isOwner,
+    this.isAdmin = false,
+    this.currentUserRole = '',
   });
 
 
-  // ===========================================================================
-  // FROM JSON
-  // ===========================================================================
-
-factory StudyGroup.fromJson(
-  Map<String, dynamic> json, {
-  int? currentUserId,
-}) {
-  final dynamic membersData =
-      json['members'];
-
-  final int memberCount =
-      membersData is List
-          ? membersData.length
-          : _toInt(
-                json['member_count'],
-              ) ??
-              0;
-
-  final int? createdBy =
-      _toInt(
-    json['created_by'],
-  );
-
-  final bool isOwner =
-      currentUserId != null &&
-      createdBy == currentUserId;
-
-  String subjectName = '';
-
-  final dynamic subjectData =
-      json['subject'];
-
-  if (subjectData is Map) {
-    subjectName =
-        subjectData['name']
-            ?.toString() ??
-        '';
-  } else {
-    subjectName =
-        json['subject_name']
-            ?.toString() ??
-        '';
+  bool get isManager {
+    return isOwner ||
+        isAdmin;
   }
 
-  return StudyGroup(
-    id:
+
+  bool get isMember {
+    return currentUserRole
+        .trim()
+        .isNotEmpty;
+  }
+
+
+  factory StudyGroup.fromJson(
+    Map<String, dynamic> json, {
+    int? currentUserId,
+  }) {
+    final dynamic membersData =
+        json['members'];
+
+    final int memberCount =
+        membersData is List
+            ? membersData.length
+            : _toInt(
+                  json['member_count'],
+                ) ??
+                0;
+
+    final int? createdBy =
         _toInt(
-          json['id'],
-        ) ??
-        0,
+      json['created_by'],
+    );
 
-    name:
-        json['name']?.toString() ??
-        '',
+    String currentUserRole =
+        '';
 
-    description:
-        json['description']
-                ?.toString() ??
-            '',
+    if (
+      currentUserId != null &&
+      membersData is List
+    ) {
+      for (
+        final dynamic rawMember
+        in membersData
+      ) {
+        if (rawMember is! Map) {
+          continue;
+        }
 
-    subjectId:
-        _toInt(
-      json['subject_id'],
-    ),
+        final Map<String, dynamic>
+            member =
+            Map<String, dynamic>.from(
+          rawMember,
+        );
 
-    subject:
-        subjectName,
+        final int? memberUserId =
+            _toInt(
+          member['user_id'] ??
+              member['id'],
+        );
 
-    course:
-        json['course']?.toString() ??
-        '',
+        if (
+          memberUserId !=
+          currentUserId
+        ) {
+          continue;
+        }
 
-    department:
-        json['department']
-                ?.toString() ??
-            '',
+        currentUserRole =
+            member['role']
+                    ?.toString()
+                    .trim()
+                    .toLowerCase() ??
+                '';
 
-    memberCount:
-        memberCount,
+        break;
+      }
+    }
 
-    materialCount:
-        _toInt(
-              json['material_count'],
-            ) ??
-            0,
+    final bool ownerFromCreatedBy =
+        currentUserId != null &&
+        createdBy == currentUserId;
 
-    isPrivate:
-        json['is_private']
-                as bool? ??
-            false,
+    final bool ownerFromRole =
+        currentUserRole ==
+        'owner';
 
-    isOwner:
-        isOwner,
-  );
-}
+    final bool isOwner =
+        ownerFromCreatedBy ||
+        ownerFromRole;
+
+    if (
+      isOwner &&
+      currentUserRole.isEmpty
+    ) {
+      currentUserRole =
+          'owner';
+    }
+
+    final bool isAdmin =
+        currentUserRole ==
+        'admin';
+
+    String subjectName =
+        '';
+
+    final dynamic subjectData =
+        json['subject'];
+
+    if (subjectData is Map) {
+      subjectName =
+          subjectData['name']
+              ?.toString() ??
+          '';
+    } else {
+      subjectName =
+          json['subject_name']
+              ?.toString() ??
+          '';
+    }
+
+    return StudyGroup(
+      id:
+          _toInt(
+            json['id'],
+          ) ??
+          0,
+
+      name:
+          json['name']
+                  ?.toString() ??
+              '',
+
+      description:
+          json['description']
+                  ?.toString() ??
+              '',
+
+      subjectId:
+          _toInt(
+        json['subject_id'],
+      ),
+
+      subject:
+          subjectName,
+
+      course:
+          json['course']
+                  ?.toString() ??
+              '',
+
+      department:
+          json['department']
+                  ?.toString() ??
+              '',
+
+      university:
+          (
+            json['university'] ??
+            json['university_name'] ??
+            json['ateneo']
+          )
+                  ?.toString() ??
+              '',
+
+      memberCount:
+          memberCount,
+
+      materialCount:
+          _toInt(
+                json['material_count'],
+              ) ??
+              0,
+
+      isPrivate:
+          json['is_private']
+                  as bool? ??
+              false,
+
+      isOwner:
+          isOwner,
+
+      isAdmin:
+          isAdmin,
+
+      currentUserRole:
+          currentUserRole,
+    );
+  }
 
 
   Map<String, dynamic> toJson() {
@@ -168,6 +259,9 @@ factory StudyGroup.fromJson(
       'department':
           department,
 
+      'university':
+          university,
+
       'member_count':
           memberCount,
 
@@ -179,32 +273,31 @@ factory StudyGroup.fromJson(
 
       'is_owner':
           isOwner,
+
+      'is_admin':
+          isAdmin,
+
+      'current_user_role':
+          currentUserRole,
     };
   }
 
 
   StudyGroup copyWith({
     int? id,
-
     String? name,
-
     String? description,
-
     int? subjectId,
-
     String? subject,
-
     String? course,
-
     String? department,
-
+    String? university,
     int? memberCount,
-
     int? materialCount,
-
     bool? isPrivate,
-
     bool? isOwner,
+    bool? isAdmin,
+    String? currentUserRole,
   }) {
     return StudyGroup(
       id:
@@ -235,6 +328,10 @@ factory StudyGroup.fromJson(
           department ??
           this.department,
 
+      university:
+          university ??
+          this.university,
+
       memberCount:
           memberCount ??
           this.memberCount,
@@ -250,6 +347,14 @@ factory StudyGroup.fromJson(
       isOwner:
           isOwner ??
           this.isOwner,
+
+      isAdmin:
+          isAdmin ??
+          this.isAdmin,
+
+      currentUserRole:
+          currentUserRole ??
+          this.currentUserRole,
     );
   }
 

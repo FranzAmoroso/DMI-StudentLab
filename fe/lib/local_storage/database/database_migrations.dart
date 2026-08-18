@@ -3,68 +3,40 @@ import 'package:sqflite/sqflite.dart';
 import 'database_tables.dart';
 
 
-// =============================================================================
-// DATABASE MIGRATIONS
-// =============================================================================
-
 class DatabaseMigrations {
   DatabaseMigrations._();
 
-
-  // ===========================================================================
-  // UPGRADE
-  // ===========================================================================
 
   static Future<void> onUpgrade(
     Database db,
     int oldVersion,
     int newVersion,
   ) async {
-
-    // =========================================================================
-    // VERSION 2
-    // =========================================================================
-
-    if (oldVersion <
-        2) {
+    if (oldVersion < 2) {
       await _migrationToVersion2(
         db,
       );
     }
 
-
-    // =========================================================================
-    // VERSION 3
-    // =========================================================================
-
-    if (oldVersion <
-        3) {
+    if (oldVersion < 3) {
       await _migrationToVersion3(
         db,
       );
     }
 
-
-    // =========================================================================
-    // VERSION 4
-    // =========================================================================
-
-    if (oldVersion <
-        4) {
+    if (oldVersion < 4) {
       await _migrationToVersion4(
+        db,
+      );
+    }
+
+    if (oldVersion < 5) {
+      await _migrationToVersion5(
         db,
       );
     }
   }
 
-
-  // ===========================================================================
-  // VERSIONE 2
-  // ===========================================================================
-  //
-  // Retry upload.
-  //
-  // ===========================================================================
 
   static Future<void> _migrationToVersion2(
     Database db,
@@ -72,12 +44,9 @@ class DatabaseMigrations {
     final bool exists =
         await _columnExists(
       db,
-
       DatabaseTables.pendingUploads,
-
       'retry_count',
     );
-
 
     if (!exists) {
       await db.execute(
@@ -90,26 +59,15 @@ class DatabaseMigrations {
   }
 
 
-  // ===========================================================================
-  // VERSIONE 3
-  // ===========================================================================
-  //
-  // Timestamp ultimo tentativo upload.
-  //
-  // ===========================================================================
-
   static Future<void> _migrationToVersion3(
     Database db,
   ) async {
     final bool exists =
         await _columnExists(
       db,
-
       DatabaseTables.pendingUploads,
-
       'last_attempt_at',
     );
-
 
     if (!exists) {
       await db.execute(
@@ -122,44 +80,15 @@ class DatabaseMigrations {
   }
 
 
-  // ===========================================================================
-  // VERSIONE 4
-  // ===========================================================================
-  //
-  // Aggiunge informazioni accademiche ai materiali scaricati.
-  //
-  // Questi dati servono alla UI per raggruppare automaticamente
-  // i download per materia.
-  //
-  // downloaded_materials
-  //
-  // + subject_id
-  // + subject_name
-  // + course
-  // + department
-  //
-  // Tutti i campi sono nullable per mantenere compatibilità
-  // con eventuali download creati con le versioni precedenti.
-  //
-  // ===========================================================================
-
   static Future<void> _migrationToVersion4(
     Database db,
   ) async {
-
-    // -------------------------------------------------------------------------
-    // SUBJECT ID
-    // -------------------------------------------------------------------------
-
     final bool hasSubjectId =
         await _columnExists(
       db,
-
       DatabaseTables.downloadedMaterials,
-
       'subject_id',
     );
-
 
     if (!hasSubjectId) {
       await db.execute(
@@ -170,20 +99,12 @@ class DatabaseMigrations {
       );
     }
 
-
-    // -------------------------------------------------------------------------
-    // SUBJECT NAME
-    // -------------------------------------------------------------------------
-
     final bool hasSubjectName =
         await _columnExists(
       db,
-
       DatabaseTables.downloadedMaterials,
-
       'subject_name',
     );
-
 
     if (!hasSubjectName) {
       await db.execute(
@@ -194,20 +115,12 @@ class DatabaseMigrations {
       );
     }
 
-
-    // -------------------------------------------------------------------------
-    // COURSE
-    // -------------------------------------------------------------------------
-
     final bool hasCourse =
         await _columnExists(
       db,
-
       DatabaseTables.downloadedMaterials,
-
       'course',
     );
-
 
     if (!hasCourse) {
       await db.execute(
@@ -218,20 +131,12 @@ class DatabaseMigrations {
       );
     }
 
-
-    // -------------------------------------------------------------------------
-    // DEPARTMENT
-    // -------------------------------------------------------------------------
-
     final bool hasDepartment =
         await _columnExists(
       db,
-
       DatabaseTables.downloadedMaterials,
-
       'department',
     );
-
 
     if (!hasDepartment) {
       await db.execute(
@@ -241,18 +146,6 @@ class DatabaseMigrations {
         ''',
       );
     }
-
-
-    // -------------------------------------------------------------------------
-    // INDEX SUBJECT
-    // -------------------------------------------------------------------------
-    //
-    // StudentMaterialPage farà spesso:
-    //
-    // WHERE user_id = ? AND subject_id = ?
-    //
-    // quindi aggiungiamo un indice.
-    // -------------------------------------------------------------------------
 
     await db.execute(
       '''
@@ -268,9 +161,53 @@ class DatabaseMigrations {
   }
 
 
-  // ===========================================================================
-  // COLUMN EXISTS
-  // ===========================================================================
+  static Future<void> _migrationToVersion5(
+    Database db,
+  ) async {
+    final bool hasUniversity =
+        await _columnExists(
+      db,
+      DatabaseTables.downloadedMaterials,
+      'university',
+    );
+
+    if (!hasUniversity) {
+      await db.execute(
+        '''
+        ALTER TABLE ${DatabaseTables.downloadedMaterials}
+        ADD COLUMN university TEXT
+        ''',
+      );
+    }
+
+    await db.execute(
+      '''
+      CREATE INDEX IF NOT EXISTS
+      idx_downloaded_materials_user_university
+      ON ${DatabaseTables.downloadedMaterials}
+      (
+        user_id,
+        university
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE INDEX IF NOT EXISTS
+      idx_downloaded_materials_hierarchy
+      ON ${DatabaseTables.downloadedMaterials}
+      (
+        user_id,
+        university,
+        department,
+        course,
+        subject_id
+      )
+      ''',
+    );
+  }
+
 
   static Future<bool> _columnExists(
     Database db,
@@ -285,20 +222,18 @@ class DatabaseMigrations {
       ''',
     );
 
-
-    for (final Map<String, dynamic>
-        row in result) {
+    for (
+      final Map<String, dynamic> row
+      in result
+    ) {
       final String? name =
           row['name']
               ?.toString();
 
-
-      if (name ==
-          column) {
+      if (name == column) {
         return true;
       }
     }
-
 
     return false;
   }

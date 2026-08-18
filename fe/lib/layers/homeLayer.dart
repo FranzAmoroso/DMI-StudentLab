@@ -45,12 +45,8 @@ class FeatureCard {
 
 
 class HomeLayer extends StatelessWidget {
-  final bool isAuthenticated;
-
-
   HomeLayer({
     super.key,
-    required this.isAuthenticated,
   });
 
 
@@ -158,7 +154,7 @@ class HomeLayer extends StatelessWidget {
           HomeFeatureType.social,
 
       title:
-          'Altri studenti',
+          'Istituzione',
 
       description:
           'Esplora studenti, insegnanti, gruppi e materiali '
@@ -182,23 +178,21 @@ class HomeLayer extends StatelessWidget {
       context,
     ).size.width;
 
-
     int crossAxisCount =
         2;
 
-
-    if (screenWidth >
-            600 &&
-        screenWidth <=
-            900) {
+    if (
+      screenWidth > 600 &&
+      screenWidth <= 900
+    ) {
       crossAxisCount =
           3;
-    } else if (screenWidth >
-        900) {
+    } else if (
+      screenWidth > 900
+    ) {
       crossAxisCount =
           4;
     }
-
 
     return Padding(
       padding:
@@ -228,8 +222,8 @@ class HomeLayer extends StatelessWidget {
 
         itemBuilder:
             (
-          context,
-          index,
+          BuildContext context,
+          int index,
         ) {
           return _buildGridCard(
             context,
@@ -251,13 +245,11 @@ class HomeLayer extends StatelessWidget {
       0,
     );
 
-
     final ValueNotifier<double>
         cardScale =
         ValueNotifier<double>(
       1,
     );
-
 
     final Widget cardBody =
         ValueListenableBuilder<double>(
@@ -266,9 +258,9 @@ class HomeLayer extends StatelessWidget {
 
       builder:
           (
-        context,
-        scale,
-        child,
+        BuildContext context,
+        double scale,
+        Widget? child,
       ) {
         return AnimatedScale(
           scale:
@@ -376,8 +368,7 @@ class HomeLayer extends StatelessWidget {
                                     26,
 
                                 color:
-                                    AppColors
-                                        .pureWhite,
+                                    AppColors.pureWhite,
                               ),
                             ),
                           ],
@@ -473,15 +464,15 @@ class HomeLayer extends StatelessWidget {
 
                       onTap:
                           () async {
-                        if (card
-                            .isComingSoon) {
+                        if (
+                          card.isComingSoon
+                        ) {
                           await _shakeSoon(
                             shakeOffset,
                           );
 
                           return;
                         }
-
 
                         await _openFeature(
                           context,
@@ -498,11 +489,9 @@ class HomeLayer extends StatelessWidget {
       },
     );
 
-
     if (!card.isComingSoon) {
       return cardBody;
     }
-
 
     return Stack(
       children: [
@@ -522,9 +511,9 @@ class HomeLayer extends StatelessWidget {
 
             builder:
                 (
-              context,
-              offset,
-              child,
+              BuildContext context,
+              double offset,
+              Widget? child,
             ) {
               return TweenAnimationBuilder<double>(
                 tween:
@@ -544,9 +533,9 @@ class HomeLayer extends StatelessWidget {
 
                 builder:
                     (
-                  context,
-                  value,
-                  child,
+                  BuildContext context,
+                  double value,
+                  Widget? child,
                 ) {
                   return Transform.translate(
                     offset:
@@ -646,7 +635,6 @@ class HomeLayer extends StatelessWidget {
 
         return;
 
-
       case HomeFeatureType.materials:
         await Navigator.of(
           context,
@@ -659,7 +647,6 @@ class HomeLayer extends StatelessWidget {
         );
 
         return;
-
 
       case HomeFeatureType.social:
         await Navigator.of(
@@ -674,7 +661,6 @@ class HomeLayer extends StatelessWidget {
 
         return;
 
-
       case HomeFeatureType.examSimulation:
       case HomeFeatureType.review:
       case HomeFeatureType.definitions:
@@ -686,11 +672,12 @@ class HomeLayer extends StatelessWidget {
   Future<void> _shakeSoon(
     ValueNotifier<double> shakeOffset,
   ) async {
-    if (shakeOffset.value !=
-        0) {
+    if (
+      shakeOffset.value !=
+          0
+    ) {
       return;
     }
-
 
     shakeOffset.value =
         6;
@@ -702,7 +689,6 @@ class HomeLayer extends StatelessWidget {
       ),
     );
 
-
     shakeOffset.value =
         -6;
 
@@ -712,7 +698,6 @@ class HomeLayer extends StatelessWidget {
             50,
       ),
     );
-
 
     shakeOffset.value =
         4;
@@ -724,7 +709,6 @@ class HomeLayer extends StatelessWidget {
       ),
     );
 
-
     shakeOffset.value =
         -4;
 
@@ -734,7 +718,6 @@ class HomeLayer extends StatelessWidget {
             50,
       ),
     );
-
 
     shakeOffset.value =
         0;
