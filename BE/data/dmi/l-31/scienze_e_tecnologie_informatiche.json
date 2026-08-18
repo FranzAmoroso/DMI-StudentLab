@@ -10,8 +10,8 @@
           "courses": [
             {
               "code": "L-31",
-              "name": "Informatica",
-              "degree_type": "laurea",
+              "name": "Scienze e tecnologie informatiche",
+              "degree_type": "Laurea triennale",
               "subjects": [
                 {
                   "code": "9795526",

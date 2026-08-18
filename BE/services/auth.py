@@ -707,6 +707,38 @@ def verify_user_email(
 
     return user
 
+def get_email_verification_expires_in(
+    user: User,
+) -> int:
+    expires_at = (
+        user.email_verification_expires_at
+    )
+
+    if expires_at is None:
+        return 0
+
+    if expires_at.tzinfo is None:
+        expires_at = (
+            expires_at.replace(
+                tzinfo=timezone.utc,
+            )
+        )
+
+    now = datetime.now(
+        timezone.utc,
+    )
+
+    remaining = int(
+        (
+            expires_at - now
+        ).total_seconds()
+    )
+
+    return max(
+        0,
+        remaining,
+    )
+
 
 def resend_email_verification(
     db: Session,

@@ -185,6 +185,24 @@ class LoginRequest(
     )
 
 
+class LoginResponse(
+    BaseModel,
+):
+    authenticated: bool
+
+    email_verification_required: bool
+
+    access_token: str | None = None
+
+    token_type: str = "bearer"
+
+    registration_id: str | None = None
+
+    email: str | None = None
+
+    expires_in: int | None = None
+
+
 class TokenResponse(
     BaseModel,
 ):

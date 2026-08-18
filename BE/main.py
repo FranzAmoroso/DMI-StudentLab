@@ -157,6 +157,7 @@ from schemas.auth import (
     EmailVerificationResendRequest,
     EmailVerificationResendResponse,
     LoginRequest,
+    LoginResponse,
     RegisterRequest,
     RegistrationResponse,
     TokenResponse,
@@ -3359,7 +3360,7 @@ def api_resend_email_verification(
 
 @app.post(
     "/login",
-    response_model=TokenResponse,
+    response_model=LoginResponse,
 )
 def api_login(
     request: LoginRequest,
@@ -3383,9 +3384,18 @@ def api_login(
         user.email_verified_at
         is None
     ):
-        raise HTTPException(
-            status_code=403,
-            detail="Verifica la tua email prima di accedere.",
+        return LoginResponse(
+            authenticated=False,
+            email_verification_required=True,
+            registration_id=(
+                user.email_verification_id
+            ),
+            email=user.email,
+            expires_in=(
+                get_email_verification_expires_in(
+                    user,
+                )
+            ),
         )
 
     token = create_access_token(
@@ -3395,10 +3405,11 @@ def api_login(
         ),
     )
 
-    return TokenResponse(
+    return LoginResponse(
+        authenticated=True,
+        email_verification_required=False,
         access_token=token,
     )
-
 
 @app.get(
     "/me",
