@@ -195,3 +195,7 @@ app.*.map.json
 # Analysing
 An.md\
 .env*
+
+
+BE/txt.txt
+BE/readme.md
