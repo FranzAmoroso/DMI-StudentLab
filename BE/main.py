@@ -222,6 +222,7 @@ from services.auth import (
     authenticate_user,
     begin_email_verification,
     create_access_token,
+    get_email_verification_expires_in,
     hash_password,
     resend_email_verification,
     verify_user_email,

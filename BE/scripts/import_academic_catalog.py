@@ -20,7 +20,10 @@ sys.path.insert(
 
 from core.database import SessionLocal
 
-from models.user import User
+
+from models.user import (
+    User,
+)
 
 from models.subject import (
     AcademicTeacher,
@@ -29,13 +32,67 @@ from models.subject import (
     UserSubject,
 )
 
+from models.teacher_assignment import (
+    TeacherAssignment,
+)
 
-CATALOG_PATH = (
+from models.user_report import (
+    UserReport,
+)
+
+from models.profile_error_report import (
+    ProfileErrorReport,
+)
+
+from models.account_deletion_request import (
+    AccountDeletionRequest,
+)
+
+from models.group import (
+    StudyGroup,
+    GroupMember,
+    GroupJoinRequest,
+)
+
+from models.material import (
+    GroupMaterial,
+)
+
+from models.group_ownership_transfer import (
+    GroupOwnershipTransfer,
+)
+
+from models.notification import (
+    Notification,
+)
+
+from models.group_report import (
+    GroupReport,
+)
+
+from models.group_content_report import (
+    GroupContentReport,
+)
+
+from models.user_policy_acceptance import (
+    UserPolicyAcceptance,
+)
+
+from models.material_publication_request import (
+    MaterialPublicationRequest,
+)
+
+from models.public_material import (
+    PublicMaterial,
+
+)
+
+
+CATALOG_ROOT = (
     BASE_DIR
     / "data"
-    / "dmi"
-    / "academic_catalog.json"
 )
+
 
 def normalize_text(
     value,
@@ -53,14 +110,79 @@ def normalize_text(
     return value
 
 
+def iter_catalog_paths():
+    if not CATALOG_ROOT.exists():
+        raise FileNotFoundError(
+            f"Directory cataloghi non trovata: {CATALOG_ROOT}"
+        )
+
+    paths = []
+
+    for path in CATALOG_ROOT.rglob(
+        "*.json",
+    ):
+        relative_parts = [
+            part.lower()
+            for part in path.relative_to(
+                CATALOG_ROOT,
+            ).parts
+        ]
+
+        if "question" in relative_parts:
+            continue
+
+        paths.append(
+            path,
+        )
+
+    paths.sort()
+
+    return paths
+
+
+def load_catalog(
+    path: Path,
+):
+    with open(
+        path,
+        "r",
+        encoding="utf-8",
+    ) as file:
+        catalog = json.load(
+            file,
+        )
+
+    if not isinstance(
+        catalog,
+        dict,
+    ):
+        return None
+
+    universities = catalog.get(
+        "universities",
+    )
+
+    if not isinstance(
+        universities,
+        list,
+    ):
+        return None
+
+    return catalog
+
+
 def get_or_create_teacher(
     db: Session,
     name: str,
 ):
     normalized_name = (
-        name
-        .strip()
+        normalize_text(
+            name,
+        )
     )
+
+    if normalized_name is None:
+        return None
 
     teacher = (
         db.query(
@@ -118,29 +240,151 @@ def get_or_create_subject(
             "Materia senza nome.",
         )
 
-    query = (
-        db.query(
-            Subject,
-        )
-        .filter(
-            Subject.university_code
-            ==
-            university["code"],
-            Subject.department
-            ==
-            department["name"],
-            Subject.course
-            ==
-            course["name"],
+    university_name = (
+        normalize_text(
+            university.get(
+                "name",
+            ),
         )
     )
 
+    university_code = (
+        normalize_text(
+            university.get(
+                "code",
+            ),
+        )
+    )
+
+    department_name = (
+        normalize_text(
+            department.get(
+                "name",
+            ),
+        )
+    )
+
+    department_code = (
+        normalize_text(
+            department.get(
+                "code",
+            ),
+        )
+    )
+
+    course_name = (
+        normalize_text(
+            course.get(
+                "name",
+            ),
+        )
+    )
+
+    course_code = (
+        normalize_text(
+            course.get(
+                "code",
+            ),
+        )
+    )
+
+    degree_type = (
+        normalize_text(
+            course.get(
+                "degree_type",
+            ),
+        )
+    )
+
+    study_year = (
+        subject_data.get(
+            "study_year",
+        )
+    )
+
+    if university_name is None:
+        raise ValueError(
+            "Università senza nome.",
+        )
+
+    if university_code is None:
+        raise ValueError(
+            "Università senza codice.",
+        )
+
+    if department_name is None:
+        raise ValueError(
+            "Dipartimento senza nome.",
+        )
+
+    if course_name is None:
+        raise ValueError(
+            "Corso senza nome.",
+        )
+
     subject = None
 
-    if code is not None:
+    if (
+        code is not None
+        and department_code is not None
+        and course_code is not None
+    ):
         subject = (
-            query
+            db.query(
+                Subject,
+            )
             .filter(
+                Subject.university_code
+                ==
+                university_code,
+                Subject.department_code
+                ==
+                department_code,
+                Subject.course_code
+                ==
+                course_code,
+                Subject.code
+                ==
+                code,
+            )
+            .first()
+        )
+
+    if (
+        subject is None
+        and code is not None
+        and course_code is not None
+    ):
+        subject = (
+            db.query(
+                Subject,
+            )
+            .filter(
+                Subject.university_code
+                ==
+                university_code,
+                Subject.course_code
+                ==
+                course_code,
+                Subject.code
+                ==
+                code,
+            )
+            .first()
+        )
+
+    if (
+        subject is None
+        and code is not None
+    ):
+        subject = (
+            db.query(
+                Subject,
+            )
+            .filter(
+                Subject.university_code
+                ==
+                university_code,
                 Subject.code
                 ==
                 code,
@@ -149,13 +393,41 @@ def get_or_create_subject(
         )
 
     if subject is None:
-        subject = (
-            query
+        fallback_query = (
+            db.query(
+                Subject,
+            )
             .filter(
+                Subject.university_code
+                ==
+                university_code,
                 Subject.name
                 ==
                 name,
             )
+        )
+
+        if course_code is not None:
+            fallback_query = (
+                fallback_query
+                .filter(
+                    Subject.course_code
+                    ==
+                    course_code,
+                )
+            )
+        else:
+            fallback_query = (
+                fallback_query
+                .filter(
+                    Subject.course
+                    ==
+                    course_name,
+                )
+            )
+
+        subject = (
+            fallback_query
             .first()
         )
 
@@ -163,22 +435,14 @@ def get_or_create_subject(
         subject = Subject(
             code=code,
             name=name,
-            university=university["name"],
-            university_code=university["code"],
-            department=department["name"],
-            department_code=department.get(
-                "code",
-            ),
-            course=course["name"],
-            course_code=course.get(
-                "code",
-            ),
-            degree_type=course.get(
-                "degree_type",
-            ),
-            study_year=subject_data.get(
-                "study_year",
-            ),
+            university=university_name,
+            university_code=university_code,
+            department=department_name,
+            department_code=department_code,
+            course=course_name,
+            course_code=course_code,
+            degree_type=degree_type,
+            study_year=study_year,
             is_active=True,
         )
 
@@ -190,48 +454,44 @@ def get_or_create_subject(
 
         return subject
 
-    subject.code = code
-
-    subject.name = name
-
-    subject.university = university[
-        "name"
-    ]
-
-    subject.university_code = university[
-        "code"
-    ]
-
-    subject.department = department[
-        "name"
-    ]
-
-    subject.department_code = (
-        department.get(
-            "code",
-        )
+    subject.code = (
+        code
     )
 
-    subject.course = course[
-        "name"
-    ]
+    subject.name = (
+        name
+    )
+
+    subject.university = (
+        university_name
+    )
+
+    subject.university_code = (
+        university_code
+    )
+
+    subject.department = (
+        department_name
+    )
+
+    subject.department_code = (
+        department_code
+    )
+
+    subject.course = (
+        course_name
+    )
 
     subject.course_code = (
-        course.get(
-            "code",
-        )
+        course_code
     )
 
     subject.degree_type = (
-        course.get(
-            "degree_type",
-        )
+        degree_type
     )
 
     subject.study_year = (
-        subject_data.get(
-            "study_year",
-        )
+        study_year
     )
 
     subject.is_active = True
@@ -321,7 +581,9 @@ def get_or_create_offering(
             academic_year,
         )
 
-    offering = query.first()
+    offering = (
+        query.first()
+    )
 
     if offering is None:
         offering = SubjectOffering(
@@ -339,6 +601,18 @@ def get_or_create_offering(
 
         db.flush()
     else:
+        offering.module = (
+            module
+        )
+
+        offering.channel = (
+            channel
+        )
+
+        offering.academic_year = (
+            academic_year
+        )
+
         offering.source_url = (
             source_url
         )
@@ -348,23 +622,90 @@ def get_or_create_offering(
     return offering
 
 
-def import_catalog(
+def sync_offering_teachers(
     db: Session,
+    offering: SubjectOffering,
+    teacher_names,
 ):
-    if not CATALOG_PATH.exists():
-        raise FileNotFoundError(
-            f"Catalogo non trovato: {CATALOG_PATH}"
+    normalized_names = []
+
+    for teacher_name in (
+        teacher_names
+        or []
+    ):
+        normalized_name = (
+            normalize_text(
+                teacher_name,
+            )
         )
 
-    with open(
-        CATALOG_PATH,
-        "r",
-        encoding="utf-8",
-    ) as file:
-        catalog = json.load(
-            file,
+        if normalized_name is None:
+            continue
+
+        if (
+            normalized_name
+            not in normalized_names
+        ):
+            normalized_names.append(
+                normalized_name,
+            )
+
+    desired_teachers = []
+
+    for teacher_name in normalized_names:
+        teacher = (
+            get_or_create_teacher(
+                db,
+                teacher_name,
+            )
         )
 
+        if teacher is None:
+            continue
+
+        desired_teachers.append(
+            teacher,
+        )
+
+    current_ids = {
+        teacher.id
+        for teacher in offering.teachers
+    }
+
+    desired_ids = {
+        teacher.id
+        for teacher in desired_teachers
+    }
+
+    added_count = len(
+        desired_ids
+        -
+        current_ids,
+    )
+
+    removed_count = len(
+        current_ids
+        -
+        desired_ids,
+    )
+
+    offering.teachers = (
+        desired_teachers
+    )
+
+    return {
+        "added":
+            added_count,
+
+        "removed":
+            removed_count,
+    }
+
+
+def import_catalog_data(
+    db: Session,
+    catalog,
+):
     universities = catalog.get(
         "universities",
         [],
@@ -374,9 +715,17 @@ def import_catalog(
 
     offering_count = 0
 
-    teacher_links_count = 0
+    teacher_links_added = 0
+
+    teacher_links_removed = 0
 
     for university in universities:
+        if not isinstance(
+            university,
+            dict,
+        ):
+            continue
+
         university_name = (
             normalize_text(
                 university.get(
@@ -399,22 +748,46 @@ def import_catalog(
         if university_code is None:
             continue
 
-        university["name"] = (
-            university_name
+        university[
+            "name"
+        ] = university_name
+
+        university[
+            "code"
+        ] = university_code
+
+        departments = (
+            university.get(
+                "departments",
+                [],
+            )
         )
 
-        university["code"] = (
-            university_code
-        )
-
-        for department in university.get(
-            "departments",
-            [],
+        if not isinstance(
+            departments,
+            list,
         ):
+            continue
+
+        for department in departments:
+            if not isinstance(
+                department,
+                dict,
+            ):
+                continue
+
             department_name = (
                 normalize_text(
                     department.get(
                         "name",
+                    ),
+                )
+            )
+
+            department_code = (
+                normalize_text(
+                    department.get(
+                        "code",
                     ),
                 )
             )
@@ -426,14 +799,52 @@ def import_catalog(
                 "name"
             ] = department_name
 
-            for course in department.get(
-                "courses",
-                [],
+            department[
+                "code"
+            ] = department_code
+
+            courses = (
+                department.get(
+                    "courses",
+                    [],
+                )
+            )
+
+            if not isinstance(
+                courses,
+                list,
             ):
-                course_name = normalize_text(
-                    course.get(
-                        "name",
-                    ),
+                continue
+
+            for course in courses:
+                if not isinstance(
+                    course,
+                    dict,
+                ):
+                    continue
+
+                course_name = (
+                    normalize_text(
+                        course.get(
+                            "name",
+                        ),
+                    )
+                )
+
+                course_code = (
+                    normalize_text(
+                        course.get(
+                            "code",
+                        ),
+                    )
+                )
+
+                degree_type = (
+                    normalize_text(
+                        course.get(
+                            "degree_type",
+                        ),
+                    )
                 )
 
                 if course_name is None:
@@ -443,10 +854,34 @@ def import_catalog(
                     "name"
                 ] = course_name
 
-                for subject_data in course.get(
-                    "subjects",
-                    [],
+                course[
+                    "code"
+                ] = course_code
+
+                course[
+                    "degree_type"
+                ] = degree_type
+
+                subjects = (
+                    course.get(
+                        "subjects",
+                        [],
+                    )
+                )
+
+                if not isinstance(
+                    subjects,
+                    list,
                 ):
+                    continue
+
+                for subject_data in subjects:
+                    if not isinstance(
+                        subject_data,
+                        dict,
+                    ):
+                        continue
+
                     subject = (
                         get_or_create_subject(
                             db,
@@ -459,10 +894,26 @@ def import_catalog(
 
                     subject_count += 1
 
-                    for offering_data in subject_data.get(
-                        "offerings",
-                        [],
+                    offerings = (
+                        subject_data.get(
+                            "offerings",
+                            [],
+                        )
+                    )
+
+                    if not isinstance(
+                        offerings,
+                        list,
                     ):
+                        continue
+
+                    for offering_data in offerings:
+                        if not isinstance(
+                            offering_data,
+                            dict,
+                        ):
+                            continue
+
                         offering = (
                             get_or_create_offering(
                                 db,
@@ -473,42 +924,28 @@ def import_catalog(
 
                         offering_count += 1
 
-                        teacher_names = (
-                            offering_data.get(
-                                "teachers",
-                                [],
+                        result = (
+                            sync_offering_teachers(
+                                db,
+                                offering,
+                                offering_data.get(
+                                    "teachers",
+                                    [],
+                                ),
                             )
-                            or []
                         )
 
-                        for teacher_name in teacher_names:
-                            teacher_name = (
-                                normalize_text(
-                                    teacher_name,
-                                )
-                            )
+                        teacher_links_added += (
+                            result[
+                                "added"
+                            ]
+                        )
 
-                            if teacher_name is None:
-                                continue
-
-                            teacher = (
-                                get_or_create_teacher(
-                                    db,
-                                    teacher_name,
-                                )
-                            )
-
-                            if (
-                                teacher
-                                not in offering.teachers
-                            ):
-                                offering.teachers.append(
-                                    teacher,
-                                )
-
-                                teacher_links_count += 1
-
-    db.commit()
+                        teacher_links_removed += (
+                            result[
+                                "removed"
+                            ]
+                        )
 
     return {
         "subjects":
@@ -517,8 +954,115 @@ def import_catalog(
         "offerings":
             offering_count,
 
-        "teacher_links":
-            teacher_links_count,
+        "teacher_links_added":
+            teacher_links_added,
+
+        "teacher_links_removed":
+            teacher_links_removed,
+    }
+
+
+def import_catalogs(
+    db: Session,
+):
+    catalog_paths = (
+        iter_catalog_paths()
+    )
+
+    total_subjects = 0
+
+    total_offerings = 0
+
+    total_teacher_links_added = 0
+
+    total_teacher_links_removed = 0
+
+    imported_files = []
+
+    skipped_files = []
+
+    for catalog_path in catalog_paths:
+        catalog = (
+            load_catalog(
+                catalog_path,
+            )
+        )
+
+        if catalog is None:
+            skipped_files.append(
+                str(
+                    catalog_path.relative_to(
+                        BASE_DIR,
+                    ),
+                )
+            )
+
+            continue
+
+        result = (
+            import_catalog_data(
+                db,
+                catalog,
+            )
+        )
+
+        total_subjects += (
+            result[
+                "subjects"
+            ]
+        )
+
+        total_offerings += (
+            result[
+                "offerings"
+            ]
+        )
+
+        total_teacher_links_added += (
+            result[
+                "teacher_links_added"
+            ]
+        )
+
+        total_teacher_links_removed += (
+            result[
+                "teacher_links_removed"
+            ]
+        )
+
+        imported_files.append(
+            str(
+                catalog_path.relative_to(
+                    BASE_DIR,
+                ),
+            )
+        )
+
+    db.commit()
+
+    return {
+        "catalog_files":
+            len(
+                imported_files,
+            ),
+
+        "subjects":
+            total_subjects,
+
+        "offerings":
+            total_offerings,
+
+        "teacher_links_added":
+            total_teacher_links_added,
+
+        "teacher_links_removed":
+            total_teacher_links_removed,
+
+        "imported_files":
+            imported_files,
+
+        "skipped_files":
+            skipped_files,
     }
 
 
@@ -526,7 +1070,7 @@ def main():
     db = SessionLocal()
 
     try:
-        result = import_catalog(
+        result = import_catalogs(
             db,
         )
 
