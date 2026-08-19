@@ -137,54 +137,103 @@ async def verify_uploaded_blob(
                 settings.blob_read_write_token
             ),
         ) as client:
-            metadata = await client.head(
+            result = await client.get(
                 stored_name,
+                access="private",
             )
 
-    except Exception:
+    except Exception as exception:
         raise HTTPException(
             status_code=400,
-            detail="Il file non risulta caricato correttamente nello storage.",
-        )
-
-    if metadata is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Il file non è presente nello storage.",
-        )
-
-    blob_size = getattr(
-        metadata,
-        "size",
-        None,
-    )
+            detail=(
+                "Il file non risulta caricato "
+                "correttamente nello storage."
+            ),
+        ) from exception
 
     if (
-        blob_size is not None
-        and blob_size != expected_size
+        result is None
+        or result.status_code != 200
     ):
         raise HTTPException(
             status_code=400,
-            detail="La dimensione del file caricato non corrisponde alla richiesta.",
+            detail=(
+                "Il file non è presente "
+                "nello storage."
+            ),
         )
 
-    blob_content_type = getattr(
-        metadata,
-        "content_type",
-        None,
+    headers = (
+        result.headers
+        if hasattr(
+            result,
+            "headers",
+        )
+        else {}
+    )
+
+    content_length = (
+        headers.get(
+            "content-length",
+        )
+        if headers
+        else None
+    )
+
+    if content_length is not None:
+        try:
+            blob_size = int(
+                content_length,
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            blob_size = None
+
+        if (
+            blob_size is not None
+            and blob_size != expected_size
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "La dimensione del file "
+                    "caricato non corrisponde "
+                    "alla richiesta."
+                ),
+            )
+
+    content_type = (
+        headers.get(
+            "content-type",
+        )
+        if headers
+        else None
     )
 
     if (
-        blob_content_type is not None
-        and blob_content_type.strip().lower()
-        != expected_mime_type.strip().lower()
+        content_type is not None
+        and content_type
+            .split(
+                ";",
+                1,
+            )[0]
+            .strip()
+            .lower()
+        != expected_mime_type
+            .strip()
+            .lower()
     ):
         raise HTTPException(
             status_code=400,
-            detail="Il tipo del file caricato non corrisponde alla richiesta.",
+            detail=(
+                "Il tipo del file caricato "
+                "non corrisponde alla richiesta."
+            ),
         )
 
-    return metadata
+    return result
 
 
 async def stream_private_blob(
