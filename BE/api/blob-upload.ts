@@ -28,19 +28,9 @@ const ALLOWED_CONTENT_TYPES = [
 
 
 type UploadRequestBody = {
-  group_id: number;
-  uploaded_by: number;
-  original_name: string;
-  mime_type: string;
-  size: number;
-  file_hash: string;
-};
-
-
-type FastApiAuthorizationResponse = {
-  allowed: boolean;
   pathname: string;
-  max_file_size: number;
+  content_type: string;
+  size: number;
 };
 
 
@@ -104,58 +94,47 @@ export default async function handler(
 
 
     const {
-      group_id,
-      uploaded_by,
-      original_name,
-      mime_type,
+      pathname,
+      content_type,
       size,
-      file_hash,
     } = body;
 
 
     if (
-      !Number.isInteger(group_id) ||
-      group_id <= 0
+      typeof pathname !== 'string' ||
+      pathname.trim().length === 0
     ) {
       return response
         .status(400)
         .json({
           error:
-            'ID gruppo non valido.',
+            'Percorso del file non valido.',
         });
     }
 
 
+    const normalizedPathname =
+      pathname.trim();
+
+
     if (
-      !Number.isInteger(uploaded_by) ||
-      uploaded_by <= 0
+      normalizedPathname.startsWith('/') ||
+      normalizedPathname.includes('..') ||
+      normalizedPathname.includes('\\')
     ) {
       return response
         .status(400)
         .json({
           error:
-            'ID utente non valido.',
+            'Percorso del file non valido.',
         });
     }
 
 
     if (
-      typeof original_name !== 'string' ||
-      original_name.trim().length === 0
-    ) {
-      return response
-        .status(400)
-        .json({
-          error:
-            'Nome file non valido.',
-        });
-    }
-
-
-    if (
-      typeof mime_type !== 'string' ||
+      typeof content_type !== 'string' ||
       !ALLOWED_CONTENT_TYPES.includes(
-        mime_type,
+        content_type,
       )
     ) {
       return response
@@ -194,163 +173,6 @@ export default async function handler(
     }
 
 
-    if (
-      typeof file_hash !== 'string' ||
-      !/^[a-fA-F0-9]{64}$/.test(
-        file_hash.trim(),
-      )
-    ) {
-      return response
-        .status(400)
-        .json({
-          error:
-            'Hash del file non valido.',
-        });
-    }
-
-
-    const normalizedFileHash =
-      file_hash
-        .trim()
-        .toLowerCase();
-
-
-    const host =
-      request.headers.host;
-
-
-    if (!host) {
-      return response
-        .status(500)
-        .json({
-          error:
-            'Host della richiesta non disponibile.',
-        });
-    }
-
-
-    const forwardedProto =
-      request.headers[
-        'x-forwarded-proto'
-      ];
-
-
-    const protocol =
-      Array.isArray(
-        forwardedProto,
-      )
-        ? forwardedProto[0]
-        : forwardedProto ??
-          'https';
-
-
-    const origin =
-      `${protocol}://${host}`;
-
-
-    const authorizationHeader =
-      request.headers.authorization;
-
-
-    const authorizationResponse =
-      await fetch(
-        `${origin}/group_material_upload_request/${group_id}`,
-        {
-          method:
-            'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json',
-
-            'Accept':
-              'application/json',
-
-            ...(authorizationHeader
-              ? {
-                  Authorization:
-                    authorizationHeader,
-                }
-              : {}),
-          },
-
-          body:
-            JSON.stringify({
-              uploaded_by,
-              original_name:
-                original_name.trim(),
-              mime_type,
-              size,
-              file_hash:
-                normalizedFileHash,
-            }),
-        },
-      );
-
-
-    if (
-      !authorizationResponse.ok
-    ) {
-      const errorBody =
-        await authorizationResponse.text();
-
-
-      response
-        .status(
-          authorizationResponse.status,
-        )
-        .setHeader(
-          'Content-Type',
-          'application/json',
-        );
-
-
-      return response.send(
-        errorBody,
-      );
-    }
-
-
-    const authorization =
-      await authorizationResponse
-        .json() as FastApiAuthorizationResponse;
-
-
-    if (
-      authorization.allowed !== true ||
-      !authorization.pathname
-    ) {
-      return response
-        .status(403)
-        .json({
-          error:
-            'Upload non autorizzato.',
-        });
-    }
-
-
-    const pathname =
-      authorization.pathname;
-
-
-    const expectedPrefix =
-      `groups/group_${group_id}/`;
-
-
-    if (
-      !pathname.startsWith(
-        expectedPrefix,
-      )
-    ) {
-      return response
-        .status(400)
-        .json({
-          error:
-            'Pathname generato non valido.',
-        });
-    }
-
-
     const validUntil =
       Date.now() +
       UPLOAD_URL_LIFETIME_MS;
@@ -358,7 +180,8 @@ export default async function handler(
 
     const signedToken =
       await issueSignedToken({
-        pathname,
+        pathname:
+          normalizedPathname,
 
         operations: [
           'put',
@@ -367,14 +190,10 @@ export default async function handler(
         validUntil,
 
         maximumSizeInBytes:
-          Math.min(
-            size,
-            authorization.max_file_size ??
-              MAX_FILE_SIZE,
-          ),
+          size,
 
         allowedContentTypes: [
-          mime_type,
+          content_type,
         ],
 
         token:
@@ -388,7 +207,8 @@ export default async function handler(
       await presignUrl(
         signedToken,
         {
-          pathname,
+          pathname:
+            normalizedPathname,
 
           operation:
             'put',
@@ -399,14 +219,10 @@ export default async function handler(
           validUntil,
 
           maximumSizeInBytes:
-            Math.min(
-              size,
-              authorization.max_file_size ??
-                MAX_FILE_SIZE,
-            ),
+            size,
 
           allowedContentTypes: [
-            mime_type,
+            content_type,
           ],
         },
       );
@@ -418,18 +234,15 @@ export default async function handler(
         allowed:
           true,
 
-        pathname,
+        pathname:
+          normalizedPathname,
 
         presigned_url:
           presignedUrl,
 
-        content_type:
-          mime_type,
+        content_type,
 
         size,
-
-        file_hash:
-          normalizedFileHash,
 
         valid_until:
           validUntil,
@@ -437,23 +250,17 @@ export default async function handler(
 
   } catch (error) {
     console.error(
-      'StudentLab Blob upload authorization error:',
+      'StudentLab Blob upload error:',
       error,
     );
-
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Errore durante la generazione '
-          + 'dell\'URL di upload.';
 
 
     return response
       .status(500)
       .json({
         error:
-          message,
+          'Non è stato possibile preparare '
+          + 'il caricamento del file.',
       });
   }
 }

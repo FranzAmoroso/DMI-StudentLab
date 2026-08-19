@@ -4889,9 +4889,7 @@ class _MaterialPublicationPageState
           Expanded(
             child:
                 Text(
-              'Ogni materiale proposto viene controllato prima della pubblicazione. '
-              'StudentLab verifica anche la presenza di file simili, ma un possibile '
-              'duplicato non blocca l’invio: sarà comunque valutato dalla revisione.',
+              'Ogni materiale proposto viene controllato prima della pubblicazione. ',
 
               style:
                   TextStyle(

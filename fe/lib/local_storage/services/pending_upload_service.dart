@@ -154,7 +154,7 @@ class PendingUploadService {
   ) async {
     if (upload.id == null) {
       throw ArgumentError(
-        'Upload locale senza id.',
+        'Upload locale senza riconoscimento id.',
       );
     }
 
@@ -497,7 +497,7 @@ class PendingUploadService {
     }
 
     throw StateError(
-      'Upload completato ma il backend non ha restituito un id materiale valido.',
+      'Upload completato ma il server non ha restituito un id materiale valido.',
     );
   }
 }

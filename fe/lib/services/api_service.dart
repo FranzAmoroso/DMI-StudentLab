@@ -2371,8 +2371,7 @@ Future<Map<String, dynamic>>
     required int groupId,
     required String filePath,
   }) async {
-    final int currentUserId =
-        _requireCurrentUserId();
+    _requireCurrentUserId();
 
     final File file =
         File(
@@ -2418,23 +2417,19 @@ Future<Map<String, dynamic>>
       file,
     );
 
-    final Uri authorizationUrl =
-        Uri.parse(
-      '$baseUrl/api/blob-upload',
+    final Uri groupAuthorizationUrl =
+        _apiUri(
+      '/group_material_upload_request/$groupId',
     );
 
     final http.Response
-        authorizationResponse =
+        groupAuthorizationResponse =
         await http.post(
-      authorizationUrl,
+      groupAuthorizationUrl,
       headers:
           _jsonHeaders,
       body:
           jsonEncode({
-        'group_id':
-            groupId,
-        'uploaded_by':
-            currentUserId,
         'original_name':
             originalName,
         'mime_type':
@@ -2447,109 +2442,174 @@ Future<Map<String, dynamic>>
     );
 
     final Map<String, dynamic>
-        authorization =
+        groupAuthorization =
         _decodeMapResponse(
-      authorizationResponse,
-      'Errore autorizzazione Vercel Blob',
+      groupAuthorizationResponse,
+      'Errore autorizzazione caricamento materiale',
     );
 
-    final String? pathname =
-        authorization['pathname']
-            ?.toString();
+    final bool allowed =
+        groupAuthorization[
+          'allowed'
+        ] ==
+        true;
 
-    final String? presignedUrl =
-        (
-          authorization[
-            'presigned_url'
-          ] ??
-          authorization[
-            'presignedUrl'
-          ]
-        )
-            ?.toString();
+    if (!allowed) {
+      throw Exception(
+        'Il caricamento del materiale non è autorizzato.',
+      );
+    }
+
+    final String? pathname =
+        groupAuthorization[
+          'pathname'
+        ]
+            ?.toString()
+            .trim();
 
     if (
       pathname == null ||
       pathname.isEmpty
     ) {
       throw Exception(
-        'Il server non ha restituito un pathname valido.',
+        'Il server non ha restituito un percorso di upload valido.',
       );
     }
+
+    final int serverMaxFileSize =
+        _toInt(
+          groupAuthorization[
+            'max_file_size'
+          ],
+        ) ??
+        maxMaterialFileSize;
+
+    if (
+      size >
+          serverMaxFileSize
+    ) {
+      throw Exception(
+        'Il file supera la dimensione massima consentita.',
+      );
+    }
+
+    final Uri blobAuthorizationUrl =
+        _apiUri(
+      '/api/blob-upload',
+    );
+
+    final http.Response
+        blobAuthorizationResponse =
+        await http.post(
+      blobAuthorizationUrl,
+      headers:
+          _jsonHeaders,
+      body:
+          jsonEncode({
+        'pathname':
+            pathname,
+        'content_type':
+            mimeType,
+        'size':
+            size,
+      }),
+    );
+
+    final Map<String, dynamic>
+        blobAuthorization =
+        _decodeMapResponse(
+      blobAuthorizationResponse,
+      'Errore autorizzazione Vercel Blob',
+    );
+
+    final String? presignedUrl =
+        (
+          blobAuthorization[
+            'presigned_url'
+          ] ??
+          blobAuthorization[
+            'presignedUrl'
+          ]
+        )
+            ?.toString()
+            .trim();
 
     if (
       presignedUrl == null ||
       presignedUrl.isEmpty
     ) {
       throw Exception(
-        'Il server non ha restituito un URL di upload valido.',
+        'Il servizio di caricamento non ha restituito un URL valido.',
       );
     }
 
-    final String normalizedFileHash =
-        authorization['file_hash']
-            ?.toString()
-            .trim()
-            .toLowerCase() ??
-        fileHash;
-
-    final http.StreamedRequest request =
-        http.StreamedRequest(
-      'PUT',
-      Uri.parse(
-        presignedUrl,
-      ),
+    final Uri uploadUri =
+        Uri.parse(
+      presignedUrl,
     );
 
-    request.headers[
+    if (
+      uploadUri.scheme
+              .toLowerCase() !=
+          'https'
+    ) {
+      throw Exception(
+        'Connessione di caricamento non valida.',
+      );
+    }
+
+    final http.StreamedRequest
+        uploadRequest =
+        http.StreamedRequest(
+      'PUT',
+      uploadUri,
+    );
+
+    uploadRequest.headers[
       'Content-Type'
     ] = mimeType;
 
-    request.contentLength =
+    uploadRequest.contentLength =
         size;
 
     final Future<void> pipeFuture =
         file.openRead().pipe(
-      request.sink,
+      uploadRequest.sink,
     );
 
     final http.StreamedResponse
         uploadResponse =
-        await request.send();
+        await uploadRequest.send();
 
     await pipeFuture;
 
-    final String uploadBody =
-        await uploadResponse.stream
-            .bytesToString();
+    await uploadResponse.stream
+        .drain<void>();
 
     if (
-      uploadResponse.statusCode < 200 ||
-      uploadResponse.statusCode >= 300
+      uploadResponse.statusCode <
+          200 ||
+      uploadResponse.statusCode >=
+          300
     ) {
       throw Exception(
-        'Errore upload Vercel Blob: '
-        '${uploadResponse.statusCode}'
-        '${uploadBody.isNotEmpty ? ' - $uploadBody' : ''}',
+        'Non è stato possibile caricare il materiale.',
       );
     }
 
     final Uri completeUrl =
-        Uri.parse(
-      '$baseUrl/'
-      'group_material_complete/'
-      '$groupId',
+        _apiUri(
+      '/group_material_complete/$groupId',
     );
 
-    final http.Response completeResponse =
+    final http.Response
+        completeResponse =
         await http.post(
       completeUrl,
       headers:
           _jsonHeaders,
       body:
           jsonEncode({
-        'uploaded_by':
-            currentUserId,
         'original_name':
             originalName,
         'stored_name':
@@ -2561,13 +2621,15 @@ Future<Map<String, dynamic>>
         'size':
             size,
         'file_hash':
-            normalizedFileHash,
+            fileHash
+                .trim()
+                .toLowerCase(),
       }),
     );
 
     return _decodeMapResponse(
       completeResponse,
-      'Errore registrazione materiale',
+      'Errore registrazione materiale nel gruppo',
     );
   }
 
