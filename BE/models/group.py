@@ -152,7 +152,10 @@ class StudyGroup(Base):
 
     materials = relationship(
         "GroupMaterial",
+        back_populates="group",
+        foreign_keys="GroupMaterial.group_id",
         cascade="all, delete-orphan",
+        order_by="GroupMaterial.id",
     )
 
     ownership_transfers = relationship(
@@ -168,15 +171,15 @@ class StudyGroup(Base):
 
     reports = relationship(
         "GroupReport",
-        foreign_keys=(
-            "GroupReport.group_id"
-        ),
+        back_populates="group",
+        foreign_keys="GroupReport.group_id",
         cascade="all, delete-orphan",
         order_by="GroupReport.id",
     )
 
     content_reports = relationship(
         "GroupContentReport",
+        back_populates="group",
         foreign_keys=(
             "GroupContentReport.group_id"
         ),

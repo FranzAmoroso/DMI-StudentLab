@@ -86,6 +86,7 @@ class ProfileErrorReport(Base):
 
     user = relationship(
         "User",
+        back_populates="profile_error_reports",
         foreign_keys=[
             user_id,
         ],
@@ -93,6 +94,7 @@ class ProfileErrorReport(Base):
 
     reviewer = relationship(
         "User",
+        back_populates="reviewed_profile_error_reports",
         foreign_keys=[
             reviewed_by,
         ],

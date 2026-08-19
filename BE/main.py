@@ -3,6 +3,8 @@ from datetime import (
     timezone,
 )
 
+from contextlib import asynccontextmanager
+
 
 from fastapi import (
     Depends,
@@ -397,8 +399,12 @@ from routes.public_material import (
     router as public_material_router,
 )
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_tables()
+    yield
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan,)
 
 
 app.include_router(
@@ -449,14 +455,6 @@ app.include_router(
 app.include_router(
     public_material_router,
 )
-
-
-@app.on_event(
-    "startup",
-)
-def startup_event():
-    create_tables()
-
 
 app.add_middleware(
     CORSMiddleware,

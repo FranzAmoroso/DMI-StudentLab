@@ -8,9 +8,15 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from core.database import Base
+
 
 class GroupContentReport(Base):
     __tablename__ = "group_content_reports"
@@ -93,7 +99,9 @@ class GroupContentReport(Base):
     )
 
     reviewed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(
+            timezone=True,
+        ),
         nullable=True,
     )
 
@@ -110,14 +118,18 @@ class GroupContentReport(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         default=datetime.utcnow,
         index=True,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
@@ -125,6 +137,7 @@ class GroupContentReport(Base):
 
     reporter = relationship(
         "User",
+        back_populates="group_content_reports",
         foreign_keys=[
             reporter_user_id,
         ],
@@ -132,6 +145,7 @@ class GroupContentReport(Base):
 
     author = relationship(
         "User",
+        back_populates="authored_reported_group_content",
         foreign_keys=[
             author_user_id,
         ],
@@ -139,6 +153,7 @@ class GroupContentReport(Base):
 
     reviewer = relationship(
         "User",
+        back_populates="reviewed_group_content_reports",
         foreign_keys=[
             reviewed_by,
         ],
@@ -146,6 +161,7 @@ class GroupContentReport(Base):
 
     group = relationship(
         "StudyGroup",
+        back_populates="content_reports",
         foreign_keys=[
             group_id,
         ],

@@ -97,6 +97,7 @@ class GroupReport(Base):
 
     reporter = relationship(
         "User",
+        back_populates="group_reports",
         foreign_keys=[
             reporter_user_id,
         ],
@@ -104,6 +105,7 @@ class GroupReport(Base):
 
     group = relationship(
         "StudyGroup",
+        back_populates="reports",
         foreign_keys=[
             group_id,
         ],
@@ -111,6 +113,7 @@ class GroupReport(Base):
 
     reviewer = relationship(
         "User",
+        back_populates="reviewed_group_reports",
         foreign_keys=[
             reviewed_by,
         ],

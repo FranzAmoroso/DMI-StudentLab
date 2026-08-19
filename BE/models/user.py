@@ -203,6 +203,7 @@ class User(Base):
 
     sent_user_reports = relationship(
         "UserReport",
+        back_populates="reporter",
         foreign_keys="UserReport.reporter_user_id",
         cascade="all, delete-orphan",
         order_by="UserReport.id",
@@ -210,6 +211,7 @@ class User(Base):
 
     received_user_reports = relationship(
         "UserReport",
+        back_populates="reported_user",
         foreign_keys="UserReport.reported_user_id",
         cascade="all, delete-orphan",
         order_by="UserReport.id",
@@ -217,12 +219,14 @@ class User(Base):
 
     reviewed_user_reports = relationship(
         "UserReport",
+        back_populates="reviewer",
         foreign_keys="UserReport.reviewed_by",
         order_by="UserReport.id",
     )
 
     profile_error_reports = relationship(
         "ProfileErrorReport",
+        back_populates="user",
         foreign_keys="ProfileErrorReport.user_id",
         cascade="all, delete-orphan",
         order_by="ProfileErrorReport.id",
@@ -230,12 +234,14 @@ class User(Base):
 
     reviewed_profile_error_reports = relationship(
         "ProfileErrorReport",
+        back_populates="reviewer",
         foreign_keys="ProfileErrorReport.reviewed_by",
         order_by="ProfileErrorReport.id",
     )
 
     account_deletion_requests = relationship(
         "AccountDeletionRequest",
+        back_populates="user",
         foreign_keys="AccountDeletionRequest.user_id",
         cascade="all, delete-orphan",
         order_by="AccountDeletionRequest.id",
@@ -243,18 +249,21 @@ class User(Base):
 
     outgoing_group_ownership_transfers = relationship(
         "GroupOwnershipTransfer",
+        back_populates="current_owner",
         foreign_keys="GroupOwnershipTransfer.current_owner_id",
         order_by="GroupOwnershipTransfer.id",
     )
 
     incoming_group_ownership_transfers = relationship(
         "GroupOwnershipTransfer",
+        back_populates="proposed_owner",
         foreign_keys="GroupOwnershipTransfer.proposed_owner_id",
         order_by="GroupOwnershipTransfer.id",
     )
 
     notifications = relationship(
         "Notification",
+        back_populates="user",
         foreign_keys="Notification.user_id",
         cascade="all, delete-orphan",
         order_by="Notification.created_at.desc()",
@@ -262,12 +271,14 @@ class User(Base):
 
     notification_actions = relationship(
         "Notification",
+        back_populates="actor",
         foreign_keys="Notification.actor_user_id",
         order_by="Notification.created_at.desc()",
     )
 
     group_reports = relationship(
         "GroupReport",
+        back_populates="reporter",
         foreign_keys="GroupReport.reporter_user_id",
         cascade="all, delete-orphan",
         order_by="GroupReport.id",
@@ -275,12 +286,14 @@ class User(Base):
 
     reviewed_group_reports = relationship(
         "GroupReport",
+        back_populates="reviewer",
         foreign_keys="GroupReport.reviewed_by",
         order_by="GroupReport.id",
     )
 
     group_content_reports = relationship(
         "GroupContentReport",
+        back_populates="reporter",
         foreign_keys="GroupContentReport.reporter_user_id",
         cascade="all, delete-orphan",
         order_by="GroupContentReport.id",
@@ -288,12 +301,14 @@ class User(Base):
 
     authored_reported_group_content = relationship(
         "GroupContentReport",
+        back_populates="author",
         foreign_keys="GroupContentReport.author_user_id",
         order_by="GroupContentReport.id",
     )
 
     reviewed_group_content_reports = relationship(
         "GroupContentReport",
+        back_populates="reviewer",
         foreign_keys="GroupContentReport.reviewed_by",
         order_by="GroupContentReport.id",
     )

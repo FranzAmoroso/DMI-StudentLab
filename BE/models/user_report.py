@@ -102,6 +102,7 @@ class UserReport(Base):
 
     reporter = relationship(
         "User",
+        back_populates="sent_user_reports",
         foreign_keys=[
             reporter_user_id,
         ],
@@ -109,6 +110,7 @@ class UserReport(Base):
 
     reported_user = relationship(
         "User",
+        back_populates="received_user_reports",
         foreign_keys=[
             reported_user_id,
         ],
@@ -116,6 +118,7 @@ class UserReport(Base):
 
     reviewer = relationship(
         "User",
+        back_populates="reviewed_user_reports",
         foreign_keys=[
             reviewed_by,
         ],

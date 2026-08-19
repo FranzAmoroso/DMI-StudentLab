@@ -109,15 +109,9 @@ class GroupOwnershipTransfer(Base):
         nullable=True,
     )
 
-    group = relationship(
-        "StudyGroup",
-        foreign_keys=[
-            group_id,
-        ],
-    )
-
     current_owner = relationship(
         "User",
+        back_populates="outgoing_group_ownership_transfers",
         foreign_keys=[
             current_owner_id,
         ],
@@ -125,8 +119,17 @@ class GroupOwnershipTransfer(Base):
 
     proposed_owner = relationship(
         "User",
+        back_populates="incoming_group_ownership_transfers",
         foreign_keys=[
             proposed_owner_id,
+        ],
+    )
+
+    group = relationship(
+        "StudyGroup",
+        back_populates="ownership_transfers",
+        foreign_keys=[
+            group_id,
         ],
     )
 

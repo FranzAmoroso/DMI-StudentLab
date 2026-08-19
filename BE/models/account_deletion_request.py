@@ -8,9 +8,14 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from core.database import Base
+
 
 class AccountDeletionRequest(Base):
     __tablename__ = "account_deletion_requests"
@@ -51,35 +56,53 @@ class AccountDeletionRequest(Base):
     )
 
     requested_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         default=datetime.utcnow,
     )
 
-    ownership_resolution_deadline: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+    ownership_resolution_deadline: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime(
+            timezone=True,
+        ),
         nullable=True,
         index=True,
     )
 
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+    completed_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime(
+            timezone=True,
+        ),
         nullable=True,
     )
 
-    cancelled_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+    cancelled_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime(
+            timezone=True,
+        ),
         nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         default=datetime.utcnow,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
@@ -87,6 +110,7 @@ class AccountDeletionRequest(Base):
 
     user = relationship(
         "User",
+        back_populates="account_deletion_requests",
         foreign_keys=[
             user_id,
         ],

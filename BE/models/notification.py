@@ -123,6 +123,7 @@ class Notification(Base):
 
     user = relationship(
         "User",
+        back_populates="notifications",
         foreign_keys=[
             user_id,
         ],
@@ -130,6 +131,7 @@ class Notification(Base):
 
     actor = relationship(
         "User",
+        back_populates="notification_actions",
         foreign_keys=[
             actor_user_id,
         ],

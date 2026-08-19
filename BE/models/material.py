@@ -91,8 +91,11 @@ class GroupMaterial(Base):
 
     group = relationship(
         "StudyGroup",
+        back_populates="materials",
+        foreign_keys=[
+            group_id,
+        ],
     )
-
     uploader = relationship(
         "User",
     )
