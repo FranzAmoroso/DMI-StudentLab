@@ -8,7 +8,7 @@ from fastapi import (
 )
 
 from fastapi.responses import (
-    StreamingResponse,
+    Response,
 )
 
 from sqlalchemy.exc import (
@@ -119,7 +119,10 @@ def require_blob_storage():
     if not settings.blob_read_write_token:
         raise HTTPException(
             status_code=500,
-            detail="Storage dei file non configurato.",
+            detail=(
+                "Servizio file temporaneamente "
+                "non disponibile."
+            ),
         )
 
 
@@ -147,7 +150,7 @@ async def verify_uploaded_blob(
             status_code=400,
             detail=(
                 "Il file non risulta caricato "
-                "correttamente nello storage."
+                "correttamente."
             ),
         ) from exception
 
@@ -158,80 +161,52 @@ async def verify_uploaded_blob(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Il file non è presente "
-                "nello storage."
+                "Il file caricato non è "
+                "disponibile."
             ),
         )
 
-    headers = (
-        result.headers
-        if hasattr(
-            result,
-            "headers",
-        )
-        else {}
-    )
-
-    content_length = (
-        headers.get(
-            "content-length",
-        )
-        if headers
-        else None
-    )
-
-    if content_length is not None:
-        try:
-            blob_size = int(
-                content_length,
-            )
-        except (
-            TypeError,
-            ValueError,
-        ):
-            blob_size = None
-
-        if (
-            blob_size is not None
-            and blob_size != expected_size
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "La dimensione del file "
-                    "caricato non corrisponde "
-                    "alla richiesta."
-                ),
-            )
-
-    content_type = (
-        headers.get(
-            "content-type",
-        )
-        if headers
-        else None
-    )
-
     if (
-        content_type is not None
-        and content_type
+        result.size is not None
+        and result.size != expected_size
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "La dimensione del file "
+                "caricato non corrisponde "
+                "alla richiesta."
+            ),
+        )
+
+    if result.content_type is not None:
+        actual_content_type = (
+            result.content_type
             .split(
                 ";",
                 1,
             )[0]
             .strip()
             .lower()
-        != expected_mime_type
+        )
+
+        expected_content_type = (
+            expected_mime_type
             .strip()
             .lower()
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Il tipo del file caricato "
-                "non corrisponde alla richiesta."
-            ),
         )
+
+        if (
+            actual_content_type
+            != expected_content_type
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Il tipo del file caricato "
+                    "non corrisponde alla richiesta."
+                ),
+            )
 
     return result
 
@@ -244,42 +219,74 @@ async def stream_private_blob(
 ):
     require_blob_storage()
 
-    async with AsyncBlobClient(
-        token=(
-            settings.blob_read_write_token
-        ),
-    ) as client:
-        result = await client.get(
-            stored_name,
-            access="private",
-        )
-
-        if (
-            result is None
-            or result.status_code !=
-            200
-        ):
-            raise HTTPException(
-                status_code=404,
-                detail="File non disponibile.",
+    try:
+        async with AsyncBlobClient(
+            token=(
+                settings.blob_read_write_token
+            ),
+        ) as client:
+            result = await client.get(
+                stored_name,
+                access="private",
             )
 
-        headers = {
-            "Content-Disposition":
-                (
-                    f'inline; filename="{original_name}"'
-                ),
-            "X-Content-Type-Options":
-                "nosniff",
-            "Cache-Control":
-                "private, no-store",
-        }
+    except Exception as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il file è temporaneamente "
+                "non disponibile."
+            ),
+        ) from exception
 
-        return StreamingResponse(
-            result.stream,
-            media_type=mime_type,
-            headers=headers,
+    if (
+        result is None
+        or result.status_code != 200
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="File non disponibile.",
         )
+
+    response_mime_type = (
+        result.content_type
+        if result.content_type
+        else mime_type
+    )
+
+    safe_original_name = (
+        original_name
+        .replace(
+            '"',
+            "",
+        )
+        .replace(
+            "\r",
+            "",
+        )
+        .replace(
+            "\n",
+            "",
+        )
+    )
+
+    headers = {
+        "Content-Disposition": (
+            f'inline; filename="{safe_original_name}"'
+        ),
+        "X-Content-Type-Options": (
+            "nosniff"
+        ),
+        "Cache-Control": (
+            "private, no-store"
+        ),
+    }
+
+    return Response(
+        content=result.content,
+        media_type=response_mime_type,
+        headers=headers,
+    )
 
 
 @router.post(
@@ -441,7 +448,10 @@ async def api_material_publication_complete(
 
         raise HTTPException(
             status_code=409,
-            detail="Impossibile creare la richiesta di pubblicazione.",
+            detail=(
+                "Impossibile creare la richiesta "
+                "di pubblicazione."
+            ),
         )
 
 
@@ -529,7 +539,9 @@ def api_admin_material_publications(
     ):
         raise HTTPException(
             status_code=400,
-            detail="Stato della richiesta non valido.",
+            detail=(
+                "Stato della richiesta non valido."
+            ),
         )
 
     return get_publication_requests(
@@ -671,7 +683,9 @@ def api_admin_possible_duplicate_material(
     if material is None:
         raise HTTPException(
             status_code=404,
-            detail="Materiale duplicato non trovato.",
+            detail=(
+                "Materiale duplicato non trovato."
+            ),
         )
 
     return material
@@ -721,7 +735,9 @@ async def api_admin_possible_duplicate_material_file(
     if material is None:
         raise HTTPException(
             status_code=404,
-            detail="Materiale duplicato non trovato.",
+            detail=(
+                "Materiale duplicato non trovato."
+            ),
         )
 
     return await stream_private_blob(
@@ -834,8 +850,14 @@ def api_admin_approve_material_publication(
         status_code = (
             409
             if message in [
-                "La richiesta ha già generato un materiale pubblico.",
-                "Il materiale è stato confermato come duplicato.",
+                (
+                    "La richiesta ha già generato "
+                    "un materiale pubblico."
+                ),
+                (
+                    "Il materiale è stato confermato "
+                    "come duplicato."
+                ),
             ]
             else 400
         )
@@ -850,7 +872,10 @@ def api_admin_approve_material_publication(
 
         raise HTTPException(
             status_code=409,
-            detail="Impossibile pubblicare il materiale.",
+            detail=(
+                "Impossibile pubblicare "
+                "il materiale."
+            ),
         )
 
 
