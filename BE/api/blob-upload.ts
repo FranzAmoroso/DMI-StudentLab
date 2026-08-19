@@ -8,14 +8,11 @@ import type {
   VercelResponse,
 } from '@vercel/node';
 
-
 const MAX_FILE_SIZE =
   250 * 1024 * 1024;
 
-
 const UPLOAD_URL_LIFETIME_MS =
   15 * 60 * 1000;
-
 
 const ALLOWED_CONTENT_TYPES = [
   'application/pdf',
@@ -26,13 +23,11 @@ const ALLOWED_CONTENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 ];
 
-
 type UploadRequestBody = {
   pathname: string;
   content_type: string;
   size: number;
 };
-
 
 export default async function handler(
   request: VercelRequest,
@@ -47,25 +42,20 @@ export default async function handler(
       });
   }
 
-
   const blobToken =
-    process.env.StudentLab_READ_WRITE_TOKEN ??
-    process.env.BLOB_READ_WRITE_TOKEN;
-
+    process.env.StudentLab_READ_WRITE_TOKEN;
 
   if (!blobToken) {
     return response
       .status(500)
       .json({
         error:
-          'Token Vercel Blob non configurato.',
+          'Servizio di caricamento non configurato.',
       });
   }
 
-
   try {
     let body: UploadRequestBody;
-
 
     if (
       typeof request.body === 'string'
@@ -79,7 +69,6 @@ export default async function handler(
         request.body as UploadRequestBody;
     }
 
-
     if (
       !body ||
       typeof body !== 'object'
@@ -92,13 +81,11 @@ export default async function handler(
         });
     }
 
-
     const {
       pathname,
       content_type,
       size,
     } = body;
-
 
     if (
       typeof pathname !== 'string' ||
@@ -112,10 +99,8 @@ export default async function handler(
         });
     }
 
-
     const normalizedPathname =
       pathname.trim();
-
 
     if (
       normalizedPathname.startsWith('/') ||
@@ -129,7 +114,6 @@ export default async function handler(
             'Percorso del file non valido.',
         });
     }
-
 
     if (
       typeof content_type !== 'string' ||
@@ -145,7 +129,6 @@ export default async function handler(
         });
     }
 
-
     if (
       !Number.isInteger(size) ||
       size <= 0
@@ -157,7 +140,6 @@ export default async function handler(
             'Dimensione file non valida.',
         });
     }
-
 
     if (
       size >
@@ -172,11 +154,9 @@ export default async function handler(
         });
     }
 
-
     const validUntil =
       Date.now() +
       UPLOAD_URL_LIFETIME_MS;
-
 
     const signedToken =
       await issueSignedToken({
@@ -199,7 +179,6 @@ export default async function handler(
         token:
           blobToken,
       });
-
 
     const {
       presignedUrl,
@@ -224,9 +203,11 @@ export default async function handler(
           allowedContentTypes: [
             content_type,
           ],
+
+          addRandomSuffix:
+            false,
         },
       );
-
 
     return response
       .status(200)
@@ -247,13 +228,11 @@ export default async function handler(
         valid_until:
           validUntil,
       });
-
   } catch (error) {
     console.error(
       'StudentLab Blob upload error:',
       error,
     );
-
 
     return response
       .status(500)
