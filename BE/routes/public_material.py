@@ -5,7 +5,7 @@ from fastapi import (
 )
 
 from fastapi.responses import (
-    StreamingResponse,
+    Response,
 )
 
 from sqlalchemy.orm import (
@@ -56,9 +56,33 @@ router = APIRouter()
 def require_blob_storage():
     if not settings.blob_read_write_token:
         raise HTTPException(
-            status_code=500,
-            detail="Storage dei file non configurato.",
+            status_code=503,
+            detail=(
+                "Il servizio dei materiali "
+                "è temporaneamente non disponibile."
+            ),
         )
+
+
+def _safe_file_name(
+    original_name: str,
+) -> str:
+    return (
+        original_name
+        .replace(
+            '"',
+            "",
+        )
+        .replace(
+            "\r",
+            "",
+        )
+        .replace(
+            "\n",
+            "",
+        )
+        .strip()
+    )
 
 
 async def stream_public_material(
@@ -70,21 +94,29 @@ async def stream_public_material(
 ):
     require_blob_storage()
 
-    client = AsyncBlobClient(
-        token=(
-            settings.blob_read_write_token
-        ),
-    )
+    try:
+        async with AsyncBlobClient(
+            token=(
+                settings.blob_read_write_token
+            ),
+        ) as client:
+            result = await client.get(
+                stored_name,
+                access="private",
+            )
 
-    result = await client.get(
-        stored_name,
-        access="private",
-    )
+    except Exception as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il file è temporaneamente "
+                "non disponibile."
+            ),
+        ) from exception
 
     if (
         result is None
-        or result.status_code !=
-        200
+        or result.status_code != 200
     ):
         raise HTTPException(
             status_code=404,
@@ -97,20 +129,39 @@ async def stream_public_material(
         else "attachment"
     )
 
+    safe_original_name = (
+        _safe_file_name(
+            original_name,
+        )
+    )
+
+    if not safe_original_name:
+        safe_original_name = (
+            "materiale"
+        )
+
+    response_mime_type = (
+        result.content_type
+        if result.content_type
+        else mime_type
+    )
+
     headers = {
-        "Content-Disposition":
-            (
-                f'{disposition}; filename="{original_name}"'
-            ),
-        "X-Content-Type-Options":
-            "nosniff",
-        "Cache-Control":
-            "private, no-store",
+        "Content-Disposition": (
+            f'{disposition}; '
+            f'filename="{safe_original_name}"'
+        ),
+        "X-Content-Type-Options": (
+            "nosniff"
+        ),
+        "Cache-Control": (
+            "private, no-store"
+        ),
     }
 
-    return StreamingResponse(
-        result.stream,
-        media_type=mime_type,
+    return Response(
+        content=result.content,
+        media_type=response_mime_type,
         headers=headers,
     )
 
@@ -150,7 +201,11 @@ def api_public_materials_by_subject(
 
 
 @router.get(
-    "/public_materials/catalog/{university_code}/{department_code}/{course_code}/{subject_id}",
+    "/public_materials/catalog/"
+    "{university_code}/"
+    "{department_code}/"
+    "{course_code}/"
+    "{subject_id}",
     response_model=list[
         PublicMaterialResponse
     ],
@@ -315,7 +370,10 @@ def api_admin_public_materials(
     ):
         raise HTTPException(
             status_code=400,
-            detail="Stato del materiale non valido.",
+            detail=(
+                "Stato del materiale "
+                "non valido."
+            ),
         )
 
     return get_admin_public_materials(
@@ -423,13 +481,17 @@ def api_admin_hide_public_material(
     if material.status == "removed":
         raise HTTPException(
             status_code=400,
-            detail="Il materiale è stato rimosso.",
+            detail=(
+                "Il materiale è stato rimosso."
+            ),
         )
 
     if material.status == "hidden":
         raise HTTPException(
             status_code=400,
-            detail="Il materiale è già nascosto.",
+            detail=(
+                "Il materiale è già nascosto."
+            ),
         )
 
     return hide_public_material(
@@ -469,13 +531,17 @@ def api_admin_restore_public_material(
     if material.status == "removed":
         raise HTTPException(
             status_code=400,
-            detail="Il materiale è stato rimosso.",
+            detail=(
+                "Il materiale è stato rimosso."
+            ),
         )
 
     if material.status == "published":
         raise HTTPException(
             status_code=400,
-            detail="Il materiale è già pubblicato.",
+            detail=(
+                "Il materiale è già pubblicato."
+            ),
         )
 
     return restore_public_material(
@@ -515,7 +581,9 @@ def api_admin_remove_public_material(
     if material.status == "removed":
         raise HTTPException(
             status_code=400,
-            detail="Il materiale è già stato rimosso.",
+            detail=(
+                "Il materiale è già stato rimosso."
+            ),
         )
 
     return remove_public_material(
