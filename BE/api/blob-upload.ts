@@ -3,6 +3,11 @@ import {
   presignUrl,
 } from '@vercel/blob';
 
+import type {
+  VercelRequest,
+  VercelResponse,
+} from '@vercel/node';
+
 
 const MAX_FILE_SIZE =
   250 * 1024 * 1024;
@@ -40,18 +45,16 @@ type FastApiAuthorizationResponse = {
 
 
 export default async function handler(
-  request: Request,
-): Promise<Response> {
+  request: VercelRequest,
+  response: VercelResponse,
+) {
   if (request.method !== 'POST') {
-    return Response.json(
-      {
+    return response
+      .status(405)
+      .json({
         error:
           'Metodo non consentito.',
-      },
-      {
-        status: 405,
-      },
-    );
+      });
   }
 
 
@@ -61,21 +64,43 @@ export default async function handler(
 
 
   if (!blobToken) {
-    return Response.json(
-      {
+    return response
+      .status(500)
+      .json({
         error:
           'Token Vercel Blob non configurato.',
-      },
-      {
-        status: 500,
-      },
-    );
+      });
   }
 
 
   try {
-    const body: UploadRequestBody =
-      await request.json();
+    let body: UploadRequestBody;
+
+
+    if (
+      typeof request.body === 'string'
+    ) {
+      body =
+        JSON.parse(
+          request.body,
+        ) as UploadRequestBody;
+    } else {
+      body =
+        request.body as UploadRequestBody;
+    }
+
+
+    if (
+      !body ||
+      typeof body !== 'object'
+    ) {
+      return response
+        .status(400)
+        .json({
+          error:
+            'Richiesta non valida.',
+        });
+    }
 
 
     const {
@@ -92,15 +117,12 @@ export default async function handler(
       !Number.isInteger(group_id) ||
       group_id <= 0
     ) {
-      return Response.json(
-        {
+      return response
+        .status(400)
+        .json({
           error:
             'ID gruppo non valido.',
-        },
-        {
-          status: 400,
-        },
-      );
+        });
     }
 
 
@@ -108,15 +130,12 @@ export default async function handler(
       !Number.isInteger(uploaded_by) ||
       uploaded_by <= 0
     ) {
-      return Response.json(
-        {
+      return response
+        .status(400)
+        .json({
           error:
             'ID utente non valido.',
-        },
-        {
-          status: 400,
-        },
-      );
+        });
     }
 
 
@@ -124,15 +143,12 @@ export default async function handler(
       typeof original_name !== 'string' ||
       original_name.trim().length === 0
     ) {
-      return Response.json(
-        {
+      return response
+        .status(400)
+        .json({
           error:
             'Nome file non valido.',
-        },
-        {
-          status: 400,
-        },
-      );
+        });
     }
 
 
@@ -142,15 +158,12 @@ export default async function handler(
         mime_type,
       )
     ) {
-      return Response.json(
-        {
+      return response
+        .status(400)
+        .json({
           error:
             'Tipo di file non supportato.',
-        },
-        {
-          status: 400,
-        },
-      );
+        });
     }
 
 
@@ -158,15 +171,12 @@ export default async function handler(
       !Number.isInteger(size) ||
       size <= 0
     ) {
-      return Response.json(
-        {
+      return response
+        .status(400)
+        .json({
           error:
             'Dimensione file non valida.',
-        },
-        {
-          status: 400,
-        },
-      );
+        });
     }
 
 
@@ -174,16 +184,13 @@ export default async function handler(
       size >
       MAX_FILE_SIZE
     ) {
-      return Response.json(
-        {
+      return response
+        .status(413)
+        .json({
           error:
             'Il file supera la dimensione '
             + 'massima consentita di 250 MB.',
-        },
-        {
-          status: 413,
-        },
-      );
+        });
     }
 
 
@@ -193,15 +200,12 @@ export default async function handler(
         file_hash.trim(),
       )
     ) {
-      return Response.json(
-        {
+      return response
+        .status(400)
+        .json({
           error:
             'Hash del file non valido.',
-        },
-        {
-          status: 400,
-        },
-      );
+        });
     }
 
 
@@ -211,16 +215,41 @@ export default async function handler(
         .toLowerCase();
 
 
+    const host =
+      request.headers.host;
+
+
+    if (!host) {
+      return response
+        .status(500)
+        .json({
+          error:
+            'Host della richiesta non disponibile.',
+        });
+    }
+
+
+    const forwardedProto =
+      request.headers[
+        'x-forwarded-proto'
+      ];
+
+
+    const protocol =
+      Array.isArray(
+        forwardedProto,
+      )
+        ? forwardedProto[0]
+        : forwardedProto ??
+          'https';
+
+
     const origin =
-      new URL(
-        request.url,
-      ).origin;
+      `${protocol}://${host}`;
 
 
     const authorizationHeader =
-      request.headers.get(
-        'authorization',
-      );
+      request.headers.authorization;
 
 
     const authorizationResponse =
@@ -248,7 +277,8 @@ export default async function handler(
           body:
             JSON.stringify({
               uploaded_by,
-              original_name,
+              original_name:
+                original_name.trim(),
               mime_type,
               size,
               file_hash:
@@ -264,39 +294,38 @@ export default async function handler(
       const errorBody =
         await authorizationResponse.text();
 
-      return new Response(
-        errorBody,
-        {
-          status:
-            authorizationResponse.status,
 
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-        },
+      response
+        .status(
+          authorizationResponse.status,
+        )
+        .setHeader(
+          'Content-Type',
+          'application/json',
+        );
+
+
+      return response.send(
+        errorBody,
       );
     }
 
 
-    const authorization:
-        FastApiAuthorizationResponse =
-      await authorizationResponse.json();
+    const authorization =
+      await authorizationResponse
+        .json() as FastApiAuthorizationResponse;
 
 
     if (
       authorization.allowed !== true ||
       !authorization.pathname
     ) {
-      return Response.json(
-        {
+      return response
+        .status(403)
+        .json({
           error:
             'Upload non autorizzato.',
-        },
-        {
-          status: 403,
-        },
-      );
+        });
     }
 
 
@@ -313,15 +342,12 @@ export default async function handler(
         expectedPrefix,
       )
     ) {
-      return Response.json(
-        {
+      return response
+        .status(400)
+        .json({
           error:
             'Pathname generato non valido.',
-        },
-        {
-          status: 400,
-        },
-      );
+        });
     }
 
 
@@ -332,8 +358,23 @@ export default async function handler(
 
     const signedToken =
       await issueSignedToken({
+        pathname,
+
         operations: [
           'put',
+        ],
+
+        validUntil,
+
+        maximumSizeInBytes:
+          Math.min(
+            size,
+            authorization.max_file_size ??
+              MAX_FILE_SIZE,
+          ),
+
+        allowedContentTypes: [
+          mime_type,
         ],
 
         token:
@@ -344,24 +385,36 @@ export default async function handler(
     const {
       presignedUrl,
     } =
-        await presignUrl(
-      signedToken,
-      {
-        pathname,
+      await presignUrl(
+        signedToken,
+        {
+          pathname,
 
-        operation:
+          operation:
             'put',
 
-        access:
+          access:
             'private',
 
-        validUntil,
-      },
-    );
+          validUntil,
+
+          maximumSizeInBytes:
+            Math.min(
+              size,
+              authorization.max_file_size ??
+                MAX_FILE_SIZE,
+            ),
+
+          allowedContentTypes: [
+            mime_type,
+          ],
+        },
+      );
 
 
-    return Response.json(
-      {
+    return response
+      .status(200)
+      .json({
         allowed:
           true,
 
@@ -380,8 +433,7 @@ export default async function handler(
 
         valid_until:
           validUntil,
-      },
-    );
+      });
 
   } catch (error) {
     console.error(
@@ -397,14 +449,11 @@ export default async function handler(
           + 'dell\'URL di upload.';
 
 
-    return Response.json(
-      {
+    return response
+      .status(500)
+      .json({
         error:
           message,
-      },
-      {
-        status: 500,
-      },
-    );
+      });
   }
 }

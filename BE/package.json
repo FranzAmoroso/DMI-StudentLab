@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@vercel/blob": "^2.4.0"
+    "@vercel/blob": "^2.4.0",
+    "@vercel/node": "^5.10.1"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
