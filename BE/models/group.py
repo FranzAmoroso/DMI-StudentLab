@@ -15,9 +15,13 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import (
+    relationship,
+)
 
-from core.database import Base
+from core.database import (
+    Base,
+)
 
 
 def utc_now():
@@ -27,7 +31,9 @@ def utc_now():
 
 
 class StudyGroup(Base):
-    __tablename__ = "study_groups"
+    __tablename__ = (
+        "study_groups"
+    )
 
     id = Column(
         Integer,
@@ -141,29 +147,48 @@ class StudyGroup(Base):
     members = relationship(
         "GroupMember",
         back_populates="group",
-        cascade="all, delete-orphan",
+        cascade=(
+            "all, delete-orphan"
+        ),
+        order_by=(
+            "GroupMember.id"
+        ),
     )
 
     join_requests = relationship(
         "GroupJoinRequest",
         back_populates="group",
-        cascade="all, delete-orphan",
+        cascade=(
+            "all, delete-orphan"
+        ),
+        order_by=(
+            "GroupJoinRequest.id"
+        ),
     )
 
     materials = relationship(
         "GroupMaterial",
         back_populates="group",
-        foreign_keys="GroupMaterial.group_id",
-        cascade="all, delete-orphan",
-        order_by="GroupMaterial.id",
+        foreign_keys=(
+            "GroupMaterial.group_id"
+        ),
+        cascade=(
+            "all, delete-orphan"
+        ),
+        order_by=(
+            "GroupMaterial.id"
+        ),
     )
 
     ownership_transfers = relationship(
         "GroupOwnershipTransfer",
+        back_populates="group",
         foreign_keys=(
             "GroupOwnershipTransfer.group_id"
         ),
-        cascade="all, delete-orphan",
+        cascade=(
+            "all, delete-orphan"
+        ),
         order_by=(
             "GroupOwnershipTransfer.id"
         ),
@@ -172,9 +197,15 @@ class StudyGroup(Base):
     reports = relationship(
         "GroupReport",
         back_populates="group",
-        foreign_keys="GroupReport.group_id",
-        cascade="all, delete-orphan",
-        order_by="GroupReport.id",
+        foreign_keys=(
+            "GroupReport.group_id"
+        ),
+        cascade=(
+            "all, delete-orphan"
+        ),
+        order_by=(
+            "GroupReport.id"
+        ),
     )
 
     content_reports = relationship(
@@ -183,8 +214,40 @@ class StudyGroup(Base):
         foreign_keys=(
             "GroupContentReport.group_id"
         ),
-        cascade="all, delete-orphan",
-        order_by="GroupContentReport.id",
+        cascade=(
+            "all, delete-orphan"
+        ),
+        order_by=(
+            "GroupContentReport.id"
+        ),
+    )
+
+    news = relationship(
+        "GroupNews",
+        back_populates="group",
+        foreign_keys=(
+            "GroupNews.group_id"
+        ),
+        cascade=(
+            "all, delete-orphan"
+        ),
+        order_by=(
+            "GroupNews.created_at.desc()"
+        ),
+    )
+
+    news_reports = relationship(
+        "GroupNewsReport",
+        back_populates="group",
+        foreign_keys=(
+            "GroupNewsReport.group_id"
+        ),
+        cascade=(
+            "all, delete-orphan"
+        ),
+        order_by=(
+            "GroupNewsReport.created_at.desc()"
+        ),
     )
 
     __table_args__ = (
@@ -202,7 +265,9 @@ class StudyGroup(Base):
 
 
 class GroupMember(Base):
-    __tablename__ = "group_members"
+    __tablename__ = (
+        "group_members"
+    )
 
     id = Column(
         Integer,
@@ -258,7 +323,9 @@ class GroupMember(Base):
         UniqueConstraint(
             "group_id",
             "user_id",
-            name="uq_group_member",
+            name=(
+                "uq_group_member"
+            ),
         ),
         CheckConstraint(
             "role IN ("
@@ -347,7 +414,9 @@ class GroupJoinRequest(Base):
 
     group = relationship(
         "StudyGroup",
-        back_populates="join_requests",
+        back_populates=(
+            "join_requests"
+        ),
     )
 
     user = relationship(

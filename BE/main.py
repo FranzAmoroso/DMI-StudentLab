@@ -3,51 +3,31 @@ from datetime import (
     timezone,
 )
 
-from contextlib import asynccontextmanager
-
-
 from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
 )
 
-
 from fastapi.middleware.cors import (
     CORSMiddleware,
 )
-
-
-from fastapi.responses import (
-    StreamingResponse,
-)
-
 
 from sqlalchemy.exc import (
     IntegrityError,
 )
 
-
 from sqlalchemy.orm import (
     Session,
 )
-
-
-from vercel.blob import (
-    AsyncBlobClient,
-)
-
 
 from core.config import (
     settings,
 )
 
-
 from core.database import (
-    create_tables,
     get_db,
 )
-
 
 from core.security import (
     get_admin_user,
@@ -58,87 +38,101 @@ from core.security import (
     get_verified_teacher_user,
 )
 
-
 from models.user import (
     User,
     UserAcademicPath,
 )
 
-
 from models.user_policy_acceptance import (
     UserPolicyAcceptance,
 )
-
 
 from models.subject import (
     Subject,
     UserSubject,
 )
 
-
-from models.filter import (
-    Answer,
-    ArgumentsRequest,
-    Filter,
-    QuestionCountRequest,
-    SubjectRequest,
-)
-
-
 from models.teacher_material import (
     TeacherMaterial,
 )
 
+from models.teacher_assignment import (
+    TeacherAssignment,
+)
+
+from models.material import (
+    GroupMaterial,
+)
 
 from models.account_deletion_request import (
     AccountDeletionRequest,
 )
 
-
 from models.group_content_report import (
     GroupContentReport,
 )
-
 
 from models.group_ownership_transfer import (
     GroupOwnershipTransfer,
 )
 
-
 from models.group_report import (
     GroupReport,
 )
-
 
 from models.notification import (
     Notification,
 )
 
-
 from models.profile_error_report import (
     ProfileErrorReport,
 )
-
 
 from models.user_report import (
     UserReport,
 )
 
-
 from models.material_publication_request import (
     MaterialPublicationRequest,
 )
-
 
 from models.public_material import (
     PublicMaterial,
 )
 
+from models.group_news import (
+    GroupNews,
+)
+
+from models.group_news_report import (
+    GroupNewsReport,
+)
+
+from models.user_block import (
+    UserBlock,
+)
+
+from models.quiz_assignment import (
+    QuizAssignment,
+    QuizAssignmentRecipient,
+)
+
+from models.quiz_attempt import (
+    QuizAttempt,
+    QuizAttemptAnswer,
+)
 
 from schemas.app_config import (
     AppConfigResponse,
 )
 
+from schemas.quiz import (
+    AnswerRequest,
+    ArgumentsRequest,
+    QuizFilterRequest,
+    QuestionCountRequest,
+    SubjectRequest,
+)
 
 from schemas.user import (
     AcademicPathVerificationUpdate,
@@ -153,7 +147,6 @@ from schemas.user import (
     UserUpdate,
 )
 
-
 from schemas.auth import (
     EmailVerificationRequest,
     EmailVerificationResendRequest,
@@ -165,13 +158,11 @@ from schemas.auth import (
     TokenResponse,
 )
 
-
 from schemas.subject import (
     SubjectCreate,
     SubjectResponse,
     UserSubjectCreate,
 )
-
 
 from schemas.group import (
     AddGroupMemberRequest,
@@ -189,13 +180,14 @@ from schemas.group import (
     PublicGroupResponse,
 )
 
-
 from schemas.material import (
     GroupMaterialCompleteRequest,
     GroupMaterialResponse,
     GroupMaterialUploadRequest,
+    GroupMaterialUploadResponse,
+    GroupMaterialVerifyRequest,
+    GroupMaterialVerifyResponse,
 )
-
 
 from schemas.review import (
     AdminReviewsResponse,
@@ -206,19 +198,24 @@ from schemas.review import (
     UserReviewsResponse,
 )
 
-
 from schemas.teacher_material import (
     TeacherMaterialCompleteRequest,
     TeacherMaterialResponse,
     TeacherMaterialUpdate,
     TeacherMaterialUploadRequest,
+    TeacherMaterialUploadResponse,
+    TeacherMaterialVerifyRequest,
+    TeacherMaterialVerifyResponse,
 )
-
 
 from services.app_config import (
     get_app_config,
 )
 
+from services.private_blob import (
+    private_blob_response,
+    verify_private_blob,
+)
 
 from services.auth import (
     authenticate_user,
@@ -230,21 +227,19 @@ from services.auth import (
     verify_user_email,
 )
 
-
 from services.registration import (
     validate_policy_acceptance,
     validate_registration_age,
 )
 
-
-from services.filter import (
+from services.quiz_service import (
     arguments,
     question_count,
+    quiz_availability,
     shuffle_filter,
     subjects,
     validate_answer,
 )
-
 
 from services.user import (
     add_subject_to_user,
@@ -272,14 +267,12 @@ from services.user import (
     verify_teacher,
 )
 
-
 from services.subject import (
     create_subject,
     get_existing_subject,
     get_subject_by_id,
     get_subjects_by_course,
 )
-
 
 from services.group import (
     accept_group_join_request,
@@ -306,21 +299,18 @@ from services.group import (
     update_group_member_role,
 )
 
-
 from services.material import (
     create_group_material_record,
     delete_group_material,
-    ensure_material_not_duplicate,
-    generate_stored_name,
     get_group_material_by_id,
     get_group_materials,
     get_public_group_material_by_id,
     get_public_group_materials,
     is_material_from_public_group,
-    validate_material_mime_type,
-    validate_material_size,
+    prepare_group_material_upload,
+    validate_group_material_completion,
+    verify_group_material_upload,
 )
-
 
 from services.review import (
     create_review,
@@ -334,126 +324,186 @@ from services.review import (
     update_review,
 )
 
-
 from services.teacher_material import (
     create_teacher_material,
     delete_teacher_material,
-    ensure_teacher_material_not_duplicate,
-    generate_teacher_material_stored_name,
     get_student_teacher_materials,
     get_teacher_material_by_id,
     get_teacher_materials,
+    prepare_teacher_material_upload,
     require_teacher_subject,
     update_teacher_material,
-    validate_teacher_material_mime_type,
-    validate_teacher_material_size,
+    validate_teacher_material_completion,
+    verify_teacher_material_upload,
 )
 
+from services.teacher_material_assignment import (
+    can_user_access_teacher_material,
+    get_accessible_teacher_materials_for_user,
+)
 
 from routes.teacher_assignment import (
     router as teacher_assignment_router,
 )
 
+from routes.questions import (
+    router as questions_router,
+)
+
+from routes.question_attachment import (
+    router as question_attachment_router,
+)
+
+from routes.quiz_attempts import (
+    router as quiz_attempts_router,
+)
+
+from routes.quiz_statistics import (
+    router as quiz_statistics_router,
+)
+
+from routes.quiz_assignments import (
+    router as quiz_assignments_router,
+)
 
 from routes.user_report import (
     router as user_report_router,
 )
 
-
 from routes.profile_error_report import (
     router as profile_error_report_router,
 )
-
 
 from routes.account_deletion_request import (
     router as account_deletion_request_router,
 )
 
-
 from routes.group_ownership_transfer import (
     router as group_ownership_transfer_router,
 )
-
 
 from routes.notification import (
     router as notification_router,
 )
 
-
 from routes.group_report import (
     router as group_report_router,
 )
-
 
 from routes.group_content_report import (
     router as group_content_report_router,
 )
 
-
 from routes.material_publication_request import (
     router as material_publication_request_router,
 )
-
 
 from routes.public_material import (
     router as public_material_router,
 )
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    create_tables()
-    yield
+from routes.teacher_material_assignment import (
+    router as teacher_material_assignment_router,
+)
 
-app = FastAPI(lifespan=lifespan,)
+from routes.material_sync import (
+    router as material_sync_router,
+)
+
+from routes.group_news import (
+    router as group_news_router,
+)
+
+from routes.group_news_report import (
+    router as group_news_report_router,
+)
+
+from routes.user_block import (
+    router as user_block_router,
+)
+
+
+app = FastAPI()
 
 
 app.include_router(
     teacher_assignment_router,
 )
 
+app.include_router(
+    questions_router,
+)
+
+app.include_router(
+    question_attachment_router,
+)
+
+app.include_router(
+    quiz_attempts_router,
+)
+
+app.include_router(
+    quiz_statistics_router,
+)
+
+app.include_router(
+    quiz_assignments_router,
+)
 
 app.include_router(
     user_report_router,
 )
 
-
 app.include_router(
     profile_error_report_router,
 )
-
 
 app.include_router(
     account_deletion_request_router,
 )
 
-
 app.include_router(
     group_ownership_transfer_router,
 )
-
 
 app.include_router(
     notification_router,
 )
 
-
 app.include_router(
     group_report_router,
 )
-
 
 app.include_router(
     group_content_report_router,
 )
 
-
 app.include_router(
     material_publication_request_router,
 )
 
-
 app.include_router(
     public_material_router,
+)
+
+app.include_router(
+    teacher_material_assignment_router,
+)
+
+app.include_router(
+    material_sync_router,
+)
+
+app.include_router(
+    group_news_router,
+)
+
+app.include_router(
+    group_news_report_router,
+)
+
+app.include_router(
+    user_block_router,
 )
 
 app.add_middleware(
@@ -532,6 +582,7 @@ def require_academic_path_owner(
         )
 
 
+
 @app.get(
     "/",
 )
@@ -546,14 +597,20 @@ async def root():
     "/shuffle_filter",
 )
 def api_shuffle_filter(
-    request: Filter,
+    request: QuizFilterRequest,
 ):
+    selected_arguments = (
+        []
+        if request.all_arguments
+        else request.arguments
+    )
+
     return shuffle_filter(
-        request.department,
-        request.course,
-        request.sub,
-        request.arguments,
-        request.number_of_questions,
+        department=request.department,
+        course=request.course,
+        subject=request.subject,
+        selected_arguments=selected_arguments,
+        number_of_questions=request.number_of_questions,
     )
 
 
@@ -561,14 +618,23 @@ def api_shuffle_filter(
     "/validate_answer",
 )
 def api_validate_answer(
-    answer: Answer,
+    request: AnswerRequest,
 ):
-    return validate_answer(
-        answer.idQuestion,
-        answer.idChoice,
-        answer.department,
-        answer.sub,
+    result = validate_answer(
+        id_question=request.id_question,
+        id_choice=request.id_choice,
+        department=request.department,
+        course=request.course,
+        subject=request.subject,
     )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Domanda o risposta non valida.",
+        )
+
+    return result
 
 
 @app.post(
@@ -578,9 +644,9 @@ def api_arguments(
     request: ArgumentsRequest,
 ):
     return arguments(
-        request.department,
-        request.course,
-        request.sub,
+        department=request.department,
+        course=request.course,
+        subject=request.subject,
     )
 
 
@@ -590,16 +656,21 @@ def api_arguments(
 def api_question_count(
     request: QuestionCountRequest,
 ):
+    selected_arguments = (
+        []
+        if request.all_arguments
+        else request.arguments
+    )
+
     count = question_count(
-        request.department,
-        request.course,
-        request.sub,
-        request.arguments,
+        department=request.department,
+        course=request.course,
+        subject=request.subject,
+        selected_arguments=selected_arguments,
     )
 
     return {
-        "count":
-            count,
+        "count": count,
     }
 
 
@@ -610,9 +681,10 @@ def api_subjects(
     request: SubjectRequest,
 ):
     return subjects(
-        request.department,
-        request.course,
+        department=request.department,
+        course=request.course,
     )
+
 
 
 @app.get(
@@ -649,6 +721,7 @@ def api_universities(
         }
         for code, name in rows
     ]
+    
 
 
 @app.get(
@@ -1834,19 +1907,21 @@ def api_create_group(
                 detail="Materia non trovata.",
             )
 
-    secured_request = (
-        request.model_copy(
-            update={
-                "created_by":
-                    current_user.id,
-            },
-        )
-    )
-
     try:
         return create_group(
             db,
-            secured_request,
+            request,
+            current_user.id,
+        )
+
+    except ValueError as exception:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exception,
+            ),
         )
 
     except IntegrityError:
@@ -1921,6 +1996,7 @@ def api_group(
             university=group.university,
             department=group.department,
             course=group.course,
+            created_by=group.created_by,
             created_at=group.created_at,
             members=members or [],
         )
@@ -2459,6 +2535,7 @@ def api_accept_group_request(
         return accept_group_join_request(
             db,
             join_request,
+            current_user.id,
         )
 
     except IntegrityError:
@@ -2514,11 +2591,13 @@ def api_reject_group_request(
     return reject_group_join_request(
         db,
         join_request,
+        current_user.id,
     )
 
 
 @app.post(
     "/group_material_upload_request/{group_id}",
+    response_model=GroupMaterialUploadResponse,
 )
 def api_group_material_upload_request(
     group_id: int,
@@ -2548,19 +2627,21 @@ def api_group_material_upload_request(
     )
 
     try:
-        validate_material_size(
-            request.size,
-        )
-
-        validate_material_mime_type(
-            request.mime_type,
-        )
-
-        ensure_material_not_duplicate(
+        return prepare_group_material_upload(
             db,
-            group_id,
-            request.file_hash,
+            group_id=group_id,
+            uploaded_by=current_user.id,
+            data=request,
         )
+
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il servizio di caricamento "
+                "non è disponibile."
+            ),
+        ) from exception
 
     except ValueError as exception:
         message = str(
@@ -2570,36 +2651,96 @@ def api_group_material_upload_request(
         status_code = (
             409
             if "già presente" in message
+            else 413
+            if "dimensione massima" in message.lower()
             else 400
         )
 
         raise HTTPException(
             status_code=status_code,
             detail=message,
-        )
+        ) from exception
 
-    stored_name = generate_stored_name(
+
+@app.post(
+    "/group_material_verify_upload/{group_id}",
+    response_model=GroupMaterialVerifyResponse,
+)
+def api_group_material_verify_upload(
+    group_id: int,
+    request: GroupMaterialVerifyRequest,
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    group = get_group_by_id(
+        db,
         group_id,
-        request.original_name,
     )
 
-    return {
-        "allowed":
-            True,
-        "pathname":
-            stored_name,
-        "max_file_size":
-            250 *
-            1024 *
-            1024,
-    }
+    if group is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Gruppo non trovato.",
+        )
+
+    require_group_member(
+        db,
+        group_id,
+        current_user.id,
+    )
+
+    if request.group_id != group_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "I dati del gruppo non "
+                "corrispondono alla richiesta."
+            ),
+        )
+
+    try:
+        return verify_group_material_upload(
+            user_id=current_user.id,
+            data=request,
+        )
+
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il servizio di caricamento "
+                "non è disponibile."
+            ),
+        ) from exception
+
+    except ValueError as exception:
+        message = str(
+            exception,
+        )
+
+        status_code = (
+            401
+            if "scaduta" in message.lower()
+            else 413
+            if "dimensione massima" in message.lower()
+            else 400
+        )
+
+        raise HTTPException(
+            status_code=status_code,
+            detail=message,
+        ) from exception
 
 
 @app.post(
     "/group_material_complete/{group_id}",
     response_model=GroupMaterialResponse,
 )
-def api_group_material_complete(
+async def api_group_material_complete(
     group_id: int,
     request: GroupMaterialCompleteRequest,
     current_user: User = Depends(
@@ -2627,18 +2768,30 @@ def api_group_material_complete(
     )
 
     try:
-        validate_material_size(
-            request.size,
+        completion = (
+            validate_group_material_completion(
+                user_id=current_user.id,
+                group_id=group_id,
+                data=request,
+            )
         )
 
-        validate_material_mime_type(
-            request.mime_type,
-        )
-
-        ensure_material_not_duplicate(
-            db,
-            group_id,
-            request.file_hash,
+        await verify_private_blob(
+            stored_name=(
+                completion[
+                    "stored_name"
+                ]
+            ),
+            expected_size=(
+                completion[
+                    "size"
+                ]
+            ),
+            expected_mime_type=(
+                completion[
+                    "mime_type"
+                ]
+            ),
         )
 
         return create_group_material_record(
@@ -2646,22 +2799,45 @@ def api_group_material_complete(
             group_id=group_id,
             uploaded_by=current_user.id,
             original_name=(
-                request.original_name
+                completion[
+                    "original_name"
+                ]
             ),
             stored_name=(
-                request.stored_name
+                completion[
+                    "stored_name"
+                ]
             ),
             file_path=(
-                request.file_path
+                completion[
+                    "file_path"
+                ]
             ),
             mime_type=(
-                request.mime_type
+                completion[
+                    "mime_type"
+                ]
             ),
-            size=request.size,
+            size=(
+                completion[
+                    "size"
+                ]
+            ),
             file_hash=(
-                request.file_hash
+                completion[
+                    "file_hash"
+                ]
             ),
         )
+
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il servizio file non è "
+                "disponibile."
+            ),
+        ) from exception
 
     except ValueError as exception:
         message = str(
@@ -2671,13 +2847,17 @@ def api_group_material_complete(
         status_code = (
             409
             if "già presente" in message
+            else 401
+            if "scaduta" in message.lower()
+            else 413
+            if "dimensione massima" in message.lower()
             else 400
         )
 
         raise HTTPException(
             status_code=status_code,
             detail=message,
-        )
+        ) from exception
 
 
 @app.get(
@@ -2757,6 +2937,23 @@ async def api_group_material(
             detail="Materiale non trovato.",
         )
 
+    if (
+        getattr(
+            material,
+            "status",
+            "active",
+        ) != "active"
+        or not getattr(
+            material,
+            "is_active",
+            True,
+        )
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
     group = get_group_by_id(
         db,
         material.group_id,
@@ -2785,48 +2982,17 @@ async def api_group_material(
             current_user.id,
         )
 
-    if not settings.blob_read_write_token:
-        raise HTTPException(
-            status_code=500,
-            detail="Storage dei file non configurato.",
-        )
-
-    client = AsyncBlobClient(
-        token=(
-            settings.blob_read_write_token
+    return await private_blob_response(
+        stored_name=(
+            material.stored_name
         ),
-    )
-
-    result = await client.get(
-        material.stored_name,
-        access="private",
-    )
-
-    if (
-        result is None
-        or result.status_code !=
-        200
-    ):
-        raise HTTPException(
-            status_code=404,
-            detail="File non disponibile.",
-        )
-
-    headers = {
-        "Content-Disposition":
-            (
-                f'attachment; filename="{material.original_name}"'
-            ),
-        "X-Content-Type-Options":
-            "nosniff",
-    }
-
-    return StreamingResponse(
-        result.stream,
-        media_type=(
+        original_name=(
+            material.original_name
+        ),
+        mime_type=(
             material.mime_type
         ),
-        headers=headers,
+        inline=False,
     )
 
 
@@ -3785,22 +3951,6 @@ def api_teacher_access(
             True,
     }
 
-@app.post(
-    "/teacher/materials",
-)
-async def api_teacher_material(
-    current_user: User = Depends(
-        get_verified_teacher_user,
-    ),
-    db: Session = Depends(
-        get_db,
-    ),
-):
-    return {
-        "authorized":
-            True,
-    }
-
 @app.get(
     "/admin/users",
     response_model=list[
@@ -3838,35 +3988,37 @@ def api_teacher_subjects(
         get_db,
     ),
 ):
-    relations = (
+    teacher_subjects = (
         db.query(
-            UserSubject,
+            Subject,
+        )
+        .join(
+            TeacherAssignment,
+            TeacherAssignment.subject_id ==
+            Subject.id,
         )
         .filter(
-            UserSubject.user_id ==
+            TeacherAssignment.user_id ==
             current_user.id,
+            TeacherAssignment.verification_status ==
+            "verified",
+            TeacherAssignment.is_current.is_(
+                True,
+            ),
+            Subject.is_active.is_(
+                True,
+            ),
+        )
+        .distinct()
+        .order_by(
+            Subject.name.asc(),
+            Subject.id.asc(),
         )
         .all()
     )
 
-    result = []
-
-    for relation in relations:
-        subject = (
-            db.query(
-                Subject,
-            )
-            .filter(
-                Subject.id ==
-                relation.subject_id,
-            )
-            .first()
-        )
-
-        if subject is None:
-            continue
-
-        result.append({
+    return [
+        {
             "id":
                 subject.id,
             "code":
@@ -3877,17 +4029,75 @@ def api_teacher_subjects(
                 subject.department,
             "course":
                 subject.course,
-        })
-
-    return result
+        }
+        for subject in teacher_subjects
+    ]
 
 
 @app.post(
     "/teacher/materials/upload-request",
+    response_model=TeacherMaterialUploadResponse,
 )
 def api_teacher_material_upload_request(
-    request:
-        TeacherMaterialUploadRequest,
+    request: TeacherMaterialUploadRequest,
+    current_user: User = Depends(
+        get_verified_teacher_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    try:
+        return prepare_teacher_material_upload(
+            db,
+            teacher_id=current_user.id,
+            data=request,
+        )
+
+    except PermissionError as exception:
+        raise HTTPException(
+            status_code=403,
+            detail=str(
+                exception,
+            ),
+        ) from exception
+
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il servizio di caricamento "
+                "non è disponibile."
+            ),
+        ) from exception
+
+    except ValueError as exception:
+        message = str(
+            exception,
+        )
+
+        status_code = (
+            409
+            if "già presente" in message
+            else 413
+            if "dimensione massima" in message.lower()
+            else 404
+            if "Materia non trovata" in message
+            else 400
+        )
+
+        raise HTTPException(
+            status_code=status_code,
+            detail=message,
+        ) from exception
+
+
+@app.post(
+    "/teacher/materials/verify-upload",
+    response_model=TeacherMaterialVerifyResponse,
+)
+def api_teacher_material_verify_upload(
+    request: TeacherMaterialVerifyRequest,
     current_user: User = Depends(
         get_verified_teacher_user,
     ),
@@ -3902,72 +4112,55 @@ def api_teacher_material_upload_request(
             request.subject_id,
         )
 
-        validate_teacher_material_size(
-            request.size,
+        return verify_teacher_material_upload(
+            teacher_id=current_user.id,
+            data=request,
         )
 
-        validate_teacher_material_mime_type(
-            request.mime_type,
-        )
-
-        ensure_teacher_material_not_duplicate(
-            db,
-            current_user.id,
-            request.subject_id,
-            request.file_hash,
-        )
-
-        pathname = (
-            generate_teacher_material_stored_name(
-                current_user.id,
-                request.subject_id,
-                request.original_name,
-            )
-        )
-
-        return {
-            "allowed":
-                True,
-            "pathname":
-                pathname,
-            "file_hash":
-                request.file_hash,
-            "max_file_size":
-                250 *
-                1024 *
-                1024,
-        }
-
-    except PermissionError as exc:
+    except PermissionError as exception:
         raise HTTPException(
             status_code=403,
-            detail=str(exc),
+            detail=str(
+                exception,
+            ),
+        ) from exception
+
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il servizio di caricamento "
+                "non è disponibile."
+            ),
+        ) from exception
+
+    except ValueError as exception:
+        message = str(
+            exception,
         )
 
-    except ValueError as exc:
-        message = str(
-            exc,
+        status_code = (
+            401
+            if "scaduta" in message.lower()
+            else 413
+            if "dimensione massima" in message.lower()
+            else 404
+            if "Materia non trovata" in message
+            else 400
         )
 
         raise HTTPException(
-            status_code=(
-                409
-                if "già presente"
-                in message
-                else 400
-            ),
+            status_code=status_code,
             detail=message,
-        )
+        ) from exception
 
 
 @app.post(
     "/teacher/materials/complete",
-    response_model=
-        TeacherMaterialResponse,
+    response_model=TeacherMaterialResponse,
 )
-def api_teacher_material_complete(
-    request:
-        TeacherMaterialCompleteRequest,
+async def api_teacher_material_complete(
+    request: TeacherMaterialCompleteRequest,
     current_user: User = Depends(
         get_verified_teacher_user,
     ),
@@ -3976,32 +4169,81 @@ def api_teacher_material_complete(
     ),
 ):
     try:
+        require_teacher_subject(
+            db,
+            current_user.id,
+            request.subject_id,
+        )
+
+        completion = (
+            validate_teacher_material_completion(
+                teacher_id=current_user.id,
+                data=request,
+            )
+        )
+
+        await verify_private_blob(
+            stored_name=(
+                completion[
+                    "stored_name"
+                ]
+            ),
+            expected_size=(
+                completion[
+                    "size"
+                ]
+            ),
+            expected_mime_type=(
+                completion[
+                    "mime_type"
+                ]
+            ),
+        )
+
         return create_teacher_material(
             db,
             current_user,
             request,
         )
 
-    except PermissionError as exc:
+    except PermissionError as exception:
         raise HTTPException(
             status_code=403,
-            detail=str(exc),
+            detail=str(
+                exception,
+            ),
+        ) from exception
+
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il servizio file non è "
+                "disponibile."
+            ),
+        ) from exception
+
+    except ValueError as exception:
+        message = str(
+            exception,
         )
 
-    except ValueError as exc:
-        message = str(
-            exc,
+        status_code = (
+            409
+            if "già presente" in message
+            else 401
+            if "scaduta" in message.lower()
+            else 413
+            if "dimensione massima" in message.lower()
+            else 404
+            if "Materia non trovata" in message
+            else 400
         )
 
         raise HTTPException(
-            status_code=(
-                409
-                if "già presente"
-                in message
-                else 400
-            ),
+            status_code=status_code,
             detail=message,
-        )
+        ) from exception
 
 
 @app.get(
@@ -4172,7 +4414,248 @@ def api_subject_teacher_materials(
         get_db,
     ),
 ):
-    return get_student_teacher_materials(
+    return get_accessible_teacher_materials_for_user(
         db,
-        subject_id,
+        user_id=current_user.id,
+        subject_id=subject_id,
+    )
+
+@app.get(
+    "/teacher-materials/{material_id}/download",
+)
+async def api_student_teacher_material_download(
+    material_id: int,
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    material = (
+        get_teacher_material_by_id(
+            db,
+            material_id,
+        )
+    )
+
+    if material is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
+    if (
+        getattr(
+            material,
+            "status",
+            "active",
+        ) != "active"
+        or not getattr(
+            material,
+            "is_active",
+            True,
+        )
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
+    can_access = (
+        can_user_access_teacher_material(
+            db,
+            user_id=current_user.id,
+            material_id=material.id,
+        )
+    )
+
+    if not can_access:
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
+    return await private_blob_response(
+        stored_name=(
+            material.stored_name
+        ),
+        original_name=(
+            material.original_name
+        ),
+        mime_type=(
+            material.mime_type
+        ),
+        inline=False,
+    )
+
+@app.get(
+    "/admin/teacher-materials/{material_id}/file",
+)
+async def api_admin_teacher_material_file(
+    material_id: int,
+    current_user: User = Depends(
+        get_admin_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    material = (
+        db.query(
+            TeacherMaterial,
+        )
+        .filter(
+            TeacherMaterial.id ==
+            material_id,
+        )
+        .first()
+    )
+
+    if material is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
+    return await private_blob_response(
+        stored_name=(
+            material.stored_name
+        ),
+        original_name=(
+            material.original_name
+        ),
+        mime_type=(
+            material.mime_type
+        ),
+        inline=True,
+    )
+
+
+@app.get(
+    "/admin/teacher-materials/{material_id}/download",
+)
+async def api_admin_teacher_material_download(
+    material_id: int,
+    current_user: User = Depends(
+        get_admin_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    material = (
+        db.query(
+            TeacherMaterial,
+        )
+        .filter(
+            TeacherMaterial.id ==
+            material_id,
+        )
+        .first()
+    )
+
+    if material is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
+    return await private_blob_response(
+        stored_name=(
+            material.stored_name
+        ),
+        original_name=(
+            material.original_name
+        ),
+        mime_type=(
+            material.mime_type
+        ),
+        inline=False,
+    )
+
+
+@app.get(
+    "/admin/group-materials/{material_id}/file",
+)
+async def api_admin_group_material_file(
+    material_id: int,
+    current_user: User = Depends(
+        get_admin_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    material = (
+        db.query(
+            GroupMaterial,
+        )
+        .filter(
+            GroupMaterial.id ==
+            material_id,
+        )
+        .first()
+    )
+
+    if material is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
+    return await private_blob_response(
+        stored_name=(
+            material.stored_name
+        ),
+        original_name=(
+            material.original_name
+        ),
+        mime_type=(
+            material.mime_type
+        ),
+        inline=True,
+    )
+
+
+@app.get(
+    "/admin/group-materials/{material_id}/download",
+)
+async def api_admin_group_material_download(
+    material_id: int,
+    current_user: User = Depends(
+        get_admin_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    material = (
+        db.query(
+            GroupMaterial,
+        )
+        .filter(
+            GroupMaterial.id ==
+            material_id,
+        )
+        .first()
+    )
+
+    if material is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
+    return await private_blob_response(
+        stored_name=(
+            material.stored_name
+        ),
+        original_name=(
+            material.original_name
+        ),
+        mime_type=(
+            material.mime_type
+        ),
+        inline=False,
     )

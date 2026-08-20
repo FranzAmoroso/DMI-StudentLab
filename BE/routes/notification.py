@@ -30,6 +30,7 @@ from services.notification import (
     mark_all_notifications_as_read,
     mark_notification_as_read,
     mark_notification_as_unread,
+    process_expired_notifications,
 )
 
 
@@ -55,6 +56,10 @@ def api_get_my_notifications(
         get_db,
     ),
 ):
+    process_expired_notifications(
+        db,
+    )
+
     notifications = get_my_notifications(
         db,
         current_user=current_user,
@@ -91,6 +96,10 @@ def api_get_unread_notification_count(
         get_db,
     ),
 ):
+    process_expired_notifications(
+        db,
+    )
+
     unread_count = get_unread_notification_count(
         db,
         current_user=current_user,
@@ -114,6 +123,10 @@ def api_get_notification(
         get_db,
     ),
 ):
+    process_expired_notifications(
+        db,
+    )
+
     return get_notification_by_id(
         db,
         notification_id=notification_id,
@@ -185,6 +198,10 @@ def api_mark_all_notifications_as_read(
         get_db,
     ),
 ):
+    process_expired_notifications(
+        db,
+    )
+
     updated_count = mark_all_notifications_as_read(
         db,
         current_user=current_user,

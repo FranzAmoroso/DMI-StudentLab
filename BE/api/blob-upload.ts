@@ -8,13 +8,21 @@ import type {
   VercelResponse,
 } from '@vercel/node';
 
-const MAX_FILE_SIZE =
+
+const GROUP_MAX_FILE_SIZE =
   250 * 1024 * 1024;
+
+const QUESTION_MAX_FILE_SIZE =
+  50 * 1024 * 1024;
 
 const UPLOAD_URL_LIFETIME_MS =
   15 * 60 * 1000;
 
-const ALLOWED_CONTENT_TYPES = [
+const FILE_HASH_REGEX =
+  /^[a-fA-F0-9]{64}$/;
+
+
+const GROUP_ALLOWED_CONTENT_TYPES = [
   'application/pdf',
   'text/plain',
   'application/zip',
@@ -23,17 +31,204 @@ const ALLOWED_CONTENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 ];
 
+
+const QUESTION_ALLOWED_CONTENT_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+];
+
+
+const TEACHER_ALLOWED_CONTENT_TYPES = [
+  'application/pdf',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+];
+
+
+type UploadKind =
+  | 'group_material'
+  | 'question_attachment'
+  | 'teacher_material';
+
+
 type UploadRequestBody = {
+  upload_kind?: UploadKind;
+  group_id?: number;
+  subject_id?: number;
   pathname: string;
   content_type: string;
   size: number;
+  file_hash: string;
+  attachment_id?: string;
+  upload_token?: string;
 };
+
+
+function getBackendUrl():
+  string | null {
+  const value =
+    process.env
+      .STUDENTLAB_API_URL
+    ??
+    process.env
+      .FASTAPI_BASE_URL
+    ??
+    process.env
+      .API_BASE_URL;
+
+  if (!value) {
+    return null;
+  }
+
+  return value
+    .trim()
+    .replace(
+      /\/+$/,
+      '',
+    );
+}
+
+
+function getAuthorization(
+  request: VercelRequest,
+): string | null {
+  const value =
+    request.headers
+      .authorization;
+
+  if (
+    typeof value !==
+    'string' ||
+    !value
+      .toLowerCase()
+      .startsWith(
+        'bearer ',
+      )
+  ) {
+    return null;
+  }
+
+  return value.trim();
+}
+
+
+function normalizeHash(
+  value: unknown,
+): string | null {
+  if (
+    typeof value !==
+    'string'
+  ) {
+    return null;
+  }
+
+  const normalized =
+    value
+      .trim()
+      .toLowerCase();
+
+  if (
+    !FILE_HASH_REGEX.test(
+      normalized,
+    )
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
+
+
+function safePath(
+  value: string,
+): boolean {
+  return (
+    value.length >
+    0 &&
+    value.length <=
+    1024 &&
+    !value.startsWith(
+      '/',
+    ) &&
+    !value.includes(
+      '..',
+    ) &&
+    !value.includes(
+      '\\',
+    ) &&
+    !value.includes(
+      '\0',
+    ) &&
+    !value.includes(
+      '\r',
+    ) &&
+    !value.includes(
+      '\n',
+    )
+  );
+}
+
+
+async function parseJson(
+  response: Response,
+): Promise<
+  Record<string, unknown>
+> {
+  try {
+    const data =
+      await response.json();
+
+    if (
+      data &&
+      typeof data ===
+      'object' &&
+      !Array.isArray(
+        data,
+      )
+    ) {
+      return data as
+        Record<
+          string,
+          unknown
+        >;
+    }
+  } catch {
+    return {};
+  }
+
+  return {};
+}
+
 
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse,
 ) {
-  if (request.method !== 'POST') {
+  if (
+    request.method !==
+    'POST'
+  ) {
+    response.setHeader(
+      'Allow',
+      'POST',
+    );
+
     return response
       .status(405)
       .json({
@@ -43,35 +238,62 @@ export default async function handler(
   }
 
   const blobToken =
-    process.env.StudentLab_READ_WRITE_TOKEN;
+    process.env
+      .StudentLab_READ_WRITE_TOKEN
+    ??
+    process.env
+      .BLOB_READ_WRITE_TOKEN;
+
+  const backendUrl =
+    getBackendUrl();
+
+  const authorization =
+    getAuthorization(
+      request,
+    );
 
   if (!blobToken) {
     return response
       .status(500)
       .json({
         error:
-          'Servizio di caricamento non configurato.',
+          'Servizio Blob non configurato.',
+      });
+  }
+
+  if (!backendUrl) {
+    return response
+      .status(500)
+      .json({
+        error:
+          'Backend non configurato.',
+      });
+  }
+
+  if (!authorization) {
+    return response
+      .status(401)
+      .json({
+        error:
+          'Autenticazione richiesta.',
       });
   }
 
   try {
-    let body: UploadRequestBody;
-
-    if (
-      typeof request.body === 'string'
-    ) {
-      body =
-        JSON.parse(
-          request.body,
-        ) as UploadRequestBody;
-    } else {
-      body =
-        request.body as UploadRequestBody;
-    }
+    const body =
+      (
+        typeof request.body ===
+        'string'
+          ? JSON.parse(
+              request.body,
+            )
+          : request.body
+      ) as UploadRequestBody;
 
     if (
       !body ||
-      typeof body !== 'object'
+      typeof body !==
+      'object'
     ) {
       return response
         .status(400)
@@ -81,57 +303,47 @@ export default async function handler(
         });
     }
 
-    const {
-      pathname,
-      content_type,
-      size,
-    } = body;
-
     if (
-      typeof pathname !== 'string' ||
-      pathname.trim().length === 0
-    ) {
-      return response
-        .status(400)
-        .json({
-          error:
-            'Percorso del file non valido.',
-        });
-    }
-
-    const normalizedPathname =
-      pathname.trim();
-
-    if (
-      normalizedPathname.startsWith('/') ||
-      normalizedPathname.includes('..') ||
-      normalizedPathname.includes('\\')
-    ) {
-      return response
-        .status(400)
-        .json({
-          error:
-            'Percorso del file non valido.',
-        });
-    }
-
-    if (
-      typeof content_type !== 'string' ||
-      !ALLOWED_CONTENT_TYPES.includes(
-        content_type,
+      typeof body.pathname !==
+      'string' ||
+      !safePath(
+        body.pathname.trim(),
       )
     ) {
       return response
         .status(400)
         .json({
           error:
-            'Tipo di file non supportato.',
+            'Percorso file non valido.',
         });
     }
 
+    const pathname =
+      body.pathname.trim();
+
     if (
-      !Number.isInteger(size) ||
-      size <= 0
+      typeof body.content_type !==
+      'string'
+    ) {
+      return response
+        .status(400)
+        .json({
+          error:
+            'Tipo file non valido.',
+        });
+    }
+
+    const contentType =
+      body.content_type
+        .trim()
+        .toLowerCase();
+
+    if (
+      !Number.isInteger(
+        body.size,
+      ) ||
+      body.size <=
+      0
     ) {
       return response
         .status(400)
@@ -141,17 +353,363 @@ export default async function handler(
         });
     }
 
-    if (
-      size >
-      MAX_FILE_SIZE
-    ) {
+    const fileHash =
+      normalizeHash(
+        body.file_hash,
+      );
+
+    if (!fileHash) {
       return response
-        .status(413)
+        .status(400)
         .json({
           error:
-            'Il file supera la dimensione '
-            + 'massima consentita di 250 MB.',
+            'Hash SHA-256 non valido.',
         });
+    }
+
+    const uploadKind =
+      body.upload_kind
+      ??
+      (
+        pathname.startsWith(
+          'questions/',
+        )
+          ? 'question_attachment'
+          : pathname.startsWith(
+              'teacher-materials/',
+            )
+            ? 'teacher_material'
+            : 'group_material'
+      );
+
+    if (
+      uploadKind ===
+      'question_attachment'
+    ) {
+      if (
+        body.size >
+        QUESTION_MAX_FILE_SIZE
+      ) {
+        return response
+          .status(413)
+          .json({
+            error:
+              'Il file supera la dimensione massima consentita di 50 MB.',
+          });
+      }
+
+      if (
+        !QUESTION_ALLOWED_CONTENT_TYPES.includes(
+          contentType,
+        )
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Tipo di file non supportato.',
+          });
+      }
+
+      if (
+        typeof body.attachment_id !==
+        'string' ||
+        typeof body.upload_token !==
+        'string'
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Autorizzazione upload non valida.',
+          });
+      }
+
+      const verifyResponse =
+        await fetch(
+          `${backendUrl}/question-attachments/verify-upload`,
+          {
+            method:
+              'POST',
+            headers: {
+              Authorization:
+                authorization,
+              'Content-Type':
+                'application/json',
+            },
+            body:
+              JSON.stringify({
+                upload_token:
+                  body.upload_token,
+                pathname,
+                attachment_id:
+                  body.attachment_id,
+                mime_type:
+                  contentType,
+                size:
+                  body.size,
+                file_hash:
+                  fileHash,
+              }),
+          },
+        );
+
+      const verified =
+        await parseJson(
+          verifyResponse,
+        );
+
+      if (
+        !verifyResponse.ok ||
+        verified.allowed !==
+        true ||
+        verified.pathname !==
+        pathname
+      ) {
+        return response
+          .status(
+            verifyResponse.status >=
+            400 &&
+            verifyResponse.status <
+            500
+              ? verifyResponse.status
+              : 403,
+          )
+          .json({
+            error:
+              typeof verified.detail ===
+              'string'
+                ? verified.detail
+                : 'Caricamento non autorizzato.',
+          });
+      }
+    } else if (
+      uploadKind ===
+      'teacher_material'
+    ) {
+      if (
+        !pathname.startsWith(
+          'teacher-materials/',
+        )
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Percorso materiale docente non valido.',
+          });
+      }
+
+      if (
+        body.size >
+        GROUP_MAX_FILE_SIZE
+      ) {
+        return response
+          .status(413)
+          .json({
+            error:
+              'Il file supera la dimensione massima consentita di 250 MB.',
+          });
+      }
+
+      if (
+        !TEACHER_ALLOWED_CONTENT_TYPES.includes(
+          contentType,
+        )
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Tipo di file non supportato.',
+          });
+      }
+
+      if (
+        !Number.isInteger(
+          body.subject_id,
+        ) ||
+        !body.subject_id ||
+        body.subject_id <=
+        0 ||
+        typeof body.upload_token !==
+        'string'
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Autorizzazione upload non valida.',
+          });
+      }
+
+      const verifyResponse =
+        await fetch(
+          `${backendUrl}/teacher/materials/verify-upload`,
+          {
+            method:
+              'POST',
+            headers: {
+              Authorization:
+                authorization,
+              'Content-Type':
+                'application/json',
+            },
+            body:
+              JSON.stringify({
+                subject_id:
+                  body.subject_id,
+                pathname,
+                mime_type:
+                  contentType,
+                size:
+                  body.size,
+                file_hash:
+                  fileHash,
+                upload_token:
+                  body.upload_token,
+              }),
+          },
+        );
+
+      const verified =
+        await parseJson(
+          verifyResponse,
+        );
+
+      if (
+        !verifyResponse.ok ||
+        verified.allowed !==
+        true ||
+        verified.pathname !==
+        pathname ||
+        verified.subject_id !==
+        body.subject_id
+      ) {
+        return response
+          .status(
+            verifyResponse.status >=
+            400 &&
+            verifyResponse.status <
+            500
+              ? verifyResponse.status
+              : 403,
+          )
+          .json({
+            error:
+              typeof verified.detail ===
+              'string'
+                ? verified.detail
+                : 'Caricamento non autorizzato.',
+          });
+      }
+    } else {
+      if (
+        body.size >
+        GROUP_MAX_FILE_SIZE
+      ) {
+        return response
+          .status(413)
+          .json({
+            error:
+              'Il file supera la dimensione massima consentita di 250 MB.',
+          });
+      }
+
+      if (
+        !GROUP_ALLOWED_CONTENT_TYPES.includes(
+          contentType,
+        )
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Tipo di file non supportato.',
+          });
+      }
+
+      if (
+        !Number.isInteger(
+          body.group_id,
+        ) ||
+        !body.group_id ||
+        body.group_id <=
+        0 ||
+        !Number.isInteger(
+          body.uploaded_by,
+        ) ||
+        !body.uploaded_by ||
+        body.uploaded_by <=
+        0 ||
+        typeof body.original_name !==
+        'string'
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Dati caricamento gruppo non validi.',
+          });
+      }
+
+      const authResponse =
+        await fetch(
+          `${backendUrl}/group_material_upload_request/${body.group_id}`,
+          {
+            method:
+              'POST',
+            headers: {
+              Authorization:
+                authorization,
+              'Content-Type':
+                'application/json',
+            },
+            body:
+              JSON.stringify({
+                uploaded_by:
+                  body.uploaded_by,
+                original_name:
+                  body.original_name,
+                mime_type:
+                  contentType,
+                size:
+                  body.size,
+                file_hash:
+                  fileHash,
+              }),
+          },
+        );
+
+      const authorized =
+        await parseJson(
+          authResponse,
+        );
+
+      if (
+        !authResponse.ok ||
+        authorized.allowed !==
+        true ||
+        authorized.pathname !==
+        pathname
+      ) {
+        return response
+          .status(
+            authResponse.status >=
+            400 &&
+            authResponse.status <
+            500
+              ? authResponse.status
+              : 403,
+          )
+          .json({
+            error:
+              typeof authorized.detail ===
+              'string'
+                ? authorized.detail
+                : 'Caricamento non autorizzato.',
+          });
+      }
     }
 
     const validUntil =
@@ -160,22 +718,16 @@ export default async function handler(
 
     const signedToken =
       await issueSignedToken({
-        pathname:
-          normalizedPathname,
-
+        pathname,
         operations: [
           'put',
         ],
-
         validUntil,
-
         maximumSizeInBytes:
-          size,
-
+          body.size,
         allowedContentTypes: [
-          content_type,
+          contentType,
         ],
-
         token:
           blobToken,
       });
@@ -186,60 +738,71 @@ export default async function handler(
       await presignUrl(
         signedToken,
         {
-          pathname:
-            normalizedPathname,
-
+          pathname,
           operation:
             'put',
-
           access:
             'private',
-
           validUntil,
-
           maximumSizeInBytes:
-            size,
-
+            body.size,
           allowedContentTypes: [
-            content_type,
+            contentType,
           ],
-
           addRandomSuffix:
             false,
         },
       );
+
+    if (
+      typeof presignedUrl !==
+      'string' ||
+      !presignedUrl.startsWith(
+        'https://',
+      )
+    ) {
+      return response
+        .status(500)
+        .json({
+          error:
+            'Non è stato possibile preparare un caricamento sicuro.',
+        });
+    }
 
     return response
       .status(200)
       .json({
         allowed:
           true,
-
-        pathname:
-          normalizedPathname,
-
+        upload_kind:
+          uploadKind,
+        pathname,
+        attachment_id:
+          body.attachment_id
+          ?? null,
+        subject_id:
+          uploadKind ===
+          'teacher_material'
+            ? body.subject_id
+              ?? null
+            : null,
         presigned_url:
           presignedUrl,
-
-        content_type,
-
-        size,
-
+        content_type:
+          contentType,
+        size:
+          body.size,
+        file_hash:
+          fileHash,
         valid_until:
           validUntil,
       });
-  } catch (error) {
-    console.error(
-      'StudentLab Blob upload error:',
-      error,
-    );
-
+  } catch {
     return response
       .status(500)
       .json({
         error:
-          'Non è stato possibile preparare '
-          + 'il caricamento del file.',
+          'Non è stato possibile preparare il caricamento del file.',
       });
   }
 }

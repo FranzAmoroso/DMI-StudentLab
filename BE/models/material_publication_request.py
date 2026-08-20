@@ -89,6 +89,23 @@ class MaterialPublicationRequest(Base):
         index=True,
     )
 
+    request_type = Column(
+        String(30),
+        nullable=False,
+        default="new_material",
+        index=True,
+    )
+
+    target_public_material_id = Column(
+        Integer,
+        ForeignKey(
+            "public_materials.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     title = Column(
         String(250),
         nullable=False,
@@ -145,6 +162,13 @@ class MaterialPublicationRequest(Base):
         index=True,
     )
 
+    comparison_status = Column(
+        String(30),
+        nullable=False,
+        default="not_required",
+        index=True,
+    )
+
     possible_duplicate_material_id = Column(
         Integer,
         ForeignKey(
@@ -170,6 +194,7 @@ class MaterialPublicationRequest(Base):
             timezone=True,
         ),
         nullable=True,
+        index=True,
     )
 
     rejection_reason = Column(
@@ -178,6 +203,32 @@ class MaterialPublicationRequest(Base):
     )
 
     admin_note = Column(
+        Text,
+        nullable=True,
+    )
+
+    approved_action = Column(
+        String(40),
+        nullable=True,
+        index=True,
+    )
+
+    approved_public_material_id = Column(
+        Integer,
+        ForeignKey(
+            "public_materials.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    proposed_title = Column(
+        String(250),
+        nullable=True,
+    )
+
+    proposed_description = Column(
         Text,
         nullable=True,
     )
@@ -198,6 +249,7 @@ class MaterialPublicationRequest(Base):
         nullable=False,
         default=utc_now,
         onupdate=utc_now,
+        index=True,
     )
 
     user = relationship(
@@ -218,6 +270,13 @@ class MaterialPublicationRequest(Base):
         ],
     )
 
+    target_public_material = relationship(
+        "PublicMaterial",
+        foreign_keys=[
+            target_public_material_id,
+        ],
+    )
+
     possible_duplicate_material = (
         relationship(
             "PublicMaterial",
@@ -227,7 +286,23 @@ class MaterialPublicationRequest(Base):
         )
     )
 
+    approved_public_material = relationship(
+        "PublicMaterial",
+        foreign_keys=[
+            approved_public_material_id,
+        ],
+    )
+
     __table_args__ = (
+        CheckConstraint(
+            "request_type IN ("
+            "'new_material', "
+            "'update_candidate'"
+            ")",
+            name=(
+                "chk_material_publication_request_type"
+            ),
+        ),
         CheckConstraint(
             "status IN ("
             "'pending', "
@@ -250,9 +325,43 @@ class MaterialPublicationRequest(Base):
             ),
         ),
         CheckConstraint(
+            "comparison_status IN ("
+            "'not_required', "
+            "'pending', "
+            "'same_material', "
+            "'candidate_update', "
+            "'different_material'"
+            ")",
+            name=(
+                "chk_material_publication_request_comparison_status"
+            ),
+        ),
+        CheckConstraint(
+            "approved_action IS NULL OR "
+            "approved_action IN ("
+            "'publish_new', "
+            "'update_existing', "
+            "'keep_existing', "
+            "'publish_separate'"
+            ")",
+            name=(
+                "chk_material_publication_request_approved_action"
+            ),
+        ),
+        CheckConstraint(
             "size > 0",
             name=(
                 "chk_material_publication_request_size"
+            ),
+        ),
+        CheckConstraint(
+            "("
+            "request_type != 'update_candidate'"
+            ") OR ("
+            "target_public_material_id IS NOT NULL"
+            ")",
+            name=(
+                "chk_material_publication_request_update_target"
             ),
         ),
     )

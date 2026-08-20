@@ -1,3 +1,8 @@
+from datetime import (
+    datetime,
+    timezone,
+)
+
 from sqlalchemy.orm import (
     Session,
     joinedload,
@@ -19,10 +24,27 @@ from schemas.group import (
 )
 
 
+GROUP_MANAGER_ROLES = {
+    "owner",
+    "admin",
+}
+
+GROUP_ASSIGNABLE_ROLES = {
+    "admin",
+    "member",
+}
+
+
 def create_group(
     db: Session,
     data: GroupCreate,
+    created_by: int,
 ):
+    if created_by <= 0:
+        raise ValueError(
+            "Utente creatore non valido.",
+        )
+
     group = StudyGroup(
         name=data.name,
         description=data.description,
@@ -31,26 +53,26 @@ def create_group(
         department=data.department,
         course=data.course,
         is_private=data.is_private,
-        created_by=data.created_by,
-    )
-
-    db.add(
-        group,
-    )
-
-    db.flush()
-
-    owner = GroupMember(
-        group_id=group.id,
-        user_id=data.created_by,
-        role="owner",
-    )
-
-    db.add(
-        owner,
+        created_by=created_by,
     )
 
     try:
+        db.add(
+            group,
+        )
+
+        db.flush()
+
+        owner = GroupMember(
+            group_id=group.id,
+            user_id=created_by,
+            role="owner",
+        )
+
+        db.add(
+            owner,
+        )
+
         db.commit()
 
         db.refresh(
@@ -103,6 +125,9 @@ def get_group_by_id(
     db: Session,
     group_id: int,
 ):
+    if group_id <= 0:
+        return None
+
     return (
         db.query(
             StudyGroup,
@@ -126,6 +151,9 @@ def get_public_group_by_id(
     db: Session,
     group_id: int,
 ):
+    if group_id <= 0:
+        return None
+
     return (
         db.query(
             StudyGroup,
@@ -147,6 +175,9 @@ def get_groups_by_user(
     db: Session,
     user_id: int,
 ):
+    if user_id <= 0:
+        return []
+
     return (
         db.query(
             StudyGroup,
@@ -172,6 +203,12 @@ def get_group_member(
     group_id: int,
     user_id: int,
 ):
+    if (
+        group_id <= 0
+        or user_id <= 0
+    ):
+        return None
+
     return (
         db.query(
             GroupMember,
@@ -190,6 +227,9 @@ def get_group_members(
     db: Session,
     group_id: int,
 ):
+    if group_id <= 0:
+        return []
+
     return (
         db.query(
             GroupMember,
@@ -214,6 +254,9 @@ def get_available_group_members(
     db: Session,
     group_id: int,
 ):
+    if group_id <= 0:
+        return []
+
     return (
         db.query(
             GroupMember,
@@ -278,10 +321,46 @@ def add_group_member(
     user_id: int,
     role: str = "member",
 ):
+    if group_id <= 0:
+        raise ValueError(
+            "Gruppo non valido.",
+        )
+
+    if user_id <= 0:
+        raise ValueError(
+            "Utente non valido.",
+        )
+
+    normalized_role = (
+        role
+        .strip()
+        .lower()
+    )
+
+    if (
+        normalized_role
+        not in
+        GROUP_ASSIGNABLE_ROLES
+    ):
+        raise ValueError(
+            "Ruolo del gruppo non valido.",
+        )
+
+    existing_member = get_group_member(
+        db,
+        group_id,
+        user_id,
+    )
+
+    if existing_member is not None:
+        raise ValueError(
+            "L'utente appartiene già al gruppo.",
+        )
+
     member = GroupMember(
         group_id=group_id,
         user_id=user_id,
-        role=role,
+        role=normalized_role,
     )
 
     try:
@@ -306,6 +385,11 @@ def remove_group_member(
     db: Session,
     member: GroupMember,
 ):
+    if member.role == "owner":
+        raise ValueError(
+            "Il proprietario non può essere rimosso dal gruppo.",
+        )
+
     try:
         db.delete(
             member,
@@ -353,7 +437,27 @@ def update_group_member_role(
     member: GroupMember,
     role: str,
 ):
-    member.role = role
+    normalized_role = (
+        role
+        .strip()
+        .lower()
+    )
+
+    if member.role == "owner":
+        raise ValueError(
+            "Il ruolo del proprietario non può essere modificato.",
+        )
+
+    if (
+        normalized_role
+        not in
+        GROUP_ASSIGNABLE_ROLES
+    ):
+        raise ValueError(
+            "Ruolo del gruppo non valido.",
+        )
+
+    member.role = normalized_role
 
     try:
         db.commit()
@@ -389,6 +493,9 @@ def is_group_public(
     db: Session,
     group_id: int,
 ) -> bool:
+    if group_id <= 0:
+        return False
+
     group = (
         db.query(
             StudyGroup,
@@ -422,10 +529,10 @@ def is_group_admin(
     if member is None:
         return False
 
-    return member.role in [
-        "owner",
-        "admin",
-    ]
+    return (
+        member.role
+        in GROUP_MANAGER_ROLES
+    )
 
 
 def is_group_owner(
@@ -442,7 +549,10 @@ def is_group_owner(
     if member is None:
         return False
 
-    return member.role == "owner"
+    return (
+        member.role ==
+        "owner"
+    )
 
 
 def create_group_join_request(
@@ -450,6 +560,75 @@ def create_group_join_request(
     group_id: int,
     user_id: int,
 ):
+    if group_id <= 0:
+        raise ValueError(
+            "Gruppo non valido.",
+        )
+
+    if user_id <= 0:
+        raise ValueError(
+            "Utente non valido.",
+        )
+
+    member = get_group_member(
+        db,
+        group_id,
+        user_id,
+    )
+
+    if member is not None:
+        raise ValueError(
+            "L'utente appartiene già al gruppo.",
+        )
+
+    existing_request = (
+        get_group_join_request(
+            db,
+            group_id,
+            user_id,
+        )
+    )
+
+    if existing_request is not None:
+        if (
+            existing_request.status ==
+            "pending"
+        ):
+            raise ValueError(
+                "Richiesta già inviata.",
+            )
+
+        existing_request.status = (
+            "pending"
+        )
+
+        existing_request.reviewed_by = (
+            None
+        )
+
+        existing_request.reviewed_at = (
+            None
+        )
+
+        existing_request.updated_at = (
+            datetime.now(
+                timezone.utc,
+            )
+        )
+
+        try:
+            db.commit()
+
+            db.refresh(
+                existing_request,
+            )
+
+            return existing_request
+
+        except Exception:
+            db.rollback()
+            raise
+
     request = GroupJoinRequest(
         group_id=group_id,
         user_id=user_id,
@@ -479,6 +658,12 @@ def get_group_join_request(
     group_id: int,
     user_id: int,
 ):
+    if (
+        group_id <= 0
+        or user_id <= 0
+    ):
+        return None
+
     return (
         db.query(
             GroupJoinRequest,
@@ -497,6 +682,9 @@ def get_group_join_request_by_id(
     db: Session,
     request_id: int,
 ):
+    if request_id <= 0:
+        return None
+
     return (
         db.query(
             GroupJoinRequest,
@@ -513,6 +701,9 @@ def get_group_join_requests(
     db: Session,
     group_id: int,
 ):
+    if group_id <= 0:
+        return []
+
     return (
         db.query(
             GroupJoinRequest,
@@ -533,7 +724,27 @@ def get_group_join_requests(
 def accept_group_join_request(
     db: Session,
     request: GroupJoinRequest,
+    reviewed_by: int | None = None,
 ):
+    if (
+        request.status !=
+        "pending"
+    ):
+        raise ValueError(
+            "La richiesta è già stata elaborata.",
+        )
+
+    existing_member = get_group_member(
+        db,
+        request.group_id,
+        request.user_id,
+    )
+
+    if existing_member is not None:
+        raise ValueError(
+            "L'utente appartiene già al gruppo.",
+        )
+
     member = GroupMember(
         group_id=request.group_id,
         user_id=request.user_id,
@@ -541,6 +752,22 @@ def accept_group_join_request(
     )
 
     request.status = "accepted"
+
+    request.reviewed_by = (
+        reviewed_by
+    )
+
+    request.reviewed_at = (
+        datetime.now(
+            timezone.utc,
+        )
+    )
+
+    request.updated_at = (
+        datetime.now(
+            timezone.utc,
+        )
+    )
 
     try:
         db.add(
@@ -563,8 +790,33 @@ def accept_group_join_request(
 def reject_group_join_request(
     db: Session,
     request: GroupJoinRequest,
+    reviewed_by: int | None = None,
 ):
+    if (
+        request.status !=
+        "pending"
+    ):
+        raise ValueError(
+            "La richiesta è già stata elaborata.",
+        )
+
     request.status = "rejected"
+
+    request.reviewed_by = (
+        reviewed_by
+    )
+
+    request.reviewed_at = (
+        datetime.now(
+            timezone.utc,
+        )
+    )
+
+    request.updated_at = (
+        datetime.now(
+            timezone.utc,
+        )
+    )
 
     try:
         db.commit()

@@ -32,6 +32,22 @@ class TeacherMaterial(Base):
             "visibility IN ('students', 'private')",
             name="chk_teacher_material_visibility",
         ),
+        CheckConstraint(
+            "status IN ('active', 'hidden', 'removed')",
+            name="chk_teacher_material_status",
+        ),
+        CheckConstraint(
+            "version >= 1",
+            name="chk_teacher_material_version",
+        ),
+        CheckConstraint(
+            "("
+            "status != 'removed'"
+            ") OR ("
+            "is_active = false"
+            ")",
+            name="chk_teacher_material_removed_active",
+        ),
     )
 
     id = Column(
@@ -100,6 +116,23 @@ class TeacherMaterial(Base):
     file_hash = Column(
         String(64),
         nullable=True,
+        index=True,
+    )
+
+    version = Column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+        index=True,
+    )
+
+    status = Column(
+        String(30),
+        nullable=False,
+        default="active",
+        server_default="active",
+        index=True,
     )
 
     visibility = Column(
@@ -107,6 +140,7 @@ class TeacherMaterial(Base):
         nullable=False,
         default="students",
         server_default="students",
+        index=True,
     )
 
     is_active = Column(
@@ -117,17 +151,56 @@ class TeacherMaterial(Base):
         index=True,
     )
 
+    updated_by = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    removed_by = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    removed_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    removal_reason = Column(
+        Text,
+        nullable=True,
+    )
+
     created_at = Column(
-        DateTime(timezone=True),
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         server_default=func.now(),
+        index=True,
     )
 
     updated_at = Column(
-        DateTime(timezone=True),
+        DateTime(
+            timezone=True,
+        ),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+        index=True,
     )
 
     subject = relationship(
@@ -141,5 +214,19 @@ class TeacherMaterial(Base):
         "User",
         foreign_keys=[
             uploaded_by,
+        ],
+    )
+
+    updater = relationship(
+        "User",
+        foreign_keys=[
+            updated_by,
+        ],
+    )
+
+    remover = relationship(
+        "User",
+        foreign_keys=[
+            removed_by,
         ],
     )

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from models.filter import Filter, Answer
 
-from services.filter import (
+from BE.services.quiz_service import (
     shuffle_filter,
     validate_answer,
 )

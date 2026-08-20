@@ -1,32 +1,45 @@
 from pydantic import BaseModel, Field
 
 
-class Filter(BaseModel):
+class QuizFilterRequest(BaseModel):
     department: str
     course: str
-    sub: str
+    subject: str
+
     arguments: list[str] = Field(default_factory=list)
+
+    all_arguments: bool = False
+
     number_of_questions: int | None = None
 
+    time_limit_seconds: int | None = None
 
-class Answer(BaseModel):
-    idQuestion: str
-    idChoice: str
+
+class AnswerRequest(BaseModel):
+    id_question: str
+    id_choice: str
+
     department: str
-    sub: str
+    course: str
+    subject: str
 
 
 class QuestionCountRequest(BaseModel):
     department: str
     course: str
-    sub: str
+    subject: str
+
     arguments: list[str] = Field(default_factory=list)
+
+    all_arguments: bool = False
+
 
 class SubjectRequest(BaseModel):
     department: str
     course: str
 
+
 class ArgumentsRequest(BaseModel):
     department: str
     course: str
-    sub: str
+    subject: str

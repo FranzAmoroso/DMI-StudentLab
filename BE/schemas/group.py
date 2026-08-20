@@ -1,44 +1,165 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    field_validator,
 )
 
 
 class GroupCreate(BaseModel):
-    name: str
+    name: str = Field(
+        min_length=1,
+        max_length=150,
+    )
 
-    description: str | None = None
+    description: str | None = Field(
+        default=None,
+        max_length=5000,
+    )
 
-    subject_id: int | None = None
+    subject_id: int | None = Field(
+        default=None,
+        gt=0,
+    )
 
-    university: str
+    university: str = Field(
+        min_length=1,
+        max_length=150,
+    )
 
-    department: str
+    department: str = Field(
+        min_length=1,
+        max_length=150,
+    )
 
-    course: str
+    course: str = Field(
+        min_length=1,
+        max_length=150,
+    )
 
     is_private: bool = False
 
-    created_by: int
+    @field_validator(
+        "name",
+        "university",
+        "department",
+        "course",
+    )
+    @classmethod
+    def normalize_required_text(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip()
+
+        if not normalized:
+            raise ValueError(
+                "Il campo non può essere vuoto.",
+            )
+
+        return normalized
+
+    @field_validator(
+        "description",
+    )
+    @classmethod
+    def normalize_description(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+
+        return (
+            normalized
+            if normalized
+            else None
+        )
 
 
 class GroupUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=150,
+    )
 
-    description: str | None = None
+    description: str | None = Field(
+        default=None,
+        max_length=5000,
+    )
 
-    subject_id: int | None = None
+    subject_id: int | None = Field(
+        default=None,
+        gt=0,
+    )
 
-    university: str | None = None
+    university: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=150,
+    )
 
-    department: str | None = None
+    department: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=150,
+    )
 
-    course: str | None = None
+    course: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=150,
+    )
 
     is_private: bool | None = None
+
+    @field_validator(
+        "name",
+        "university",
+        "department",
+        "course",
+    )
+    @classmethod
+    def normalize_optional_required_text(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+
+        if not normalized:
+            raise ValueError(
+                "Il campo non può essere vuoto.",
+            )
+
+        return normalized
+
+    @field_validator(
+        "description",
+    )
+    @classmethod
+    def normalize_optional_description(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+
+        return (
+            normalized
+            if normalized
+            else None
+        )
 
 
 class GroupMemberResponse(BaseModel):
@@ -48,9 +169,15 @@ class GroupMemberResponse(BaseModel):
 
     id: int
 
+    group_id: int
+
     user_id: int
 
-    role: str
+    role: Literal[
+        "owner",
+        "admin",
+        "member",
+    ]
 
     joined_at: datetime
 
@@ -92,7 +219,11 @@ class PublicGroupMemberResponse(BaseModel):
 
     user_id: int
 
-    role: str
+    role: Literal[
+        "owner",
+        "admin",
+        "member",
+    ]
 
     joined_at: datetime
 
@@ -120,9 +251,21 @@ class GroupResponse(BaseModel):
 
     is_private: bool
 
+    status: Literal[
+        "active",
+        "pending_deletion",
+        "deleted",
+    ]
+
+    deletion_requested_at: datetime | None
+
+    deletion_deadline: datetime | None
+
     created_by: int
 
     created_at: datetime
+
+    updated_at: datetime
 
 
 class PublicGroupResponse(BaseModel):
@@ -143,6 +286,8 @@ class PublicGroupResponse(BaseModel):
     department: str
 
     course: str
+
+    created_by: int
 
     created_at: datetime
 
@@ -168,20 +313,34 @@ class PublicGroupDetailResponse(
 
 
 class AddGroupMemberRequest(BaseModel):
-    user_id: int
+    user_id: int = Field(
+        gt=0,
+    )
 
-    role: str = "member"
-
-
-class ChangeGroupMemberRoleRequest(BaseModel):
-    role: str
-
-
-class GroupJoinRequestCreate(BaseModel):
-    user_id: int
+    role: Literal[
+        "admin",
+        "member",
+    ] = "member"
 
 
-class GroupJoinRequestResponse(BaseModel):
+class ChangeGroupMemberRoleRequest(
+    BaseModel,
+):
+    role: Literal[
+        "admin",
+        "member",
+    ]
+
+
+class GroupJoinRequestCreate(
+    BaseModel,
+):
+    pass
+
+
+class GroupJoinRequestResponse(
+    BaseModel,
+):
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -192,9 +351,20 @@ class GroupJoinRequestResponse(BaseModel):
 
     user_id: int
 
-    status: str
+    status: Literal[
+        "pending",
+        "accepted",
+        "rejected",
+        "cancelled",
+    ]
+
+    reviewed_by: int | None
+
+    reviewed_at: datetime | None
 
     created_at: datetime
+
+    updated_at: datetime
 
 
 class JoinGroupResponse(BaseModel):

@@ -320,6 +320,64 @@ class User(Base):
         order_by="UserPolicyAcceptance.accepted_at.desc()",
     )
 
+    authored_group_news = relationship(
+        "GroupNews",
+        foreign_keys="GroupNews.author_user_id",
+        cascade="all, delete-orphan",
+        order_by="GroupNews.created_at.desc()",
+    )
+
+    received_private_group_news = relationship(
+        "GroupNews",
+        foreign_keys="GroupNews.recipient_user_id",
+        order_by="GroupNews.created_at.desc()",
+    )
+
+    deleted_group_news = relationship(
+        "GroupNews",
+        foreign_keys="GroupNews.deleted_by_user_id",
+        order_by="GroupNews.deleted_at.desc()",
+    )
+
+    moderated_group_news = relationship(
+        "GroupNews",
+        foreign_keys="GroupNews.moderated_by_user_id",
+        order_by="GroupNews.moderated_at.desc()",
+    )
+
+    sent_group_news_reports = relationship(
+        "GroupNewsReport",
+        foreign_keys="GroupNewsReport.reporter_user_id",
+        cascade="all, delete-orphan",
+        order_by="GroupNewsReport.created_at.desc()",
+    )
+
+    received_group_news_reports = relationship(
+        "GroupNewsReport",
+        foreign_keys="GroupNewsReport.reported_author_user_id",
+        order_by="GroupNewsReport.created_at.desc()",
+    )
+
+    reviewed_group_news_reports = relationship(
+        "GroupNewsReport",
+        foreign_keys="GroupNewsReport.reviewed_by_user_id",
+        order_by="GroupNewsReport.reviewed_at.desc()",
+    )
+
+    blocked_users = relationship(
+        "UserBlock",
+        foreign_keys="UserBlock.blocker_user_id",
+        cascade="all, delete-orphan",
+        order_by="UserBlock.created_at.desc()",
+    )
+
+    blocked_by_users = relationship(
+        "UserBlock",
+        foreign_keys="UserBlock.blocked_user_id",
+        cascade="all, delete-orphan",
+        order_by="UserBlock.created_at.desc()",
+    )
+
 
 class UserAcademicPath(Base):
     __tablename__ = "user_academic_paths"

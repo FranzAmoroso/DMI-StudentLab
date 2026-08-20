@@ -7,8 +7,29 @@ from models.notification import Notification
 from models.user import User
 
 
+VALID_ACTION_STATUSES = {
+    "none",
+    "pending",
+    "accepted",
+    "rejected",
+    "expired",
+    "completed",
+    "cancelled",
+}
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _validate_action_status(
+    action_status: str,
+) -> None:
+    if action_status not in VALID_ACTION_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Stato azione della notifica non valido.",
+        )
 
 
 def create_notification(
@@ -26,6 +47,10 @@ def create_notification(
     expires_at: datetime | None = None,
     commit: bool = True,
 ) -> Notification:
+    _validate_action_status(
+        action_status,
+    )
+
     user = (
         db.query(User)
         .filter(
@@ -75,14 +100,14 @@ def get_my_notifications(
     limit: int = 50,
     offset: int = 0,
 ) -> list[Notification]:
-    if limit < 1:
-        limit = 1
-
-    if limit > 100:
-        limit = 100
-
-    if offset < 0:
-        offset = 0
+    limit = max(
+        1,
+        min(limit, 100),
+    )
+    offset = max(
+        0,
+        offset,
+    )
 
     query = (
         db.query(Notification)
@@ -229,21 +254,9 @@ def update_notification_action_status(
     mark_as_read: bool = True,
     commit: bool = True,
 ) -> Notification:
-    valid_statuses = {
-        "none",
-        "pending",
-        "accepted",
-        "rejected",
-        "expired",
-        "completed",
-        "cancelled",
-    }
-
-    if action_status not in valid_statuses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Stato azione della notifica non valido.",
-        )
+    _validate_action_status(
+        action_status,
+    )
 
     notification = (
         db.query(Notification)
@@ -285,21 +298,9 @@ def update_notification_action_status_by_resource(
     mark_as_read: bool = True,
     commit: bool = True,
 ) -> Notification | None:
-    valid_statuses = {
-        "none",
-        "pending",
-        "accepted",
-        "rejected",
-        "expired",
-        "completed",
-        "cancelled",
-    }
-
-    if action_status not in valid_statuses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Stato azione della notifica non valido.",
-        )
+    _validate_action_status(
+        action_status,
+    )
 
     notification = (
         db.query(Notification)
@@ -332,6 +333,159 @@ def update_notification_action_status_by_resource(
         db.flush()
 
     return notification
+
+
+def update_notifications_action_status_by_resource(
+    db: Session,
+    action_type: str,
+    action_resource_id: int,
+    action_status: str,
+    *,
+    current_statuses: set[str] | None = None,
+    mark_as_read: bool = False,
+    commit: bool = True,
+) -> int:
+    _validate_action_status(
+        action_status,
+    )
+
+    query = (
+        db.query(Notification)
+        .filter(
+            Notification.action_type == action_type,
+            Notification.action_resource_id == action_resource_id,
+        )
+    )
+
+    if current_statuses:
+        query = query.filter(
+            Notification.action_status.in_(
+                current_statuses
+            )
+        )
+
+    notifications = query.all()
+
+    if not notifications:
+        return 0
+
+    now = _now()
+
+    for notification in notifications:
+        notification.action_status = action_status
+        notification.updated_at = now
+
+        if mark_as_read:
+            notification.is_read = True
+            notification.read_at = now
+
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+
+    return len(notifications)
+
+
+def update_user_notification_action_status_by_resource(
+    db: Session,
+    user_id: int,
+    action_type: str,
+    action_resource_id: int,
+    action_status: str,
+    *,
+    current_statuses: set[str] | None = None,
+    mark_as_read: bool = True,
+    commit: bool = True,
+) -> Notification | None:
+    _validate_action_status(
+        action_status,
+    )
+
+    query = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == user_id,
+            Notification.action_type == action_type,
+            Notification.action_resource_id == action_resource_id,
+        )
+    )
+
+    if current_statuses:
+        query = query.filter(
+            Notification.action_status.in_(
+                current_statuses
+            )
+        )
+
+    notification = (
+        query
+        .order_by(
+            Notification.created_at.desc(),
+        )
+        .first()
+    )
+
+    if notification is None:
+        return None
+
+    now = _now()
+
+    notification.action_status = action_status
+    notification.updated_at = now
+
+    if mark_as_read:
+        notification.is_read = True
+        notification.read_at = now
+
+    if commit:
+        db.commit()
+        db.refresh(notification)
+    else:
+        db.flush()
+
+    return notification
+
+
+def update_notifications_expiration_by_resource(
+    db: Session,
+    action_type: str,
+    action_resource_id: int,
+    expires_at: datetime | None,
+    *,
+    only_pending: bool = True,
+    commit: bool = True,
+) -> int:
+    query = (
+        db.query(Notification)
+        .filter(
+            Notification.action_type == action_type,
+            Notification.action_resource_id == action_resource_id,
+        )
+    )
+
+    if only_pending:
+        query = query.filter(
+            Notification.action_status == "pending",
+        )
+
+    notifications = query.all()
+
+    if not notifications:
+        return 0
+
+    now = _now()
+
+    for notification in notifications:
+        notification.expires_at = expires_at
+        notification.updated_at = now
+
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+
+    return len(notifications)
 
 
 def expire_notification_if_needed(
@@ -377,16 +531,16 @@ def process_expired_notifications(
         .all()
     )
 
-    count = 0
+    if not notifications:
+        return 0
 
     for notification in notifications:
         notification.action_status = "expired"
         notification.updated_at = now
-        count += 1
 
     db.commit()
 
-    return count
+    return len(notifications)
 
 
 def delete_notification(

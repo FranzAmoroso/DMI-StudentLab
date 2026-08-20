@@ -1,12 +1,23 @@
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import (
     BaseModel,
     ConfigDict,
 )
 
 
-class PublicMaterialResponse(BaseModel):
+PublicMaterialStatus = Literal[
+    "published",
+    "hidden",
+    "removed",
+]
+
+
+class PublicMaterialResponse(
+    BaseModel,
+):
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -41,7 +52,11 @@ class PublicMaterialResponse(BaseModel):
 
     size: int
 
-    status: str
+    file_hash: str
+
+    version: int
+
+    status: PublicMaterialStatus
 
     is_visible: bool
 
@@ -59,6 +74,10 @@ class PublicMaterialAdminResponse(
 
     file_path: str
 
-    file_hash: str
-
     approved_by: int | None
+
+    removed_by: int | None
+
+    removed_at: datetime | None
+
+    removal_reason: str | None

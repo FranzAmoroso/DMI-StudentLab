@@ -143,6 +143,13 @@ class PublicMaterial(Base):
         index=True,
     )
 
+    version = Column(
+        Integer,
+        nullable=False,
+        default=1,
+        index=True,
+    )
+
     status = Column(
         String(30),
         nullable=False,
@@ -174,6 +181,29 @@ class PublicMaterial(Base):
         nullable=True,
     )
 
+    removed_by = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    removed_at = Column(
+        DateTime(
+            timezone=True,
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    removal_reason = Column(
+        Text,
+        nullable=True,
+    )
+
     created_at = Column(
         DateTime(
             timezone=True,
@@ -190,6 +220,7 @@ class PublicMaterial(Base):
         nullable=False,
         default=utc_now,
         onupdate=utc_now,
+        index=True,
     )
 
     subject = relationship(
@@ -207,6 +238,13 @@ class PublicMaterial(Base):
         "User",
         foreign_keys=[
             approved_by,
+        ],
+    )
+
+    remover = relationship(
+        "User",
+        foreign_keys=[
+            removed_by,
         ],
     )
 
@@ -232,6 +270,22 @@ class PublicMaterial(Base):
             "size > 0",
             name=(
                 "chk_public_material_size"
+            ),
+        ),
+        CheckConstraint(
+            "version >= 1",
+            name=(
+                "chk_public_material_version"
+            ),
+        ),
+        CheckConstraint(
+            "("
+            "status != 'removed'"
+            ") OR ("
+            "is_visible = false"
+            ")",
+            name=(
+                "chk_public_material_removed_visibility"
             ),
         ),
     )

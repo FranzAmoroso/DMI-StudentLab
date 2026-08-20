@@ -4,20 +4,8 @@ from fastapi import (
     HTTPException,
 )
 
-from fastapi.responses import (
-    Response,
-)
-
 from sqlalchemy.orm import (
     Session,
-)
-
-from vercel.blob import (
-    AsyncBlobClient,
-)
-
-from core.config import (
-    settings,
 )
 
 from core.database import (
@@ -37,6 +25,10 @@ from schemas.public_material import (
     PublicMaterialResponse,
 )
 
+from services.private_blob import (
+    private_blob_response,
+)
+
 from services.public_material import (
     get_admin_public_materials,
     get_public_material_by_id,
@@ -51,119 +43,6 @@ from services.public_material import (
 
 
 router = APIRouter()
-
-
-def require_blob_storage():
-    if not settings.blob_read_write_token:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Il servizio dei materiali "
-                "è temporaneamente non disponibile."
-            ),
-        )
-
-
-def _safe_file_name(
-    original_name: str,
-) -> str:
-    return (
-        original_name
-        .replace(
-            '"',
-            "",
-        )
-        .replace(
-            "\r",
-            "",
-        )
-        .replace(
-            "\n",
-            "",
-        )
-        .strip()
-    )
-
-
-async def stream_public_material(
-    *,
-    stored_name: str,
-    original_name: str,
-    mime_type: str,
-    inline: bool = False,
-):
-    require_blob_storage()
-
-    try:
-        async with AsyncBlobClient(
-            token=(
-                settings.blob_read_write_token
-            ),
-        ) as client:
-            result = await client.get(
-                stored_name,
-                access="private",
-            )
-
-    except Exception as exception:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Il file è temporaneamente "
-                "non disponibile."
-            ),
-        ) from exception
-
-    if (
-        result is None
-        or result.status_code != 200
-    ):
-        raise HTTPException(
-            status_code=404,
-            detail="File non disponibile.",
-        )
-
-    disposition = (
-        "inline"
-        if inline
-        else "attachment"
-    )
-
-    safe_original_name = (
-        _safe_file_name(
-            original_name,
-        )
-    )
-
-    if not safe_original_name:
-        safe_original_name = (
-            "materiale"
-        )
-
-    response_mime_type = (
-        result.content_type
-        if result.content_type
-        else mime_type
-    )
-
-    headers = {
-        "Content-Disposition": (
-            f'{disposition}; '
-            f'filename="{safe_original_name}"'
-        ),
-        "X-Content-Type-Options": (
-            "nosniff"
-        ),
-        "Cache-Control": (
-            "private, no-store"
-        ),
-    }
-
-    return Response(
-        content=result.content,
-        media_type=response_mime_type,
-        headers=headers,
-    )
 
 
 @router.get(
@@ -295,7 +174,7 @@ async def api_public_material_view(
             detail="Materiale non trovato.",
         )
 
-    return await stream_public_material(
+    return await private_blob_response(
         stored_name=(
             material.stored_name
         ),
@@ -331,7 +210,7 @@ async def api_public_material_download(
             detail="Materiale non trovato.",
         )
 
-    return await stream_public_material(
+    return await private_blob_response(
         stored_name=(
             material.stored_name
         ),
@@ -437,7 +316,7 @@ async def api_admin_public_material_file(
             detail="Materiale non trovato.",
         )
 
-    return await stream_public_material(
+    return await private_blob_response(
         stored_name=(
             material.stored_name
         ),
@@ -448,6 +327,45 @@ async def api_admin_public_material_file(
             material.mime_type
         ),
         inline=True,
+    )
+
+
+@router.get(
+    "/admin/public_materials/{material_id}/download",
+)
+async def api_admin_public_material_download(
+    material_id: int,
+    current_user: User = Depends(
+        get_admin_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    material = (
+        get_public_material_by_id(
+            db,
+            material_id,
+        )
+    )
+
+    if material is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Materiale non trovato.",
+        )
+
+    return await private_blob_response(
+        stored_name=(
+            material.stored_name
+        ),
+        original_name=(
+            material.original_name
+        ),
+        mime_type=(
+            material.mime_type
+        ),
+        inline=False,
     )
 
 

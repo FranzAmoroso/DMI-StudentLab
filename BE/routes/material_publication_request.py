@@ -7,24 +7,12 @@ from fastapi import (
     HTTPException,
 )
 
-from fastapi.responses import (
-    Response,
-)
-
 from sqlalchemy.exc import (
     IntegrityError,
 )
 
 from sqlalchemy.orm import (
     Session,
-)
-
-from vercel.blob import (
-    AsyncBlobClient,
-)
-
-from core.config import (
-    settings,
 )
 
 from core.database import (
@@ -70,6 +58,11 @@ from services.material_publication_request import (
     validate_publication_material_size,
 )
 
+from services.private_blob import (
+    private_blob_response,
+    verify_private_blob,
+)
+
 from services.public_material import (
     get_public_material_by_id,
 )
@@ -113,180 +106,6 @@ def validate_publication_storage_path(
         raise ValueError(
             "Percorso del materiale non valido.",
         )
-
-
-def require_blob_storage():
-    if not settings.blob_read_write_token:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Servizio file temporaneamente "
-                "non disponibile."
-            ),
-        )
-
-
-async def verify_uploaded_blob(
-    *,
-    stored_name: str,
-    expected_size: int,
-    expected_mime_type: str,
-):
-    require_blob_storage()
-
-    try:
-        async with AsyncBlobClient(
-            token=(
-                settings.blob_read_write_token
-            ),
-        ) as client:
-            result = await client.get(
-                stored_name,
-                access="private",
-            )
-
-    except Exception as exception:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Il file non risulta caricato "
-                "correttamente."
-            ),
-        ) from exception
-
-    if (
-        result is None
-        or result.status_code != 200
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Il file caricato non è "
-                "disponibile."
-            ),
-        )
-
-    if (
-        result.size is not None
-        and result.size != expected_size
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "La dimensione del file "
-                "caricato non corrisponde "
-                "alla richiesta."
-            ),
-        )
-
-    if result.content_type is not None:
-        actual_content_type = (
-            result.content_type
-            .split(
-                ";",
-                1,
-            )[0]
-            .strip()
-            .lower()
-        )
-
-        expected_content_type = (
-            expected_mime_type
-            .strip()
-            .lower()
-        )
-
-        if (
-            actual_content_type
-            != expected_content_type
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Il tipo del file caricato "
-                    "non corrisponde alla richiesta."
-                ),
-            )
-
-    return result
-
-
-async def stream_private_blob(
-    *,
-    stored_name: str,
-    original_name: str,
-    mime_type: str,
-):
-    require_blob_storage()
-
-    try:
-        async with AsyncBlobClient(
-            token=(
-                settings.blob_read_write_token
-            ),
-        ) as client:
-            result = await client.get(
-                stored_name,
-                access="private",
-            )
-
-    except Exception as exception:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Il file è temporaneamente "
-                "non disponibile."
-            ),
-        ) from exception
-
-    if (
-        result is None
-        or result.status_code != 200
-    ):
-        raise HTTPException(
-            status_code=404,
-            detail="File non disponibile.",
-        )
-
-    response_mime_type = (
-        result.content_type
-        if result.content_type
-        else mime_type
-    )
-
-    safe_original_name = (
-        original_name
-        .replace(
-            '"',
-            "",
-        )
-        .replace(
-            "\r",
-            "",
-        )
-        .replace(
-            "\n",
-            "",
-        )
-    )
-
-    headers = {
-        "Content-Disposition": (
-            f'inline; filename="{safe_original_name}"'
-        ),
-        "X-Content-Type-Options": (
-            "nosniff"
-        ),
-        "Cache-Control": (
-            "private, no-store"
-        ),
-    }
-
-    return Response(
-        content=result.content,
-        media_type=response_mime_type,
-        headers=headers,
-    )
 
 
 @router.post(
@@ -396,7 +215,7 @@ async def api_material_publication_complete(
             request.mime_type,
         )
 
-        await verify_uploaded_blob(
+        await verify_private_blob(
             stored_name=(
                 request.stored_name
             ),
@@ -624,7 +443,7 @@ async def api_admin_material_publication_file(
             detail="Richiesta non trovata.",
         )
 
-    return await stream_private_blob(
+    return await private_blob_response(
         stored_name=(
             publication_request.stored_name
         ),
@@ -634,6 +453,7 @@ async def api_admin_material_publication_file(
         mime_type=(
             publication_request.mime_type
         ),
+        inline=True,
     )
 
 
@@ -740,7 +560,7 @@ async def api_admin_possible_duplicate_material_file(
             ),
         )
 
-    return await stream_private_blob(
+    return await private_blob_response(
         stored_name=(
             material.stored_name
         ),
@@ -750,6 +570,7 @@ async def api_admin_possible_duplicate_material_file(
         mime_type=(
             material.mime_type
         ),
+        inline=True,
     )
 
 

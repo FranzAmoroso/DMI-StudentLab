@@ -1,0 +1,2810 @@
+[
+  {
+    "id_question": "1",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Algebra booleana",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Quali sono le tre funzioni logiche fondamentali dell'algebra booleana?",
+    "option": [
+      {
+        "id": "a",
+        "text": "SOP, POS, KMAP"
+      },
+      {
+        "id": "b",
+        "text": "AND, XOR, NAND"
+      },
+      {
+        "id": "c",
+        "text": "NOR, NAND, XOR"
+      },
+      {
+        "id": "d",
+        "text": "OR, AND, NOT"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Le operazioni fondamentali dell'algebra booleana sono OR, AND e NOT.",
+    "informal_explanation": "In breve, la risposta da ricordare è: OR, AND, NOT.",
+    "question_response_explanation": "La risposta corretta è \"OR, AND, NOT\" perché le operazioni fondamentali dell'algebra booleana sono OR, AND e NOT. Le altre opzioni non descrivono correttamente il concetto richiesto dalla domanda."
+  },
+  {
+    "id_question": "2",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Aritmetica binaria",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nell'algoritmo di Booth, come viene ricodificato il moltiplicatore?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Convertendolo prima in virgola mobile"
+      },
+      {
+        "id": "b",
+        "text": "Come somma diretta di tutti i suoi bit"
+      },
+      {
+        "id": "c",
+        "text": "Estraendo solo i bit dispari"
+      },
+      {
+        "id": "d",
+        "text": "Come somma e sottrazione di potenze di 2, riducendo il numero di addizioni"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "L'algoritmo di Booth ricodifica sequenze del moltiplicatore usando somme e sottrazioni di potenze di due, riducendo il numero di operazioni.",
+    "informal_explanation": "In breve, la risposta da ricordare è: Come somma e sottrazione di potenze di 2, riducendo il numero di addizioni.",
+    "question_response_explanation": "La risposta corretta è \"Come somma e sottrazione di potenze di 2, riducendo il numero di addizioni\" perché l'algoritmo di Booth ricodifica sequenze del moltiplicatore usando somme e sottrazioni di potenze di due, riducendo il numero di operazioni. Le altre opzioni non descrivono correttamente il concetto richiesto dalla domanda."
+  },
+  {
+    "id_question": "3",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "RISC e CISC",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Qual è una differenza chiave tra RISC e CISC riguardo agli operandi delle istruzioni aritmetiche?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Nei RISC non esistono operandi"
+      },
+      {
+        "id": "b",
+        "text": "Nei RISC gli operandi devono trovarsi nei registri, nei CISC possono trovarsi anche in memoria"
+      },
+      {
+        "id": "c",
+        "text": "Non c'è alcuna differenza"
+      },
+      {
+        "id": "d",
+        "text": "Nei CISC gli operandi sono sempre immediati"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Nelle architetture RISC le operazioni aritmetiche sono tipicamente register-to-register, mentre molte ISA CISC consentono anche operandi in memoria.",
+    "informal_explanation": "In breve, la risposta da ricordare è: nei RISC gli operandi delle operazioni aritmetiche si trovano tipicamente nei registri, mentre nei CISC possono essere presenti anche in memoria.",
+    "question_response_explanation": "La risposta corretta è \"Nei RISC gli operandi devono trovarsi nei registri, nei CISC possono trovarsi anche in memoria\" perché le architetture RISC adottano tipicamente un modello load/store. Le altre opzioni non descrivono correttamente questa differenza."
+  },
+  {
+    "id_question": "4",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Bus e memoria",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Con un address bus a 20 linee, quanti byte di memoria sono indirizzabili?",
+    "option": [
+      {
+        "id": "a",
+        "text": "1 MB"
+      },
+      {
+        "id": "b",
+        "text": "1 GB"
+      },
+      {
+        "id": "c",
+        "text": "1 KB"
+      },
+      {
+        "id": "d",
+        "text": "20 KB"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Con 20 linee di indirizzo si possono rappresentare 2^20 indirizzi; con memoria byte-addressable ciò corrisponde a 1 MiB, comunemente indicato come 1 MB.",
+    "informal_explanation": "Con 20 bit puoi rappresentare 2^20 indirizzi, cioè circa un milione di byte.",
+    "question_response_explanation": "La risposta corretta è \"1 MB\" perché 2^20 byte equivalgono a 1 MiB. 1 GB richiederebbe uno spazio di indirizzamento molto più grande, mentre 1 KB corrisponde a soli 2^10 byte."
+  },
+  {
+    "id_question": "5",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Circuiti aritmetici",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa prende in input e cosa restituisce in output un addizionatore completo (full adder)?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Prende 4 bit, restituisce 1 bit"
+      },
+      {
+        "id": "b",
+        "text": "Prende 2 bit + riporto in entrata, restituisce somma e riporto in uscita"
+      },
+      {
+        "id": "c",
+        "text": "Prende un byte, restituisce un byte"
+      },
+      {
+        "id": "d",
+        "text": "Prende solo 2 bit, restituisce solo la somma"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Un full adder riceve due bit e un carry-in e produce un bit di somma e un carry-out.",
+    "informal_explanation": "Somma due bit tenendo conto anche del riporto proveniente dallo stadio precedente.",
+    "question_response_explanation": "La risposta corretta è \"Prende 2 bit + riporto in entrata, restituisce somma e riporto in uscita\" perché un full adder dispone di tre ingressi e due uscite. L'opzione con soli due ingressi descrive invece un half adder."
+  },
+  {
+    "id_question": "6",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Processori superscalari",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "A cosa serve il 'buffer di riordino' (reorder buffer) nei processori superscalari?",
+    "option": [
+      {
+        "id": "a",
+        "text": "A prevedere i salti condizionati"
+      },
+      {
+        "id": "b",
+        "text": "A memorizzare le istruzioni in attesa di essere decodificate"
+      },
+      {
+        "id": "c",
+        "text": "A gestire il refresh della DRAM"
+      },
+      {
+        "id": "d",
+        "text": "A garantire che i risultati vengano scritti nei registri nell'ordine originale di prelievo, anche se eseguiti fuori ordine"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Il reorder buffer consente l'esecuzione fuori ordine mantenendo il completamento architetturale delle istruzioni nell'ordine corretto.",
+    "informal_explanation": "Le istruzioni possono essere eseguite fuori ordine, ma devono sembrare completate nell'ordine previsto dal programma.",
+    "question_response_explanation": "La risposta corretta è quella relativa al completamento ordinato. La predizione dei salti e il refresh della DRAM sono gestiti da strutture differenti."
+  },
+  {
+    "id_question": "7",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Algebra booleana",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa rappresenta un 'minitermine' in una funzione logica a n variabili?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Un termine sempre vero indipendentemente dagli ingressi"
+      },
+      {
+        "id": "b",
+        "text": "Una configurazione per cui la funzione vale 1"
+      },
+      {
+        "id": "c",
+        "text": "Una configurazione per cui la funzione vale 0"
+      },
+      {
+        "id": "d",
+        "text": "Il numero minimo di porte necessarie"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Un mintermine identifica una singola combinazione degli ingressi associata al valore 1 della funzione nella forma canonica SOP.",
+    "informal_explanation": "Ogni mintermine corrisponde a una riga della tabella di verità in cui la funzione vale 1.",
+    "question_response_explanation": "La risposta corretta è \"Una configurazione per cui la funzione vale 1\". Le configurazioni associate allo 0 sono invece utilizzate nella rappresentazione tramite maxtermini."
+  },
+  {
+    "id_question": "8",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Complemento a due",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "In quale caso si verifica overflow sommando due numeri in complemento a due?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Solo quando si sottrae, mai quando si somma"
+      },
+      {
+        "id": "b",
+        "text": "Quando i due addendi sono discordi di segno"
+      },
+      {
+        "id": "c",
+        "text": "Quando i due addendi sono concordi di segno e il segno del risultato è diverso dal loro"
+      },
+      {
+        "id": "d",
+        "text": "Sempre, indipendentemente dai segni"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "Nella somma in complemento a due l'overflow si verifica quando due operandi con lo stesso segno producono un risultato con segno opposto.",
+    "informal_explanation": "Se sommi due positivi e ottieni un negativo, oppure due negativi e ottieni un positivo, hai superato il range disponibile.",
+    "question_response_explanation": "La risposta corretta è l'opzione c. Con operandi di segno opposto non si verifica overflow nella somma in complemento a due."
+  },
+  {
+    "id_question": "9",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Pipeline",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Pipeline a 5 stadi, una istruzione entra ogni ciclo dal ciclo 1: quante sono completate al ciclo 9?",
+    "option": [
+      {
+        "id": "a",
+        "text": "1"
+      },
+      {
+        "id": "b",
+        "text": "5"
+      },
+      {
+        "id": "c",
+        "text": "9"
+      },
+      {
+        "id": "d",
+        "text": "4"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "In una pipeline ideale a 5 stadi la prima istruzione termina al ciclo 5; dal ciclo 5 al ciclo 9 terminano complessivamente cinque istruzioni.",
+    "informal_explanation": "Dopo aver riempito la pipeline, esce un'istruzione completata a ogni ciclo.",
+    "question_response_explanation": "La risposta corretta è 5: la prima termina al ciclo 5, poi ne termina una ai cicli 6, 7, 8 e 9."
+  },
+  {
+    "id_question": "10",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Algebra booleana",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa rappresenta una condizione di indifferenza (don't care, 'X') in una funzione logica?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Un errore nella tabella di verità"
+      },
+      {
+        "id": "b",
+        "text": "Un valore che è sempre 1"
+      },
+      {
+        "id": "c",
+        "text": "Un valore che è sempre 0"
+      },
+      {
+        "id": "d",
+        "text": "Un valore delle variabili per cui la funzione non è definita, il cui valore può essere scelto per minimizzare l'espressione"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Una condizione don't care può essere trattata come 0 oppure 1 durante la minimizzazione, scegliendo il valore più conveniente.",
+    "informal_explanation": "È un caso in cui l'uscita non interessa e quindi può essere sfruttato per semplificare il circuito.",
+    "question_response_explanation": "La risposta corretta è l'opzione d. Una condizione don't care non rappresenta necessariamente un errore e non deve essere obbligatoriamente 0 oppure 1."
+  },
+  {
+    "id_question": "11",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "RISC e CISC",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Perché nei processori CISC non è possibile un approccio a stadi come nei RISC?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Perché il CISC non ha un program counter"
+      },
+      {
+        "id": "b",
+        "text": "Perché le istruzioni CISC possono occupare più di una parola di memoria"
+      },
+      {
+        "id": "c",
+        "text": "Perché il CISC non usa un'ALU"
+      },
+      {
+        "id": "d",
+        "text": "Perché il CISC non ha registri"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "La lunghezza e la complessità variabile delle istruzioni CISC rendono meno regolare la suddivisione in stadi tipica di una pipeline RISC.",
+    "informal_explanation": "Le istruzioni CISC possono avere dimensioni e strutture differenti, quindi sono più difficili da inserire in una pipeline regolare.",
+    "question_response_explanation": "La risposta prevista è b. I processori CISC possiedono comunque Program Counter, ALU e registri."
+  },
+  {
+    "id_question": "12",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Logica digitale",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "In una porta tri-state, quando l'uscita si trova in stato di alta impedenza (Z)?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Solo durante il clock negativo"
+      },
+      {
+        "id": "b",
+        "text": "Quando il segnale di abilitazione è 0"
+      },
+      {
+        "id": "c",
+        "text": "Sempre, indipendentemente dall'abilitazione"
+      },
+      {
+        "id": "d",
+        "text": "Quando il segnale di abilitazione è 1"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Con un enable attivo alto, quando l'abilitazione è disattivata l'uscita viene posta in alta impedenza e risulta logicamente scollegata dal bus.",
+    "informal_explanation": "Quando l'enable è spento, la porta si comporta come se fosse scollegata.",
+    "question_response_explanation": "La risposta corretta è b. Lo stato di alta impedenza dipende dal segnale di abilitazione, non dal clock."
+  },
+  {
+    "id_question": "13",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Branch prediction",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nella predizione dinamica dei salti, da cosa dipende la previsione?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Dalla frequenza di clock del processore"
+      },
+      {
+        "id": "b",
+        "text": "Solo dalla direzione del salto (avanti o indietro)"
+      },
+      {
+        "id": "c",
+        "text": "Da un'analisi statica del codice fatta dal compilatore"
+      },
+      {
+        "id": "d",
+        "text": "Dal comportamento storico/statistico dei salti precedenti"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "La predizione dinamica usa informazioni raccolte durante l'esecuzione, come lo storico degli esiti dei branch.",
+    "informal_explanation": "Il processore osserva cosa è successo alle esecuzioni precedenti del salto e usa questa informazione per prevedere quella successiva.",
+    "question_response_explanation": "La risposta corretta è d. La direzione del salto o l'analisi del compilatore appartengono invece a possibili strategie statiche."
+  },
+  {
+    "id_question": "14",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Complemento a due",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "A cosa serve il complemento a due?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Velocizzare gli accessi alla cache"
+      },
+      {
+        "id": "b",
+        "text": "Rappresentare numeri interi con segno permettendo somma/sottrazione con lo stesso circuito"
+      },
+      {
+        "id": "c",
+        "text": "Comprimere i dati in memoria"
+      },
+      {
+        "id": "d",
+        "text": "Correggere errori di trasmissione sul bus"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Il complemento a due rappresenta interi con segno e permette di riutilizzare sostanzialmente lo stesso circuito per somma e sottrazione.",
+    "informal_explanation": "È il modo standard usato dall'hardware per rappresentare numeri positivi e negativi.",
+    "question_response_explanation": "La risposta corretta è b. Il complemento a due non è una tecnica di compressione, gestione cache o correzione degli errori."
+  },
+  {
+    "id_question": "15",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Ciclo del processore",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Metti in ordine corretto le 4 fasi del ciclo del processore:",
+    "option": [
+      {
+        "id": "a",
+        "text": "Execute → Fetch → Decode → Store"
+      },
+      {
+        "id": "b",
+        "text": "Decode → Fetch → Store → Execute"
+      },
+      {
+        "id": "c",
+        "text": "Fetch → Decode → Execute → Store"
+      },
+      {
+        "id": "d",
+        "text": "Fetch → Execute → Decode → Store"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "Nel modello semplificato il ciclo segue l'ordine Fetch, Decode, Execute e Store.",
+    "informal_explanation": "Prima prendi l'istruzione, poi la interpreti, la esegui e infine salvi il risultato.",
+    "question_response_explanation": "La risposta corretta è c perché la decodifica deve avvenire dopo il prelievo e prima dell'esecuzione."
+  },
+  {
+    "id_question": "16",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Memoria",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Qual è il ruolo della memoria centrale in un calcolatore?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Depositare dati e istruzioni da eseguire"
+      },
+      {
+        "id": "b",
+        "text": "Convertire segnali analogici in digitali"
+      },
+      {
+        "id": "c",
+        "text": "Solo eseguire calcoli aritmetici"
+      },
+      {
+        "id": "d",
+        "text": "Gestire l'alimentazione"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "La memoria centrale conserva dati e istruzioni che il processore utilizza durante l'esecuzione.",
+    "informal_explanation": "È lo spazio di lavoro principale in cui la CPU trova programmi e dati.",
+    "question_response_explanation": "La risposta corretta è a. I calcoli aritmetici sono svolti principalmente dall'ALU e la conversione analogico-digitale da dispositivi dedicati."
+  },
+  {
+    "id_question": "17",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "RISC e CISC",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Da cosa è causato il bottleneck tipico nei processori CISC?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Il tempo di decodifica di istruzioni lunghe supera la capacità di trasporto del bus, che ha clock più basso"
+      },
+      {
+        "id": "b",
+        "text": "Dalla mancanza di registri"
+      },
+      {
+        "id": "c",
+        "text": "Dall'assenza dell'ALU"
+      },
+      {
+        "id": "d",
+        "text": "Dalla presenza di troppa cache"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Nel modello presentato, la complessità e la lunghezza delle istruzioni CISC possono aumentare il costo di prelievo e decodifica e creare un collo di bottiglia.",
+    "informal_explanation": "Le istruzioni più complesse richiedono più lavoro per essere lette e decodificate.",
+    "question_response_explanation": "La risposta prevista è a. I processori CISC dispongono comunque di registri e ALU."
+  },
+  {
+    "id_question": "18",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Circuiti aritmetici",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "In un Ripple Carry Adder a 8 bit, dopo quanti ritardi di porta (r) viene generato il riporto finale c8?",
+    "option": [
+      {
+        "id": "a",
+        "text": "4r"
+      },
+      {
+        "id": "b",
+        "text": "16r"
+      },
+      {
+        "id": "c",
+        "text": "2r"
+      },
+      {
+        "id": "d",
+        "text": "8r"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Nel modello della domanda il carry deve propagarsi attraverso otto stadi consecutivi, quindi il ritardo del riporto finale è 8r.",
+    "informal_explanation": "Il riporto attraversa uno dopo l'altro tutti gli otto full adder.",
+    "question_response_explanation": "La risposta corretta è 8r perché il carry deve attraversare otto stadi."
+  },
+  {
+    "id_question": "19",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Cache",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa succede in caso di 'cache miss'?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Il dato viene comunque trovato istantaneamente"
+      },
+      {
+        "id": "b",
+        "text": "Si accede alla memoria e si carica una nuova linea di cache"
+      },
+      {
+        "id": "c",
+        "text": "Viene generato un errore di trabocco"
+      },
+      {
+        "id": "d",
+        "text": "Il processore si blocca definitivamente"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "In caso di cache miss il dato viene recuperato da un livello inferiore della gerarchia di memoria e la linea corrispondente viene caricata in cache.",
+    "informal_explanation": "La CPU non trova il dato nella cache e deve cercarlo più lontano.",
+    "question_response_explanation": "La risposta corretta è b. Un cache miss comporta un accesso più lento ma non costituisce un overflow e non blocca definitivamente il processore."
+  },
+  {
+    "id_question": "20",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Processore",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Quale tra questi NON è un componente base del processore descritto nel documento?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Generatore di indirizzi"
+      },
+      {
+        "id": "b",
+        "text": "Banco dei registri"
+      },
+      {
+        "id": "c",
+        "text": "ALU"
+      },
+      {
+        "id": "d",
+        "text": "Hard disk"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "L'hard disk è una memoria secondaria esterna alla CPU, mentre gli altri elementi appartengono al datapath o alla logica del processore.",
+    "informal_explanation": "ALU e registri sono dentro la CPU; l'hard disk è una periferica di memorizzazione.",
+    "question_response_explanation": "La risposta corretta è d perché l'hard disk non è un componente interno del processore."
+  },
+  {
+    "id_question": "21",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Aritmetica binaria",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nella moltiplicazione di numeri con segno (senza algoritmo di Booth), cosa si fa se il moltiplicatore è negativo?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Si effettua il complemento a due di moltiplicando e moltiplicatore, riportandosi al caso di moltiplicatore positivo"
+      },
+      {
+        "id": "b",
+        "text": "Si ignora il segno e si moltiplica normalmente"
+      },
+      {
+        "id": "c",
+        "text": "Non è possibile moltiplicare numeri negativi"
+      },
+      {
+        "id": "d",
+        "text": "Si estende solo il segno del moltiplicatore"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Nel procedimento indicato si complementano entrambi gli operandi in modo da ricondurre il moltiplicatore al caso positivo preservando il prodotto.",
+    "informal_explanation": "Si trasformano entrambi i valori così da lavorare con un moltiplicatore positivo.",
+    "question_response_explanation": "La risposta corretta è a secondo il procedimento indicato. Ignorare il segno produrrebbe un risultato errato."
+  },
+  {
+    "id_question": "22",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Registri speciali",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "A cosa serve il Program Counter (PC)?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Contare il numero di istruzioni eseguite"
+      },
+      {
+        "id": "b",
+        "text": "Gestire gli interrupt"
+      },
+      {
+        "id": "c",
+        "text": "Contenere il risultato dell'ALU"
+      },
+      {
+        "id": "d",
+        "text": "Contenere l'indirizzo dell'istruzione da eseguire"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Il Program Counter contiene l'indirizzo dell'istruzione successiva da prelevare o eseguire.",
+    "informal_explanation": "È il registro che indica alla CPU dove si trova la prossima istruzione.",
+    "question_response_explanation": "La risposta corretta è d. Il PC non è un semplice contatore del numero di istruzioni e non contiene il risultato dell'ALU."
+  },
+  {
+    "id_question": "23",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Memoria",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "A cosa serve il segnale MFC nella gestione dei ritardi di memoria?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Avvia il refresh della DRAM"
+      },
+      {
+        "id": "b",
+        "text": "Gestisce solo gli interrupt esterni"
+      },
+      {
+        "id": "c",
+        "text": "Segnala che l'operazione di memoria richiesta si è conclusa, permettendo al circuito di controllo di proseguire"
+      },
+      {
+        "id": "d",
+        "text": "Indica un errore di trabocco"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "MFC significa Memory Function Complete e segnala al controllo che l'operazione di memoria richiesta è terminata.",
+    "informal_explanation": "La memoria comunica alla CPU che ha terminato e che può proseguire.",
+    "question_response_explanation": "La risposta corretta è c. MFC non è un segnale di overflow né un comando di refresh."
+  },
+  {
+    "id_question": "24",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Calcolabilità",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Come si formula in breve il problema della fermata (Halting Problem)?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Calcolare il tempo massimo di esecuzione di un algoritmo"
+      },
+      {
+        "id": "b",
+        "text": "Verificare se un algoritmo è scritto in linguaggio ad alto livello"
+      },
+      {
+        "id": "c",
+        "text": "Stabilire se un programma userà più memoria del previsto"
+      },
+      {
+        "id": "d",
+        "text": "Determinare se un programma, con un dato input, si fermerà o girerà per sempre"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Il problema della fermata chiede di stabilire se un programma terminerà oppure continuerà indefinitamente su un determinato input.",
+    "informal_explanation": "La domanda è: questo programma prima o poi finisce oppure gira per sempre?",
+    "question_response_explanation": "La risposta corretta è d. Il problema non riguarda il tempo massimo, il linguaggio utilizzato o il consumo di memoria."
+  },
+  {
+    "id_question": "25",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Sistemi di numerazione",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "In un sistema di numerazione posizionale, da cosa dipende il valore di una cifra?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Dalla sua posizione (moltiplicata per una potenza della base)"
+      },
+      {
+        "id": "b",
+        "text": "Dal colore della cifra"
+      },
+      {
+        "id": "c",
+        "text": "Solo dal simbolo usato"
+      },
+      {
+        "id": "d",
+        "text": "Dalla lunghezza totale del numero"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "In una rappresentazione posizionale ogni cifra è pesata da una potenza della base determinata dalla posizione occupata.",
+    "informal_explanation": "La stessa cifra può valere quantità diverse in base alla posizione in cui si trova.",
+    "question_response_explanation": "La risposta corretta è a. Il valore posizionale è determinato dalla cifra e dalla potenza della base associata alla sua posizione."
+  },
+  {
+    "id_question": "26",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Indirizzamento",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nel modo di indirizzamento 'indiretto da registro', cosa contiene il registro indicato nell'istruzione?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Direttamente il valore dell'operando"
+      },
+      {
+        "id": "b",
+        "text": "Lo spiazzamento da sommare al PC"
+      },
+      {
+        "id": "c",
+        "text": "L'indirizzo di memoria dove si trova l'operando"
+      },
+      {
+        "id": "d",
+        "text": "Il codice operativo dell'istruzione"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "Nell'indirizzamento indiretto da registro il registro contiene l'indirizzo della locazione di memoria che contiene l'operando.",
+    "informal_explanation": "Il registro non contiene il dato finale, ma l'indirizzo in cui andare a cercarlo.",
+    "question_response_explanation": "La risposta corretta è c. Se il registro contenesse direttamente il valore dell'operando si tratterebbe di un'altra modalità di indirizzamento."
+  },
+  {
+    "id_question": "27",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "RISC e CISC",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa significa RISC?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Rapid Instruction Set Computer"
+      },
+      {
+        "id": "b",
+        "text": "Reduced Instruction Set Computer"
+      },
+      {
+        "id": "c",
+        "text": "Register Instruction Set Computer"
+      },
+      {
+        "id": "d",
+        "text": "Real Instruction Set Code"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "RISC è l'acronimo di Reduced Instruction Set Computer.",
+    "informal_explanation": "Indica un'architettura basata su istruzioni relativamente semplici e regolari.",
+    "question_response_explanation": "La risposta corretta è b: Reduced Instruction Set Computer."
+  },
+  {
+    "id_question": "28",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Unità di controllo",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Qual è la differenza tra controllo cablato e controllo microprogrammato?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Sono la stessa cosa con nomi diversi"
+      },
+      {
+        "id": "b",
+        "text": "Il controllo microprogrammato non gestisce i salti condizionati"
+      },
+      {
+        "id": "c",
+        "text": "Il controllo cablato è usato solo nei CISC"
+      },
+      {
+        "id": "d",
+        "text": "Il cablato usa un contatore di stadi hardware fisso; il microprogrammato usa microistruzioni in una memoria di controllo, gestite da μPC"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Il controllo cablato genera i segnali tramite logica hardware, mentre quello microprogrammato esegue microistruzioni memorizzate in una memoria di controllo.",
+    "informal_explanation": "Nel controllo cablato il comportamento è costruito nei circuiti; in quello microprogrammato è descritto da un piccolo programma interno.",
+    "question_response_explanation": "La risposta corretta è d. Le due tecniche hanno implementazioni differenti e il controllo microprogrammato può gestire anche condizioni e salti."
+  },
+  {
+    "id_question": "29",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Complemento a due",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Rappresenta il numero -13 in complemento a due su 8 bit.",
+    "option": [
+      {
+        "id": "a",
+        "text": "10001101"
+      },
+      {
+        "id": "b",
+        "text": "11110010"
+      },
+      {
+        "id": "c",
+        "text": "11101101"
+      },
+      {
+        "id": "d",
+        "text": "11110011"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "13 su 8 bit è 00001101; invertendo si ottiene 11110010 e aggiungendo 1 si ottiene 11110011.",
+    "informal_explanation": "Scrivi +13, inverti tutti i bit e aggiungi uno.",
+    "question_response_explanation": "La risposta corretta è d. 11110010 è soltanto il complemento a uno di 13; aggiungendo 1 si ottiene 11110011."
+  },
+  {
+    "id_question": "30",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Pipeline",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Perché il pipelining è più complesso nei CISC rispetto ai RISC?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Perché il CISC ha meno registri"
+      },
+      {
+        "id": "b",
+        "text": "Perché le istruzioni CISC hanno codifica complessa e lunghezza variabile; i processori moderni (es. i7) le convertono in micro-operazioni stile RISC"
+      },
+      {
+        "id": "c",
+        "text": "Perché il CISC non usa il program counter"
+      },
+      {
+        "id": "d",
+        "text": "Perché il CISC non ha una ALU dedicata"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "La codifica complessa e la lunghezza variabile delle istruzioni CISC rendono più difficile una pipeline regolare; molte CPU moderne le decodificano in micro-operazioni interne.",
+    "informal_explanation": "Le istruzioni CISC vengono spesso trasformate internamente in operazioni più semplici prima di essere eseguite.",
+    "question_response_explanation": "La risposta corretta è b. I processori CISC utilizzano comunque Program Counter e ALU."
+  },
+  {
+    "id_question": "31",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Virgola mobile",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nello standard IEEE 754 a 32 bit, come sono suddivisi i bit?",
+    "option": [
+      {
+        "id": "a",
+        "text": "1 segno, 11 esponente, 20 mantissa"
+      },
+      {
+        "id": "b",
+        "text": "1 segno, 8 esponente, 23 mantissa"
+      },
+      {
+        "id": "c",
+        "text": "2 segno, 7 esponente, 23 mantissa"
+      },
+      {
+        "id": "d",
+        "text": "1 segno, 23 esponente, 8 mantissa"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "IEEE 754 single precision usa 1 bit di segno, 8 bit di esponente e 23 bit di frazione.",
+    "informal_explanation": "I 32 bit sono suddivisi in 1 + 8 + 23.",
+    "question_response_explanation": "La risposta corretta è b. Gli 11 bit di esponente appartengono invece alla rappresentazione double precision."
+  },
+  {
+    "id_question": "32",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Bus e periferiche",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa ha introdotto lo standard PCI rispetto alla configurazione manuale precedente?",
+    "option": [
+      {
+        "id": "a",
+        "text": "L'eliminazione totale del bus di sistema"
+      },
+      {
+        "id": "b",
+        "text": "Un nuovo tipo di RAM"
+      },
+      {
+        "id": "c",
+        "text": "La necessità di ponticelli hardware per ogni scheda"
+      },
+      {
+        "id": "d",
+        "text": "Una tecnologia plug & play che assegna automaticamente canali e linee"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "PCI supporta meccanismi di configurazione automatica delle periferiche, riducendo la necessità di impostazioni manuali tramite jumper.",
+    "informal_explanation": "Le periferiche possono essere riconosciute e configurate automaticamente.",
+    "question_response_explanation": "La risposta corretta è d. PCI riduce la necessità di configurazione manuale, non la aumenta."
+  },
+  {
+    "id_question": "33",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Bus",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Se il bus dati (DBus) ha 64 linee, quanti byte può trasferire in una singola operazione?",
+    "option": [
+      {
+        "id": "a",
+        "text": "4 byte"
+      },
+      {
+        "id": "b",
+        "text": "64 byte"
+      },
+      {
+        "id": "c",
+        "text": "8 byte"
+      },
+      {
+        "id": "d",
+        "text": "16 byte"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "64 linee trasferiscono 64 bit in parallelo, equivalenti a 8 byte.",
+    "informal_explanation": "Basta dividere 64 bit per 8 bit per byte.",
+    "question_response_explanation": "La risposta corretta è c: 64 / 8 = 8 byte."
+  },
+  {
+    "id_question": "34",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Tecnologia CMOS",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Qual è il principale vantaggio del CMOS rispetto al solo NMOS?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Consumo energetico ridotto, perché non c'è mai continuità tra massa e alimentazione in stato stabile"
+      },
+      {
+        "id": "b",
+        "text": "Il CMOS non richiede transistori PMOS"
+      },
+      {
+        "id": "c",
+        "text": "Il CMOS ha dimensioni maggiori quindi più affidabile"
+      },
+      {
+        "id": "d",
+        "text": "Il CMOS è più economico da produrre"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Nella logica CMOS ideale non esiste un percorso continuo tra alimentazione e massa negli stati statici, quindi il consumo statico è molto ridotto.",
+    "informal_explanation": "Quando il circuito non sta commutando, consuma pochissima corrente.",
+    "question_response_explanation": "La risposta corretta è a. CMOS utilizza sia transistor NMOS sia PMOS."
+  },
+  {
+    "id_question": "35",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Circuiti aritmetici",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Come si ottiene un addizionatore capace di sommare numeri a n bit collegando dei full adder?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Collegando n full adder in modo da propagare il riporto (ripple carry adder)"
+      },
+      {
+        "id": "b",
+        "text": "Collegando n full adder in parallelo senza propagazione"
+      },
+      {
+        "id": "c",
+        "text": "Usando un solo full adder per tutti i bit"
+      },
+      {
+        "id": "d",
+        "text": "Non è possibile, serve un circuito diverso"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Collegando il carry-out di ciascun full adder al carry-in del successivo si realizza un ripple carry adder a n bit.",
+    "informal_explanation": "Ogni stadio somma un bit e passa il proprio riporto allo stadio successivo.",
+    "question_response_explanation": "La risposta corretta è a. Senza propagazione del carry la somma multi-bit non sarebbe corretta."
+  },
+  {
+    "id_question": "36",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Virgola mobile",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nell'algoritmo di addizione/sottrazione algebrica in virgola mobile, qual è il primo passo?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Normalizzare subito il risultato"
+      },
+      {
+        "id": "b",
+        "text": "Sommare direttamente le mantisse senza allineamento"
+      },
+      {
+        "id": "c",
+        "text": "Scegliere il numero con esponente minore e shiftare la sua mantissa a destra della differenza degli esponenti"
+      },
+      {
+        "id": "d",
+        "text": "Sottrarre 127 dagli esponenti"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "Prima di sommare o sottrarre le mantisse occorre allineare gli esponenti spostando a destra la mantissa associata all'esponente minore.",
+    "informal_explanation": "Prima devi portare i due numeri alla stessa scala.",
+    "question_response_explanation": "La risposta corretta è c. La normalizzazione del risultato avviene successivamente."
+  },
+  {
+    "id_question": "37",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Traduzione e linking",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Qual è la differenza principale tra assemblatore e linker?",
+    "option": [
+      {
+        "id": "a",
+        "text": "L'assemblatore si occupa solo del debug"
+      },
+      {
+        "id": "b",
+        "text": "Sono sinonimi dello stesso strumento"
+      },
+      {
+        "id": "c",
+        "text": "Il linker traduce il codice ad alto livello"
+      },
+      {
+        "id": "d",
+        "text": "L'assemblatore traduce il sorgente in binario; il linker combina più file oggetto risolvendo i riferimenti a nomi esterni"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "L'assemblatore traduce il codice assembly in oggetto; il linker combina moduli oggetto e risolve i simboli esterni.",
+    "informal_explanation": "L'assembler traduce un modulo, il linker mette insieme i vari pezzi del programma.",
+    "question_response_explanation": "La risposta corretta è d. La traduzione del codice ad alto livello è normalmente compito del compilatore."
+  },
+  {
+    "id_question": "38",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Calcolabilità",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Secondo la definizione alternativa vista a lezione, un algoritmo è equivalente a...",
+    "option": [
+      {
+        "id": "a",
+        "text": "Una macchina di Turing oppure un programma della macchina di Von Neumann"
+      },
+      {
+        "id": "b",
+        "text": "Un sistema operativo"
+      },
+      {
+        "id": "c",
+        "text": "Una rete neurale"
+      },
+      {
+        "id": "d",
+        "text": "Un compilatore"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Nel contesto della domanda, l'algoritmo viene formalizzato tramite una macchina di Turing oppure un programma per una macchina di Von Neumann.",
+    "informal_explanation": "Un algoritmo può essere rappresentato attraverso modelli formali di calcolo.",
+    "question_response_explanation": "La risposta corretta è a secondo la definizione richiamata nella domanda."
+  },
+  {
+    "id_question": "39",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Calcolabilità",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Secondo la Tesi di Turing, quale relazione lega funzione calcolabile con algoritmo e macchina di Turing?",
+    "option": [
+      {
+        "id": "a",
+        "text": "La Tesi di Turing riguarda solo i numeri interi"
+      },
+      {
+        "id": "b",
+        "text": "Ogni funzione parziale calcolabile con un algoritmo è calcolabile da una macchina di Turing"
+      },
+      {
+        "id": "c",
+        "text": "Le mdT possono calcolare più funzioni di quante un algoritmo possa definire"
+      },
+      {
+        "id": "d",
+        "text": "Solo alcune funzioni calcolabili con un algoritmo sono calcolabili da una mdT"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "La tesi di Church-Turing identifica le funzioni effettivamente calcolabili mediante algoritmo con quelle calcolabili da una macchina di Turing.",
+    "informal_explanation": "Se qualcosa può essere calcolato effettivamente da un algoritmo, può essere calcolato anche da una macchina di Turing.",
+    "question_response_explanation": "La risposta corretta è b. La tesi stabilisce una corrispondenza tra calcolabilità algoritmica e calcolabilità mediante macchina di Turing."
+  },
+  {
+    "id_question": "40",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Sistemi di numerazione",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Converti 45 (decimale) in binario con il metodo delle divisioni successive. Qual è il risultato?",
+    "option": [
+      {
+        "id": "a",
+        "text": "110101"
+      },
+      {
+        "id": "b",
+        "text": "101011"
+      },
+      {
+        "id": "c",
+        "text": "100101"
+      },
+      {
+        "id": "d",
+        "text": "101101"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "45 = 32 + 8 + 4 + 1, quindi in binario è 101101.",
+    "informal_explanation": "45 è composto dalle potenze 32, 8, 4 e 1.",
+    "question_response_explanation": "La risposta corretta è d: 101101 in binario corrisponde a 45 in decimale."
+  },
+  {
+    "id_question": "41",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Mappe di Karnaugh",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Una funzione a 3 variabili (x1,x2,x3) vale 1 per i minitermini {1,3,5,7}. Qual è la forma minima?",
+    "option": [
+      {
+        "id": "a",
+        "text": "f = x1"
+      },
+      {
+        "id": "b",
+        "text": "f = x1+x2"
+      },
+      {
+        "id": "c",
+        "text": "f = x3"
+      },
+      {
+        "id": "d",
+        "text": "f = x1x2x3"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "I minitermini 1, 3, 5 e 7 sono esattamente quelli in cui x3 vale 1, quindi la forma minima è f = x3.",
+    "informal_explanation": "In tutte le combinazioni indicate l'ultimo bit è sempre 1.",
+    "question_response_explanation": "La risposta corretta è c. x1x2x3 selezionerebbe soltanto il mintermine 7."
+  },
+  {
+    "id_question": "42",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Pipeline",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "A cosa serve il 'forwarding' (inoltro degli operandi) nella pipeline?",
+    "option": [
+      {
+        "id": "a",
+        "text": "A gestire i cache miss"
+      },
+      {
+        "id": "b",
+        "text": "A rendere disponibile un risultato ad un'istruzione successiva prima che sia scritto nel registro, evitando stalli"
+      },
+      {
+        "id": "c",
+        "text": "Ad anticipare il fetch delle istruzioni successive"
+      },
+      {
+        "id": "d",
+        "text": "A prevedere l'esito dei salti condizionati"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Il forwarding inoltra direttamente un risultato prodotto nella pipeline all'istruzione dipendente senza attendere la scrittura nel banco registri.",
+    "informal_explanation": "Il risultato viene passato direttamente a chi ne ha bisogno.",
+    "question_response_explanation": "La risposta corretta è b. Il forwarding riduce gli stalli dovuti alle dipendenze RAW."
+  },
+  {
+    "id_question": "43",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "I/O e DMA",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "A cosa serve la tecnologia DMA (Direct Memory Access)?",
+    "option": [
+      {
+        "id": "a",
+        "text": "A gestire solo le interruzioni software"
+      },
+      {
+        "id": "b",
+        "text": "A convertire segnali analogici in digitali"
+      },
+      {
+        "id": "c",
+        "text": "A velocizzare il clock del bus"
+      },
+      {
+        "id": "d",
+        "text": "A trasferire dati tra periferica e memoria senza occupare il processore"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Il DMA consente trasferimenti diretti tra periferiche e memoria principale senza coinvolgere la CPU in ogni singolo trasferimento.",
+    "informal_explanation": "La CPU delega il trasferimento e può occuparsi di altro.",
+    "question_response_explanation": "La risposta corretta è d. DMA non aumenta direttamente il clock del bus e non è un convertitore analogico-digitale."
+  },
+  {
+    "id_question": "44",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Cache",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Quali sono i tre livelli di cache nei calcolatori moderni, in ordine di vicinanza al processore?",
+    "option": [
+      {
+        "id": "a",
+        "text": "L1 sulla MB, L2 interno, L3 esterno"
+      },
+      {
+        "id": "b",
+        "text": "Esiste un solo livello di cache"
+      },
+      {
+        "id": "c",
+        "text": "L1 interno al processore, L2 collegato al processore, L3 sulla scheda madre"
+      },
+      {
+        "id": "d",
+        "text": "L1, L2, L3 sono tutti sulla RAM"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "Nel modello didattico indicato, L1 è la più vicina al processore, seguita da L2 e poi L3.",
+    "informal_explanation": "L1 è la cache più vicina e veloce, poi vengono L2 e L3.",
+    "question_response_explanation": "La risposta prevista dal materiale è c. I livelli L1, L2 e L3 appartengono alla gerarchia di cache e non sono semplicemente porzioni della RAM."
+  },
+  {
+    "id_question": "45",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Pipeline",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "A cosa si ispira concettualmente la tecnica del pipelining?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Al multitasking del sistema operativo"
+      },
+      {
+        "id": "b",
+        "text": "Alla ricorsione nei linguaggi di programmazione"
+      },
+      {
+        "id": "c",
+        "text": "Alla compressione dei dati"
+      },
+      {
+        "id": "d",
+        "text": "Alla catena di montaggio, eseguendo più istruzioni in fasi sovrapposte"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Il pipelining suddivide l'elaborazione in stadi sovrapposti, in modo analogo a una catena di montaggio.",
+    "informal_explanation": "Mentre una istruzione viene eseguita, un'altra può essere decodificata e un'altra ancora prelevata.",
+    "question_response_explanation": "La risposta corretta è d. Il concetto di pipeline è analogo a una catena di montaggio."
+  },
+  {
+    "id_question": "46",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Algebra booleana",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Perché NAND e NOR sono dette porte 'universali'?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Consumano meno energia delle altre porte"
+      },
+      {
+        "id": "b",
+        "text": "Con esse si può realizzare qualsiasi funzione combinatoria"
+      },
+      {
+        "id": "c",
+        "text": "Sono le più veloci in assoluto"
+      },
+      {
+        "id": "d",
+        "text": "Sono presenti in ogni chipset"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "NAND e NOR sono funzionalmente complete: usando solo una delle due tipologie è possibile costruire qualsiasi funzione booleana.",
+    "informal_explanation": "Con sole NAND oppure sole NOR puoi costruire tutte le altre porte logiche.",
+    "question_response_explanation": "La risposta corretta è b. L'universalità deriva dalla completezza funzionale, non da velocità, consumo o diffusione commerciale."
+  },
+  {
+    "id_question": "47",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Pipeline",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nel salto differito, cosa inserisce il compilatore se non trova istruzioni utili da eseguire subito dopo il salto?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Salta due volte"
+      },
+      {
+        "id": "b",
+        "text": "Genera un errore di compilazione"
+      },
+      {
+        "id": "c",
+        "text": "Ripete l'ultima istruzione"
+      },
+      {
+        "id": "d",
+        "text": "Istruzioni NOP"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Nel delayed branch, se il compilatore non riesce a riempire utilmente il delay slot può inserirvi una NOP.",
+    "informal_explanation": "Se non c'è nulla di utile da eseguire, viene inserita un'istruzione che non fa niente.",
+    "question_response_explanation": "La risposta corretta è d. Ripetere una istruzione precedente potrebbe modificare il comportamento del programma."
+  },
+  {
+    "id_question": "48",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "I/O",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa rappresenta una 'porta di I/O'?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Un tipo di RAM"
+      },
+      {
+        "id": "b",
+        "text": "Un range di indirizzi riservato ad una periferica"
+      },
+      {
+        "id": "c",
+        "text": "Un tipo di cavo USB"
+      },
+      {
+        "id": "d",
+        "text": "Un registro della CPU"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Una porta di I/O è un indirizzo o un intervallo di indirizzi tramite cui il processore comunica con una periferica.",
+    "informal_explanation": "È come un indirizzo attraverso cui la CPU comunica con un dispositivo.",
+    "question_response_explanation": "La risposta corretta è b. Una porta di I/O non indica un cavo fisico né un tipo di RAM."
+  },
+  {
+    "id_question": "49",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Tecnologia CMOS",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Se una NAND costa 4 transistori e una NOT ne costa 2 (CMOS), quanti servono per una AND (NAND+NOT)?",
+    "option": [
+      {
+        "id": "a",
+        "text": "8"
+      },
+      {
+        "id": "b",
+        "text": "2"
+      },
+      {
+        "id": "c",
+        "text": "4"
+      },
+      {
+        "id": "d",
+        "text": "6"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Una AND realizzata come NAND seguita da NOT richiede 4 + 2 = 6 transistori.",
+    "informal_explanation": "Sommi il costo della NAND e quello dell'inverter.",
+    "question_response_explanation": "La risposta corretta è d: 4 + 2 = 6 transistori."
+  },
+  {
+    "id_question": "50",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Circuiti aritmetici",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nell'addizionatore con anticipo di riporto, cosa rappresentano le funzioni Gi e Pi?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Rappresentano gli stadi della pipeline"
+      },
+      {
+        "id": "b",
+        "text": "Rappresentano il bit di segno e il trabocco"
+      },
+      {
+        "id": "c",
+        "text": "Gi = generazione (xi·yi), Pi = propagazione (xi+yi), calcolabili in parallelo in un solo ritardo di porta"
+      },
+      {
+        "id": "d",
+        "text": "Sono i due registri di scorrimento del moltiplicatore"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "Nel carry lookahead Gi indica la generazione di un riporto e Pi la sua propagazione attraverso lo stadio.",
+    "informal_explanation": "Gi indica se il bit genera un carry; Pi se lascia propagare quello precedente.",
+    "question_response_explanation": "La risposta corretta è c. Gi e Pi non rappresentano né registri né stadi della pipeline."
+  },
+  {
+    "id_question": "51",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Indirizzamento",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nel modo di indirizzamento con indice e spiazzamento, come si ottiene l'indirizzo effettivo?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Concatenando due registri"
+      },
+      {
+        "id": "b",
+        "text": "Sommando un valore costante (spiazzamento) al contenuto di un registro (indirizzo)"
+      },
+      {
+        "id": "c",
+        "text": "Moltiplicando due registri tra loro"
+      },
+      {
+        "id": "d",
+        "text": "Sottraendo lo spiazzamento dal PC sempre"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "L'indirizzo effettivo viene calcolato sommando lo spiazzamento costante al contenuto del registro base.",
+    "informal_explanation": "Prendi l'indirizzo base nel registro e aggiungi l'offset.",
+    "question_response_explanation": "La risposta corretta è b. Non è necessaria una moltiplicazione o concatenazione dei registri."
+  },
+  {
+    "id_question": "52",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Pipeline",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Quali sono i 5 stadi classici di una pipeline RISC?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Decode, Fetch, ALU, Cache, Register"
+      },
+      {
+        "id": "b",
+        "text": "IF, ID, EX, MEM, WB"
+      },
+      {
+        "id": "c",
+        "text": "Init, Run, Wait, Store, End"
+      },
+      {
+        "id": "d",
+        "text": "Fetch, Load, Store, Branch, Halt"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "La pipeline RISC classica comprende Instruction Fetch, Instruction Decode, Execute, Memory Access e Write Back.",
+    "informal_explanation": "Prima prelevi e decodifichi l'istruzione, poi la esegui, accedi eventualmente alla memoria e scrivi il risultato.",
+    "question_response_explanation": "La risposta corretta è b: IF, ID, EX, MEM, WB."
+  },
+  {
+    "id_question": "53",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Macchina di Turing",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Quali sono le componenti fondamentali di una macchina di Turing?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Compilatore, assemblatore, linker"
+      },
+      {
+        "id": "b",
+        "text": "Registri, ALU, unità di controllo"
+      },
+      {
+        "id": "c",
+        "text": "CPU, RAM, bus"
+      },
+      {
+        "id": "d",
+        "text": "Nastro, testina, unità di calcolo/controllo/logica"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Una macchina di Turing è composta essenzialmente da nastro, testina di lettura/scrittura e unità di controllo finita.",
+    "informal_explanation": "Ha un nastro su cui leggere e scrivere, una testina che si muove e delle regole che decidono cosa fare.",
+    "question_response_explanation": "La risposta corretta è d. CPU, RAM e bus appartengono invece all'architettura di un calcolatore reale."
+  },
+  {
+    "id_question": "54",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Registri",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cos'è il banco dei registri?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Una memoria piccola e velocissima con ingressi per due indirizzi di lettura e uno di scrittura"
+      },
+      {
+        "id": "b",
+        "text": "La memoria principale del calcolatore"
+      },
+      {
+        "id": "c",
+        "text": "Un tipo di cache di terzo livello"
+      },
+      {
+        "id": "d",
+        "text": "Un registro speciale che conta i cicli di clock"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Il register file è una piccola memoria interna alla CPU, molto veloce, spesso dotata di due porte di lettura e una di scrittura.",
+    "informal_explanation": "È il gruppo di registri generali a cui la CPU può accedere molto rapidamente.",
+    "question_response_explanation": "La risposta corretta è a. Il banco dei registri non coincide con la memoria centrale né con una cache L3."
+  },
+  {
+    "id_question": "55",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Prestazioni della pipeline",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nella formula Pp = R/(S+δdato+δsalto+δmiss), cosa rappresenta S?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Il ritardo dovuto ai salti"
+      },
+      {
+        "id": "b",
+        "text": "Il numero di stadi della pipeline"
+      },
+      {
+        "id": "c",
+        "text": "Il numero medio di cicli di clock per istruzione senza conflitti"
+      },
+      {
+        "id": "d",
+        "text": "La frequenza di clock del processore"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "Nella formula proposta S rappresenta il numero medio di cicli per istruzione nel caso base, prima delle penalità aggiuntive.",
+    "informal_explanation": "È il costo medio normale di un'istruzione prima di aggiungere i ritardi dovuti ai problemi della pipeline.",
+    "question_response_explanation": "La risposta corretta è c. Le penalità per dati, salti e miss sono già rappresentate separatamente dagli altri termini."
+  },
+  {
+    "id_question": "56",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Memorie",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Perché la ROM viene usata per il BIOS?",
+    "option": [
+      {
+        "id": "a",
+        "text": "È più veloce della RAM"
+      },
+      {
+        "id": "b",
+        "text": "Ha capacità maggiore"
+      },
+      {
+        "id": "c",
+        "text": "È più economica"
+      },
+      {
+        "id": "d",
+        "text": "Mantiene il contenuto anche senza alimentazione"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Il firmware di avvio deve essere disponibile anche dopo lo spegnimento; per questo viene memorizzato in memoria non volatile.",
+    "informal_explanation": "Il BIOS deve essere ancora presente quando riaccendi il computer.",
+    "question_response_explanation": "La risposta corretta è d. La proprietà fondamentale richiesta è la non volatilità."
+  },
+  {
+    "id_question": "57",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Complemento a due",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "In complemento a 2 su 4 bit, quanto vale 5 + (-3)? C'è overflow?",
+    "option": [
+      {
+        "id": "a",
+        "text": "-2, overflow presente"
+      },
+      {
+        "id": "b",
+        "text": "2, overflow presente"
+      },
+      {
+        "id": "c",
+        "text": "8, nessun overflow"
+      },
+      {
+        "id": "d",
+        "text": "2, nessun overflow (addendi con segni discordi)"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Su 4 bit 5 = 0101 e -3 = 1101; la somma è 0010, cioè 2, e non c'è overflow perché gli addendi hanno segno opposto.",
+    "informal_explanation": "5 più -3 fa 2 e, avendo segni diversi, non c'è overflow nella somma.",
+    "question_response_explanation": "La risposta corretta è d. Il risultato è 2 senza overflow."
+  },
+  {
+    "id_question": "58",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Mappe di Karnaugh",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nella mappa di Karnaugh, come devono essere ordinate le caselle adiacenti orizzontalmente/verticalmente?",
+    "option": [
+      {
+        "id": "a",
+        "text": "In modo che differiscano per una sola variabile"
+      },
+      {
+        "id": "b",
+        "text": "In modo che differiscano per tutte le variabili"
+      },
+      {
+        "id": "c",
+        "text": "In modo casuale, non importa l'ordine"
+      },
+      {
+        "id": "d",
+        "text": "In ordine numerico crescente sempre"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Le mappe di Karnaugh usano un ordinamento Gray, quindi celle adiacenti differiscono per una sola variabile.",
+    "informal_explanation": "Passando a una casella vicina cambia un solo bit.",
+    "question_response_explanation": "La risposta corretta è a. L'ordine non è quello binario crescente standard, ma quello del codice Gray."
+  },
+  {
+    "id_question": "59",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Linguaggio assembly",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Qual è la differenza tra linguaggio macchina e linguaggio assemblativo?",
+    "option": [
+      {
+        "id": "a",
+        "text": "L'assemblativo è più veloce da eseguire"
+      },
+      {
+        "id": "b",
+        "text": "Il linguaggio macchina è in alfabeto binario, l'assemblativo è una rappresentazione simbolica leggibile dello stesso"
+      },
+      {
+        "id": "c",
+        "text": "Il linguaggio macchina esiste solo nei CISC"
+      },
+      {
+        "id": "d",
+        "text": "Sono esattamente la stessa cosa"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Il linguaggio macchina codifica direttamente le istruzioni in bit, mentre l'assembly usa mnemonici e simboli tradotti poi in codice macchina.",
+    "informal_explanation": "La CPU legge bit, mentre il programmatore può usare nomi simbolici come ADD, LOAD e STORE.",
+    "question_response_explanation": "La risposta corretta è b. Assembly e linguaggio macchina rappresentano le stesse operazioni a livelli di rappresentazione differenti."
+  },
+  {
+    "id_question": "60",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Algebra booleana",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Come si esprime la funzione XOR (x1⊕x2) in forma SOP?",
+    "option": [
+      {
+        "id": "a",
+        "text": "x1 + x2"
+      },
+      {
+        "id": "b",
+        "text": "x1x2 + x̄1x̄2"
+      },
+      {
+        "id": "c",
+        "text": "x̄1x̄2"
+      },
+      {
+        "id": "d",
+        "text": "x̄1x2 + x1x̄2"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "XOR vale 1 quando gli ingressi sono diversi, quindi in SOP è x̄1x2 + x1x̄2.",
+    "informal_explanation": "XOR vale 1 nei casi 01 e 10.",
+    "question_response_explanation": "La risposta corretta è d. L'espressione x1x2 + x̄1x̄2 rappresenta invece XNOR."
+  },
+  {
+    "id_question": "61",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Logica digitale",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa indicano rispettivamente fan-in e fan-out di una porta logica?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Fan-in = numero di transistori; fan-out = numero di porte totali nel circuito"
+      },
+      {
+        "id": "b",
+        "text": "Fan-in = numero di ingressi; fan-out = numero di ingressi paralleli collegabili all'uscita"
+      },
+      {
+        "id": "c",
+        "text": "Sono sinonimi"
+      },
+      {
+        "id": "d",
+        "text": "Fan-in = tensione di soglia; fan-out = frequenza di clock"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "Il fan-in è il numero di ingressi della porta, mentre il fan-out indica quanti ingressi logici l'uscita può pilotare correttamente.",
+    "informal_explanation": "Fan-in indica quanti segnali entrano; fan-out quanti ingressi possono essere pilotati dall'uscita.",
+    "question_response_explanation": "La risposta corretta è b. Fan-in e fan-out sono due caratteristiche differenti."
+  },
+  {
+    "id_question": "62",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Prefetch",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "A cosa serve la coda di prefetch nei processori?",
+    "option": [
+      {
+        "id": "a",
+        "text": "A memorizzare byte successivi a quello letto, riducendo gli accessi ripetuti alla memoria"
+      },
+      {
+        "id": "b",
+        "text": "A convertire istruzioni CISC in RISC"
+      },
+      {
+        "id": "c",
+        "text": "A gestire gli interrupt asincroni"
+      },
+      {
+        "id": "d",
+        "text": "A prevedere l'esito dei salti condizionati"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "La coda di prefetch conserva in anticipo byte o istruzioni successive sfruttando la località sequenziale e riducendo i tempi di attesa.",
+    "informal_explanation": "Il processore legge in anticipo ciò che probabilmente servirà subito dopo.",
+    "question_response_explanation": "La risposta corretta è a. Predizione dei salti e gestione degli interrupt sono funzioni differenti."
+  },
+  {
+    "id_question": "63",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Calcolabilità",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Su cosa si basa la dimostrazione dell'indecidibilità del problema della fermata?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Su un argomento induttivo su tutte le macchine di Turing"
+      },
+      {
+        "id": "b",
+        "text": "Su una dimostrazione empirica sperimentale"
+      },
+      {
+        "id": "c",
+        "text": "Su un argomento autocontraddittorio, simile al paradosso del mentitore"
+      },
+      {
+        "id": "d",
+        "text": "Su un limite fisico di memoria"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "La dimostrazione classica procede per assurdo costruendo una macchina autoreferenziale che conduce a una contraddizione.",
+    "informal_explanation": "Si suppone di avere un programma capace di decidere sempre la fermata e si costruisce un caso che contraddice la sua stessa risposta.",
+    "question_response_explanation": "La risposta corretta è c. L'indecidibilità è un risultato matematico e non dipende dai limiti fisici della memoria."
+  },
+  {
+    "id_question": "64",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Memorie",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Qual è la differenza principale tra SRAM e DRAM?",
+    "option": [
+      {
+        "id": "a",
+        "text": "La DRAM è usata solo per la cache"
+      },
+      {
+        "id": "b",
+        "text": "La SRAM deve essere rinfrescata periodicamente, la DRAM no"
+      },
+      {
+        "id": "c",
+        "text": "Non c'è differenza, sono sinonimi"
+      },
+      {
+        "id": "d",
+        "text": "La SRAM usa flip-flop ed è più veloce ma costosa; la DRAM usa microcondensatori, è più lenta ma economica"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "La SRAM usa celle bistabili ed è veloce e costosa; la DRAM usa condensatori, richiede refresh ed è più densa ed economica.",
+    "informal_explanation": "SRAM è veloce e costosa, DRAM è più economica ma deve essere periodicamente rinfrescata.",
+    "question_response_explanation": "La risposta corretta è d. È la DRAM, non la SRAM, a richiedere il refresh periodico."
+  },
+  {
+    "id_question": "65",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Sottoprogrammi e stack",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Perché, in caso di sottoprogrammi annidati, è necessario salvare il contenuto di LINK_reg prima di una nuova chiamata (call)?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Perché LINK_reg viene sempre sovrascritto da Call e Return, e serve per recuperare l'indirizzo di rientro corretto di ciascuna chiamata"
+      },
+      {
+        "id": "b",
+        "text": "Non è mai necessario salvarlo"
+      },
+      {
+        "id": "c",
+        "text": "Perché LINK_reg contiene il codice operativo dell'istruzione"
+      },
+      {
+        "id": "d",
+        "text": "Perché altrimenti la ALU si blocca"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Una nuova CALL sovrascrive il registro di collegamento con un nuovo indirizzo di ritorno, quindi quello precedente deve essere salvato nelle chiamate annidate.",
+    "informal_explanation": "Ogni funzione deve ricordare dove tornare; se tutte usano lo stesso registro bisogna salvare il valore precedente.",
+    "question_response_explanation": "La risposta corretta è a. LINK_reg contiene un indirizzo di ritorno, non un opcode."
+  },
+  {
+    "id_question": "66",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Tecnologia CMOS",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Che funzione svolgono i transistori nei circuiti digitali?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Fungono da interruttori, con stati di conduzione e interdizione"
+      },
+      {
+        "id": "b",
+        "text": "Immagazzinano dati permanentemente"
+      },
+      {
+        "id": "c",
+        "text": "Generano il clock di sistema"
+      },
+      {
+        "id": "d",
+        "text": "Convertono corrente alternata in continua"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Nei circuiti digitali i transistori sono impiegati principalmente come interruttori controllati tra stati di conduzione e interdizione.",
+    "informal_explanation": "Sono microscopici interruttori con cui si costruiscono le porte logiche.",
+    "question_response_explanation": "La risposta corretta è a. Le altre opzioni descrivono funzioni differenti o troppo specifiche."
+  },
+  {
+    "id_question": "67",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Stack",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "In un'architettura RISC, come si realizza tipicamente una push sullo stack?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Subtract SP,SP,#4 seguita da Store Rj,(SP)"
+      },
+      {
+        "id": "b",
+        "text": "Con una singola istruzione PUSH dedicata"
+      },
+      {
+        "id": "c",
+        "text": "Store Rj,(SP) seguita da Add SP,SP,#4"
+      },
+      {
+        "id": "d",
+        "text": "Load Rj,(SP) seguita da Subtract SP,SP,#4"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Con uno stack che cresce verso indirizzi inferiori, si decrementa prima SP e poi si memorizza il registro nella nuova cima dello stack.",
+    "informal_explanation": "Prima fai spazio sullo stack e poi ci scrivi il valore.",
+    "question_response_explanation": "La risposta corretta è a. LOAD leggerebbe dalla memoria e non implementerebbe una push."
+  },
+  {
+    "id_question": "68",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "RTN e datapath",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Per l'istruzione 'Load R5, X(R7)', qual è la sequenza corretta dei passi di esecuzione secondo la notazione RTN?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Prelievo → Caricamento → Decodifica → Lettura → Calcolo indirizzo"
+      },
+      {
+        "id": "b",
+        "text": "Calcolo indirizzo → Prelievo → Lettura → Decodifica → Caricamento"
+      },
+      {
+        "id": "c",
+        "text": "Decodifica → Prelievo → Calcolo indirizzo → Caricamento → Lettura"
+      },
+      {
+        "id": "d",
+        "text": "Prelievo+incremento PC → Decodifica e lettura R7 → Calcolo indirizzo effettivo → Lettura operando da memoria → Caricamento in R5"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Una LOAD richiede fetch e incremento del PC, decodifica e lettura del registro base, calcolo dell'indirizzo effettivo, accesso in memoria e scrittura nel registro destinazione.",
+    "informal_explanation": "Prima leggi l'istruzione, poi calcoli R7+X, leggi il dato in memoria e lo metti in R5.",
+    "question_response_explanation": "La risposta corretta è d. Non è possibile calcolare correttamente l'indirizzo prima di aver prelevato e decodificato l'istruzione."
+  },
+  {
+    "id_question": "69",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Tecnologia CMOS",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Nei transistori NMOS, tensione di base alta corrisponde a quale stato, e la sorgente a cosa è collegata?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Conduzione; sorgente collegata alla massa"
+      },
+      {
+        "id": "b",
+        "text": "Interdizione; sorgente collegata all'alimentazione"
+      },
+      {
+        "id": "c",
+        "text": "Interdizione; sorgente collegata alla massa"
+      },
+      {
+        "id": "d",
+        "text": "Conduzione; sorgente collegata all'alimentazione"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Nel modello NMOS di pull-down, un gate alto abilita la conduzione e la sorgente è collegata a massa.",
+    "informal_explanation": "Gate alto significa transistor acceso verso massa.",
+    "question_response_explanation": "La risposta corretta è a. Nel pull-down NMOS la sorgente è collegata alla massa."
+  },
+  {
+    "id_question": "70",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Macchina di Turing",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Una macchina di Turing universale è in grado di...",
+    "option": [
+      {
+        "id": "a",
+        "text": "Simulare qualsiasi altra macchina di Turing"
+      },
+      {
+        "id": "b",
+        "text": "Sostituire fisicamente la CPU"
+      },
+      {
+        "id": "c",
+        "text": "Eseguire solo un tipo di calcolo"
+      },
+      {
+        "id": "d",
+        "text": "Funzionare solo con numeri binari"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Una macchina di Turing universale può simulare il comportamento di qualsiasi altra macchina di Turing a partire dalla sua descrizione e dall'input.",
+    "informal_explanation": "È una macchina generale capace di comportarsi come qualsiasi altra macchina di Turing.",
+    "question_response_explanation": "La risposta corretta è a. La macchina universale è un modello teorico generale, non una CPU fisica."
+  },
+  {
+    "id_question": "71",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Traduzione e linking",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Qual è il compito principale del loader?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Ottimizzare il codice assembly"
+      },
+      {
+        "id": "b",
+        "text": "Collegare più file oggetto in uno unico"
+      },
+      {
+        "id": "c",
+        "text": "Tradurre il codice sorgente in linguaggio assembly"
+      },
+      {
+        "id": "d",
+        "text": "Caricare il programma oggetto dalla memoria secondaria alla memoria centrale ed avviarne l'esecuzione"
+      }
+    ],
+    "id_correct": "d",
+    "formal_explanation": "Il loader trasferisce il programma eseguibile in memoria centrale e ne prepara l'avvio.",
+    "informal_explanation": "Prende il programma dal disco, lo mette in RAM e lo fa partire.",
+    "question_response_explanation": "La risposta corretta è d. Collegare i file oggetto è invece compito del linker."
+  },
+  {
+    "id_question": "72",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Pipeline",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "'Add R2,R3,#100' seguita da 'Subtract R9,R2,#30' in pipeline: perché serve forwarding/attesa?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Perché il bus è occupato da un cache miss"
+      },
+      {
+        "id": "b",
+        "text": "Perché entrambe sono istruzioni di salto"
+      },
+      {
+        "id": "c",
+        "text": "Entrambe usano R2: Subtract necessita del risultato di Add non ancora scritto nel banco registri (dipendenza di dato)"
+      },
+      {
+        "id": "d",
+        "text": "Perché occupano la stessa locazione di memoria"
+      }
+    ],
+    "id_correct": "c",
+    "formal_explanation": "La seconda istruzione presenta una dipendenza RAW su R2 e necessita del risultato prodotto dalla ADD prima che sia stato necessariamente scritto nel banco registri.",
+    "informal_explanation": "La SUBTRACT ha bisogno del nuovo valore di R2 prodotto dalla ADD immediatamente precedente.",
+    "question_response_explanation": "La risposta corretta è c. Si tratta di una dipendenza Read After Write, non di un cache miss o di una dipendenza di memoria."
+  },
+  {
+    "id_question": "73",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Bus",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Quali sono le tre componenti principali del bus di sistema?",
+    "option": [
+      {
+        "id": "a",
+        "text": "ABus, DBus, CBus"
+      },
+      {
+        "id": "b",
+        "text": "IF, ID, EX"
+      },
+      {
+        "id": "c",
+        "text": "North Bridge, South Bridge, Chipset"
+      },
+      {
+        "id": "d",
+        "text": "CPU, RAM, ROM"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Il bus di sistema comprende Address Bus, Data Bus e Control Bus.",
+    "informal_explanation": "Un bus porta gli indirizzi, uno i dati e uno i segnali di controllo.",
+    "question_response_explanation": "La risposta corretta è a: ABus, DBus e CBus."
+  },
+  {
+    "id_question": "74",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Aritmetica binaria",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Il circuito sequenziale per la divisione con ripristino è realizzato con...",
+    "option": [
+      {
+        "id": "a",
+        "text": "Un solo registro a scorrimento"
+      },
+      {
+        "id": "b",
+        "text": "Due shift register (A e Q) e un addizionatore a n+1 bit"
+      },
+      {
+        "id": "c",
+        "text": "Solo un addizionatore"
+      },
+      {
+        "id": "d",
+        "text": "Una ALU dedicata separata dall'addizionatore"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "La divisione con ripristino utilizza tipicamente due registri a scorrimento A e Q e un circuito aritmetico a n+1 bit.",
+    "informal_explanation": "A contiene il resto parziale, Q il quoziente e il circuito aritmetico esegue sottrazioni e ripristini.",
+    "question_response_explanation": "La risposta corretta è b. Un singolo registro o un solo addizionatore non sono sufficienti per la struttura descritta."
+  },
+  {
+    "id_question": "75",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Algebra booleana",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Semplificando x̄1x̄2x̄3 + x̄1x̄2x3 con la legge del complemento, cosa si ottiene?",
+    "option": [
+      {
+        "id": "a",
+        "text": "x̄1x̄2"
+      },
+      {
+        "id": "b",
+        "text": "x̄3"
+      },
+      {
+        "id": "c",
+        "text": "x1x2"
+      },
+      {
+        "id": "d",
+        "text": "x1+x2"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Raccogliendo x̄1x̄2 si ottiene x̄1x̄2(x̄3+x3)=x̄1x̄2.",
+    "informal_explanation": "I due termini differiscono soltanto per x3, che quindi può essere eliminato.",
+    "question_response_explanation": "La risposta corretta è a perché x̄3 + x3 = 1."
+  },
+  {
+    "id_question": "76",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Calcolabilità",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Perché le funzioni parziali sono importanti nelle macchine di Turing universali?",
+    "option": [
+      {
+        "id": "a",
+        "text": "Perché permettono di rappresentare anche le computazioni che non termineranno mai, necessarie per simulare qualsiasi mdT"
+      },
+      {
+        "id": "b",
+        "text": "Perché riducono lo spazio di memoria necessario"
+      },
+      {
+        "id": "c",
+        "text": "Perché velocizzano il calcolo"
+      },
+      {
+        "id": "d",
+        "text": "Perché rappresentano solo le computazioni che terminano con successo"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Le funzioni parziali possono essere non definite per alcuni input e modellano quindi anche computazioni che non terminano.",
+    "informal_explanation": "Se un programma gira per sempre non restituisce un risultato, e una funzione parziale permette di rappresentare anche questo caso.",
+    "question_response_explanation": "La risposta corretta è a. Le funzioni parziali non servono principalmente a ridurre memoria o aumentare velocità."
+  },
+  {
+    "id_question": "77",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Controllo microprogrammato",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Quando il generatore di indirizzi delle microistruzioni carica sul μPC la prima istruzione di una microroutine?",
+    "option": [
+      {
+        "id": "a",
+        "text": "All'inizio di ogni istruzione macchina, corrispondente all'istruzione letta su IR"
+      },
+      {
+        "id": "b",
+        "text": "Solo in caso di interrupt"
+      },
+      {
+        "id": "c",
+        "text": "Ad ogni ciclo di clock indipendentemente dall'istruzione"
+      },
+      {
+        "id": "d",
+        "text": "Solo all'avvio del sistema (boot)"
+      }
+    ],
+    "id_correct": "a",
+    "formal_explanation": "Dopo la decodifica dell'istruzione macchina, il generatore di indirizzi seleziona l'inizio della microroutine associata all'opcode e lo carica nel μPC.",
+    "informal_explanation": "Ogni istruzione macchina fa partire la propria sequenza di microistruzioni.",
+    "question_response_explanation": "La risposta corretta è a. Il caricamento non avviene soltanto durante interrupt o boot."
+  },
+  {
+    "id_question": "78",
+    "estimed_time": "15",
+    "metadata": {
+      "city": "Università di Catania",
+      "department": "Dipartimento di Matematica e Informatica",
+      "course": "L-31 - Scienze e tecnologie informatiche",
+      "sub": "Architettura degli Elaboratori",
+      "argoment": "Bus",
+      "teacher": "Massimo Orazio Spata",
+      "year_of_validity": "attuale"
+    },
+    "text": "Cosa determinano rispettivamente l'ampiezza dell'ABus e del DBus?",
+    "option": [
+      {
+        "id": "a",
+        "text": "ABus → velocità di clock; DBus → consumo energetico"
+      },
+      {
+        "id": "b",
+        "text": "ABus → spazio di indirizzamento; DBus → grado di parallelismo"
+      },
+      {
+        "id": "c",
+        "text": "ABus → numero di periferiche; DBus → numero di core"
+      },
+      {
+        "id": "d",
+        "text": "Sono equivalenti e determinano la stessa cosa"
+      }
+    ],
+    "id_correct": "b",
+    "formal_explanation": "L'ampiezza dell'Address Bus determina il numero di indirizzi rappresentabili; quella del Data Bus determina quanti bit possono essere trasferiti simultaneamente.",
+    "informal_explanation": "Più bit nell'ABus significano più memoria indirizzabile; più bit nel DBus significano più dati trasferiti insieme.",
+    "question_response_explanation": "La risposta corretta è b. Address Bus e Data Bus svolgono funzioni differenti: il primo determina lo spazio di indirizzamento, il secondo il parallelismo del trasferimento."
+  }
+]

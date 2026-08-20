@@ -24,8 +24,41 @@ MaterialDuplicateStatus = Literal[
 ]
 
 
-class MaterialPublicationRequestCreate(BaseModel):
+MaterialPublicationRequestType = Literal[
+    "new_material",
+    "update_candidate",
+]
+
+
+MaterialComparisonStatus = Literal[
+    "not_required",
+    "pending",
+    "same_material",
+    "candidate_update",
+    "different_material",
+]
+
+
+MaterialApprovedAction = Literal[
+    "publish_new",
+    "update_existing",
+    "keep_existing",
+    "publish_separate",
+]
+
+
+class MaterialPublicationRequestCreate(
+    BaseModel,
+):
     subject_id: int
+
+    request_type: MaterialPublicationRequestType = (
+        "new_material"
+    )
+
+    target_public_material_id: int | None = (
+        None
+    )
 
     title: str = Field(
         min_length=1,
@@ -55,8 +88,18 @@ class MaterialPublicationRequestCreate(BaseModel):
     )
 
 
-class MaterialPublicationUploadRequest(BaseModel):
+class MaterialPublicationUploadRequest(
+    BaseModel,
+):
     subject_id: int
+
+    request_type: MaterialPublicationRequestType = (
+        "new_material"
+    )
+
+    target_public_material_id: int | None = (
+        None
+    )
 
     title: str = Field(
         min_length=1,
@@ -86,8 +129,18 @@ class MaterialPublicationUploadRequest(BaseModel):
     )
 
 
-class MaterialPublicationCompleteRequest(BaseModel):
+class MaterialPublicationCompleteRequest(
+    BaseModel,
+):
     subject_id: int
+
+    request_type: MaterialPublicationRequestType = (
+        "new_material"
+    )
+
+    target_public_material_id: int | None = (
+        None
+    )
 
     title: str = Field(
         min_length=1,
@@ -127,7 +180,9 @@ class MaterialPublicationCompleteRequest(BaseModel):
     )
 
 
-class MaterialPublicationRequestResponse(BaseModel):
+class MaterialPublicationRequestResponse(
+    BaseModel,
+):
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -150,6 +205,10 @@ class MaterialPublicationRequestResponse(BaseModel):
 
     course_code: str
 
+    request_type: MaterialPublicationRequestType
+
+    target_public_material_id: int | None
+
     title: str
 
     description: str | None
@@ -162,9 +221,11 @@ class MaterialPublicationRequestResponse(BaseModel):
 
     file_hash: str
 
-    status: str
+    status: MaterialPublicationStatus
 
-    duplicate_status: str
+    duplicate_status: MaterialDuplicateStatus
+
+    comparison_status: MaterialComparisonStatus
 
     possible_duplicate_material_id: int | None
 
@@ -175,6 +236,14 @@ class MaterialPublicationRequestResponse(BaseModel):
     rejection_reason: str | None
 
     admin_note: str | None
+
+    approved_action: MaterialApprovedAction | None
+
+    approved_public_material_id: int | None
+
+    proposed_title: str | None
+
+    proposed_description: str | None
 
     created_at: datetime
 
@@ -189,11 +258,28 @@ class MaterialPublicationRequestAdminResponse(
     file_path: str
 
 
-class MaterialPublicationApproveRequest(BaseModel):
+class MaterialPublicationApproveRequest(
+    BaseModel,
+):
+    approved_action: MaterialApprovedAction | None = (
+        None
+    )
+
+    proposed_title: str | None = Field(
+        default=None,
+        max_length=250,
+    )
+
+    proposed_description: str | None = (
+        None
+    )
+
     admin_note: str | None = None
 
 
-class MaterialPublicationRejectRequest(BaseModel):
+class MaterialPublicationRejectRequest(
+    BaseModel,
+):
     rejection_reason: str = Field(
         min_length=1,
     )
@@ -201,10 +287,26 @@ class MaterialPublicationRejectRequest(BaseModel):
     admin_note: str | None = None
 
 
-class MaterialDuplicateReviewRequest(BaseModel):
+class MaterialDuplicateReviewRequest(
+    BaseModel,
+):
     duplicate_status: Literal[
         "confirmed",
         "not_duplicate",
     ]
+
+    comparison_status: Literal[
+        "candidate_update",
+        "different_material",
+    ] | None = None
+
+    proposed_title: str | None = Field(
+        default=None,
+        max_length=250,
+    )
+
+    proposed_description: str | None = (
+        None
+    )
 
     admin_note: str | None = None
