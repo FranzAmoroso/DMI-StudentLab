@@ -29,14 +29,13 @@ from schemas.material import (
     GroupMaterialVerifyRequest,
 )
 
-from services.upload_authorization import (
-    create_upload_authorization,
-    decode_upload_authorization,
-    require_upload_authorization_fields,
-    require_upload_authorization_type,
-    require_upload_authorization_user,
+from core.database import (
+    get_db,
 )
 
+from core.security import (
+    get_current_user,
+)
 
 ALLOWED_MIME_TYPES = {
     "application/pdf",
