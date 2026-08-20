@@ -3,423 +3,255 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../local_storage/local_storage.dart';
-
 import '../theme/nightTheme.dart';
-
 import 'models/study_material.dart';
-
 import 'widgets/material_card.dart';
 
-
-class OnlineSubjectMaterialPage
-    extends StatefulWidget {
-
+class OnlineSubjectMaterialPage extends StatefulWidget {
   final int? subjectId;
-
   final String subjectName;
-
   final String course;
-
   final String department;
-
   final int groupId;
-
   final List<StudyMaterial> materials;
-
 
   const OnlineSubjectMaterialPage({
     super.key,
-
     required this.subjectId,
-
     required this.subjectName,
-
     required this.course,
-
     required this.department,
-
     required this.groupId,
-
     required this.materials,
   });
 
-
   @override
-  State<OnlineSubjectMaterialPage>
-      createState() =>
-          _OnlineSubjectMaterialPageState();
+  State<OnlineSubjectMaterialPage> createState() =>
+      _OnlineSubjectMaterialPageState();
 }
-
 
 class _OnlineSubjectMaterialPageState
     extends State<OnlineSubjectMaterialPage> {
-
-  final MaterialDownloadService
-      _downloadService =
+  final MaterialDownloadService _downloadService =
       MaterialDownloadService();
 
+  final Set<int> _downloadedIds = <int>{};
+  final Set<int> _downloadingIds = <int>{};
 
-  final Set<int> _downloadedIds =
-      {};
-
-
-  final Set<int> _downloadingIds =
-      {};
-
-
-  bool _loading =
-      true;
-
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-
     _loadDownloadedState();
   }
 
-
   Future<void> _loadDownloadedState() async {
-    final Set<int> downloaded =
-        {};
+    final Set<int> downloaded = <int>{};
 
+    for (final StudyMaterial material in widget.materials) {
+      final int? materialId = int.tryParse(material.id);
 
-    for (final StudyMaterial material
-        in widget.materials) {
-
-      final int? materialId =
-          int.tryParse(
-        material.id,
-      );
-
-
-      if (materialId ==
-          null) {
+      if (materialId == null) {
         continue;
       }
 
-
       final bool isDownloaded =
-          await _downloadService
-              .isDownloaded(
-        materialId:
-            materialId,
+          await _downloadService.isMaterialDownloaded(
+        source: MaterialSourceLocal.group,
+        materialId: materialId,
       );
 
-
       if (isDownloaded) {
-        downloaded.add(
-          materialId,
-        );
+        downloaded.add(materialId);
       }
     }
-
 
     if (!mounted) {
       return;
     }
 
-
     setState(() {
       _downloadedIds
         ..clear()
-        ..addAll(
-          downloaded,
-        );
-
-      _loading =
-          false;
+        ..addAll(downloaded);
+      _loading = false;
     });
   }
-
 
   Future<void> _downloadMaterial(
     StudyMaterial material,
   ) async {
+    final int? materialId = int.tryParse(material.id);
 
-    final int? materialId =
-        int.tryParse(
-      material.id,
-    );
-
-
-    if (materialId ==
-        null) {
+    if (materialId == null) {
       _showMessage(
         'ID materiale non valido.',
       );
-
       return;
     }
 
-
-    if (_downloadingIds.contains(
-      materialId,
-    )) {
+    if (_downloadingIds.contains(materialId)) {
       return;
     }
-
 
     setState(() {
-      _downloadingIds.add(
-        materialId,
-      );
+      _downloadingIds.add(materialId);
     });
 
-
     try {
-      final DownloadedMaterialLocal
-          localMaterial =
-          await _downloadService
-              .getOrDownload(
-        materialId:
-            materialId,
-
-        groupId:
-            widget.groupId,
-
-        subjectId:
-            widget.subjectId,
-
-        subjectName:
-            widget.subjectName,
-
-        course:
-            widget.course,
-
-        department:
-            widget.department,
-
-        originalName:
-            material.name,
-
-        mimeType:
-            _mimeTypeFromMaterial(
-          material,
-        ),
-
-        size:
-            null,
+      final MaterialLocal localMaterial =
+          await _downloadService.getOrDownloadMaterial(
+        source: MaterialSourceLocal.group,
+        materialId: materialId,
+        groupId: widget.groupId,
+        subjectId: widget.subjectId,
+        subjectName: widget.subjectName,
+        course: widget.course,
+        department: widget.department,
+        originalName: material.name,
+        mimeType: _mimeTypeFromMaterial(material),
       );
-
 
       if (!mounted) {
         return;
       }
 
-
       setState(() {
-        _downloadedIds.add(
-          materialId,
-        );
+        _downloadedIds.add(materialId);
       });
-
 
       _showMessage(
         '${localMaterial.originalName} disponibile offline.',
       );
-    } catch (e) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
 
-
       _showMessage(
-        _cleanError(
-          e,
-        ),
+        _cleanError(error),
       );
     } finally {
       if (mounted) {
         setState(() {
-          _downloadingIds.remove(
-            materialId,
-          );
+          _downloadingIds.remove(materialId);
         });
       }
     }
   }
 
-
   Future<void> _openMaterial(
     StudyMaterial material,
   ) async {
+    final int? materialId = int.tryParse(material.id);
 
-    final int? materialId =
-        int.tryParse(
-      material.id,
-    );
-
-
-    if (materialId ==
-        null) {
+    if (materialId == null) {
       _showMessage(
         'ID materiale non valido.',
       );
-
       return;
     }
 
-
     try {
-      final File? localFile =
-          await _downloadService
-              .getFile(
-        materialId:
-            materialId,
+      File? localFile =
+          await _downloadService.getMaterialFile(
+        source: MaterialSourceLocal.group,
+        materialId: materialId,
       );
 
-
-      if (localFile !=
-          null) {
-        _showMessage(
-          'File locale: ${localFile.path}',
+      if (localFile == null) {
+        final MaterialLocal localMaterial =
+            await _downloadService.getOrDownloadMaterial(
+          source: MaterialSourceLocal.group,
+          materialId: materialId,
+          groupId: widget.groupId,
+          subjectId: widget.subjectId,
+          subjectName: widget.subjectName,
+          course: widget.course,
+          department: widget.department,
+          originalName: material.name,
+          mimeType: _mimeTypeFromMaterial(material),
         );
 
-        return;
+        localFile =
+            await _downloadService.getMaterialFile(
+          source: localMaterial.source,
+          materialId: localMaterial.remoteId ?? materialId,
+        );
       }
-
-
-      final DownloadedMaterialLocal
-          downloaded =
-          await _downloadService
-              .getOrDownload(
-        materialId:
-            materialId,
-
-        groupId:
-            widget.groupId,
-
-        subjectId:
-            widget.subjectId,
-
-        subjectName:
-            widget.subjectName,
-
-        course:
-            widget.course,
-
-        department:
-            widget.department,
-
-        originalName:
-            material.name,
-
-        mimeType:
-            _mimeTypeFromMaterial(
-          material,
-        ),
-
-        size:
-            null,
-      );
-
 
       if (!mounted) {
         return;
       }
 
+      if (localFile == null) {
+        _showMessage(
+          'Il file locale non è disponibile.',
+        );
+        return;
+      }
 
       setState(() {
-        _downloadedIds.add(
-          materialId,
-        );
+        _downloadedIds.add(materialId);
       });
 
-
       _showMessage(
-        'File locale: ${downloaded.localPath}',
+        'File locale: ${localFile.path}',
       );
-    } catch (e) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
 
-
       _showMessage(
-        _cleanError(
-          e,
-        ),
+        _cleanError(error),
       );
     }
   }
-
 
   @override
   Widget build(
     BuildContext context,
   ) {
-
     return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
-
-      appBar:
-          AppBar(
-        backgroundColor:
-            AppColors.brandNightBlue,
-
-        foregroundColor:
-            AppColors.pureWhite,
-
-        title:
-            Text(
+      backgroundColor: AppColors.darkElegance,
+      appBar: AppBar(
+        backgroundColor: AppColors.brandNightBlue,
+        foregroundColor: AppColors.pureWhite,
+        title: Text(
           widget.subjectName,
-
-          style:
-              const TextStyle(
-            fontSize:
-                18,
-
-            fontWeight:
-                FontWeight.w500,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
           ),
         ),
-
         actions: [
           IconButton(
-            tooltip:
-                'Aggiorna',
-
+            tooltip: 'Aggiorna',
             onPressed:
-                _loading
-                    ? null
-                    : _loadDownloadedState,
-
-            icon:
-                const Icon(
+                _loading ? null : _loadDownloadedState,
+            icon: const Icon(
               Icons.refresh_rounded,
             ),
           ),
         ],
       ),
-
-      body:
-          SafeArea(
-        child:
-            Center(
-          child:
-              LayoutBuilder(
-            builder:
-                (
-              context,
-              constraints,
+      body: SafeArea(
+        child: Center(
+          child: LayoutBuilder(
+            builder: (
+              BuildContext context,
+              BoxConstraints constraints,
             ) {
-
               final double width =
-                  constraints.maxWidth >
-                          750
+                  constraints.maxWidth > 750
                       ? 750
-                      : constraints
-                          .maxWidth;
-
+                      : constraints.maxWidth;
 
               return SizedBox(
-                width:
-                    width,
-
-                child:
-                    _buildBody(),
+                width: width,
+                child: _buildBody(),
               );
             },
           ),
@@ -428,191 +260,116 @@ class _OnlineSubjectMaterialPageState
     );
   }
 
-
   Widget _buildBody() {
     if (_loading) {
       return const Center(
-        child:
-            CircularProgressIndicator(),
+        child: CircularProgressIndicator(),
       );
     }
 
-
-    if (widget.materials
-        .isEmpty) {
+    if (widget.materials.isEmpty) {
       return const _EmptyMaterials();
     }
 
-
     return RefreshIndicator(
-      onRefresh:
-          _loadDownloadedState,
-
-      child:
-          ListView(
+      onRefresh: _loadDownloadedState,
+      child: ListView(
         physics:
             const AlwaysScrollableScrollPhysics(),
-
-        padding:
-            const EdgeInsets.all(
-          20,
-        ),
-
+        padding: const EdgeInsets.all(20),
         children: [
           Text(
             widget.subjectName,
-
-            style:
-                const TextStyle(
-              color:
-                  AppColors.pureWhite,
-
-              fontSize:
-                  22,
-
-              fontWeight:
-                  FontWeight.bold,
+            style: const TextStyle(
+              color: AppColors.pureWhite,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(
-            height:
-                5,
+            height: 5,
           ),
-
           Text(
             '${widget.department} • ${widget.course}',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.48,
-              ),
-
-              fontSize:
-                  12,
+            style: TextStyle(
+              color: AppColors.pureWhite.withValues(
+                        alpha: 0.48,
+                      ),
+              fontSize: 12,
             ),
           ),
-
           const SizedBox(
-            height:
-                24,
+            height: 24,
           ),
-
           const Text(
             'Materiali disponibili',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite,
-
-              fontSize:
-                  18,
-
-              fontWeight:
-                  FontWeight.bold,
+            style: TextStyle(
+              color: AppColors.pureWhite,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(
-            height:
-                14,
+            height: 14,
           ),
-
           ...widget.materials.map(
             (
               StudyMaterial material,
             ) {
-
               final int? materialId =
-                  int.tryParse(
-                material.id,
-              );
-
+                  int.tryParse(material.id);
 
               final bool downloaded =
-                  materialId !=
-                          null &&
-                      _downloadedIds
-                          .contains(
+                  materialId != null &&
+                      _downloadedIds.contains(
                         materialId,
                       );
-
 
               final bool downloading =
-                  materialId !=
-                          null &&
-                      _downloadingIds
-                          .contains(
+                  materialId != null &&
+                      _downloadingIds.contains(
                         materialId,
                       );
 
-
               return Padding(
-                padding:
-                    const EdgeInsets.only(
-                  bottom:
-                      12,
+                padding: const EdgeInsets.only(
+                  bottom: 12,
                 ),
-
-                child:
-                    Column(
+                child: Column(
                   children: [
                     MaterialCard(
-                      material:
-                          material,
-
-                      onTap:
-                          () {
+                      material: material,
+                      onTap: () {
                         _openMaterial(
                           material,
                         );
                       },
                     ),
-
                     const SizedBox(
-                      height:
-                          6,
+                      height: 6,
                     ),
-
                     Row(
                       mainAxisAlignment:
                           MainAxisAlignment.end,
-
                       children: [
                         if (downloaded)
                           const Row(
                             children: [
                               Icon(
-                                Icons
-                                    .check_circle_rounded,
-
+                                Icons.check_circle_rounded,
                                 color:
                                     Colors.greenAccent,
-
-                                size:
-                                    16,
+                                size: 16,
                               ),
-
                               SizedBox(
-                                width:
-                                    5,
+                                width: 5,
                               ),
-
                               Text(
                                 'Disponibile offline',
-
-                                style:
-                                    TextStyle(
+                                style: TextStyle(
                                   color:
                                       Colors.greenAccent,
-
-                                  fontSize:
-                                      11,
-
+                                  fontSize: 11,
                                   fontWeight:
                                       FontWeight.w500,
                                 ),
@@ -629,16 +386,11 @@ class _OnlineSubjectMaterialPageState
                                           material,
                                         );
                                       },
-
                             icon:
                                 downloading
                                     ? const SizedBox(
-                                        width:
-                                            15,
-
-                                        height:
-                                            15,
-
+                                        width: 15,
+                                        height: 15,
                                         child:
                                             CircularProgressIndicator(
                                           strokeWidth:
@@ -648,13 +400,9 @@ class _OnlineSubjectMaterialPageState
                                     : const Icon(
                                         Icons
                                             .download_rounded,
-
-                                        size:
-                                            17,
+                                        size: 17,
                                       ),
-
-                            label:
-                                Text(
+                            label: Text(
                               downloading
                                   ? 'Download...'
                                   : 'Scarica offline',
@@ -672,66 +420,49 @@ class _OnlineSubjectMaterialPageState
     );
   }
 
-
   String? _mimeTypeFromMaterial(
     StudyMaterial material,
   ) {
-
-    switch (
-        material.type.toLowerCase()) {
-
+    switch (material.type.toLowerCase()) {
       case 'pdf':
         return 'application/pdf';
-
       case 'image':
         return 'image/*';
-
       case 'document':
         return 'application/octet-stream';
-
       default:
         return 'application/octet-stream';
     }
   }
 
-
   String _cleanError(
     Object error,
   ) {
-
-    String message =
-        error.toString();
-
+    String message = error.toString();
 
     if (message.startsWith(
       'Exception: ',
     )) {
-      message =
-          message.substring(
+      message = message.substring(
         'Exception: '.length,
       );
     }
 
-
     return message;
   }
-
 
   void _showMessage(
     String message,
   ) {
-
     if (!mounted) {
       return;
     }
-
 
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(
       SnackBar(
-        content:
-            Text(
+        content: Text(
           message,
         ),
       ),
@@ -739,81 +470,46 @@ class _OnlineSubjectMaterialPageState
   }
 }
 
-
-class _EmptyMaterials
-    extends StatelessWidget {
-
+class _EmptyMaterials extends StatelessWidget {
   const _EmptyMaterials();
-
 
   @override
   Widget build(
     BuildContext context,
   ) {
-
     return Center(
-      child:
-          Padding(
-        padding:
-            const EdgeInsets.all(
+      child: Padding(
+        padding: const EdgeInsets.all(
           30,
         ),
-
-        child:
-            Container(
-          width:
-              double.infinity,
-
-          padding:
-              const EdgeInsets.all(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(
             30,
           ),
-
-          decoration:
-              BoxDecoration(
-            color:
-                AppColors.materialNavy,
-
-            borderRadius:
-                BorderRadius.circular(
+          decoration: BoxDecoration(
+            color: AppColors.materialNavy,
+            borderRadius: BorderRadius.circular(
               16,
             ),
           ),
-
-          child:
-              const Column(
-            mainAxisSize:
-                MainAxisSize.min,
-
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.folder_open_rounded,
-
-                color:
-                    Colors.white38,
-
-                size:
-                    45,
+                color: Colors.white38,
+                size: 45,
               ),
-
               SizedBox(
-                height:
-                    12,
+                height: 12,
               ),
-
               Text(
                 'Nessun materiale disponibile',
-
-                textAlign:
-                    TextAlign.center,
-
-                style:
-                    TextStyle(
-                  color:
-                      Colors.white70,
-
-                  fontSize:
-                      14,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
                 ),
               ),
             ],

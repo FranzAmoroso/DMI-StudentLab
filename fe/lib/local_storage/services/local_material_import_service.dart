@@ -2,338 +2,323 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart';
 
-import '../models/downloaded_material_local.dart';
-import '../repositories/downloaded_material_repository.dart';
+import '../database/app_database.dart';
+import '../database/database_tables.dart';
+
+import '../models/material_file_local.dart';
+import '../models/material_local.dart';
+
+import '../repositories/material_repository.dart';
+
+import 'local_file_service.dart';
 import 'local_storage_identity.dart';
 
 class LocalMaterialImportService {
-  final DownloadedMaterialRepository _repository;
+  final MaterialRepository _materialRepository;
+
+  final LocalFileService _fileService;
+
+  final AppDatabase _database;
 
   LocalMaterialImportService({
-    DownloadedMaterialRepository? repository,
-  }) : _repository =
-            repository ??
-                DownloadedMaterialRepository();
+    MaterialRepository? materialRepository,
+    LocalFileService? fileService,
+    AppDatabase? database,
+  }) : _materialRepository = materialRepository ?? MaterialRepository(),
+       _fileService = fileService ?? LocalFileService(),
+       _database = database ?? AppDatabase.instance;
 
-  Future<DownloadedMaterialLocal> importMaterial({
+  Future<MaterialLocal> importMaterial({
     int? userId,
     required String sourcePath,
-    required String university,
-    required String department,
-    required String course,
-    required String subjectName,
+    String? university,
+    String? department,
+    String? course,
+    String? subjectName,
     String? originalName,
+    int? subjectId,
   }) async {
-    final int resolvedUserId =
-        LocalStorageIdentity.resolve(
-      userId:
-          userId,
-    );
+    final int resolvedUserId = LocalStorageIdentity.resolve(userId: userId);
 
-    final File source =
-        File(
-      sourcePath,
-    );
+    final File sourceFile = File(sourcePath);
 
-    if (!await source.exists()) {
-      throw const FileSystemException(
-        'File non disponibile.',
-      );
+    if (!await sourceFile.exists()) {
+      throw const FileSystemException('File non disponibile.');
     }
 
-    final int size =
-        await source.length();
+    final int size = await sourceFile.length();
 
     if (size <= 0) {
-      throw const FileSystemException(
-        'File vuoto.',
-      );
+      throw const FileSystemException('File vuoto.');
     }
 
     final String resolvedName =
-        originalName != null &&
-                originalName.trim().isNotEmpty
-            ? originalName.trim()
-            : p.basename(
-                sourcePath,
-              );
+        originalName != null && originalName.trim().isNotEmpty
+        ? originalName.trim()
+        : p.basename(sourcePath);
 
-    final List<DownloadedMaterialLocal> existing =
-        await _repository.getByUser(
+    final List<MaterialLocal> existing = await _materialRepository.getByUser(
       resolvedUserId,
     );
 
-    final String canonicalUniversity =
-        _canonicalValue(
+    final String? canonicalUniversity = _canonicalOptionalValue(
       university,
-      existing.map(
-        (
-          DownloadedMaterialLocal material,
-        ) =>
-            material.displayUniversity,
-      ),
+      existing
+          .map((MaterialLocal material) => material.university)
+          .whereType<String>(),
     );
 
-    final String canonicalDepartment =
-        _canonicalValue(
+    final String? canonicalDepartment = _canonicalOptionalValue(
       department,
       existing
           .where(
-            (
-              DownloadedMaterialLocal material,
-            ) =>
-                _sameText(
-              material.displayUniversity,
-              canonicalUniversity,
-            ),
+            (MaterialLocal material) =>
+                _sameText(material.university, canonicalUniversity),
           )
-          .map(
-            (
-              DownloadedMaterialLocal material,
-            ) =>
-                material.displayDepartment,
-          ),
+          .map((MaterialLocal material) => material.department)
+          .whereType<String>(),
     );
 
-    final String canonicalCourse =
-        _canonicalValue(
+    final String? canonicalCourse = _canonicalOptionalValue(
       course,
       existing
           .where(
-            (
-              DownloadedMaterialLocal material,
-            ) =>
-                _sameText(
-                  material.displayUniversity,
-                  canonicalUniversity,
-                ) &&
-                _sameText(
-                  material.displayDepartment,
-                  canonicalDepartment,
-                ),
+            (MaterialLocal material) =>
+                _sameText(material.university, canonicalUniversity) &&
+                _sameText(material.department, canonicalDepartment),
           )
-          .map(
-            (
-              DownloadedMaterialLocal material,
-            ) =>
-                material.displayCourse,
-          ),
+          .map((MaterialLocal material) => material.course)
+          .whereType<String>(),
     );
 
-    final String canonicalSubject =
-        _canonicalValue(
+    final String? canonicalSubject = _canonicalOptionalValue(
       subjectName,
       existing
           .where(
-            (
-              DownloadedMaterialLocal material,
-            ) =>
-                _sameText(
-                  material.displayUniversity,
-                  canonicalUniversity,
-                ) &&
-                _sameText(
-                  material.displayDepartment,
-                  canonicalDepartment,
-                ) &&
-                _sameText(
-                  material.displayCourse,
-                  canonicalCourse,
-                ),
+            (MaterialLocal material) =>
+                _sameText(material.university, canonicalUniversity) &&
+                _sameText(material.department, canonicalDepartment) &&
+                _sameText(material.course, canonicalCourse),
           )
-          .map(
-            (
-              DownloadedMaterialLocal material,
-            ) =>
-                material.displaySubjectName,
-          ),
+          .map((MaterialLocal material) => material.subjectName)
+          .whereType<String>(),
     );
 
-    final Directory root =
-        await getApplicationDocumentsDirectory();
+    final String mimeType = _mimeType(resolvedName);
 
-    final Directory directory =
-        Directory(
+    final String? fileHash = await _fileService.calculateSha256(sourcePath);
+
+    final MaterialFileLocal? existingPhysicalFile = fileHash == null
+        ? null
+        : await _getMaterialFileByHash(fileHash);
+
+    final int fileId;
+
+    if (existingPhysicalFile != null &&
+        await _fileService.exists(existingPhysicalFile.localPath)) {
+      fileId = existingPhysicalFile.id!;
+    } else {
+      final String copiedPath = await _copyIntoLibrary(
+        userId: resolvedUserId,
+        sourcePath: sourcePath,
+        fileName: resolvedName,
+      );
+
+      final DateTime now = DateTime.now().toUtc();
+
+      if (existingPhysicalFile != null) {
+        final MaterialFileLocal updatedFile = existingPhysicalFile.copyWith(
+          localPath: copiedPath,
+          fileHash: fileHash,
+          size: size,
+          mimeType: mimeType,
+          existsLocally: true,
+          updatedAt: now,
+        );
+
+        await _updateMaterialFile(updatedFile);
+
+        fileId = existingPhysicalFile.id!;
+      } else {
+        fileId = await _insertMaterialFile(
+          MaterialFileLocal(
+            localPath: copiedPath,
+            fileHash: fileHash,
+            size: size,
+            mimeType: mimeType,
+            existsLocally: true,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+    }
+
+    final DateTime now = DateTime.now().toUtc();
+
+    final MaterialLocal material = MaterialLocal(
+      userId: resolvedUserId,
+      source: MaterialSourceLocal.local,
+      remoteKey: null,
+      remoteId: null,
+      subjectId: subjectId,
+      groupId: null,
+      university: canonicalUniversity,
+      department: canonicalDepartment,
+      course: canonicalCourse,
+      subjectName: canonicalSubject,
+      originalName: resolvedName,
+      fileId: fileId,
+      remoteVersion: null,
+      remoteStatus: null,
+      isAvailableRemote: false,
+      isPersonal: true,
+      createdAt: now,
+      updatedAt: now,
+      lastSyncedAt: null,
+    );
+
+    final int id = await _materialRepository.insert(material);
+
+    return material.copyWith(id: id);
+  }
+
+  Future<String> _copyIntoLibrary({
+    required int userId,
+    required String sourcePath,
+    required String fileName,
+  }) async {
+    final File sourceFile = File(sourcePath);
+
+    if (!await sourceFile.exists()) {
+      throw const FileSystemException('File non disponibile.');
+    }
+
+    final Directory root = await getApplicationDocumentsDirectory();
+
+    final Directory directory = Directory(
       p.join(
         root.path,
         'studentlab',
         'users',
-        resolvedUserId.toString(),
+        userId.toString(),
         'library',
         'imported',
       ),
     );
 
     if (!await directory.exists()) {
-      await directory.create(
-        recursive:
-            true,
-      );
+      await directory.create(recursive: true);
     }
 
-    final String safeName =
-        _sanitizeFileName(
-      resolvedName,
-    );
+    final String safeName = _sanitizeFileName(fileName);
 
     final String uniqueName =
         '${DateTime.now().microsecondsSinceEpoch}_$safeName';
 
-    final String localPath =
-        p.join(
-      directory.path,
-      uniqueName,
-    );
+    final String destinationPath = p.join(directory.path, uniqueName);
 
-    final File copied =
-        await source.copy(
-      localPath,
-    );
+    final File copied = await sourceFile.copy(destinationPath);
 
-    int materialId =
-        -DateTime.now()
-            .microsecondsSinceEpoch;
-
-    while (
-      await _repository.getMaterial(
-            userId:
-                resolvedUserId,
-            materialId:
-                materialId,
-          ) !=
-          null
-    ) {
-      materialId--;
-    }
-
-    final DownloadedMaterialLocal material =
-        DownloadedMaterialLocal(
-      userId:
-          resolvedUserId,
-      materialId:
-          materialId,
-      groupId:
-          0,
-      university:
-          canonicalUniversity,
-      department:
-          canonicalDepartment,
-      course:
-          canonicalCourse,
-      subjectId:
-          null,
-      subjectName:
-          canonicalSubject,
-      originalName:
-          resolvedName,
-      localPath:
-          copied.path,
-      mimeType:
-          _mimeType(
-        resolvedName,
-      ),
-      size:
-          size,
-      downloadedAt:
-          DateTime.now(),
-    );
-
-    await _repository.save(
-      material,
-    );
-
-    return material;
+    return copied.path;
   }
 
-  String _canonicalValue(
-    String value,
-    Iterable<String> existing,
-  ) {
-    final String trimmed =
-        _cleanText(
-      value,
+  Future<MaterialFileLocal?> _getMaterialFileByHash(String fileHash) async {
+    final Database db = await _database.database;
+
+    final List<Map<String, Object?>> rows = await db.query(
+      DatabaseTables.materialFiles,
+      where: 'file_hash = ?',
+      whereArgs: <Object?>[fileHash.trim().toLowerCase()],
+      limit: 1,
     );
 
+    if (rows.isEmpty) {
+      return null;
+    }
+
+    return MaterialFileLocal.fromMap(rows.first);
+  }
+
+  Future<int> _insertMaterialFile(MaterialFileLocal file) async {
+    final Database db = await _database.database;
+
+    return db.insert(DatabaseTables.materialFiles, file.toMap());
+  }
+
+  Future<void> _updateMaterialFile(MaterialFileLocal file) async {
+    if (file.id == null) {
+      throw ArgumentError('File locale senza id.');
+    }
+
+    final Database db = await _database.database;
+
+    await db.update(
+      DatabaseTables.materialFiles,
+      file.toMap(),
+      where: 'id = ?',
+      whereArgs: <Object?>[file.id],
+    );
+  }
+
+  String? _canonicalOptionalValue(String? value, Iterable<String> existing) {
+    if (value == null) {
+      return null;
+    }
+
+    final String trimmed = _cleanText(value);
+
     if (trimmed.isEmpty) {
-      throw ArgumentError(
-        'Campo obbligatorio.',
-      );
+      return null;
     }
 
     for (final String candidate in existing) {
-      if (
-        _sameText(
-          candidate,
-          trimmed,
-        )
-      ) {
-        return _cleanText(
-          candidate,
-        );
+      if (_sameText(candidate, trimmed)) {
+        return _cleanText(candidate);
       }
     }
 
     return trimmed;
   }
 
-  bool _sameText(
-    String a,
-    String b,
-  ) {
-    return _normalizeText(
-          a,
-        ) ==
-        _normalizeText(
-          b,
-        );
-  }
-
-  String _normalizeText(
-    String value,
-  ) {
-    return _cleanText(
-      value,
-    ).toLowerCase();
-  }
-
-  String _cleanText(
-    String value,
-  ) {
-    return value
-        .trim()
-        .replaceAll(
-          RegExp(
-            r'\s+',
-          ),
-          ' ',
-        );
-  }
-
-  String _sanitizeFileName(
-    String fileName,
-  ) {
-    String value =
-        fileName.trim();
-
-    if (value.isEmpty) {
-      value =
-          'materiale';
+  bool _sameText(String? a, String? b) {
+    if (a == null || b == null) {
+      return a == null && b == null;
     }
 
-    return value.replaceAll(
-      RegExp(
-        r'[\\/:\*?"<>|]',
-      ),
-      '_',
-    );
+    return _normalizeText(a) == _normalizeText(b);
   }
 
-  String _mimeType(
-    String fileName,
-  ) {
-    final String lower =
-        fileName.toLowerCase();
+  String _normalizeText(String value) {
+    return _cleanText(value).toLowerCase();
+  }
+
+  String _cleanText(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _sanitizeFileName(String fileName) {
+    String value = fileName.trim();
+
+    if (value.isEmpty) {
+      value = 'materiale';
+    }
+
+    value = value.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+
+    value = value.replaceAll(RegExp(r'^\.+'), '');
+
+    if (value.isEmpty) {
+      return 'materiale';
+    }
+
+    return value;
+  }
+
+  String _mimeType(String fileName) {
+    final String lower = fileName.toLowerCase();
 
     if (lower.endsWith('.pdf')) {
       return 'application/pdf';
@@ -367,10 +352,7 @@ class LocalMaterialImportService {
       return 'image/png';
     }
 
-    if (
-      lower.endsWith('.jpg') ||
-      lower.endsWith('.jpeg')
-    ) {
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
       return 'image/jpeg';
     }
 

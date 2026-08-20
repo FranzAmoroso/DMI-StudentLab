@@ -314,124 +314,60 @@ class _HomePageState
       backgroundColor:
           AppColors.darkElegance,
 
-      appBar:
-          AppBar(
-        backgroundColor:
-            AppColors.eleganceMidnight,
 
-        foregroundColor:
-            AppColors.pearlWhite,
-
-        elevation:
-            AppColors
-                .nightAppBarTheme
-                .elevation,
-
-        centerTitle:
-            false,
-
-        leading:
-            Padding(
-          padding:
-              const EdgeInsets.all(
-            11,
-          ),
-
-          child:
-              Image.asset(
-            'assets/icons/favicon.png',
-
-            width:
-                30,
-
-            height:
-                30,
-
-            fit:
-                BoxFit.contain,
+appBar: AppBar(
+  backgroundColor: AppColors.eleganceMidnight,
+  foregroundColor: AppColors.pearlWhite,
+  elevation: AppColors.nightAppBarTheme.elevation,
+  centerTitle: false,
+  leading: Padding(
+    padding: const EdgeInsets.all(6),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(11),
+      child: Image.asset(
+        'assets/icons/app_icon.png',
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+      ),
+    ),
+  ),
+  actions: [
+    if (_restoringSession)
+      const Padding(
+        padding: EdgeInsets.only(right: 18),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+            ),
           ),
         ),
-
-        actions: [
-          if (_restoringSession)
-            const Padding(
-              padding:
-                  EdgeInsets.only(
-                right:
-                    18,
-              ),
-
-              child:
-                  Center(
-                child:
-                    SizedBox(
-                  width:
-                      20,
-
-                  height:
-                      20,
-
-                  child:
-                      CircularProgressIndicator(
-                    strokeWidth:
-                        2,
-                  ),
-                ),
-              ),
-            )
-          else if (_isAuthenticated) ...[
-            _NavbarIconButton(
-              tooltip:
-                  'Messaggi',
-
-              icon:
-                  Icons
-                      .chat_bubble_outline_rounded,
-
-              onPressed:
-                  _openMessages,
-            ),
-
-            const SizedBox(
-              width:
-                  7,
-            ),
-
-            _NavbarIconButton(
-              tooltip:
-                  'Notifiche',
-
-              icon:
-                  Icons
-                      .notifications_none_rounded,
-
-              badge:
-                  _unreadNotificationCount,
-
-              onPressed:
-                  _openNotifications,
-            ),
-
-            const SizedBox(
-              width:
-                  7,
-            ),
-
-            _UserButton(
-              name:
-                  _displayName,
-
-              onPressed:
-                  _showUserMenu,
-            ),
-
-            const SizedBox(
-              width:
-                  12,
-            ),
-          ],
-        ],
+      )
+    else if (_isAuthenticated) ...[
+      _NavbarIconButton(
+        tooltip: 'Messaggi',
+        icon: Icons.chat_bubble_outline_rounded,
+        onPressed: _openMessages,
       ),
+      const SizedBox(width: 7),
+      _NavbarIconButton(
+        tooltip: 'Notifiche',
+        icon: Icons.notifications_none_rounded,
+        badge: _unreadNotificationCount,
+        onPressed: _openNotifications,
+      ),
+      const SizedBox(width: 7),
+      _UserButton(
+        name: _displayName,
+        onPressed: _showUserMenu,
+      ),
+      const SizedBox(width: 12),
+    ],
+  ],
+),
 
       body:
           HomeLayer(),

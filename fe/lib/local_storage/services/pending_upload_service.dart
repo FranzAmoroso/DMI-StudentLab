@@ -8,7 +8,6 @@ import '../repositories/pending_upload_repository.dart';
 
 import 'local_file_service.dart';
 
-
 class PendingUploadService {
   final ApiService _apiService;
 
@@ -16,20 +15,19 @@ class PendingUploadService {
 
   final LocalFileService _fileService;
 
-
   PendingUploadService({
     ApiService? apiService,
     PendingUploadRepository? repository,
     LocalFileService? fileService,
   })  : _apiService =
-            apiService ?? ApiService(),
+            apiService ??
+                ApiService(),
         _repository =
             repository ??
                 PendingUploadRepository(),
         _fileService =
             fileService ??
                 LocalFileService();
-
 
   Future<PendingUploadLocal>
       createFromFile({
@@ -40,6 +38,33 @@ class PendingUploadService {
     String? mimeType,
     int? size,
   }) async {
+    final File sourceFile =
+        File(
+      sourcePath,
+    );
+
+    if (!await sourceFile.exists()) {
+      throw const FileSystemException(
+        'Il file selezionato non esiste.',
+      );
+    }
+
+    final int sourceSize =
+        await sourceFile.length();
+
+    if (sourceSize <= 0) {
+      throw const FileSystemException(
+        'Il file selezionato è vuoto.',
+      );
+    }
+
+    final String normalizedName =
+        _normalizeOriginalName(
+      originalName,
+      sourcePath:
+          sourcePath,
+    );
+
     final String localPath =
         await _fileService
             .copyToPendingUpload(
@@ -50,15 +75,41 @@ class PendingUploadService {
       sourcePath:
           sourcePath,
       preferredFileName:
-          originalName,
+          normalizedName,
     );
 
-    final int? actualSize =
-        size ??
-            await _fileService
-                .getFileSize(
-              localPath,
-            );
+    final int? copiedSize =
+        await _fileService
+            .getFileSize(
+      localPath,
+    );
+
+    if (
+      copiedSize == null ||
+      copiedSize <= 0
+    ) {
+      await _fileService.delete(
+        localPath,
+      );
+
+      throw const FileSystemException(
+        'Non è stato possibile preparare il file per il caricamento.',
+      );
+    }
+
+    if (
+      size != null &&
+      size > 0 &&
+      copiedSize != size
+    ) {
+      await _fileService.delete(
+        localPath,
+      );
+
+      throw const FileSystemException(
+        'La dimensione del file preparato non corrisponde al file selezionato.',
+      );
+    }
 
     final PendingUploadLocal upload =
         PendingUploadLocal(
@@ -69,30 +120,38 @@ class PendingUploadService {
       localPath:
           localPath,
       originalName:
-          originalName,
+          normalizedName,
       mimeType:
           mimeType,
       size:
-          actualSize,
+          copiedSize,
       status:
           PendingUploadStatus.pending,
       createdAt:
-          DateTime.now(),
+          DateTime.now()
+              .toUtc(),
       retryCount:
           0,
     );
 
-    final int id =
-        await _repository.insert(
-      upload,
-    );
+    try {
+      final int id =
+          await _repository.insert(
+        upload,
+      );
 
-    return upload.copyWith(
-      id:
-          id,
-    );
+      return upload.copyWith(
+        id:
+            id,
+      );
+    } catch (_) {
+      await _fileService.delete(
+        localPath,
+      );
+
+      rethrow;
+    }
   }
-
 
   Future<PendingUploadLocal>
       createFromBytes({
@@ -102,6 +161,17 @@ class PendingUploadService {
     required Uint8List bytes,
     String? mimeType,
   }) async {
+    if (bytes.isEmpty) {
+      throw ArgumentError(
+        'Il file da caricare è vuoto.',
+      );
+    }
+
+    final String normalizedName =
+        _normalizeOriginalName(
+      originalName,
+    );
+
     final String localPath =
         await _fileService
             .savePendingUploadBytes(
@@ -110,10 +180,29 @@ class PendingUploadService {
       groupId:
           groupId,
       fileName:
-          originalName,
+          normalizedName,
       bytes:
           bytes,
     );
+
+    final int? savedSize =
+        await _fileService
+            .getFileSize(
+      localPath,
+    );
+
+    if (
+      savedSize == null ||
+      savedSize != bytes.length
+    ) {
+      await _fileService.delete(
+        localPath,
+      );
+
+      throw const FileSystemException(
+        'Non è stato possibile salvare correttamente il file da caricare.',
+      );
+    }
 
     final PendingUploadLocal upload =
         PendingUploadLocal(
@@ -124,56 +213,88 @@ class PendingUploadService {
       localPath:
           localPath,
       originalName:
-          originalName,
+          normalizedName,
       mimeType:
           mimeType,
       size:
-          bytes.length,
+          savedSize,
       status:
           PendingUploadStatus.pending,
       createdAt:
-          DateTime.now(),
+          DateTime.now()
+              .toUtc(),
       retryCount:
           0,
     );
 
-    final int id =
-        await _repository.insert(
-      upload,
-    );
+    try {
+      final int id =
+          await _repository.insert(
+        upload,
+      );
 
-    return upload.copyWith(
-      id:
-          id,
-    );
+      return upload.copyWith(
+        id:
+            id,
+      );
+    } catch (_) {
+      await _fileService.delete(
+        localPath,
+      );
+
+      rethrow;
+    }
   }
-
 
   Future<PendingUploadLocal> upload(
     PendingUploadLocal upload,
   ) async {
     if (upload.id == null) {
       throw ArgumentError(
-        'Upload locale senza riconoscimento id.',
+        'Upload locale senza id.',
       );
+    }
+
+    if (upload.isUploaded) {
+      return upload;
+    }
+
+    final PendingUploadLocal? current =
+        await _repository.getById(
+      upload.id!,
+    );
+
+    if (current == null) {
+      throw StateError(
+        'Upload locale non più disponibile.',
+      );
+    }
+
+    if (current.isUploaded) {
+      return current;
     }
 
     final bool exists =
         await _fileService.exists(
-      upload.localPath,
+      current.localPath,
     );
 
     if (!exists) {
       final PendingUploadLocal failed =
-          upload.copyWith(
+          current.copyWith(
         status:
             PendingUploadStatus.failed,
         errorMessage:
             'Il file locale non esiste più.',
         retryCount:
-            upload.retryCount + 1,
+            current.retryCount + 1,
         lastAttemptAt:
-            DateTime.now(),
+            DateTime.now()
+                .toUtc(),
+        clearUploadedAt:
+            true,
+        clearServerMaterialId:
+            true,
       );
 
       await _repository.update(
@@ -183,15 +304,59 @@ class PendingUploadService {
       return failed;
     }
 
+    final int? actualSize =
+        await _fileService
+            .getFileSize(
+      current.localPath,
+    );
+
+    if (
+      actualSize == null ||
+      actualSize <= 0
+    ) {
+      final PendingUploadLocal failed =
+          current.copyWith(
+        status:
+            PendingUploadStatus.failed,
+        errorMessage:
+            'Il file locale è vuoto o non leggibile.',
+        retryCount:
+            current.retryCount + 1,
+        lastAttemptAt:
+            DateTime.now()
+                .toUtc(),
+        clearUploadedAt:
+            true,
+        clearServerMaterialId:
+            true,
+      );
+
+      await _repository.update(
+        failed,
+      );
+
+      return failed;
+    }
+
+    final DateTime attemptTime =
+        DateTime.now()
+            .toUtc();
+
     final PendingUploadLocal uploading =
-        upload.copyWith(
+        current.copyWith(
       status:
           PendingUploadStatus.uploading,
+      size:
+          actualSize,
       retryCount:
-          upload.retryCount + 1,
+          current.retryCount + 1,
       lastAttemptAt:
-          DateTime.now(),
+          attemptTime,
       clearErrorMessage:
+          true,
+      clearUploadedAt:
+          true,
+      clearServerMaterialId:
           true,
     );
 
@@ -201,12 +366,15 @@ class PendingUploadService {
 
     try {
       final Map<String, dynamic> result =
-          await _apiService
-              .addGroupMaterial(
+          await _apiService.addGroupMaterial(
         groupId:
             uploading.groupId,
         filePath:
             uploading.localPath,
+        originalName:
+            uploading.originalName,
+        mimeType:
+            uploading.mimeType,
       );
 
       final int serverMaterialId =
@@ -219,7 +387,8 @@ class PendingUploadService {
         status:
             PendingUploadStatus.uploaded,
         uploadedAt:
-            DateTime.now(),
+            DateTime.now()
+                .toUtc(),
         serverMaterialId:
             serverMaterialId,
         clearErrorMessage:
@@ -231,13 +400,19 @@ class PendingUploadService {
       );
 
       return uploaded;
-    } catch (e) {
+    } catch (error) {
       final PendingUploadLocal failed =
           uploading.copyWith(
         status:
             PendingUploadStatus.failed,
         errorMessage:
-            e.toString(),
+            _friendlyUploadError(
+          error,
+        ),
+        clearUploadedAt:
+            true,
+        clearServerMaterialId:
+            true,
       );
 
       await _repository.update(
@@ -247,7 +422,6 @@ class PendingUploadService {
       return failed;
     }
   }
-
 
   Future<PendingUploadLocal?> retry(
     int uploadId,
@@ -259,6 +433,35 @@ class PendingUploadService {
 
     if (existing == null) {
       return null;
+    }
+
+    if (existing.isUploaded) {
+      return existing;
+    }
+
+    final bool exists =
+        await _fileService.exists(
+      existing.localPath,
+    );
+
+    if (!exists) {
+      final PendingUploadLocal failed =
+          existing.copyWith(
+        status:
+            PendingUploadStatus.failed,
+        errorMessage:
+            'Il file locale non esiste più.',
+        clearUploadedAt:
+            true,
+        clearServerMaterialId:
+            true,
+      );
+
+      await _repository.update(
+        failed,
+      );
+
+      return failed;
     }
 
     final PendingUploadLocal pending =
@@ -282,7 +485,6 @@ class PendingUploadService {
     );
   }
 
-
   Future<List<PendingUploadLocal>>
       syncWaiting(
     int userId,
@@ -301,7 +503,7 @@ class PendingUploadService {
 
     final List<PendingUploadLocal>
         results =
-        [];
+        <PendingUploadLocal>[];
 
     for (
       final PendingUploadLocal item
@@ -320,7 +522,6 @@ class PendingUploadService {
     return results;
   }
 
-
   Future<PendingUploadLocal?> getById(
     int uploadId,
   ) {
@@ -328,7 +529,6 @@ class PendingUploadService {
       uploadId,
     );
   }
-
 
   Future<List<PendingUploadLocal>>
       getByUser(
@@ -338,7 +538,6 @@ class PendingUploadService {
       userId,
     );
   }
-
 
   Future<List<PendingUploadLocal>>
       getByGroup({
@@ -353,7 +552,6 @@ class PendingUploadService {
     );
   }
 
-
   Future<List<PendingUploadLocal>>
       getWaiting(
     int userId,
@@ -364,7 +562,6 @@ class PendingUploadService {
     );
   }
 
-
   Future<List<PendingUploadLocal>>
       getFailed(
     int userId,
@@ -374,7 +571,6 @@ class PendingUploadService {
     );
   }
 
-
   Future<int> countWaiting(
     int userId,
   ) {
@@ -382,7 +578,6 @@ class PendingUploadService {
       userId,
     );
   }
-
 
   Future<void> remove(
     int uploadId,
@@ -396,15 +591,16 @@ class PendingUploadService {
       return;
     }
 
-    await _fileService.delete(
-      upload.localPath,
-    );
-
-    await _repository.delete(
-      uploadId,
-    );
+    try {
+      await _fileService.delete(
+        upload.localPath,
+      );
+    } finally {
+      await _repository.delete(
+        uploadId,
+      );
+    }
   }
-
 
   Future<int> clearUploaded(
     int userId,
@@ -433,17 +629,15 @@ class PendingUploadService {
     );
   }
 
-
   Future<void>
       resetInterruptedUploads(
     int userId,
-  ) {
-    return _repository
+  ) async {
+    await _repository
         .resetInterruptedUploads(
       userId,
     );
   }
-
 
   Future<bool> fileExists(
     PendingUploadLocal upload,
@@ -452,7 +646,6 @@ class PendingUploadService {
       upload.localPath,
     );
   }
-
 
   Future<File?> getFile(
     PendingUploadLocal upload,
@@ -471,12 +664,111 @@ class PendingUploadService {
     );
   }
 
+  String _normalizeOriginalName(
+    String originalName, {
+    String? sourcePath,
+  }) {
+    final String normalized =
+        originalName
+            .trim();
+
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
+
+    if (
+      sourcePath != null &&
+      sourcePath.trim().isNotEmpty
+    ) {
+      final String path =
+          sourcePath.replaceAll(
+        '\\',
+        '/',
+      );
+
+      final List<String> segments =
+          path.split(
+        '/',
+      );
+
+      if (
+        segments.isNotEmpty &&
+        segments.last.trim().isNotEmpty
+      ) {
+        return segments.last.trim();
+      }
+    }
+
+    return 'materiale';
+  }
+
+  String _friendlyUploadError(
+    Object error,
+  ) {
+    if (error is FileSystemException) {
+      return 'Il file locale non è disponibile.';
+    }
+
+    final String value =
+        error.toString().toLowerCase();
+
+    if (
+      value.contains('sessione') ||
+      value.contains('autentic') ||
+      value.contains('401')
+    ) {
+      return 'La sessione è scaduta. Accedi nuovamente.';
+    }
+
+    if (
+      value.contains('non autorizz') ||
+      value.contains('403')
+    ) {
+      return 'Non hai i permessi per caricare questo materiale.';
+    }
+
+    if (
+      value.contains('dimensione massima') ||
+      value.contains('250 mb') ||
+      value.contains('too large')
+    ) {
+      return 'Il file supera la dimensione massima consentita.';
+    }
+
+    if (
+      value.contains('tipo di file') ||
+      value.contains('mime') ||
+      value.contains('unsupported')
+    ) {
+      return 'Questo tipo di file non è supportato.';
+    }
+
+    if (
+      value.contains('non esiste') ||
+      value.contains('non disponibile') ||
+      value.contains('not found')
+    ) {
+      return 'Il file o il gruppo non è più disponibile.';
+    }
+
+    if (
+      value.contains('timeout') ||
+      value.contains('socket') ||
+      value.contains('network') ||
+      value.contains('connection')
+    ) {
+      return 'Connessione non disponibile. Riprova quando sei online.';
+    }
+
+    return 'Non è stato possibile caricare il materiale. Riprova.';
+  }
 
   int _extractServerMaterialId(
     Map<String, dynamic> result,
   ) {
     final dynamic value =
-        result['id'];
+        result['id'] ??
+        result['material_id'];
 
     if (value is int) {
       return value;

@@ -57,7 +57,7 @@ class _QuizPageState extends State<QuizPage> {
 
   void takeData() async {
     try {
-      final result = await ApiService().shuffle_filter(
+      final result = await ApiService().shuffleFilter(
         widget.department,
         widget.course,
         widget.sub,
@@ -100,7 +100,7 @@ class _QuizPageState extends State<QuizPage> {
 
     final idQuestion = currentQuestion.idQuestion;
 
-    final isCorrect = await ApiService().validate_quest(
+    final isCorrect = await ApiService().validateQuest(
       idQuestion,
       idChoice,
       widget.department,

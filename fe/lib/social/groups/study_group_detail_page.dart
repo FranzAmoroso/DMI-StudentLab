@@ -9,7 +9,7 @@ import '../../theme/nightTheme.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_session.dart';
 
-import '../../local_storage/models/downloaded_material_local.dart';
+import '../../local_storage/models/material_local.dart';
 import '../../local_storage/services/material_download_service.dart';
 
 import '../social_models.dart';
@@ -19,7 +19,6 @@ import '../layers/group_management_layer.dart';
 import '../layers/group_partecipants_layer.dart';
 
 import 'models/study_group.dart';
-
 
 class StudyGroupDetailPage
     extends StatefulWidget {
@@ -35,7 +34,6 @@ class StudyGroupDetailPage
       createState() =>
           _StudyGroupDetailPageState();
 }
-
 
 class _StudyGroupDetailPageState
     extends State<
@@ -78,31 +76,25 @@ class _StudyGroupDetailPageState
 
   String? _error;
 
-
   StudyGroup get group {
     return widget.group;
   }
-
 
   SocialUser? get currentUser {
     return _session.currentUser;
   }
 
-
   int? get currentUserId {
     return _session.currentUserId;
   }
-
 
   bool get isAuthenticated {
     return _session.isAuthenticated;
   }
 
-
   bool get isGuest {
     return _session.isGuest;
   }
-
 
   bool get isCurrentUserMember {
     final int? userId =
@@ -121,7 +113,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-
   bool get canUseGroupChat {
     return isAuthenticated &&
         (
@@ -130,25 +121,21 @@ class _StudyGroupDetailPageState
         );
   }
 
-
   bool get canUploadMaterial {
     return isAuthenticated &&
         group.isManager;
   }
-
 
   bool get canDeleteMaterial {
     return isAuthenticated &&
         group.isManager;
   }
 
-
   bool get canLeaveGroup {
     return isAuthenticated &&
         isCurrentUserMember &&
         !group.isOwner;
   }
-
 
   @override
   void initState() {
@@ -161,7 +148,6 @@ class _StudyGroupDetailPageState
     _loadGroupData();
   }
 
-
   @override
   void dispose() {
     _session.removeListener(
@@ -170,7 +156,6 @@ class _StudyGroupDetailPageState
 
     super.dispose();
   }
-
 
   void _onSessionChanged() {
     if (!mounted) {
@@ -181,7 +166,6 @@ class _StudyGroupDetailPageState
 
     _refreshDownloadedStates();
   }
-
 
   Future<void> _loadGroupData() async {
     if (mounted) {
@@ -247,7 +231,6 @@ class _StudyGroupDetailPageState
     }
   }
 
-
   Future<List<SocialUser>>
       _loadParticipants(
     Map<String, dynamic> groupData,
@@ -308,7 +291,6 @@ class _StudyGroupDetailPageState
     return users;
   }
 
-
   Future<List<_GroupMaterial>>
       _loadMaterials() async {
     final List<
@@ -331,7 +313,6 @@ class _StudyGroupDetailPageState
         .toList();
   }
 
-
   Future<void> _loadDownloadedStates(
     List<_GroupMaterial> materials,
   ) async {
@@ -343,10 +324,9 @@ class _StudyGroupDetailPageState
       in materials
     ) {
       final bool exists =
-          await _downloadService
-              .isDownloaded(
-        materialId:
-            material.id,
+          await _downloadService.isMaterialDownloaded(
+        source: MaterialSourceLocal.group,
+        materialId: material.id,
       );
 
       if (exists) {
@@ -369,14 +349,12 @@ class _StudyGroupDetailPageState
     });
   }
 
-
   Future<void>
       _refreshDownloadedStates() async {
     await _loadDownloadedStates(
       _materials,
     );
   }
-
 
   Future<void> _refreshMaterials() async {
     if (_loadingMaterials) {
@@ -426,7 +404,6 @@ class _StudyGroupDetailPageState
       }
     }
   }
-
 
   @override
   Widget build(
@@ -525,7 +502,6 @@ class _StudyGroupDetailPageState
       ),
     );
   }
-
 
   Widget _buildBody() {
     if (_loading) {
@@ -697,7 +673,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-
   Widget _buildGroupHeader() {
     return LayoutBuilder(
       builder:
@@ -760,7 +735,7 @@ class _StudyGroupDetailPageState
                 Border.all(
               color:
                   AppColors.skyBlue
-                      .withOpacity(
+                      .withValues(alpha: 
                 0.18,
               ),
             ),
@@ -769,7 +744,7 @@ class _StudyGroupDetailPageState
               BoxShadow(
                 color:
                     Colors.black
-                        .withOpacity(
+                        .withValues(alpha: 
                   0.15,
                 ),
 
@@ -927,7 +902,7 @@ class _StudyGroupDetailPageState
                   color:
                       AppColors
                           .materialSky
-                          .withOpacity(
+                          .withValues(alpha: 
                         0.90,
                       ),
 
@@ -961,7 +936,7 @@ class _StudyGroupDetailPageState
                     color:
                         AppColors
                             .pureWhite
-                            .withOpacity(
+                            .withValues(alpha: 
                           0.60,
                         ),
 
@@ -995,7 +970,7 @@ class _StudyGroupDetailPageState
                     color:
                         AppColors
                             .pureWhite
-                            .withOpacity(
+                            .withValues(alpha: 
                           0.40,
                         ),
 
@@ -1032,7 +1007,7 @@ class _StudyGroupDetailPageState
                   color:
                       AppColors
                           .pureWhite
-                          .withOpacity(
+                          .withValues(alpha: 
                         0.58,
                       ),
 
@@ -1093,7 +1068,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-
   Widget _buildGuestInfo() {
     return Container(
       padding:
@@ -1105,7 +1079,7 @@ class _StudyGroupDetailPageState
           BoxDecoration(
         color:
             AppColors.skyBlue
-                .withOpacity(
+                .withValues(alpha: 
           0.06,
         ),
 
@@ -1118,7 +1092,7 @@ class _StudyGroupDetailPageState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.13,
           ),
         ),
@@ -1157,7 +1131,7 @@ class _StudyGroupDetailPageState
                 color:
                     AppColors
                         .pureWhite
-                        .withOpacity(
+                        .withValues(alpha: 
                       0.55,
                     ),
 
@@ -1174,7 +1148,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-
   Widget _buildNonMemberInfo() {
     return Container(
       padding:
@@ -1186,7 +1159,7 @@ class _StudyGroupDetailPageState
           BoxDecoration(
         color:
             AppColors.skyBlue
-                .withOpacity(
+                .withValues(alpha: 
           0.05,
         ),
 
@@ -1199,7 +1172,7 @@ class _StudyGroupDetailPageState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.10,
           ),
         ),
@@ -1235,7 +1208,7 @@ class _StudyGroupDetailPageState
                 color:
                     AppColors
                         .pureWhite
-                        .withOpacity(
+                        .withValues(alpha: 
                       0.52,
                     ),
 
@@ -1251,7 +1224,6 @@ class _StudyGroupDetailPageState
       ),
     );
   }
-
 
   Widget _buildChatCard() {
     return _GroupActionCard(
@@ -1279,7 +1251,6 @@ class _StudyGroupDetailPageState
           _openChat,
     );
   }
-
 
   void _openChat() {
     final SocialUser? user =
@@ -1322,7 +1293,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-
   Widget _buildParticipantsCard() {
     return _GroupActionCard(
       icon:
@@ -1346,7 +1316,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-
   void _openParticipants() {
     Navigator.of(
       context,
@@ -1361,7 +1330,6 @@ class _StudyGroupDetailPageState
       ),
     );
   }
-
 
   void _openGroupManagement() {
     if (
@@ -1395,188 +1363,113 @@ class _StudyGroupDetailPageState
     );
   }
 
-
   Future<void> _openMaterial(
     _GroupMaterial material,
   ) async {
     try {
-      final File? localFile =
-          await _downloadService
-              .getFile(
-        materialId:
-            material.id,
+      File? localFile =
+          await _downloadService.getMaterialFile(
+        source: MaterialSourceLocal.group,
+        materialId: material.id,
       );
 
-      if (localFile != null) {
-        final bool exists =
-            await localFile.exists();
+      if (localFile == null) {
+        final MaterialLocal localMaterial =
+            await _downloadService.getOrDownloadMaterial(
+          source: MaterialSourceLocal.group,
+          materialId: material.id,
+          groupId: group.id,
+          subjectId: group.subjectId,
+          subjectName: group.subject,
+          course: group.course,
+          department: group.department,
+          originalName: material.originalName,
+          mimeType: material.mimeType,
+          size: material.size,
+        );
 
-        if (exists) {
-          final OpenResult result =
-              await OpenFilex.open(
-            localFile.path,
+        localFile =
+            await _downloadService.getFileForMaterial(
+          localMaterial,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _downloadedMaterialIds.add(
+            material.id,
           );
+        });
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      if (localFile == null || !await localFile.exists()) {
+        await _refreshDownloadedStates();
+
+        if (!mounted) {
+          return;
+        }
+
+        _showMessage(
+          'Il file locale non è più disponibile.',
+        );
+        return;
+      }
+
+      final OpenResult result =
+          await OpenFilex.open(
+        localFile.path,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      switch (result.type) {
+        case ResultType.done:
+          return;
+        case ResultType.noAppToOpen:
+          _showMessage(
+            'Nessuna applicazione installata può aprire questo file.',
+          );
+          return;
+        case ResultType.permissionDenied:
+          _showMessage(
+            'StudentLab non ha il permesso di aprire questo file.',
+          );
+          return;
+        case ResultType.fileNotFound:
+          await _refreshDownloadedStates();
 
           if (!mounted) {
             return;
           }
 
-          if (
-            result.type ==
-            ResultType.done
-          ) {
-            return;
-          }
-
-          if (
-            result.type ==
-            ResultType.noAppToOpen
-          ) {
-            _showMessage(
-              'Nessuna applicazione installata può aprire questo file.',
-            );
-
-            return;
-          }
-
-          if (
-            result.type ==
-            ResultType.permissionDenied
-          ) {
-            _showMessage(
-              'Permesso negato durante l\'apertura del file.',
-            );
-
-            return;
-          }
-
-          if (
-            result.type ==
-            ResultType.fileNotFound
-          ) {
-            await _refreshDownloadedStates();
-
-            _showMessage(
-              'Il file locale non è più disponibile.',
-            );
-
-            return;
-          }
-
+          _showMessage(
+            'Il file locale non è più disponibile.',
+          );
+          return;
+        case ResultType.error:
           _showMessage(
             result.message.isNotEmpty
                 ? result.message
                 : 'Impossibile aprire il file.',
           );
-
           return;
-        }
       }
-
-      final DownloadedMaterialLocal
-          downloaded =
-          await _downloadService
-              .getOrDownload(
-        materialId:
-            material.id,
-
-        groupId:
-            group.id,
-
-        subjectId:
-            group.subjectId,
-
-        subjectName:
-            group.subject,
-
-        course:
-            group.course,
-
-        department:
-            group.department,
-
-        originalName:
-            material.originalName,
-
-        mimeType:
-            material.mimeType,
-
-        size:
-            material.size,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _downloadedMaterialIds.add(
-          material.id,
-        );
-      });
-
-      final OpenResult result =
-          await OpenFilex.open(
-        downloaded.localPath,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      if (
-        result.type ==
-        ResultType.done
-      ) {
-        return;
-      }
-
-      if (
-        result.type ==
-        ResultType.noAppToOpen
-      ) {
-        _showMessage(
-          'Materiale scaricato, ma nessuna applicazione può aprire questo tipo di file.',
-        );
-
-        return;
-      }
-
-      if (
-        result.type ==
-        ResultType.permissionDenied
-      ) {
-        _showMessage(
-          'Materiale scaricato, ma StudentLab non ha il permesso di aprirlo.',
-        );
-
-        return;
-      }
-
-      if (
-        result.type ==
-        ResultType.fileNotFound
-      ) {
-        _showMessage(
-          'Il materiale è stato scaricato ma il file non è stato trovato.',
-        );
-
-        return;
-      }
-
-      _showMessage(
-        result.message.isNotEmpty
-            ? result.message
-            : 'Impossibile aprire il materiale.',
-      );
-    } catch (e) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
 
       _showMessage(
         _cleanError(
-          e,
+          error,
           fallback:
               'Non è stato possibile aprire il materiale. Riprova.',
         ),
@@ -1584,16 +1477,10 @@ class _StudyGroupDetailPageState
     }
   }
 
-
   Future<void> _downloadMaterial(
     _GroupMaterial material,
   ) async {
-    if (
-      _downloadingMaterialIds
-          .contains(
-        material.id,
-      )
-    ) {
+    if (_downloadingMaterialIds.contains(material.id)) {
       return;
     }
 
@@ -1605,40 +1492,22 @@ class _StudyGroupDetailPageState
 
     try {
       final bool alreadyDownloaded =
-          await _downloadService
-              .isDownloaded(
-        materialId:
-            material.id,
+          await _downloadService.isMaterialDownloaded(
+        source: MaterialSourceLocal.group,
+        materialId: material.id,
       );
 
-      await _downloadService
-          .getOrDownload(
-        materialId:
-            material.id,
-
-        groupId:
-            group.id,
-
-        subjectId:
-            group.subjectId,
-
-        subjectName:
-            group.subject,
-
-        course:
-            group.course,
-
-        department:
-            group.department,
-
-        originalName:
-            material.originalName,
-
-        mimeType:
-            material.mimeType,
-
-        size:
-            material.size,
+      await _downloadService.getOrDownloadMaterial(
+        source: MaterialSourceLocal.group,
+        materialId: material.id,
+        groupId: group.id,
+        subjectId: group.subjectId,
+        subjectName: group.subject,
+        course: group.course,
+        department: group.department,
+        originalName: material.originalName,
+        mimeType: material.mimeType,
+        size: material.size,
       );
 
       if (!mounted) {
@@ -1651,23 +1520,19 @@ class _StudyGroupDetailPageState
         );
       });
 
-      if (alreadyDownloaded) {
-        _showMessage(
-          '${material.originalName} è già disponibile offline.',
-        );
-      } else {
-        _showMessage(
-          '${material.originalName} scaricato correttamente.',
-        );
-      }
-    } catch (e) {
+      _showMessage(
+        alreadyDownloaded
+            ? '${material.originalName} è già disponibile offline.'
+            : '${material.originalName} scaricato correttamente.',
+      );
+    } catch (error) {
       if (!mounted) {
         return;
       }
 
       _showMessage(
         _cleanError(
-          e,
+          error,
           fallback:
               'Non è stato possibile scaricare il materiale. Riprova.',
         ),
@@ -1675,15 +1540,13 @@ class _StudyGroupDetailPageState
     } finally {
       if (mounted) {
         setState(() {
-          _downloadingMaterialIds
-              .remove(
+          _downloadingMaterialIds.remove(
             material.id,
           );
         });
       }
     }
   }
-
 
   Future<void> _addMaterial() async {
     if (_uploadingMaterial) {
@@ -1710,15 +1573,10 @@ class _StudyGroupDetailPageState
 
     try {
       final FilePickerResult? result =
-          await FilePicker.platform
-              .pickFiles(
-        allowMultiple:
-            false,
-
-        type:
-            FileType.custom,
-
-        allowedExtensions: [
+          await FilePicker.pickFiles(
+        allowMultiple: false,
+        type: FileType.custom,
+        allowedExtensions: <String>[
           'pdf',
           'txt',
           'zip',
@@ -1813,7 +1671,6 @@ class _StudyGroupDetailPageState
       }
     }
   }
-
 
   Future<void> _deleteMaterial(
     _GroupMaterial material,
@@ -1939,7 +1796,6 @@ class _StudyGroupDetailPageState
     }
   }
 
-
   void _showOptions() {
     if (!canLeaveGroup) {
       return;
@@ -2041,7 +1897,6 @@ class _StudyGroupDetailPageState
       },
     );
   }
-
 
   Future<void> _leaveGroup() async {
     final int? userId =
@@ -2190,13 +2045,11 @@ class _StudyGroupDetailPageState
     }
   }
 
-
   void _showAuthenticationRequired() {
     _showMessage(
       'Accedi a StudentLab per utilizzare questa funzione.',
     );
   }
-
 
   void _showMessage(
     String message,
@@ -2216,7 +2069,6 @@ class _StudyGroupDetailPageState
       ),
     );
   }
-
 
   String _cleanError(
     Object error, {
@@ -2323,7 +2175,6 @@ class _StudyGroupDetailPageState
     return fallback;
   }
 
-
   static int? _toInt(
     dynamic value,
   ) {
@@ -2341,7 +2192,6 @@ class _StudyGroupDetailPageState
     );
   }
 }
-
 
 class _GroupMaterial {
   final int id;
@@ -2362,7 +2212,6 @@ class _GroupMaterial {
 
   final DateTime? createdAt;
 
-
   const _GroupMaterial({
     required this.id,
     required this.groupId,
@@ -2374,7 +2223,6 @@ class _GroupMaterial {
     required this.size,
     required this.createdAt,
   });
-
 
   factory _GroupMaterial.fromJson(
     Map<String, dynamic> json,
@@ -2432,7 +2280,6 @@ class _GroupMaterial {
       ),
     );
   }
-
 
   String get type {
     if (
@@ -2498,7 +2345,6 @@ class _GroupMaterial {
     return 'FILE';
   }
 
-
   String get formattedSize {
     if (size < 1024) {
       return '$size B';
@@ -2513,7 +2359,6 @@ class _GroupMaterial {
 
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
-
 
   IconData get icon {
     switch (type) {
@@ -2544,7 +2389,6 @@ class _GroupMaterial {
     }
   }
 
-
   static int? _toInt(
     dynamic value,
   ) {
@@ -2563,7 +2407,6 @@ class _GroupMaterial {
   }
 }
 
-
 class _GroupHeaderBadge
     extends StatelessWidget {
   final IconData icon;
@@ -2572,13 +2415,11 @@ class _GroupHeaderBadge
 
   final bool compact;
 
-
   const _GroupHeaderBadge({
     required this.icon,
     required this.label,
     required this.compact,
   });
-
 
   @override
   Widget build(
@@ -2613,7 +2454,7 @@ class _GroupHeaderBadge
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.12,
           ),
         ),
@@ -2666,7 +2507,6 @@ class _GroupHeaderBadge
   }
 }
 
-
 class _GroupHeaderInfo
     extends StatelessWidget {
   final IconData icon;
@@ -2675,13 +2515,11 @@ class _GroupHeaderInfo
 
   final bool compact;
 
-
   const _GroupHeaderInfo({
     required this.icon,
     required this.text,
     required this.compact,
   });
-
 
   @override
   Widget build(
@@ -2718,7 +2556,7 @@ class _GroupHeaderInfo
             color:
                 AppColors
                     .materialSky
-                    .withOpacity(
+                    .withValues(alpha: 
                   0.90,
                 ),
 
@@ -2736,7 +2574,6 @@ class _GroupHeaderInfo
   }
 }
 
-
 class _GroupActionCard
     extends StatelessWidget {
   final IconData icon;
@@ -2751,7 +2588,6 @@ class _GroupActionCard
 
   final VoidCallback onTap;
 
-
   const _GroupActionCard({
     required this.icon,
     required this.title,
@@ -2760,7 +2596,6 @@ class _GroupActionCard
     required this.enabled,
     required this.onTap,
   });
-
 
   @override
   Widget build(
@@ -2807,7 +2642,7 @@ class _GroupActionCard
                 Border.all(
               color:
                   AppColors.skyBlue
-                      .withOpacity(
+                      .withValues(alpha: 
                 enabled
                     ? 0.12
                     : 0.05,
@@ -2898,7 +2733,7 @@ class _GroupActionCard
                         color:
                             AppColors
                                 .pureWhite
-                                .withOpacity(
+                                .withValues(alpha: 
                               enabled
                                   ? 0.47
                                   : 0.25,
@@ -2964,7 +2799,6 @@ class _GroupActionCard
   }
 }
 
-
 class GroupMaterialSection
     extends StatelessWidget {
   final StudyGroup group;
@@ -3003,7 +2837,6 @@ class GroupMaterialSection
     _GroupMaterial material,
   ) onDeleteMaterial;
 
-
   const GroupMaterialSection({
     super.key,
     required this.group,
@@ -3020,7 +2853,6 @@ class GroupMaterialSection
     required this.onDownloadMaterial,
     required this.onDeleteMaterial,
   });
-
 
   @override
   Widget build(
@@ -3144,7 +2976,7 @@ class GroupMaterialSection
             color:
                 AppColors
                     .pureWhite
-                    .withOpacity(
+                    .withValues(alpha: 
                   0.55,
                 ),
 
@@ -3304,19 +3136,16 @@ class GroupMaterialSection
   }
 }
 
-
 class _AddGroupMaterialCard
     extends StatelessWidget {
   final VoidCallback? onTap;
 
   final bool uploading;
 
-
   const _AddGroupMaterialCard({
     required this.onTap,
     required this.uploading,
   });
-
 
   @override
   Widget build(
@@ -3358,7 +3187,7 @@ class _AddGroupMaterialCard
                 Border.all(
               color:
                   AppColors.skyBlue
-                      .withOpacity(
+                      .withValues(alpha: 
                 0.18,
               ),
             ),
@@ -3467,7 +3296,6 @@ class _AddGroupMaterialCard
   }
 }
 
-
 class _GroupMaterialCard
     extends StatelessWidget {
   final _GroupMaterial material;
@@ -3484,7 +3312,6 @@ class _GroupMaterialCard
 
   final VoidCallback onDelete;
 
-
   const _GroupMaterialCard({
     required this.material,
     required this.canDelete,
@@ -3494,7 +3321,6 @@ class _GroupMaterialCard
     required this.onDownload,
     required this.onDelete,
   });
-
 
   @override
   Widget build(
@@ -3538,12 +3364,12 @@ class _GroupMaterialCard
                   downloaded
                       ? AppColors
                           .materialSky
-                          .withOpacity(
+                          .withValues(alpha: 
                             0.22,
                           )
                       : AppColors
                           .skyBlue
-                          .withOpacity(
+                          .withValues(alpha: 
                             0.10,
                           ),
             ),
@@ -3810,11 +3636,9 @@ class _GroupMaterialCard
   }
 }
 
-
 class _EmptyGroupMaterials
     extends StatelessWidget {
   const _EmptyGroupMaterials();
-
 
   @override
   Widget build(
@@ -3844,7 +3668,7 @@ class _EmptyGroupMaterials
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.08,
           ),
         ),
@@ -3890,7 +3714,6 @@ class _EmptyGroupMaterials
   }
 }
 
-
 class _GroupErrorCard
     extends StatelessWidget {
   final String message;
@@ -3898,12 +3721,10 @@ class _GroupErrorCard
   final Future<void> Function()
       onRetry;
 
-
   const _GroupErrorCard({
     required this.message,
     required this.onRetry,
   });
-
 
   @override
   Widget build(
@@ -3933,7 +3754,7 @@ class _GroupErrorCard
             Border.all(
           color:
               Colors.redAccent
-                  .withOpacity(
+                  .withValues(alpha: 
             0.20,
           ),
         ),

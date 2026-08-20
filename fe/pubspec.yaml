@@ -46,6 +46,7 @@ dependencies:
   url_launcher: ^6.3.2
   package_info_plus: ^9.0.1
   crypto: ^3.0.7
+  file_picker: ^11.0.3
 
 dev_dependencies:
   flutter_test:
@@ -60,12 +61,6 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   http: ^1.0.0
 
-  file_picker: ^10.0.0
-
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
 
   # The following line ensures that the Material Icons font is
@@ -113,12 +108,12 @@ flutter_launcher_icons:
   image_path: "assets/icons/app_icon.png"
 
   # Adaptive Icon Android
-  adaptive_icon_background: "#050B24"
+  adaptive_icon_background: "#0F1C3F"
   adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
 
   # Web
   web:
     generate: true
     image_path: "assets/icons/app_icon.png"
-    background_color: "#050B24"
-    theme_color: "#050B24"
+    background_color: "#0F1C3F"
+    theme_color: "#0F1C3F"

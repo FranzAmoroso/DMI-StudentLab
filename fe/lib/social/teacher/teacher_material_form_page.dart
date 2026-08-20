@@ -167,29 +167,24 @@ class _TeacherMaterialFormPageState
     }
 
     try {
-      final FilePickerResult? result =
-          await FilePicker.platform
-              .pickFiles(
-        allowMultiple:
-            false,
-
-        type:
-            FileType.custom,
-
-        allowedExtensions: [
-          'pdf',
-          'txt',
-          'zip',
-          'docx',
-          'pptx',
-          'xlsx',
-          'csv',
-          'png',
-          'jpg',
-          'jpeg',
-          'webp',
-        ],
-      );
+final FilePickerResult? result =
+    await FilePicker.pickFiles(
+  allowMultiple: false,
+  type: FileType.custom,
+  allowedExtensions: [
+    'pdf',
+    'txt',
+    'zip',
+    'docx',
+    'pptx',
+    'xlsx',
+    'csv',
+    'png',
+    'jpg',
+    'jpeg',
+    'webp',
+  ],
+);
 
       if (result == null) {
         return;

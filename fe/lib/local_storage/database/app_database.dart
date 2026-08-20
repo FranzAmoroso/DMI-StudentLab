@@ -17,7 +17,7 @@ class AppDatabase {
 
 
   static const int _databaseVersion =
-      5;
+      6;
 
 
   Future<Database> get database async {
@@ -75,14 +75,44 @@ class AppDatabase {
   ) async {
     await db.execute(
       '''
-      CREATE TABLE ${DatabaseTables.downloadedMaterials} (
+      CREATE TABLE ${DatabaseTables.materialFiles} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        local_path TEXT NOT NULL,
+
+        file_hash TEXT,
+
+        size INTEGER,
+
+        mime_type TEXT,
+
+        exists_locally INTEGER NOT NULL DEFAULT 1,
+
+        created_at TEXT NOT NULL,
+
+        updated_at TEXT NOT NULL,
+
+        UNIQUE(local_path)
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE TABLE ${DatabaseTables.materials} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
 
         user_id INTEGER NOT NULL,
 
-        material_id INTEGER NOT NULL,
+        source TEXT NOT NULL,
 
-        group_id INTEGER NOT NULL,
+        remote_key TEXT,
+
+        remote_id INTEGER,
+
+        subject_id INTEGER,
+
+        group_id INTEGER,
 
         university TEXT,
 
@@ -90,24 +120,115 @@ class AppDatabase {
 
         course TEXT,
 
-        subject_id INTEGER,
-
         subject_name TEXT,
 
         original_name TEXT NOT NULL,
 
-        local_path TEXT NOT NULL,
+        file_id INTEGER,
 
-        mime_type TEXT,
+        remote_version INTEGER,
 
-        size INTEGER,
+        remote_status TEXT,
 
-        downloaded_at TEXT NOT NULL,
+        is_available_remote INTEGER NOT NULL DEFAULT 0,
+
+        is_personal INTEGER NOT NULL DEFAULT 0,
+
+        created_at TEXT NOT NULL,
+
+        updated_at TEXT NOT NULL,
+
+        last_synced_at TEXT,
+
+        FOREIGN KEY(file_id)
+          REFERENCES ${DatabaseTables.materialFiles}(id)
+          ON DELETE SET NULL,
+
+        CHECK(
+          source IN (
+            'local',
+            'public',
+            'teacher',
+            'group'
+          )
+        ),
+
+        CHECK(
+          is_available_remote IN (
+            0,
+            1
+          )
+        ),
+
+        CHECK(
+          is_personal IN (
+            0,
+            1
+          )
+        ),
 
         UNIQUE(
           user_id,
-          material_id
+          remote_key
         )
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE TABLE ${DatabaseTables.materialDownloads} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER NOT NULL,
+
+        material_id INTEGER NOT NULL,
+
+        status TEXT NOT NULL DEFAULT 'pending',
+
+        temp_path TEXT,
+
+        expected_hash TEXT,
+
+        expected_size INTEGER,
+
+        downloaded_bytes INTEGER NOT NULL DEFAULT 0,
+
+        started_at TEXT,
+
+        completed_at TEXT,
+
+        error_message TEXT,
+
+        FOREIGN KEY(material_id)
+          REFERENCES ${DatabaseTables.materials}(id)
+          ON DELETE CASCADE,
+
+        CHECK(
+          status IN (
+            'pending',
+            'downloading',
+            'verifying',
+            'completed',
+            'failed'
+          )
+        )
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE TABLE ${DatabaseTables.materialSyncState} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER NOT NULL UNIQUE,
+
+        last_manifest_at TEXT,
+
+        last_successful_sync_at TEXT,
+
+        updated_at TEXT NOT NULL
       )
       ''',
     );
@@ -148,37 +269,20 @@ class AppDatabase {
 
     await db.execute(
       '''
-      CREATE TABLE ${DatabaseTables.materialCache} (
-        material_id INTEGER NOT NULL,
-
-        user_id INTEGER NOT NULL,
-
-        group_id INTEGER NOT NULL,
-
-        uploaded_by INTEGER,
-
-        original_name TEXT NOT NULL,
-
-        mime_type TEXT,
-
-        size INTEGER,
-
-        created_at TEXT,
-
-        synced_at TEXT NOT NULL,
-
-        PRIMARY KEY(
-          user_id,
-          material_id
-        )
+      CREATE UNIQUE INDEX
+      idx_material_files_hash
+      ON ${DatabaseTables.materialFiles}(
+        file_hash
       )
+      WHERE file_hash IS NOT NULL
       ''',
     );
 
     await db.execute(
       '''
-      CREATE INDEX idx_downloaded_materials_user
-      ON ${DatabaseTables.downloadedMaterials}(
+      CREATE INDEX
+      idx_materials_user
+      ON ${DatabaseTables.materials}(
         user_id
       )
       ''',
@@ -186,8 +290,32 @@ class AppDatabase {
 
     await db.execute(
       '''
-      CREATE INDEX idx_downloaded_materials_group
-      ON ${DatabaseTables.downloadedMaterials}(
+      CREATE INDEX
+      idx_materials_user_source
+      ON ${DatabaseTables.materials}(
+        user_id,
+        source
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE INDEX
+      idx_materials_user_subject
+      ON ${DatabaseTables.materials}(
+        user_id,
+        subject_id
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE INDEX
+      idx_materials_user_group
+      ON ${DatabaseTables.materials}(
+        user_id,
         group_id
       )
       ''',
@@ -195,40 +323,71 @@ class AppDatabase {
 
     await db.execute(
       '''
-      CREATE INDEX idx_downloaded_materials_user_subject
-      ON ${DatabaseTables.downloadedMaterials}(
-        user_id,
-        subject_id
+      CREATE INDEX
+      idx_materials_remote_id
+      ON ${DatabaseTables.materials}(
+        source,
+        remote_id
       )
       ''',
     );
 
     await db.execute(
       '''
-      CREATE INDEX idx_downloaded_materials_user_university
-      ON ${DatabaseTables.downloadedMaterials}(
-        user_id,
-        university
+      CREATE INDEX
+      idx_materials_file_id
+      ON ${DatabaseTables.materials}(
+        file_id
       )
       ''',
     );
 
     await db.execute(
       '''
-      CREATE INDEX idx_downloaded_materials_hierarchy
-      ON ${DatabaseTables.downloadedMaterials}(
+      CREATE INDEX
+      idx_materials_available_remote
+      ON ${DatabaseTables.materials}(
         user_id,
-        university,
-        department,
-        course,
-        subject_id
+        is_available_remote
       )
       ''',
     );
 
     await db.execute(
       '''
-      CREATE INDEX idx_pending_uploads_user_status
+      CREATE INDEX
+      idx_material_downloads_user_status
+      ON ${DatabaseTables.materialDownloads}(
+        user_id,
+        status
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE INDEX
+      idx_material_downloads_material
+      ON ${DatabaseTables.materialDownloads}(
+        material_id
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE INDEX
+      idx_material_sync_state_user
+      ON ${DatabaseTables.materialSyncState}(
+        user_id
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE INDEX
+      idx_pending_uploads_user_status
       ON ${DatabaseTables.pendingUploads}(
         user_id,
         status
@@ -238,18 +397,9 @@ class AppDatabase {
 
     await db.execute(
       '''
-      CREATE INDEX idx_pending_uploads_group
+      CREATE INDEX
+      idx_pending_uploads_group
       ON ${DatabaseTables.pendingUploads}(
-        group_id
-      )
-      ''',
-    );
-
-    await db.execute(
-      '''
-      CREATE INDEX idx_material_cache_user_group
-      ON ${DatabaseTables.materialCache}(
-        user_id,
         group_id
       )
       ''',

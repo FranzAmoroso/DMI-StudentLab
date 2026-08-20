@@ -11,10 +11,6 @@ class PendingUploadRepository {
       AppDatabase.instance;
 
 
-  // ===========================================================================
-  // INSERT
-  // ===========================================================================
-
   Future<int> insert(
     PendingUploadLocal upload,
   ) async {
@@ -27,10 +23,6 @@ class PendingUploadRepository {
     );
   }
 
-
-  // ===========================================================================
-  // UPDATE COMPLETO
-  // ===========================================================================
 
   Future<void> update(
     PendingUploadLocal upload,
@@ -47,39 +39,30 @@ class PendingUploadRepository {
     await db.update(
       DatabaseTables.pendingUploads,
       upload.toMap(),
-
       where:
           'id = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         upload.id,
       ],
     );
   }
 
 
-  // ===========================================================================
-  // GET BY ID
-  // ===========================================================================
-
-  Future<PendingUploadLocal?>
-      getById(
+  Future<PendingUploadLocal?> getById(
     int id,
   ) async {
     final Database db =
         await _database.database;
 
-    final List<Map<String, dynamic>> result =
+    final List<Map<String, Object?>>
+        result =
         await db.query(
       DatabaseTables.pendingUploads,
-
       where:
           'id = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         id,
       ],
-
       limit:
           1,
     );
@@ -94,10 +77,6 @@ class PendingUploadRepository {
   }
 
 
-  // ===========================================================================
-  // TUTTI GLI UPLOAD DI UN UTENTE
-  // ===========================================================================
-
   Future<List<PendingUploadLocal>>
       getByUser(
     int userId,
@@ -105,19 +84,17 @@ class PendingUploadRepository {
     final Database db =
         await _database.database;
 
-    final List<Map<String, dynamic>> result =
+    final List<Map<String, Object?>>
+        result =
         await db.query(
       DatabaseTables.pendingUploads,
-
       where:
           'user_id = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         userId,
       ],
-
       orderBy:
-          'created_at DESC',
+          'created_at DESC, id DESC',
     );
 
     return result
@@ -127,10 +104,6 @@ class PendingUploadRepository {
         .toList();
   }
 
-
-  // ===========================================================================
-  // UPLOAD DI UN GRUPPO
-  // ===========================================================================
 
   Future<List<PendingUploadLocal>>
       getByGroup({
@@ -140,20 +113,18 @@ class PendingUploadRepository {
     final Database db =
         await _database.database;
 
-    final List<Map<String, dynamic>> result =
+    final List<Map<String, Object?>>
+        result =
         await db.query(
       DatabaseTables.pendingUploads,
-
       where:
           'user_id = ? AND group_id = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         userId,
         groupId,
       ],
-
       orderBy:
-          'created_at DESC',
+          'created_at DESC, id DESC',
     );
 
     return result
@@ -163,10 +134,6 @@ class PendingUploadRepository {
         .toList();
   }
 
-
-  // ===========================================================================
-  // PER STATO
-  // ===========================================================================
 
   Future<List<PendingUploadLocal>>
       getByStatus({
@@ -176,20 +143,18 @@ class PendingUploadRepository {
     final Database db =
         await _database.database;
 
-    final List<Map<String, dynamic>> result =
+    final List<Map<String, Object?>>
+        result =
         await db.query(
       DatabaseTables.pendingUploads,
-
       where:
           'user_id = ? AND status = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         userId,
         status.name,
       ],
-
       orderBy:
-          'created_at ASC',
+          'created_at ASC, id ASC',
     );
 
     return result
@@ -199,10 +164,6 @@ class PendingUploadRepository {
         .toList();
   }
 
-
-  // ===========================================================================
-  // PENDING
-  // ===========================================================================
 
   Future<List<PendingUploadLocal>>
       getPending(
@@ -211,16 +172,11 @@ class PendingUploadRepository {
     return getByStatus(
       userId:
           userId,
-
       status:
           PendingUploadStatus.pending,
     );
   }
 
-
-  // ===========================================================================
-  // FAILED
-  // ===========================================================================
 
   Future<List<PendingUploadLocal>>
       getFailed(
@@ -229,16 +185,11 @@ class PendingUploadRepository {
     return getByStatus(
       userId:
           userId,
-
       status:
           PendingUploadStatus.failed,
     );
   }
 
-
-  // ===========================================================================
-  // PENDING + FAILED
-  // ===========================================================================
 
   Future<List<PendingUploadLocal>>
       getWaitingForSync(
@@ -247,24 +198,22 @@ class PendingUploadRepository {
     final Database db =
         await _database.database;
 
-    final List<Map<String, dynamic>> result =
+    final List<Map<String, Object?>>
+        result =
         await db.query(
       DatabaseTables.pendingUploads,
-
       where:
           '''
           user_id = ?
           AND status IN (?, ?)
           ''',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         userId,
         PendingUploadStatus.pending.name,
         PendingUploadStatus.failed.name,
       ],
-
       orderBy:
-          'created_at ASC',
+          'created_at ASC, id ASC',
     );
 
     return result
@@ -274,10 +223,6 @@ class PendingUploadRepository {
         .toList();
   }
 
-
-  // ===========================================================================
-  // CAMBIO STATO
-  // ===========================================================================
 
   Future<void> updateStatus({
     required int id,
@@ -287,7 +232,8 @@ class PendingUploadRepository {
     final Database db =
         await _database.database;
 
-    final Map<String, dynamic> values = {
+    final Map<String, Object?> values =
+        <String, Object?>{
       'status':
           status.name,
     };
@@ -296,68 +242,84 @@ class PendingUploadRepository {
       values['error_message'] =
           errorMessage;
     } else if (
-        status !=
-            PendingUploadStatus.failed) {
+      status !=
+          PendingUploadStatus.failed
+    ) {
       values['error_message'] =
           null;
     }
 
     await db.update(
       DatabaseTables.pendingUploads,
-
       values,
-
       where:
           'id = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         id,
       ],
     );
   }
 
 
-  // ===========================================================================
-  // MARK UPLOADING
-  // ===========================================================================
-
   Future<void> markUploading(
     int id,
-  ) {
-    return updateStatus(
-      id:
-          id,
+  ) async {
+    final Database db =
+        await _database.database;
 
-      status:
-          PendingUploadStatus.uploading,
+    final String now =
+        DateTime.now()
+            .toUtc()
+            .toIso8601String();
+
+    await db.rawUpdate(
+      '''
+      UPDATE ${DatabaseTables.pendingUploads}
+      SET
+        status = ?,
+        retry_count = COALESCE(retry_count, 0) + 1,
+        last_attempt_at = ?,
+        error_message = NULL,
+        uploaded_at = NULL,
+        server_material_id = NULL
+      WHERE id = ?
+      ''',
+      <Object?>[
+        PendingUploadStatus.uploading.name,
+        now,
+        id,
+      ],
     );
   }
 
-
-  // ===========================================================================
-  // MARK FAILED
-  // ===========================================================================
 
   Future<void> markFailed({
     required int id,
     required String errorMessage,
-  }) {
-    return updateStatus(
-      id:
-          id,
+  }) async {
+    final Database db =
+        await _database.database;
 
-      status:
-          PendingUploadStatus.failed,
-
-      errorMessage:
-          errorMessage,
+    await db.update(
+      DatabaseTables.pendingUploads,
+      <String, Object?>{
+        'status':
+            PendingUploadStatus.failed.name,
+        'error_message':
+            errorMessage,
+        'uploaded_at':
+            null,
+        'server_material_id':
+            null,
+      },
+      where:
+          'id = ?',
+      whereArgs: <Object?>[
+        id,
+      ],
     );
   }
 
-
-  // ===========================================================================
-  // MARK UPLOADED
-  // ===========================================================================
 
   Future<void> markUploaded({
     required int id,
@@ -368,37 +330,26 @@ class PendingUploadRepository {
 
     await db.update(
       DatabaseTables.pendingUploads,
-
-      {
+      <String, Object?>{
         'status':
-            PendingUploadStatus
-                .uploaded
-                .name,
-
+            PendingUploadStatus.uploaded.name,
         'uploaded_at':
             DateTime.now()
+                .toUtc()
                 .toIso8601String(),
-
         'server_material_id':
             serverMaterialId,
-
         'error_message':
             null,
       },
-
       where:
           'id = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         id,
       ],
     );
   }
 
-
-  // ===========================================================================
-  // RETRY
-  // ===========================================================================
 
   Future<void> retry(
     int id,
@@ -408,36 +359,24 @@ class PendingUploadRepository {
 
     await db.update(
       DatabaseTables.pendingUploads,
-
-      {
+      <String, Object?>{
         'status':
-            PendingUploadStatus
-                .pending
-                .name,
-
+            PendingUploadStatus.pending.name,
         'error_message':
             null,
-
         'uploaded_at':
             null,
-
         'server_material_id':
             null,
       },
-
       where:
           'id = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         id,
       ],
     );
   }
 
-
-  // ===========================================================================
-  // DELETE
-  // ===========================================================================
 
   Future<void> delete(
     int id,
@@ -447,20 +386,14 @@ class PendingUploadRepository {
 
     await db.delete(
       DatabaseTables.pendingUploads,
-
       where:
           'id = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         id,
       ],
     );
   }
 
-
-  // ===========================================================================
-  // DELETE UPLOADED
-  // ===========================================================================
 
   Future<int> deleteUploaded(
     int userId,
@@ -470,23 +403,15 @@ class PendingUploadRepository {
 
     return db.delete(
       DatabaseTables.pendingUploads,
-
       where:
           'user_id = ? AND status = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         userId,
-        PendingUploadStatus
-            .uploaded
-            .name,
+        PendingUploadStatus.uploaded.name,
       ],
     );
   }
 
-
-  // ===========================================================================
-  // COUNT WAITING
-  // ===========================================================================
 
   Future<int> countWaiting(
     int userId,
@@ -494,7 +419,8 @@ class PendingUploadRepository {
     final Database db =
         await _database.database;
 
-    final List<Map<String, dynamic>> result =
+    final List<Map<String, Object?>>
+        result =
         await db.rawQuery(
       '''
       SELECT COUNT(*) AS total
@@ -502,8 +428,7 @@ class PendingUploadRepository {
       WHERE user_id = ?
       AND status IN (?, ?)
       ''',
-
-      [
+      <Object?>[
         userId,
         PendingUploadStatus.pending.name,
         PendingUploadStatus.failed.name,
@@ -514,34 +439,12 @@ class PendingUploadRepository {
       return 0;
     }
 
-    final dynamic value =
-        result.first['total'];
-
-    if (value is int) {
-      return value;
-    }
-
-    if (value is num) {
-      return value.toInt();
-    }
-
-    return int.tryParse(
-          value?.toString() ?? '',
+    return _asInt(
+          result.first['total'],
         ) ??
         0;
   }
 
-
-  // ===========================================================================
-  // RESET UPLOADING
-  // ===========================================================================
-  //
-  // Se l'app viene chiusa durante un upload,
-  // al riavvio può rimanere status = uploading.
-  //
-  // Lo riportiamo a pending per permettere
-  // un nuovo tentativo.
-  // ===========================================================================
 
   Future<void> resetInterruptedUploads(
     int userId,
@@ -551,26 +454,40 @@ class PendingUploadRepository {
 
     await db.update(
       DatabaseTables.pendingUploads,
-
-      {
+      <String, Object?>{
         'status':
-            PendingUploadStatus
-                .pending
-                .name,
-
+            PendingUploadStatus.pending.name,
         'error_message':
             null,
+        'uploaded_at':
+            null,
+        'server_material_id':
+            null,
       },
-
       where:
           'user_id = ? AND status = ?',
-
-      whereArgs: [
+      whereArgs: <Object?>[
         userId,
-        PendingUploadStatus
-            .uploading
-            .name,
+        PendingUploadStatus.uploading.name,
       ],
+    );
+  }
+
+
+  static int? _asInt(
+    Object? value,
+  ) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value?.toString() ??
+          '',
     );
   }
 }

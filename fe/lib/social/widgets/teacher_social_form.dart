@@ -146,10 +146,6 @@ class _TeacherSocialFormState
       _manualCourseController =
       TextEditingController();
 
-  final TextEditingController
-      _manualTitleController =
-      TextEditingController();
-
   DateTime? _selectedDateOfBirth;
 
   bool _available =
@@ -218,9 +214,6 @@ class _TeacherSocialFormState
   bool _manualCourse =
       false;
 
-  bool _manualTitle =
-      false;
-
   bool _showAcademicPathEditor =
       false;
 
@@ -277,8 +270,6 @@ class _TeacherSocialFormState
     _manualDepartmentController.dispose();
 
     _manualCourseController.dispose();
-
-    _manualTitleController.dispose();
 
     for (
       final _TeacherAssignmentData assignment
@@ -752,13 +743,32 @@ class _TeacherSocialFormState
         return;
       }
 
+      final List<SocialSubject> subjects =
+          loadedSubjects
+              .where((SocialSubject subject) => subject.isActive)
+              .toList()
+            ..sort(
+              (SocialSubject a, SocialSubject b) {
+                final int yearCompare =
+                    (a.studyYear ?? 999)
+                        .compareTo(b.studyYear ?? 999);
+
+                if (yearCompare != 0) {
+                  return yearCompare;
+                }
+
+                return a.name
+                    .toLowerCase()
+                    .compareTo(b.name.toLowerCase());
+              },
+            );
+
       setState(() {
-        _availableSubjects =
-            loadedSubjects;
-
-        _loadingSubjects =
-            false;
-
+        _availableSubjects = subjects;
+        _loadingSubjects = false;
+        _subjectsError = subjects.isEmpty
+            ? 'Nessuna materia attiva trovata per il corso selezionato.'
+            : null;
         _resetAssignments();
       });
     } catch (_) {
@@ -790,6 +800,23 @@ class _TeacherSocialFormState
   }
 
   void _addAssignment() {
+    if (_loadingSubjects) {
+      _showMessage(
+        'Attendi il caricamento delle materie.',
+      );
+      return;
+    }
+
+    if (
+      !_manualCourse &&
+      _availableSubjects.isEmpty
+    ) {
+      _showMessage(
+        'Non ci sono materie disponibili per il corso selezionato.',
+      );
+      return;
+    }
+
     setState(() {
       _assignments.add(
         _TeacherAssignmentData(),
@@ -949,17 +976,6 @@ class _TeacherSocialFormState
             : department?.code.trim() ??
                 '';
 
-    if (
-      universityName.isEmpty ||
-      departmentName.isEmpty
-    ) {
-      _showMessage(
-        'Completa ateneo e dipartimento.',
-      );
-
-      return;
-    }
-
     final String courseName =
         _manualCourse
             ? _manualCourseController.text
@@ -973,11 +989,22 @@ class _TeacherSocialFormState
             : course?.code.trim() ??
                 '';
 
-    if (courseName.isEmpty) {
+    final bool hasAnyPrimaryAcademicData =
+        universityName.isNotEmpty ||
+        departmentName.isNotEmpty ||
+        courseName.isNotEmpty;
+
+    final bool hasCompletePrimaryAcademicData =
+        universityName.isNotEmpty &&
+        departmentName.isNotEmpty &&
+        courseName.isNotEmpty;
+
+    if (
+      hasAnyPrimaryAcademicData &&
+      !hasCompletePrimaryAcademicData
+    ) {
       _showMessage(
-        _manualCourse
-            ? 'Inserisci il corso o percorso.'
-            : 'Seleziona un corso.',
+        'Se inizi a compilare il percorso accademico, completa ateneo, dipartimento e corso.',
       );
 
       return;
@@ -1015,6 +1042,7 @@ class _TeacherSocialFormState
         {};
 
     final bool canUseCatalogAssignments =
+        hasCompletePrimaryAcademicData &&
         !_manualUniversity &&
         !_manualDepartment &&
         !_manualCourse;
@@ -1448,100 +1476,110 @@ class _TeacherSocialFormState
     return null;
   }
 
-  void _onUniversityChanged(
+  Future<void> _onUniversityChanged(
     String value,
-  ) {
+  ) async {
     final AcademicUniversity? university =
-        _findUniversity(
-      value,
-    );
+        _findUniversity(value);
+
+    final String? previousCode =
+        _selectedUniversity?.code;
 
     setState(() {
-      _selectedUniversity =
-          university;
-
-      _manualUniversity =
-          university == null;
+      _selectedUniversity = university;
+      _manualUniversity = university == null;
 
       if (university == null) {
-        _selectedDepartment =
-            null;
-
-        _selectedCourse =
-            null;
-
-        _manualDepartment =
-            true;
-
-        _manualCourse =
-            true;
-
-        _departments =
-            [];
-
-        _courses =
-            [];
-
-        _availableSubjects =
-            [];
+        _selectedDepartment = null;
+        _selectedCourse = null;
+        _manualDepartment = true;
+        _manualCourse = true;
+        _departments = [];
+        _courses = [];
+        _availableSubjects = [];
+        _subjectsError = null;
+        _resetAssignments();
       }
     });
+
+    if (university == null || university.code == previousCode) {
+      return;
+    }
+
+    await _loadDepartments(
+      university.code,
+      selectDefault: true,
+    );
   }
 
-  void _onDepartmentChanged(
+  Future<void> _onDepartmentChanged(
     String value,
-  ) {
+  ) async {
     final AcademicDepartment? department =
-        _findDepartment(
-      value,
-    );
+        _findDepartment(value);
+
+    final AcademicUniversity? university =
+        _selectedUniversity;
+
+    final String? previousCode =
+        _selectedDepartment?.code;
 
     setState(() {
-      _selectedDepartment =
-          department;
-
-      _manualDepartment =
-          department == null;
+      _selectedDepartment = department;
+      _manualDepartment = department == null;
 
       if (department == null) {
-        _selectedCourse =
-            null;
-
-        _manualCourse =
-            true;
-
-        _courses =
-            [];
-
-        _availableSubjects =
-            [];
+        _selectedCourse = null;
+        _manualCourse = true;
+        _courses = [];
+        _availableSubjects = [];
+        _subjectsError = null;
+        _resetAssignments();
       }
     });
+
+    if (
+      university == null ||
+      department == null ||
+      department.code == previousCode
+    ) {
+      return;
+    }
+
+    await _loadCourses(
+      universityCode: university.code,
+      departmentCode: department.code,
+      selectDefault: true,
+    );
   }
 
-  void _onCourseChanged(
+  Future<void> _onCourseChanged(
     String value,
-  ) {
+  ) async {
     final AcademicCourse? course =
-        _findCourse(
-      value,
-    );
+        _findCourse(value);
+
+    final String? previousCode =
+        _selectedCourse?.code;
 
     setState(() {
-      _selectedCourse =
-          course;
-
-      _manualCourse =
-          course == null;
+      _selectedCourse = course;
+      _manualCourse = course == null;
 
       if (course == null) {
-        _availableSubjects =
-            [];
+        _availableSubjects = [];
+        _subjectsError = null;
+        _resetAssignments();
       } else {
-        _academicTitleType =
-            course.degreeType.trim();
+        _academicTitleType = course.degreeType.trim();
       }
     });
+
+    if (course == null || course.code == previousCode) {
+      return;
+    }
+
+    await _loadSubjects();
   }
 
   Future<void> _selectUniversityOption(
@@ -1722,7 +1760,7 @@ class _TeacherSocialFormState
       ),
 
       validator:
-          _requiredValidator,
+          null,
 
       decoration:
           InputDecoration(
@@ -1740,9 +1778,7 @@ class _TeacherSocialFormState
             TextStyle(
           color:
               AppColors.pureWhite
-                  .withOpacity(
-            0.35,
-          ),
+                  .withValues(alpha: 0.35),
 
           fontSize:
               9,
@@ -2309,9 +2345,7 @@ class _TeacherSocialFormState
                             TextStyle(
                           color:
                               AppColors.pureWhite
-                                  .withOpacity(
-                            0.60,
-                          ),
+                                  .withValues(alpha: 0.60),
 
                           fontSize:
                               14,
@@ -2508,9 +2542,7 @@ class _TeacherSocialFormState
                             TextStyle(
                           color:
                               AppColors.pureWhite
-                                  .withOpacity(
-                            0.40,
-                          ),
+                                  .withValues(alpha: 0.40),
 
                           fontSize:
                               11,
@@ -2595,15 +2627,13 @@ class _TeacherSocialFormState
                       ),
 
                       Text(
-                        'Aggiungi il percorso che stai frequentando o che hai frequentato. Puoi scrivere direttamente oppure scegliere una voce proposta dal catalogo.',
+                        'Il percorso accademico è facoltativo per i docenti. Se vuoi aggiungerlo, puoi scrivere direttamente oppure scegliere una voce proposta dal catalogo.',
 
                         style:
                             TextStyle(
                           color:
                               AppColors.pureWhite
-                                  .withOpacity(
-                            0.50,
-                          ),
+                                  .withValues(alpha: 0.50),
 
                           fontSize:
                               12,
@@ -2631,9 +2661,7 @@ class _TeacherSocialFormState
                           decoration:
                               BoxDecoration(
                             color:
-                                Colors.amber.withOpacity(
-                              0.06,
-                            ),
+                                Colors.amber.withValues(alpha: 0.06),
 
                             borderRadius:
                                 BorderRadius.circular(
@@ -2643,9 +2671,7 @@ class _TeacherSocialFormState
                             border:
                                 Border.all(
                               color:
-                                  Colors.amber.withOpacity(
-                                0.16,
-                              ),
+                                  Colors.amber.withValues(alpha: 0.16),
                             ),
                           ),
 
@@ -2657,9 +2683,7 @@ class _TeacherSocialFormState
                                 TextStyle(
                               color:
                                   AppColors.pureWhite
-                                      .withOpacity(
-                                0.60,
-                              ),
+                                      .withValues(alpha: 0.60),
 
                               fontSize:
                                   10,
@@ -2699,9 +2723,7 @@ class _TeacherSocialFormState
                               Border.all(
                             color:
                                 AppColors.socialBlue
-                                    .withOpacity(
-                              0.20,
-                            ),
+                                    .withValues(alpha: 0.20),
                           ),
                         ),
 
@@ -2849,7 +2871,7 @@ class _TeacherSocialFormState
 
                             DropdownButtonFormField<
                                 AcademicPathStatus>(
-                              value:
+                              initialValue:
                                   _academicStatus,
 
                               dropdownColor:
@@ -3098,9 +3120,7 @@ class _TeacherSocialFormState
                                 TextStyle(
                               color:
                                   AppColors.pureWhite
-                                      .withOpacity(
-                                0.38,
-                              ),
+                                      .withValues(alpha: 0.38),
 
                               fontSize:
                                   10,
@@ -3178,9 +3198,7 @@ class _TeacherSocialFormState
                               BorderSide(
                             color:
                                 AppColors.skyBlue
-                                    .withOpacity(
-                              0.30,
-                            ),
+                                    .withValues(alpha: 0.30),
                           ),
                         ),
                       ),
@@ -3218,9 +3236,7 @@ class _TeacherSocialFormState
                             TextStyle(
                           color:
                               AppColors.pureWhite
-                                  .withOpacity(
-                            0.50,
-                          ),
+                                  .withValues(alpha: 0.50),
 
                           fontSize:
                               12,
@@ -3294,9 +3310,7 @@ class _TeacherSocialFormState
                                 TextStyle(
                               color:
                                   AppColors.pureWhite
-                                      .withOpacity(
-                                0.38,
-                              ),
+                                      .withValues(alpha: 0.38),
 
                               fontSize:
                                   10,
@@ -3374,9 +3388,7 @@ class _TeacherSocialFormState
                               BorderSide(
                             color:
                                 AppColors.skyBlue
-                                    .withOpacity(
-                              0.30,
-                            ),
+                                    .withValues(alpha: 0.30),
                           ),
                         ),
                       ),
@@ -3398,9 +3410,7 @@ class _TeacherSocialFormState
                         decoration:
                             BoxDecoration(
                           color:
-                              Colors.amber.withOpacity(
-                            0.06,
-                          ),
+                              Colors.amber.withValues(alpha: 0.06),
 
                           borderRadius:
                               BorderRadius.circular(
@@ -3410,9 +3420,7 @@ class _TeacherSocialFormState
                           border:
                               Border.all(
                             color:
-                                Colors.amber.withOpacity(
-                              0.16,
-                            ),
+                                Colors.amber.withValues(alpha: 0.16),
                           ),
                         ),
 
@@ -3424,9 +3432,7 @@ class _TeacherSocialFormState
                               TextStyle(
                             color:
                                 AppColors.pureWhite
-                                    .withOpacity(
-                              0.58,
-                            ),
+                                    .withValues(alpha: 0.58),
 
                             fontSize:
                                 10,
@@ -3492,6 +3498,28 @@ class _TeacherSocialFormState
                                 11,
                           ),
                         ),
+                      ] else if (
+                        !_loadingSubjects &&
+                        _availableSubjects.isNotEmpty
+                      ) ...[
+                        const SizedBox(
+                          height:
+                              8,
+                        ),
+
+                        Text(
+                          '${_availableSubjects.length} materie disponibili per il corso selezionato.',
+
+                          style:
+                              TextStyle(
+                            color:
+                                AppColors.pureWhite
+                                    .withValues(alpha: 0.45),
+
+                            fontSize:
+                                10,
+                          ),
+                        ),
                       ],
 
                       const SizedBox(
@@ -3544,9 +3572,7 @@ class _TeacherSocialFormState
                             TextStyle(
                           color:
                               AppColors.pureWhite
-                                  .withOpacity(
-                            0.50,
-                          ),
+                                  .withValues(alpha: 0.50),
 
                           fontSize:
                               12,
@@ -3602,9 +3628,7 @@ class _TeacherSocialFormState
                               BorderSide(
                             color:
                                 AppColors.skyBlue
-                                    .withOpacity(
-                              0.30,
-                            ),
+                                    .withValues(alpha: 0.30),
                           ),
                         ),
                       ),
@@ -3828,9 +3852,7 @@ class _TeacherSocialFormState
             Border.all(
           color:
               AppColors.teacherIndigo
-                  .withOpacity(
-            0.20,
-          ),
+                  .withValues(alpha: 0.20),
         ),
       ),
 
@@ -3898,7 +3920,12 @@ class _TeacherSocialFormState
 
           DropdownButtonFormField<
               SocialSubject>(
-            value:
+            key:
+                ValueKey<String>(
+              'teacher-subject-$index-${item.selectedSubject?.id ?? 'none'}',
+            ),
+
+            initialValue:
                 item.selectedSubject,
 
             isExpanded:
@@ -3932,14 +3959,7 @@ class _TeacherSocialFormState
             ),
 
             items:
-                _availableSubjects
-                    .where(
-                      (
-                        SocialSubject subject,
-                      ) =>
-                          subject.isActive,
-                    )
-                    .map(
+                _availableSubjects.map(
               (
                 SocialSubject subject,
               ) {
@@ -3992,7 +4012,12 @@ class _TeacherSocialFormState
 
             DropdownButtonFormField<
                 SubjectOffering?>(
-              value:
+              key:
+                  ValueKey<String>(
+                'teacher-offering-$index-${item.selectedSubject?.id ?? 'none'}-${item.selectedOffering?.id ?? 'all'}',
+              ),
+
+              initialValue:
                   item.selectedOffering,
 
               isExpanded:
@@ -4115,7 +4140,7 @@ class _TeacherSocialFormState
               });
             },
 
-            activeColor:
+            activeThumbColor:
                 AppColors.skyBlue,
 
             title:
@@ -4143,9 +4168,7 @@ class _TeacherSocialFormState
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
-                  0.45,
-                ),
+                        .withValues(alpha: 0.45),
 
                 fontSize:
                     10,
@@ -4170,7 +4193,7 @@ class _TeacherSocialFormState
               });
             },
 
-            activeColor:
+            activeThumbColor:
                 AppColors.skyBlue,
 
             title:
@@ -4198,9 +4221,7 @@ class _TeacherSocialFormState
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
-                  0.45,
-                ),
+                        .withValues(alpha: 0.45),
 
                 fontSize:
                     10,
@@ -4226,7 +4247,7 @@ class _TeacherSocialFormState
               });
             },
 
-            activeColor:
+            activeThumbColor:
                 AppColors.skyBlue,
 
             title:
@@ -4254,9 +4275,7 @@ class _TeacherSocialFormState
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
-                  0.45,
-                ),
+                        .withValues(alpha: 0.45),
 
                 fontSize:
                     10,
@@ -4349,9 +4368,7 @@ class _TeacherSocialFormState
         color:
             AppColors
                 .teacherIndigo
-                .withOpacity(
-          0.08,
-        ),
+                .withValues(alpha: 0.08),
 
         borderRadius:
             BorderRadius.circular(
@@ -4363,9 +4380,7 @@ class _TeacherSocialFormState
           color:
               AppColors
                   .teacherIndigo
-                  .withOpacity(
-            0.16,
-          ),
+                  .withValues(alpha: 0.16),
         ),
       ),
 
@@ -4405,9 +4420,7 @@ class _TeacherSocialFormState
                               color:
                                   AppColors
                                       .skyBlue
-                                      .withOpacity(
-                                0.08,
-                              ),
+                                      .withValues(alpha: 0.08),
 
                               borderRadius:
                                   BorderRadius
@@ -4458,9 +4471,7 @@ class _TeacherSocialFormState
                 color:
                     AppColors
                         .pureWhite
-                        .withOpacity(
-                  0.50,
-                ),
+                        .withValues(alpha: 0.50),
 
                 fontSize:
                     10,
@@ -4598,19 +4609,6 @@ class _TeacherSocialFormState
     return '$day/$month/${date.year}';
   }
 
-  String? _requiredValidator(
-    String? value,
-  ) {
-    if (
-      value == null ||
-      value.trim().isEmpty
-    ) {
-      return 'Campo obbligatorio';
-    }
-
-    return null;
-  }
-
   String? _validateEmail(
     String? value,
   ) {
@@ -4709,63 +4707,6 @@ class _TeacherSocialFormState
     return null;
   }
 
-  String? _validateGraduationYear(
-    String? value,
-  ) {
-    if (
-      _academicStatus !=
-          AcademicPathStatus.graduated
-    ) {
-      return null;
-    }
-
-    if (
-      value == null ||
-      value.trim().isEmpty
-    ) {
-      return 'Inserisci l\'anno di conseguimento';
-    }
-
-    final int? year =
-        int.tryParse(
-      value.trim(),
-    );
-
-    if (year == null) {
-      return 'Inserisci un anno valido';
-    }
-
-    final int currentYear =
-        DateTime.now().year;
-
-    if (
-      year < 1900 ||
-      year > currentYear
-    ) {
-      return 'Anno di conseguimento non valido';
-    }
-
-    final String startYearText =
-        _startYearController.text
-            .trim();
-
-    if (startYearText.isNotEmpty) {
-      final int? startYear =
-          int.tryParse(
-        startYearText,
-      );
-
-      if (
-        startYear != null &&
-        year < startYear
-      ) {
-        return 'L\'anno di conseguimento non può precedere l\'anno di inizio';
-      }
-    }
-
-    return null;
-  }
-
   Widget _buildRequiredField({
     required TextEditingController controller,
     required String label,
@@ -4826,18 +4767,14 @@ class _TeacherSocialFormState
           TextStyle(
         color:
             AppColors.pureWhite
-                .withOpacity(
-          0.60,
-        ),
+                .withValues(alpha: 0.60),
       ),
 
       hintStyle:
           TextStyle(
         color:
             AppColors.pureWhite
-                .withOpacity(
-          0.30,
-        ),
+                .withValues(alpha: 0.30),
       ),
 
       prefixIcon:
@@ -4910,18 +4847,14 @@ class _TeacherSocialFormState
           TextStyle(
         color:
             AppColors.pureWhite
-                .withOpacity(
-          0.60,
-        ),
+                .withValues(alpha: 0.60),
       ),
 
       hintStyle:
           TextStyle(
         color:
             AppColors.pureWhite
-                .withOpacity(
-          0.30,
-        ),
+                .withValues(alpha: 0.30),
       ),
 
       prefixIcon:
@@ -4950,9 +4883,7 @@ class _TeacherSocialFormState
 
           color:
               AppColors.pureWhite
-                  .withOpacity(
-            0.55,
-          ),
+                  .withValues(alpha: 0.55),
         ),
       ),
 
@@ -5026,7 +4957,7 @@ class _TeacherSocialFormState
         onChanged:
             onChanged,
 
-        activeColor:
+        activeThumbColor:
             AppColors.skyBlue,
 
         title:
@@ -5051,9 +4982,7 @@ class _TeacherSocialFormState
               TextStyle(
             color:
                 AppColors.pureWhite
-                    .withOpacity(
-              0.50,
-            ),
+                    .withValues(alpha: 0.50),
 
             fontSize:
                 12,
@@ -5616,9 +5545,10 @@ class _InlineAcademicPathEditorState
     );
 
     final AcademicCourse? catalogCourse =
+        _selectedCourse ??
         _findCourse(
-      course,
-    );
+          course,
+        );
 
     final int? startYear =
         _startYearController.text
@@ -5676,19 +5606,6 @@ class _InlineAcademicPathEditorState
             _isPrimary,
       ),
     );
-  }
-
-  String? _required(
-    String? value,
-  ) {
-    if (
-      value == null ||
-      value.trim().isEmpty
-    ) {
-      return 'Campo obbligatorio';
-    }
-
-    return null;
   }
 
   String? _validateStartYear(
@@ -5868,9 +5785,7 @@ class _InlineAcademicPathEditorState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
-            0.22,
-          ),
+                  .withValues(alpha: 0.22),
         ),
       ),
 
@@ -5934,9 +5849,7 @@ class _InlineAcademicPathEditorState
                     TextStyle(
                   color:
                       AppColors.pureWhite
-                          .withOpacity(
-                    0.52,
-                  ),
+                          .withValues(alpha: 0.52),
 
                   fontSize:
                       10,
@@ -6068,7 +5981,7 @@ class _InlineAcademicPathEditorState
 
             DropdownButtonFormField<
                 AcademicPathStatus>(
-              value:
+              initialValue:
                   _status,
 
               dropdownColor:
@@ -6813,9 +6726,10 @@ class _InlineAcademicTitleEditorState
     );
 
     final AcademicCourse? catalogCourse =
+        _selectedCourse ??
         _findCourse(
-      course,
-    );
+          course,
+        );
 
     widget.onSave(
       SocialAcademicPathDraft(
@@ -6859,19 +6773,6 @@ class _InlineAcademicTitleEditorState
             false,
       ),
     );
-  }
-
-  String? _required(
-    String? value,
-  ) {
-    if (
-      value == null ||
-      value.trim().isEmpty
-    ) {
-      return 'Campo obbligatorio';
-    }
-
-    return null;
   }
 
   String? _validateGraduationYear(
@@ -7050,9 +6951,7 @@ class _InlineAcademicTitleEditorState
         border:
             Border.all(
           color:
-              Colors.amber.withOpacity(
-            0.20,
-          ),
+              Colors.amber.withValues(alpha: 0.20),
         ),
       ),
 
@@ -7116,9 +7015,7 @@ class _InlineAcademicTitleEditorState
                     TextStyle(
                   color:
                       AppColors.pureWhite
-                          .withOpacity(
-                    0.52,
-                  ),
+                          .withValues(alpha: 0.52),
 
                   fontSize:
                       10,
@@ -7464,9 +7361,7 @@ class _InlineHybridAcademicField
             TextStyle(
           color:
               AppColors.pureWhite
-                  .withOpacity(
-            0.35,
-          ),
+                  .withValues(alpha: 0.35),
 
           fontSize:
               9,
@@ -7611,9 +7506,7 @@ class _AcademicTitleDraftCard
         border:
             Border.all(
           color:
-              Colors.amber.withOpacity(
-            0.18,
-          ),
+              Colors.amber.withValues(alpha: 0.18),
         ),
       ),
 
@@ -7673,9 +7566,7 @@ class _AcademicTitleDraftCard
                       TextStyle(
                     color:
                         AppColors.materialSky
-                            .withOpacity(
-                      0.85,
-                    ),
+                            .withValues(alpha: 0.85),
 
                     fontSize:
                         10,
@@ -7700,9 +7591,7 @@ class _AcademicTitleDraftCard
                       TextStyle(
                     color:
                         AppColors.pureWhite
-                            .withOpacity(
-                      0.42,
-                    ),
+                            .withValues(alpha: 0.42),
 
                     fontSize:
                         9,
@@ -7802,9 +7691,7 @@ class _AdditionalAcademicPathCard
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
-            0.12,
-          ),
+                  .withValues(alpha: 0.12),
         ),
       ),
       child:
@@ -7859,9 +7746,7 @@ class _AdditionalAcademicPathCard
                           TextStyle(
                         color:
                             AppColors.pureWhite
-                                .withOpacity(
-                          0.42,
-                        ),
+                                .withValues(alpha: 0.42),
                         fontSize:
                             9,
                       ),

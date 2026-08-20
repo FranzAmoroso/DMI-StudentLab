@@ -1,158 +1,142 @@
 import 'dart:io';
 
+import 'package:sqflite/sqflite.dart';
+
 import '../database/app_database.dart';
 
-import '../repositories/downloaded_material_repository.dart';
-import '../repositories/material_cache_repository.dart';
+import '../database/database_tables.dart';
+
+import '../models/material_local.dart';
+
 import '../repositories/pending_upload_repository.dart';
 
 import 'local_file_service.dart';
 
-
-// =============================================================================
-// LOCAL STORAGE SERVICE
-// =============================================================================
-
 class LocalStorageService {
   final AppDatabase _database;
 
-  final DownloadedMaterialRepository
-      _downloadedRepository;
+  final PendingUploadRepository _pendingUploadRepository;
 
-  final PendingUploadRepository
-      _pendingUploadRepository;
-
-  final MaterialCacheRepository
-      _materialCacheRepository;
-
-  final LocalFileService
-      _fileService;
-
+  final LocalFileService _fileService;
 
   LocalStorageService({
     AppDatabase? database,
 
-    DownloadedMaterialRepository?
-        downloadedRepository,
+    PendingUploadRepository? pendingUploadRepository,
 
-    PendingUploadRepository?
-        pendingUploadRepository,
+    LocalFileService? fileService,
+  }) : _database = database ?? AppDatabase.instance,
 
-    MaterialCacheRepository?
-        materialCacheRepository,
+       _pendingUploadRepository =
+           pendingUploadRepository ?? PendingUploadRepository(),
 
-    LocalFileService?
-        fileService,
-  })  : _database =
-            database ??
-                AppDatabase.instance,
+       _fileService = fileService ?? LocalFileService();
 
-        _downloadedRepository =
-            downloadedRepository ??
-                DownloadedMaterialRepository(),
-
-        _pendingUploadRepository =
-            pendingUploadRepository ??
-                PendingUploadRepository(),
-
-        _materialCacheRepository =
-            materialCacheRepository ??
-                MaterialCacheRepository(),
-
-        _fileService =
-            fileService ??
-                LocalFileService();
-
-
-  // ===========================================================================
-  // INITIALIZE
-  // ===========================================================================
-  //
-  // Forza l'apertura del database.
-  //
-  // Inoltre ripristina eventuali upload rimasti
-  // nello stato "uploading" dopo una chiusura improvvisa dell'app.
-  // ===========================================================================
-
-  Future<void> initialize({
-    int? userId,
-  }) async {
+  Future<void> initialize({int? userId}) async {
     await _database.database;
 
     if (userId != null) {
-      await _pendingUploadRepository
-          .resetInterruptedUploads(
-        userId,
-      );
+      await _pendingUploadRepository.resetInterruptedUploads(userId);
     }
   }
 
+  Future<void> prepareUserSession(int userId) async {
+    await initialize(userId: userId);
 
-  // ===========================================================================
-  // PREPARA SESSIONE UTENTE
-  // ===========================================================================
-  //
-  // Da richiamare dopo login oppure dopo il ripristino
-  // della sessione tramite token.
-  // ===========================================================================
+    await cleanupMissingDownloadedFiles(userId);
 
-  Future<void> prepareUserSession(
-    int userId,
-  ) async {
-    await initialize(
-      userId:
-          userId,
-    );
+    await cleanupMissingPendingUploadFiles(userId);
 
-    await cleanupMissingDownloadedFiles(
-      userId,
-    );
-
-    await cleanupMissingPendingUploadFiles(
-      userId,
-    );
+    await cleanupOrphanMaterialFiles();
   }
 
+  Future<int> cleanupMissingDownloadedFiles(int userId) async {
+    final Database db = await _database.database;
 
-  // ===========================================================================
-  // CLEANUP DOWNLOAD MANCANTI
-  // ===========================================================================
-  //
-  // Se SQLite contiene un record di download,
-  // ma il file è stato eliminato dal filesystem,
-  // rimuoviamo il record obsoleto.
-  // ===========================================================================
+    final List<Map<String, Object?>> rows = await db.rawQuery(
+      '''
 
-  Future<int> cleanupMissingDownloadedFiles(
-    int userId,
-  ) async {
-    final materials =
-        await _downloadedRepository
-            .getByUser(
-      userId,
+      SELECT
+
+        m.id AS material_id,
+
+        m.file_id AS file_id,
+
+        f.local_path AS local_path
+
+      FROM ${DatabaseTables.materials} AS m
+
+      INNER JOIN ${DatabaseTables.materialFiles} AS f
+
+        ON f.id = m.file_id
+
+      WHERE m.user_id = ?
+
+        AND m.file_id IS NOT NULL
+
+      ''',
+
+      <Object?>[userId],
     );
 
-    int removed =
-        0;
+    int removed = 0;
 
-    for (final material
-        in materials) {
-      final bool exists =
-          await _fileService.exists(
-        material.localPath,
-      );
+    for (final Map<String, Object?> row in rows) {
+      final int? materialId = _asInt(row['material_id']);
+
+      final int? fileId = _asInt(row['file_id']);
+
+      final String localPath = row['local_path']?.toString().trim() ?? '';
+
+      if (materialId == null || fileId == null || localPath.isEmpty) {
+        continue;
+      }
+
+      final bool exists = await _fileService.exists(localPath);
 
       if (exists) {
         continue;
       }
 
-      await _downloadedRepository.delete(
-        userId:
-            userId,
+      await db.transaction((Transaction transaction) async {
+        await transaction.update(
+          DatabaseTables.materials,
 
-        materialId:
-            material.materialId,
-      );
+          <String, Object?>{
+            'file_id': null,
+
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+
+          where: 'id = ?',
+
+          whereArgs: <Object?>[materialId],
+        );
+
+        await transaction.delete(
+          DatabaseTables.materialDownloads,
+
+          where: 'material_id = ?',
+
+          whereArgs: <Object?>[materialId],
+        );
+
+        await transaction.update(
+          DatabaseTables.materialFiles,
+
+          <String, Object?>{
+            'exists_locally': 0,
+
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+
+          where: 'id = ?',
+
+          whereArgs: <Object?>[fileId],
+        );
+      });
+
+      await _deletePhysicalFileIfUnused(fileId);
 
       removed++;
     }
@@ -160,51 +144,26 @@ class LocalStorageService {
     return removed;
   }
 
+  Future<int> cleanupMissingPendingUploadFiles(int userId) async {
+    final uploads = await _pendingUploadRepository.getByUser(userId);
 
-  // ===========================================================================
-  // CLEANUP PENDING UPLOAD MANCANTI
-  // ===========================================================================
-  //
-  // Un upload pending/failed non è più valido
-  // se il file locale non esiste più.
-  //
-  // In questo caso rimuoviamo il record SQLite.
-  // ===========================================================================
+    int removed = 0;
 
-  Future<int> cleanupMissingPendingUploadFiles(
-    int userId,
-  ) async {
-    final uploads =
-        await _pendingUploadRepository
-            .getByUser(
-      userId,
-    );
-
-    int removed =
-        0;
-
-    for (final upload
-        in uploads) {
+    for (final upload in uploads) {
       if (upload.isUploaded) {
         continue;
       }
 
-      final File file =
-          File(
-        upload.localPath,
-      );
+      final File file = File(upload.localPath);
 
-      final bool exists =
-          await file.exists();
+      final bool exists = await file.exists();
 
       if (exists) {
         continue;
       }
 
       if (upload.id != null) {
-        await _pendingUploadRepository.delete(
-          upload.id!,
-        );
+        await _pendingUploadRepository.delete(upload.id!);
 
         removed++;
       }
@@ -213,130 +172,37 @@ class LocalStorageService {
     return removed;
   }
 
+  Future<int> cleanupOrphanMaterialFiles() async {
+    final Database db = await _database.database;
 
-  // ===========================================================================
-  // CLEAR CACHE MATERIALI
-  // ===========================================================================
-  //
-  // Cancella soltanto i metadati cache.
-  //
-  // NON elimina i file scaricati.
-  // NON elimina gli upload pending.
-  // ===========================================================================
+    final List<Map<String, Object?>> rows = await db.rawQuery('''
 
-  Future<void> clearMaterialCache(
-    int userId,
-  ) async {
-    await _materialCacheRepository
-        .deleteUserCache(
-      userId,
-    );
-  }
+      SELECT
 
+        f.id,
 
-  // ===========================================================================
-  // CLEAR CACHE GRUPPO
-  // ===========================================================================
+        f.local_path
 
-  Future<void> clearGroupMaterialCache({
-    required int userId,
-    required int groupId,
-  }) async {
-    await _materialCacheRepository
-        .deleteGroupCache(
-      userId:
-          userId,
+      FROM ${DatabaseTables.materialFiles} AS f
 
-      groupId:
-          groupId,
-    );
-  }
+      LEFT JOIN ${DatabaseTables.materials} AS m
 
+        ON m.file_id = f.id
 
-  // ===========================================================================
-  // REMOVE DOWNLOADED MATERIALS
-  // ===========================================================================
-  //
-  // Cancella sia i file fisici sia i record SQLite.
-  // ===========================================================================
+      WHERE m.id IS NULL
 
-  Future<int> removeDownloadedMaterials(
-    int userId,
-  ) async {
-    final materials =
-        await _downloadedRepository
-            .getByUser(
-      userId,
-    );
+      ''');
 
-    int removed =
-        0;
+    int removed = 0;
 
-    for (final material
-        in materials) {
-      try {
-        await _fileService.delete(
-          material.localPath,
-        );
-      } finally {
-        await _downloadedRepository.delete(
-          userId:
-              userId,
+    for (final Map<String, Object?> row in rows) {
+      final int? fileId = _asInt(row['id']);
 
-          materialId:
-              material.materialId,
-        );
-      }
-
-      removed++;
-    }
-
-    return removed;
-  }
-
-
-  // ===========================================================================
-  // REMOVE DOWNLOADED MATERIALS BY GROUP
-  // ===========================================================================
-  //
-  // Per ora il repository dei download espone getByUser.
-  //
-  // Filtriamo qui per groupId.
-  // ===========================================================================
-
-  Future<int> removeDownloadedMaterialsByGroup({
-    required int userId,
-    required int groupId,
-  }) async {
-    final materials =
-        await _downloadedRepository
-            .getByUser(
-      userId,
-    );
-
-    int removed =
-        0;
-
-    for (final material
-        in materials) {
-      if (material.groupId !=
-          groupId) {
+      if (fileId == null) {
         continue;
       }
 
-      try {
-        await _fileService.delete(
-          material.localPath,
-        );
-      } finally {
-        await _downloadedRepository.delete(
-          userId:
-              userId,
-
-          materialId:
-              material.materialId,
-        );
-      }
+      await _deletePhysicalFileIfUnused(fileId);
 
       removed++;
     }
@@ -344,45 +210,199 @@ class LocalStorageService {
     return removed;
   }
 
+  Future<void> clearMaterialCache(int userId) async {
+    final Database db = await _database.database;
 
-  // ===========================================================================
-  // REMOVE PENDING UPLOADS
-  // ===========================================================================
-  //
-  // Elimina eventuali copie locali degli upload
-  // e rimuove i relativi record SQLite.
-  //
-  // Per sicurezza NON tocchiamo i record uploaded:
-  // potrebbero essere utili come storico di sincronizzazione.
-  // ===========================================================================
+    await db.transaction((Transaction transaction) async {
+      await transaction.update(
+        DatabaseTables.materials,
 
-  Future<int> removePendingUploads(
-    int userId,
-  ) async {
-    final uploads =
-        await _pendingUploadRepository
-            .getByUser(
-      userId,
+        <String, Object?>{
+          'is_available_remote': 0,
+
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+
+        where:
+            'user_id = ? '
+            'AND source <> ?',
+
+        whereArgs: <Object?>[userId, MaterialSourceLocal.local.name],
+      );
+
+      await transaction.delete(
+        DatabaseTables.materialSyncState,
+
+        where: 'user_id = ?',
+
+        whereArgs: <Object?>[userId],
+      );
+    });
+  }
+
+  Future<void> clearGroupMaterialCache({
+    required int userId,
+
+    required int groupId,
+  }) async {
+    final Database db = await _database.database;
+
+    await db.update(
+      DatabaseTables.materials,
+
+      <String, Object?>{
+        'is_available_remote': 0,
+
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      },
+
+      where:
+          'user_id = ? '
+          'AND group_id = ? '
+          'AND source = ?',
+
+      whereArgs: <Object?>[userId, groupId, MaterialSourceLocal.group.name],
+    );
+  }
+
+  Future<int> removeDownloadedMaterials(int userId) async {
+    final Database db = await _database.database;
+
+    final List<Map<String, Object?>> rows = await db.query(
+      DatabaseTables.materials,
+
+      columns: <String>['id', 'file_id'],
+
+      where:
+          'user_id = ? '
+          'AND file_id IS NOT NULL '
+          'AND source <> ?',
+
+      whereArgs: <Object?>[userId, MaterialSourceLocal.local.name],
     );
 
-    int removed =
-        0;
+    int removed = 0;
 
-    for (final upload
-        in uploads) {
+    for (final Map<String, Object?> row in rows) {
+      final int? materialId = _asInt(row['id']);
+
+      final int? fileId = _asInt(row['file_id']);
+
+      if (materialId == null || fileId == null) {
+        continue;
+      }
+
+      await db.transaction((Transaction transaction) async {
+        await transaction.update(
+          DatabaseTables.materials,
+
+          <String, Object?>{
+            'file_id': null,
+
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+
+          where: 'id = ?',
+
+          whereArgs: <Object?>[materialId],
+        );
+
+        await transaction.delete(
+          DatabaseTables.materialDownloads,
+
+          where: 'material_id = ?',
+
+          whereArgs: <Object?>[materialId],
+        );
+      });
+
+      await _deletePhysicalFileIfUnused(fileId);
+
+      removed++;
+    }
+
+    return removed;
+  }
+
+  Future<int> removeDownloadedMaterialsByGroup({
+    required int userId,
+
+    required int groupId,
+  }) async {
+    final Database db = await _database.database;
+
+    final List<Map<String, Object?>> rows = await db.query(
+      DatabaseTables.materials,
+
+      columns: <String>['id', 'file_id'],
+
+      where:
+          'user_id = ? '
+          'AND group_id = ? '
+          'AND source = ? '
+          'AND file_id IS NOT NULL',
+
+      whereArgs: <Object?>[userId, groupId, MaterialSourceLocal.group.name],
+    );
+
+    int removed = 0;
+
+    for (final Map<String, Object?> row in rows) {
+      final int? materialId = _asInt(row['id']);
+
+      final int? fileId = _asInt(row['file_id']);
+
+      if (materialId == null || fileId == null) {
+        continue;
+      }
+
+      await db.transaction((Transaction transaction) async {
+        await transaction.update(
+          DatabaseTables.materials,
+
+          <String, Object?>{
+            'file_id': null,
+
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+
+          where: 'id = ?',
+
+          whereArgs: <Object?>[materialId],
+        );
+
+        await transaction.delete(
+          DatabaseTables.materialDownloads,
+
+          where: 'material_id = ?',
+
+          whereArgs: <Object?>[materialId],
+        );
+      });
+
+      await _deletePhysicalFileIfUnused(fileId);
+
+      removed++;
+    }
+
+    return removed;
+  }
+
+  Future<int> removePendingUploads(int userId) async {
+    final uploads = await _pendingUploadRepository.getByUser(userId);
+
+    int removed = 0;
+
+    for (final upload in uploads) {
       if (upload.isUploaded) {
         continue;
       }
 
       try {
-        await _fileService.delete(
-          upload.localPath,
-        );
+        await _fileService.delete(upload.localPath);
       } finally {
         if (upload.id != null) {
-          await _pendingUploadRepository.delete(
-            upload.id!,
-          );
+          await _pendingUploadRepository.delete(upload.id!);
 
           removed++;
         }
@@ -392,160 +412,179 @@ class LocalStorageService {
     return removed;
   }
 
-
-  // ===========================================================================
-  // REMOVE COMPLETED UPLOAD HISTORY
-  // ===========================================================================
-  //
-  // Elimina soltanto i record SQLite degli upload completati.
-  // ===========================================================================
-
-  Future<int> clearUploadedHistory(
-    int userId,
-  ) async {
-    return _pendingUploadRepository
-        .deleteUploaded(
-      userId,
-    );
+  Future<int> clearUploadedHistory(int userId) async {
+    return _pendingUploadRepository.deleteUploaded(userId);
   }
 
-
-  // ===========================================================================
-  // LOGOUT CLEANUP
-  // ===========================================================================
-  //
-  // Scelta intenzionale:
-  //
-  // - svuotiamo la CACHE;
-  // - resettiamo eventuali upload interrotti;
-  // - NON cancelliamo automaticamente file scaricati;
-  // - NON cancelliamo pending upload;
-  //
-  // Perché i dati sono separati da user_id e possono essere
-  // riutilizzati quando lo stesso utente effettua nuovamente login.
-  // ===========================================================================
-
-  Future<void> onLogout(
-    int userId,
-  ) async {
-    await _materialCacheRepository
-        .deleteUserCache(
-      userId,
-    );
-
-    await _pendingUploadRepository
-        .resetInterruptedUploads(
-      userId,
-    );
+  Future<void> onLogout(int userId) async {
+    await _pendingUploadRepository.resetInterruptedUploads(userId);
   }
 
+  Future<void> clearUserLocalData(int userId) async {
+    final Database db = await _database.database;
 
-  // ===========================================================================
-  // CLEAR USER LOCAL DATA
-  // ===========================================================================
-  //
-  // Questa è l'operazione distruttiva.
-  //
-  // Da usare per:
-  // - "Cancella dati offline"
-  // - rimozione account dal dispositivo
-  // - reset manuale dell'utente
-  //
-  // Elimina:
-  // - download fisici
-  // - pending upload fisici
-  // - cache
-  // - storico upload
-  // ===========================================================================
+    final List<Map<String, Object?>> materialRows = await db.query(
+      DatabaseTables.materials,
 
-  Future<void> clearUserLocalData(
-    int userId,
-  ) async {
-    await removeDownloadedMaterials(
-      userId,
+      columns: <String>['id', 'file_id'],
+
+      where: 'user_id = ?',
+
+      whereArgs: <Object?>[userId],
     );
 
-    final uploads =
-        await _pendingUploadRepository
-            .getByUser(
-      userId,
-    );
+    final Set<int> fileIds = <int>{};
 
-    for (final upload
-        in uploads) {
-      try {
-        await _fileService.delete(
-          upload.localPath,
-        );
-      } finally {
-        if (upload.id != null) {
-          await _pendingUploadRepository.delete(
-            upload.id!,
-          );
-        }
+    for (final Map<String, Object?> row in materialRows) {
+      final int? fileId = _asInt(row['file_id']);
+
+      if (fileId != null) {
+        fileIds.add(fileId);
       }
     }
 
-    await _materialCacheRepository
-        .deleteUserCache(
-      userId,
-    );
-  }
+    final uploads = await _pendingUploadRepository.getByUser(userId);
 
-
-  // ===========================================================================
-  // STATISTICHE LOCALI
-  // ===========================================================================
-
-  Future<LocalStorageStats> getStats(
-    int userId,
-  ) async {
-    final downloads =
-        await _downloadedRepository
-            .getByUser(
-      userId,
-    );
-
-    final uploads =
-        await _pendingUploadRepository
-            .getByUser(
-      userId,
-    );
-
-    final cachedMaterials =
-        await _materialCacheRepository
-            .getByUser(
-      userId,
-    );
-
-    int downloadedBytes =
-        0;
-
-    for (final material
-        in downloads) {
-      downloadedBytes +=
-          material.size ??
-              0;
+    for (final upload in uploads) {
+      await _fileService.delete(upload.localPath);
     }
 
-    int pendingBytes =
-        0;
+    await db.transaction((Transaction transaction) async {
+      final List<Map<String, Object?>> materialIds = await transaction.query(
+        DatabaseTables.materials,
 
-    int pendingCount =
-        0;
+        columns: <String>['id'],
 
-    int failedCount =
-        0;
+        where: 'user_id = ?',
 
-    for (final upload
-        in uploads) {
-      if (upload.isPending ||
-          upload.isUploading) {
+        whereArgs: <Object?>[userId],
+      );
+
+      for (final Map<String, Object?> row in materialIds) {
+        final int? materialId = _asInt(row['id']);
+
+        if (materialId == null) {
+          continue;
+        }
+
+        await transaction.delete(
+          DatabaseTables.materialDownloads,
+
+          where: 'material_id = ?',
+
+          whereArgs: <Object?>[materialId],
+        );
+      }
+
+      await transaction.delete(
+        DatabaseTables.materials,
+
+        where: 'user_id = ?',
+
+        whereArgs: <Object?>[userId],
+      );
+
+      await transaction.delete(
+        DatabaseTables.materialSyncState,
+
+        where: 'user_id = ?',
+
+        whereArgs: <Object?>[userId],
+      );
+
+      await transaction.delete(
+        DatabaseTables.pendingUploads,
+
+        where: 'user_id = ?',
+
+        whereArgs: <Object?>[userId],
+      );
+    });
+
+    for (final int fileId in fileIds) {
+      await _deletePhysicalFileIfUnused(fileId);
+    }
+
+    await _fileService.deleteUserFiles(userId);
+  }
+
+  Future<LocalStorageStats> getStats(int userId) async {
+    final Database db = await _database.database;
+
+    final List<Map<String, Object?>> downloadRows = await db.rawQuery(
+      '''
+      SELECT
+        COUNT(DISTINCT m.id) AS count,
+        COALESCE(
+          (
+            SELECT SUM(files.size)
+            FROM ${DatabaseTables.materialFiles} AS files
+            WHERE files.id IN (
+              SELECT DISTINCT downloaded.file_id
+              FROM ${DatabaseTables.materials} AS downloaded
+              WHERE downloaded.user_id = ?
+                AND downloaded.source <> ?
+                AND downloaded.file_id IS NOT NULL
+            )
+              AND files.exists_locally = 1
+          ),
+          0
+        ) AS bytes
+      FROM ${DatabaseTables.materials} AS m
+      INNER JOIN ${DatabaseTables.materialFiles} AS f
+        ON f.id = m.file_id
+      WHERE m.user_id = ?
+        AND m.source <> ?
+        AND f.exists_locally = 1
+      ''',
+      <Object?>[
+        userId,
+        MaterialSourceLocal.local.name,
+        userId,
+        MaterialSourceLocal.local.name,
+      ],
+    );
+
+    final int downloadedCount =
+        _asInt(downloadRows.isEmpty ? null : downloadRows.first['count']) ?? 0;
+
+    final int downloadedBytes =
+        _asInt(downloadRows.isEmpty ? null : downloadRows.first['bytes']) ?? 0;
+
+    final List<Map<String, Object?>> cacheRows = await db.rawQuery(
+      '''
+
+      SELECT COUNT(*) AS count
+
+      FROM ${DatabaseTables.materials}
+
+      WHERE user_id = ?
+
+        AND source <> ?
+
+        AND is_available_remote = 1
+
+      ''',
+
+      <Object?>[userId, MaterialSourceLocal.local.name],
+    );
+
+    final int cachedMaterialCount =
+        _asInt(cacheRows.isEmpty ? null : cacheRows.first['count']) ?? 0;
+
+    final uploads = await _pendingUploadRepository.getByUser(userId);
+
+    int pendingBytes = 0;
+
+    int pendingCount = 0;
+
+    int failedCount = 0;
+
+    for (final upload in uploads) {
+      if (upload.isPending || upload.isUploading) {
         pendingCount++;
 
-        pendingBytes +=
-            upload.size ??
-                0;
+        pendingBytes += upload.size ?? 0;
       }
 
       if (upload.isFailed) {
@@ -554,40 +593,93 @@ class LocalStorageService {
     }
 
     return LocalStorageStats(
-      downloadedCount:
-          downloads.length,
+      downloadedCount: downloadedCount,
 
-      downloadedBytes:
-          downloadedBytes,
+      downloadedBytes: downloadedBytes,
 
-      cachedMaterialCount:
-          cachedMaterials.length,
+      cachedMaterialCount: cachedMaterialCount,
 
-      pendingUploadCount:
-          pendingCount,
+      pendingUploadCount: pendingCount,
 
-      pendingUploadBytes:
-          pendingBytes,
+      pendingUploadBytes: pendingBytes,
 
-      failedUploadCount:
-          failedCount,
+      failedUploadCount: failedCount,
     );
   }
-
-
-  // ===========================================================================
-  // CLOSE
-  // ===========================================================================
 
   Future<void> close() async {
     await _database.close();
   }
+
+  Future<void> _deletePhysicalFileIfUnused(int fileId) async {
+    final Database db = await _database.database;
+
+    String? localPath;
+
+    await db.transaction((Transaction transaction) async {
+      final List<Map<String, Object?>> references = await transaction.rawQuery(
+        '''
+
+          SELECT COUNT(*) AS count
+
+          FROM ${DatabaseTables.materials}
+
+          WHERE file_id = ?
+
+          ''',
+
+        <Object?>[fileId],
+      );
+
+      final int referenceCount =
+          _asInt(references.isEmpty ? null : references.first['count']) ?? 0;
+
+      if (referenceCount > 0) {
+        return;
+      }
+
+      final List<Map<String, Object?>> fileRows = await transaction.query(
+        DatabaseTables.materialFiles,
+
+        columns: <String>['local_path'],
+
+        where: 'id = ?',
+
+        whereArgs: <Object?>[fileId],
+
+        limit: 1,
+      );
+
+      if (fileRows.isNotEmpty) {
+        localPath = fileRows.first['local_path']?.toString();
+      }
+
+      await transaction.delete(
+        DatabaseTables.materialFiles,
+
+        where: 'id = ?',
+
+        whereArgs: <Object?>[fileId],
+      );
+    });
+
+    if (localPath != null && localPath!.trim().isNotEmpty) {
+      await _fileService.delete(localPath!);
+    }
+  }
+
+  static int? _asInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(value?.toString() ?? '');
+  }
 }
-
-
-// =============================================================================
-// LOCAL STORAGE STATS
-// =============================================================================
 
 class LocalStorageStats {
   final int downloadedCount;
@@ -601,7 +693,6 @@ class LocalStorageStats {
   final int pendingUploadBytes;
 
   final int failedUploadCount;
-
 
   const LocalStorageStats({
     required this.downloadedCount,
@@ -617,25 +708,17 @@ class LocalStorageStats {
     required this.failedUploadCount,
   });
 
-
-  // ===========================================================================
-  // HELPERS
-  // ===========================================================================
-
   bool get hasDownloads {
     return downloadedCount > 0;
   }
-
 
   bool get hasPendingUploads {
     return pendingUploadCount > 0;
   }
 
-
   bool get hasFailedUploads {
     return failedUploadCount > 0;
   }
-
 
   int get totalTrackedItems {
     return downloadedCount +
@@ -644,15 +727,11 @@ class LocalStorageStats {
         failedUploadCount;
   }
 
-
   double get downloadedMegabytes {
-    return downloadedBytes /
-        (1024 * 1024);
+    return downloadedBytes / (1024 * 1024);
   }
 
-
   double get pendingMegabytes {
-    return pendingUploadBytes /
-        (1024 * 1024);
+    return pendingUploadBytes / (1024 * 1024);
   }
 }
