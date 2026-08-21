@@ -342,6 +342,10 @@ from services.teacher_material_assignment import (
     get_accessible_teacher_materials_for_user,
 )
 
+from routes.account_security import (
+    router as account_security_router,
+)
+
 from routes.teacher_assignment import (
     router as teacher_assignment_router,
 )
@@ -422,17 +426,13 @@ from routes.user_block import (
     router as user_block_router,
 )
 
-from routes.public_news import router as public_news_router
-from routes.public_news_report import router as public_news_report_router
-
-
-
 
 app = FastAPI()
 
 
-app.include_router(public_news_router)
-app.include_router(public_news_report_router)
+app.include_router(
+    account_security_router,
+)
 
 app.include_router(
     teacher_assignment_router,
