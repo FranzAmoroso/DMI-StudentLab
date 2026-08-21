@@ -136,7 +136,7 @@ class _TeacherMaterialsPageState
             false;
 
         _error =
-            e.toString();
+            _friendlyError(e);
       });
     }
   }
@@ -235,7 +235,7 @@ class _TeacherMaterialsPageState
 
       setState(() {
         _error =
-            e.toString();
+            _friendlyError(e);
       });
 
       _showMessage(
@@ -932,23 +932,14 @@ Future<void> _openUpload() async {
   if (!mounted) {
     return;
   }
-
-  if (_subjects.isEmpty) {
-    _showMessage(
-      'Non hai materie associate al tuo account docente.',
-    );
-
-    return;
-  }
-
-  final bool? created =
+final bool? created =
       await Navigator.of(
     context,
   ).push<bool>(
     MaterialPageRoute(
       builder:
           (_) =>
-              const TeacherMaterialFormPage(),
+              TeacherMaterialFormPage(initialSubjects: _subjects),
     ),
   );
 
@@ -2990,6 +2981,25 @@ Future<void> _openUpload() async {
     }
 
     return null;
+  }
+
+
+  String _friendlyError(Object error) {
+    final String value = error.toString().toLowerCase();
+    if (value.contains('401') || value.contains('unauthorized')) {
+      return 'La sessione non è più valida. Accedi nuovamente.';
+    }
+    if (value.contains('403') || value.contains('forbidden')) {
+      return 'Non hai i permessi necessari per gestire i materiali docente.';
+    }
+    if (value.contains('socket') ||
+        value.contains('network') ||
+        value.contains('connection') ||
+        value.contains('timeout') ||
+        value.contains('host lookup')) {
+      return 'Non è stato possibile contattare StudentLab. Controlla la connessione e riprova.';
+    }
+    return 'Non è stato possibile caricare i materiali docente.';
   }
 
 

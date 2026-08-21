@@ -150,15 +150,15 @@ class _SocialPageState
 
                 children:
                     const [
-                  _SocialProfilePage(),
-
-                  _SocialUsersPage(),
-
-                  _SocialGroupsPage(),
-
                   InstitutionalNewsPage(
                     embedded: true,
                   ),
+
+                  _SocialGroupsPage(),
+
+                  _SocialUsersPage(),
+
+                  _SocialProfilePage(),
                 ],
               ),
             ),
@@ -174,39 +174,24 @@ class _SocialPageState
   Widget _buildNavigation() {
     const sections = [
       (
-        icon:
-            Icons.person_outline_rounded,
-        selectedIcon:
-            Icons.person_rounded,
-        label:
-            'Profilo',
+        icon: Icons.newspaper_outlined,
+        selectedIcon: Icons.newspaper_rounded,
+        label: 'News',
       ),
-
       (
-        icon:
-            Icons.people_outline_rounded,
-        selectedIcon:
-            Icons.people_rounded,
-        label:
-            'Utenti',
+        icon: Icons.groups_outlined,
+        selectedIcon: Icons.groups_rounded,
+        label: 'Gruppi',
       ),
-
       (
-        icon:
-            Icons.groups_outlined,
-        selectedIcon:
-            Icons.groups_rounded,
-        label:
-            'Gruppi',
+        icon: Icons.people_outline_rounded,
+        selectedIcon: Icons.people_rounded,
+        label: 'Utenti',
       ),
-
       (
-        icon:
-            Icons.newspaper_outlined,
-        selectedIcon:
-            Icons.newspaper_rounded,
-        label:
-            'News',
+        icon: Icons.person_outline_rounded,
+        selectedIcon: Icons.person_rounded,
+        label: 'Profilo',
       ),
     ];
 
