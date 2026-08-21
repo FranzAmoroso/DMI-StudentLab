@@ -1,6 +1,10 @@
 from pathlib import Path
 from uuid import uuid4
 
+from pydantic import (
+    BaseModel,
+)
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -67,8 +71,26 @@ from services.public_material import (
     get_public_material_by_id,
 )
 
+from services.upload_authorization import (
+    create_upload_authorization,
+    decode_upload_authorization,
+    require_upload_authorization_fields,
+    require_upload_authorization_type,
+    require_upload_authorization_user,
+)
+
 
 router = APIRouter()
+
+
+class MaterialPublicationVerifyRequest(BaseModel):
+    subject_id: int
+    pathname: str
+    mime_type: str
+    size: int
+    file_hash: str
+    upload_token: str
+
 
 
 def generate_publication_stored_name(
@@ -136,54 +158,227 @@ def api_material_publication_upload_request(
             request.size,
         )
 
-        validate_publication_material_mime_type(
-            request.mime_type,
+        mime_type = (
+            request.mime_type
+            .strip()
+            .lower()
         )
+
+        validate_publication_material_mime_type(
+            mime_type,
+        )
+
+        original_name = (
+            request.original_name
+            .strip()
+        )
+
+        if not original_name:
+            raise ValueError(
+                "Nome del file non valido.",
+            )
+
+        file_hash = (
+            request.file_hash
+            .strip()
+            .lower()
+        )
+
+        if (
+            len(file_hash) != 64
+            or not all(
+                char in "0123456789abcdef"
+                for char in file_hash
+            )
+        ):
+            raise ValueError(
+                "Hash del file non valido.",
+            )
 
     except ValueError as exception:
         raise HTTPException(
             status_code=400,
-            detail=str(
-                exception,
-            ),
-        )
+            detail=str(exception),
+        ) from exception
 
     duplicate = find_duplicate_candidate(
         db,
         subject_id=request.subject_id,
-        original_name=(
-            request.original_name
-        ),
+        original_name=original_name,
         size=request.size,
-        file_hash=(
-            request.file_hash
-            .lower()
-        ),
+        file_hash=file_hash,
     )
 
     stored_name = (
         generate_publication_stored_name(
             current_user.id,
-            request.original_name,
+            original_name,
         )
     )
 
-    return {
-        "allowed":
-            True,
-        "pathname":
-            stored_name,
-        "max_file_size":
-            MAX_PUBLIC_MATERIAL_SIZE,
-        "possible_duplicate":
-            duplicate is not None,
-        "possible_duplicate_material_id":
-            (
-                duplicate.id
-                if duplicate is not None
-                else None
-            ),
+    payload = {
+        "v": 1,
+        "type": "material_publication",
+        "uid": current_user.id,
+        "subject_id": request.subject_id,
+        "pathname": stored_name,
+        "mime_type": mime_type,
+        "size": request.size,
+        "file_hash": file_hash,
     }
+
+    try:
+        (
+            upload_token,
+            expires_at,
+        ) = create_upload_authorization(
+            payload,
+        )
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il servizio di caricamento "
+                "non è disponibile."
+            ),
+        ) from exception
+
+    return {
+        "allowed": True,
+        "pathname": stored_name,
+        "mime_type": mime_type,
+        "size": request.size,
+        "file_hash": file_hash,
+        "max_file_size": MAX_PUBLIC_MATERIAL_SIZE,
+        "upload_token": upload_token,
+        "valid_until": expires_at * 1000,
+        "possible_duplicate": (
+            duplicate is not None
+        ),
+        "possible_duplicate_material_id": (
+            duplicate.id
+            if duplicate is not None
+            else None
+        ),
+    }
+
+
+@router.post(
+    "/material_publication/verify-upload",
+)
+def api_material_publication_verify_upload(
+    request: MaterialPublicationVerifyRequest,
+    current_user: User = Depends(
+        get_current_user,
+    ),
+):
+    try:
+        payload = decode_upload_authorization(
+            request.upload_token,
+        )
+
+        require_upload_authorization_type(
+            payload,
+            "material_publication",
+        )
+
+        require_upload_authorization_user(
+            payload,
+            current_user.id,
+        )
+
+        pathname = (
+            request.pathname
+            .strip()
+        )
+
+        validate_publication_storage_path(
+            user_id=current_user.id,
+            stored_name=pathname,
+        )
+
+        mime_type = (
+            request.mime_type
+            .strip()
+            .lower()
+        )
+
+        validate_publication_material_mime_type(
+            mime_type,
+        )
+
+        validate_publication_material_size(
+            request.size,
+        )
+
+        file_hash = (
+            request.file_hash
+            .strip()
+            .lower()
+        )
+
+        if (
+            len(file_hash) != 64
+            or not all(
+                char in "0123456789abcdef"
+                for char in file_hash
+            )
+        ):
+            raise ValueError(
+                "Hash del file non valido.",
+            )
+
+        require_upload_authorization_fields(
+            payload,
+            {
+                "subject_id":
+                    request.subject_id,
+                "pathname":
+                    pathname,
+                "mime_type":
+                    mime_type,
+                "size":
+                    request.size,
+                "file_hash":
+                    file_hash,
+            },
+        )
+
+        return {
+            "allowed": True,
+            "subject_id":
+                request.subject_id,
+            "pathname":
+                pathname,
+            "mime_type":
+                mime_type,
+            "size":
+                request.size,
+            "file_hash":
+                file_hash,
+            "valid_until":
+                int(
+                    payload[
+                        "exp"
+                    ]
+                )
+                * 1000,
+        }
+
+    except RuntimeError as exception:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Il servizio di caricamento "
+                "non è disponibile."
+            ),
+        ) from exception
+
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exception),
+        ) from exception
 
 
 @router.post(
