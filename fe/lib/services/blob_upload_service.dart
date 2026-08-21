@@ -173,8 +173,8 @@ class StudentLabUploadService {
     final int? value = raw is int
         ? raw
         : raw is num
-        ? raw.toInt()
-        : int.tryParse(raw?.toString() ?? '');
+            ? raw.toInt()
+            : int.tryParse(raw?.toString() ?? '');
     if (value == null || value <= 0) {
       throw Exception(message);
     }
@@ -250,18 +250,16 @@ class StudentLabUploadService {
       throw Exception('Il file è vuoto.');
     }
     if (size > groupMaterialMaxSize) {
-      throw Exception(
-        'Il file supera la dimensione massima consentita di 250 MB.',
-      );
+      throw Exception('Il file supera la dimensione massima consentita di 250 MB.');
     }
     final String resolvedOriginalName =
         originalName != null && originalName.trim().isNotEmpty
-        ? originalName.trim()
-        : _fileName(filePath);
+            ? originalName.trim()
+            : _fileName(filePath);
     final String resolvedMimeType =
         mimeType != null && mimeType.trim().isNotEmpty
-        ? mimeType.trim().toLowerCase()
-        : _groupMimeType(resolvedOriginalName);
+            ? mimeType.trim().toLowerCase()
+            : _groupMimeType(resolvedOriginalName);
     final String fileHash = await _sha256(file);
     final Map<String, dynamic> authorization = await _postJson(
       '/group_material_upload_request/$groupId',
@@ -346,8 +344,7 @@ class StudentLabUploadService {
       throw Exception('Titolo del materiale obbligatorio.');
     }
     final String normalizedVisibility = visibility.trim().toLowerCase();
-    if (normalizedVisibility != 'students' &&
-        normalizedVisibility != 'private') {
+    if (normalizedVisibility != 'students' && normalizedVisibility != 'private') {
       throw Exception('Visibilità materiale non valida.');
     }
     final File file = File(filePath);
@@ -359,9 +356,7 @@ class StudentLabUploadService {
       throw Exception('Il file è vuoto.');
     }
     if (size > teacherMaterialMaxSize) {
-      throw Exception(
-        'Il file supera la dimensione massima consentita di 250 MB.',
-      );
+      throw Exception('Il file supera la dimensione massima consentita di 250 MB.');
     }
     final String originalName = _fileName(filePath);
     final String mimeType = _teacherMimeType(originalName);
@@ -378,9 +373,7 @@ class StudentLabUploadService {
       'Non è stato possibile autorizzare il materiale docente.',
     );
     if (authorization['allowed'] != true) {
-      throw Exception(
-        'Il caricamento del materiale docente non è autorizzato.',
-      );
+      throw Exception('Il caricamento del materiale docente non è autorizzato.');
     }
     final String pathname = _requiredString(
       authorization,
@@ -442,15 +435,15 @@ class StudentLabUploadService {
     final String normalizedCourse = course.trim();
     final String normalizedSubject = subject.trim();
     final String normalizedQuestionId = questionId.trim();
-    if (normalizedDepartment.isEmpty ||
-        normalizedCourse.isEmpty ||
-        normalizedSubject.isEmpty) {
+    if (
+      normalizedDepartment.isEmpty ||
+      normalizedCourse.isEmpty ||
+      normalizedSubject.isEmpty
+    ) {
       throw Exception('Dati della materia non validi.');
     }
     if (normalizedQuestionId.isEmpty) {
-      throw Exception(
-        'La domanda deve essere salvata prima di aggiungere allegati.',
-      );
+      throw Exception('La domanda deve essere salvata prima di aggiungere allegati.');
     }
     final File file = File(filePath);
     if (!await file.exists()) {
@@ -461,9 +454,7 @@ class StudentLabUploadService {
       throw Exception('Il file è vuoto.');
     }
     if (size > questionAttachmentMaxSize) {
-      throw Exception(
-        'L’allegato supera la dimensione massima consentita di 50 MB.',
-      );
+      throw Exception('L’allegato supera la dimensione massima consentita di 50 MB.');
     }
     final String originalName = _fileName(filePath);
     final String mimeType = _questionMimeType(originalName);
@@ -590,13 +581,16 @@ class StudentLabUploadService {
       throw Exception('La condivisione del materiale non è autorizzata.');
     }
 
-    final bool possibleDuplicate = authorization['possible_duplicate'] == true;
+    final bool possibleDuplicate =
+        authorization['possible_duplicate'] == true;
     final int? possibleDuplicateMaterialId =
         authorization['possible_duplicate_material_id'] is num
-        ? (authorization['possible_duplicate_material_id'] as num).toInt()
-        : int.tryParse(
-            authorization['possible_duplicate_material_id']?.toString() ?? '',
-          );
+            ? (authorization['possible_duplicate_material_id'] as num).toInt()
+            : int.tryParse(
+                authorization['possible_duplicate_material_id']
+                        ?.toString() ??
+                    '',
+              );
 
     if (possibleDuplicate && onPossibleDuplicate != null) {
       await onPossibleDuplicate();
@@ -658,4 +652,5 @@ class StudentLabUploadService {
       'possible_duplicate_material_id': possibleDuplicateMaterialId,
     };
   }
+
 }
