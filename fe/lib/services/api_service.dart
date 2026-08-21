@@ -11,6 +11,7 @@ import '../social/notifications/models/notification_model.dart';
 import '../social/news/models/group_news.dart';
 
 import 'auth_session.dart';
+import 'blob_upload_service.dart';
 
 class ApiRegistrationResponse {
   final String registrationId;
@@ -1459,8 +1460,7 @@ class ApiService {
       },
     );
 
-    final http.Response response =
-        await http.get(url, headers: _jsonHeaders);
+    final http.Response response = await http.get(url, headers: _jsonHeaders);
 
     final Map<String, dynamic> data = _decodeMapResponse(
       response,
@@ -1487,8 +1487,7 @@ class ApiService {
       },
     );
 
-    final http.Response response =
-        await http.get(url, headers: _jsonHeaders);
+    final http.Response response = await http.get(url, headers: _jsonHeaders);
 
     final Map<String, dynamic> data = _decodeMapResponse(
       response,
@@ -1515,11 +1514,9 @@ class ApiService {
       throw ArgumentError('Inserisci il contenuto della comunicazione.');
     }
 
-    final String normalizedVisibility =
-        visibility.trim().toLowerCase();
+    final String normalizedVisibility = visibility.trim().toLowerCase();
 
-    if (normalizedVisibility != 'group' &&
-        normalizedVisibility != 'private') {
+    if (normalizedVisibility != 'group' && normalizedVisibility != 'private') {
       throw ArgumentError('Visibilità della comunicazione non valida.');
     }
 
@@ -1568,13 +1565,12 @@ class ApiService {
 
     final Uri url = _apiUri('/group-news/$newsId');
 
-    final http.Response response =
-        await http.delete(url, headers: _jsonHeaders);
-
-    _checkSuccess(
-      response,
-      'Errore eliminazione comunicazione',
+    final http.Response response = await http.delete(
+      url,
+      headers: _jsonHeaders,
     );
+
+    _checkSuccess(response, 'Errore eliminazione comunicazione');
   }
 
   Future<GroupNews> moderateGroupNews({
@@ -1601,10 +1597,7 @@ class ApiService {
     final http.Response response = await http.post(
       url,
       headers: _jsonHeaders,
-      body: jsonEncode({
-        'action': 'remove_news',
-        'reason': normalizedReason,
-      }),
+      body: jsonEncode({'action': 'remove_news', 'reason': normalizedReason}),
     );
 
     final Map<String, dynamic> data = _decodeMapResponse(
@@ -1769,151 +1762,11 @@ class ApiService {
   }) async {
     _requireCurrentUserId();
 
-    final File file = File(filePath);
-
-    if (!await file.exists()) {
-      throw Exception('Il file selezionato non esiste.');
-    }
-
-    final int size = await file.length();
-
-    if (size <= 0) {
-      throw Exception('Il file è vuoto.');
-    }
-
-    if (size > maxMaterialFileSize) {
-      throw Exception(
-        'Il file supera la dimensione massima consentita di 250 MB.',
-      );
-    }
-
-    final String resolvedOriginalName =
-        originalName != null && originalName.trim().isNotEmpty
-        ? originalName.trim()
-        : _fileNameFromPath(filePath);
-
-    final String resolvedMimeType =
-        mimeType != null && mimeType.trim().isNotEmpty
-        ? mimeType.trim().toLowerCase()
-        : _materialMimeType(resolvedOriginalName);
-
-    final String fileHash = await _calculateFileSha256(file);
-
-    final Uri groupAuthorizationUrl = _apiUri(
-      '/group_material_upload_request/$groupId',
-    );
-
-    final http.Response groupAuthorizationResponse = await http.post(
-      groupAuthorizationUrl,
-      headers: _jsonHeaders,
-      body: jsonEncode({
-        'original_name': resolvedOriginalName,
-        'mime_type': resolvedMimeType,
-        'size': size,
-        'file_hash': fileHash,
-      }),
-    );
-
-    final Map<String, dynamic> groupAuthorization = _decodeMapResponse(
-      groupAuthorizationResponse,
-      'Errore autorizzazione caricamento materiale',
-    );
-
-    final bool allowed = groupAuthorization['allowed'] == true;
-
-    if (!allowed) {
-      throw Exception('Il caricamento del materiale non è autorizzato.');
-    }
-
-    final String? pathname = groupAuthorization['pathname']?.toString().trim();
-
-    if (pathname == null || pathname.isEmpty) {
-      throw Exception(
-        'Il server non ha restituito un percorso di upload valido.',
-      );
-    }
-
-    final int serverMaxFileSize =
-        _toInt(groupAuthorization['max_file_size']) ?? maxMaterialFileSize;
-
-    if (size > serverMaxFileSize) {
-      throw Exception('Il file supera la dimensione massima consentita.');
-    }
-
-    final Uri blobAuthorizationUrl = _apiUri('/api/blob-upload');
-
-    final http.Response blobAuthorizationResponse = await http.post(
-      blobAuthorizationUrl,
-      headers: _jsonHeaders,
-      body: jsonEncode({
-        'pathname': pathname,
-        'content_type': resolvedMimeType,
-        'size': size,
-      }),
-    );
-
-    final Map<String, dynamic> blobAuthorization = _decodeMapResponse(
-      blobAuthorizationResponse,
-      'Errore autorizzazione Vercel Blob',
-    );
-
-    final String? presignedUrl =
-        (blobAuthorization['presigned_url'] ??
-                blobAuthorization['presignedUrl'])
-            ?.toString()
-            .trim();
-
-    if (presignedUrl == null || presignedUrl.isEmpty) {
-      throw Exception(
-        'Il servizio di caricamento non ha restituito un URL valido.',
-      );
-    }
-
-    final Uri uploadUri = Uri.parse(presignedUrl);
-
-    if (uploadUri.scheme.toLowerCase() != 'https') {
-      throw Exception('Connessione di caricamento non valida.');
-    }
-
-    final http.StreamedRequest uploadRequest = http.StreamedRequest(
-      'PUT',
-      uploadUri,
-    );
-
-    uploadRequest.headers['Content-Type'] = resolvedMimeType;
-
-    uploadRequest.contentLength = size;
-
-    final Future<void> pipeFuture = file.openRead().pipe(uploadRequest.sink);
-
-    final http.StreamedResponse uploadResponse = await uploadRequest.send();
-
-    await pipeFuture;
-
-    await uploadResponse.stream.drain<void>();
-
-    if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
-      throw Exception('Non è stato possibile caricare il materiale.');
-    }
-
-    final Uri completeUrl = _apiUri('/group_material_complete/$groupId');
-
-    final http.Response completeResponse = await http.post(
-      completeUrl,
-      headers: _jsonHeaders,
-      body: jsonEncode({
-        'original_name': resolvedOriginalName,
-        'stored_name': pathname,
-        'file_path': pathname,
-        'mime_type': resolvedMimeType,
-        'size': size,
-        'file_hash': fileHash.trim().toLowerCase(),
-      }),
-    );
-
-    return _decodeMapResponse(
-      completeResponse,
-      'Errore registrazione materiale nel gruppo',
+    return StudentLabUploadService().uploadGroupMaterial(
+      groupId: groupId,
+      filePath: filePath,
+      originalName: originalName,
+      mimeType: mimeType,
     );
   }
 
@@ -2322,10 +2175,7 @@ class ApiService {
 
     final Uri url = _apiUri('/user-blocks/$userId/status');
 
-    final http.Response response = await http.get(
-      url,
-      headers: _jsonHeaders,
-    );
+    final http.Response response = await http.get(url, headers: _jsonHeaders);
 
     return _decodeMapResponse(
       response,
@@ -2343,15 +2193,10 @@ class ApiService {
     final http.Response response = await http.post(
       url,
       headers: _jsonHeaders,
-      body: jsonEncode({
-        'blocked_user_id': userId,
-      }),
+      body: jsonEncode({'blocked_user_id': userId}),
     );
 
-    return _decodeMapResponse(
-      response,
-      'Errore blocco utente',
-    );
+    return _decodeMapResponse(response, 'Errore blocco utente');
   }
 
   Future<Map<String, dynamic>> unblockUser(int userId) async {
@@ -2366,19 +2211,13 @@ class ApiService {
       headers: _jsonHeaders,
     );
 
-    return _decodeMapResponse(
-      response,
-      'Errore sblocco utente',
-    );
+    return _decodeMapResponse(response, 'Errore sblocco utente');
   }
 
   Future<List<Map<String, dynamic>>> getBlockedUsers() async {
     final Uri url = _apiUri('/user-blocks');
 
-    final http.Response response = await http.get(
-      url,
-      headers: _jsonHeaders,
-    );
+    final http.Response response = await http.get(url, headers: _jsonHeaders);
 
     final Map<String, dynamic> data = _decodeMapResponse(
       response,
@@ -2393,10 +2232,7 @@ class ApiService {
 
     return items
         .whereType<Map>()
-        .map(
-          (Map<dynamic, dynamic> item) =>
-              Map<String, dynamic>.from(item),
-        )
+        .map((Map<dynamic, dynamic> item) => Map<String, dynamic>.from(item))
         .toList();
   }
 
@@ -3436,23 +3272,15 @@ class ApiService {
       throw ArgumentError('Identificativo gruppo non valido.');
     }
 
-    final Uri url = _apiUri(
-      '/teacher/materials/$materialId/assignments',
-    );
+    final Uri url = _apiUri('/teacher/materials/$materialId/assignments');
 
     final http.Response response = await http.post(
       url,
       headers: _jsonHeaders,
-      body: jsonEncode({
-        'user_id': userId,
-        'group_id': groupId,
-      }),
+      body: jsonEncode({'user_id': userId, 'group_id': groupId}),
     );
 
-    return _decodeMapResponse(
-      response,
-      'Errore assegnazione materiale',
-    );
+    return _decodeMapResponse(response, 'Errore assegnazione materiale');
   }
 
   Future<List<Map<String, dynamic>>> createTeacherMaterialAssignmentsBulk({
@@ -3464,20 +3292,20 @@ class ApiService {
       throw ArgumentError('Identificativo materiale non valido.');
     }
 
-    final List<int> normalizedUserIds =
-        userIds.where((int id) => id > 0).toSet().toList();
-    final List<int> normalizedGroupIds =
-        groupIds.where((int id) => id > 0).toSet().toList();
+    final List<int> normalizedUserIds = userIds
+        .where((int id) => id > 0)
+        .toSet()
+        .toList();
+    final List<int> normalizedGroupIds = groupIds
+        .where((int id) => id > 0)
+        .toSet()
+        .toList();
 
     if (normalizedUserIds.isEmpty && normalizedGroupIds.isEmpty) {
-      throw ArgumentError(
-        'Seleziona almeno uno studente o un gruppo.',
-      );
+      throw ArgumentError('Seleziona almeno uno studente o un gruppo.');
     }
 
-    final Uri url = _apiUri(
-      '/teacher/materials/$materialId/assignments/bulk',
-    );
+    final Uri url = _apiUri('/teacher/materials/$materialId/assignments/bulk');
 
     final http.Response response = await http.post(
       url,
@@ -3501,9 +3329,7 @@ class ApiService {
       throw ArgumentError('Identificativo assegnazione non valido.');
     }
 
-    final Uri url = _apiUri(
-      '/teacher-material-assignments/$assignmentId',
-    );
+    final Uri url = _apiUri('/teacher-material-assignments/$assignmentId');
 
     final http.Response response = await http.get(url, headers: _jsonHeaders);
 
@@ -3524,15 +3350,9 @@ class ApiService {
       '/teacher-material-assignments/$assignmentId/revoke',
     );
 
-    final http.Response response = await http.patch(
-      url,
-      headers: _jsonHeaders,
-    );
+    final http.Response response = await http.patch(url, headers: _jsonHeaders);
 
-    return _decodeMapResponse(
-      response,
-      'Errore revoca assegnazione materiale',
-    );
+    return _decodeMapResponse(response, 'Errore revoca assegnazione materiale');
   }
 
   Future<Map<String, dynamic>> getTeacherMaterial(int materialId) async {
@@ -3674,123 +3494,14 @@ class ApiService {
     required String visibility,
     required String filePath,
   }) async {
-    final bool authorized = await canAccessTeacherArea();
+    _requireCurrentUserId();
 
-    if (!authorized) {
-      throw Exception('Accesso docente non autorizzato.');
-    }
-
-    final File file = File(filePath);
-
-    if (!await file.exists()) {
-      throw Exception('Il file selezionato non esiste.');
-    }
-
-    final int size = await file.length();
-
-    if (size <= 0) {
-      throw Exception('Il file è vuoto.');
-    }
-
-    if (size > maxMaterialFileSize) {
-      throw Exception(
-        'Il file supera la dimensione massima consentita di 250 MB.',
-      );
-    }
-
-    final String originalName = _fileNameFromPath(filePath);
-
-    final String mimeType = _materialMimeType(originalName);
-
-    final String fileHash = await _calculateFileSha256(file);
-
-    final Map<String, dynamic> authorization =
-        await requestTeacherMaterialUpload(
-          subjectId: subjectId,
-          originalName: originalName,
-          mimeType: mimeType,
-          size: size,
-          fileHash: fileHash,
-        );
-
-    final String? pathname = authorization['pathname']?.toString().trim();
-
-    if (pathname == null || pathname.isEmpty) {
-      throw Exception('Il backend non ha restituito un pathname valido.');
-    }
-
-    final Uri blobAuthorizationUrl = _apiUri('/api/blob-upload');
-
-    final http.Response blobAuthorizationResponse = await http.post(
-      blobAuthorizationUrl,
-      headers: _jsonHeaders,
-      body: jsonEncode({
-        'pathname': pathname,
-        'content_type': mimeType,
-        'size': size,
-      }),
-    );
-
-    final Map<String, dynamic> blobAuthorization = _decodeMapResponse(
-      blobAuthorizationResponse,
-      'Errore autorizzazione Vercel Blob',
-    );
-
-    final String? presignedUrl =
-        (blobAuthorization['presigned_url'] ??
-                blobAuthorization['presignedUrl'])
-            ?.toString()
-            .trim();
-
-    if (presignedUrl == null || presignedUrl.isEmpty) {
-      throw Exception('Vercel Blob non ha restituito un URL di upload valido.');
-    }
-
-    final Uri uploadUri = Uri.parse(presignedUrl);
-
-    if (uploadUri.scheme.toLowerCase() != 'https') {
-      throw Exception('Upload Blob rifiutato: HTTPS obbligatorio.');
-    }
-
-    final http.StreamedRequest uploadRequest = http.StreamedRequest(
-      'PUT',
-      uploadUri,
-    );
-
-    uploadRequest.headers['Content-Type'] = mimeType;
-
-    uploadRequest.contentLength = size;
-
-    final Future<void> pipeFuture = file.openRead().pipe(uploadRequest.sink);
-
-    final http.StreamedResponse uploadResponse = await uploadRequest.send();
-
-    await pipeFuture;
-
-    final String uploadBody = await uploadResponse.stream.bytesToString();
-
-    if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
-      throw Exception(
-        'Errore upload Vercel Blob: '
-        '${uploadResponse.statusCode}'
-        '${uploadBody.isNotEmpty ? ' - $uploadBody' : ''}',
-      );
-    }
-
-    final String normalizedHash =
-        authorization['file_hash']?.toString().trim().toLowerCase() ?? fileHash;
-
-    return completeTeacherMaterial(
+    return StudentLabUploadService().uploadTeacherMaterial(
       subjectId: subjectId,
-      title: title.trim(),
-      description: description.trim(),
-      originalName: originalName,
-      storedName: pathname,
-      filePath: pathname,
-      mimeType: mimeType,
-      size: size,
-      fileHash: normalizedHash,
+      title: title,
+      description: description,
       visibility: visibility,
+      filePath: filePath,
     );
   }
 
@@ -3877,134 +3588,13 @@ class ApiService {
   }) async {
     _requireCurrentUserId();
 
-    final File file = File(filePath);
-
-    if (!await file.exists()) {
-      throw Exception('Il file selezionato non esiste.');
-    }
-
-    final int size = await file.length();
-
-    if (size <= 0) {
-      throw Exception('Il file è vuoto.');
-    }
-
-    if (size > maxMaterialFileSize) {
-      throw Exception(
-        'Il file supera la dimensione massima consentita di 250 MB.',
-      );
-    }
-
-    final String originalName = _fileNameFromPath(filePath);
-
-    final String mimeType = _materialMimeType(originalName);
-
-    final String fileHash = await _calculateFileSha256(file);
-
-    final Map<String, dynamic> authorization =
-        await requestMaterialPublicationUpload(
-          subjectId: subjectId,
-          title: title,
-          description: description,
-          originalName: originalName,
-          mimeType: mimeType,
-          size: size,
-          fileHash: fileHash,
-        );
-
-    final bool possibleDuplicate = authorization['possible_duplicate'] == true;
-
-    final int? possibleDuplicateMaterialId = _toInt(
-      authorization['possible_duplicate_material_id'],
+    return StudentLabUploadService().uploadMaterialPublication(
+      subjectId: subjectId,
+      title: title,
+      description: description,
+      filePath: filePath,
+      onPossibleDuplicate: onPossibleDuplicate,
     );
-
-    if (possibleDuplicate && onPossibleDuplicate != null) {
-      await onPossibleDuplicate();
-    }
-
-    final String? pathname = authorization['pathname']?.toString().trim();
-
-    if (pathname == null || pathname.isEmpty) {
-      throw Exception(
-        'Il server non ha restituito un percorso di upload valido.',
-      );
-    }
-
-    final Uri blobAuthorizationUrl = _apiUri('/api/blob-upload');
-
-    final http.Response blobAuthorizationResponse = await http.post(
-      blobAuthorizationUrl,
-      headers: _jsonHeaders,
-      body: jsonEncode({
-        'pathname': pathname,
-        'content_type': mimeType,
-        'size': size,
-      }),
-    );
-
-    final Map<String, dynamic> blobAuthorization = _decodeMapResponse(
-      blobAuthorizationResponse,
-      'Errore autorizzazione upload materiale',
-    );
-
-    final String? presignedUrl =
-        (blobAuthorization['presigned_url'] ??
-                blobAuthorization['presignedUrl'])
-            ?.toString()
-            .trim();
-
-    if (presignedUrl == null || presignedUrl.isEmpty) {
-      throw Exception('Il servizio di caricamento non è disponibile.');
-    }
-
-    final Uri uploadUri = Uri.parse(presignedUrl);
-
-    if (uploadUri.scheme.toLowerCase() != 'https') {
-      throw Exception('Connessione di caricamento non valida.');
-    }
-
-    final http.StreamedRequest uploadRequest = http.StreamedRequest(
-      'PUT',
-      uploadUri,
-    );
-
-    uploadRequest.headers['Content-Type'] = mimeType;
-
-    uploadRequest.contentLength = size;
-
-    final Future<void> pipeFuture = file.openRead().pipe(uploadRequest.sink);
-
-    final http.StreamedResponse uploadResponse = await uploadRequest.send();
-
-    await pipeFuture;
-
-    await uploadResponse.stream.drain<void>();
-
-    if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
-      throw Exception('Non è stato possibile caricare il materiale.');
-    }
-
-    final Map<String, dynamic> completePayload = {
-      'subject_id': subjectId,
-      'title': title.trim(),
-      'description': description.trim(),
-      'original_name': originalName,
-      'stored_name': pathname,
-      'file_path': pathname,
-      'mime_type': mimeType,
-      'size': size,
-      'file_hash': fileHash.trim().toLowerCase(),
-    };
-
-    final Map<String, dynamic> result = await completeMaterialPublication(
-      completePayload,
-    );
-
-    return {
-      ...result,
-      'possible_duplicate': possibleDuplicate,
-      'possible_duplicate_material_id': possibleDuplicateMaterialId,
-    };
   }
 
   Future<List<Map<String, dynamic>>> getAdminMaterialPublications({
@@ -4317,95 +3907,80 @@ class ApiService {
     return downloadMaterial(source: 'teacher', materialId: materialId);
   }
 
-  Future<Map<String, dynamic>> deleteAdminUser(
-  int userId,
-) async {
-  if (userId <= 0) {
-    throw ArgumentError(
-      'Identificativo utente non valido.',
+  Future<Map<String, dynamic>> deleteAdminUser(int userId) async {
+    if (userId <= 0) {
+      throw ArgumentError('Identificativo utente non valido.');
+    }
+
+    final Uri url = _apiUri('/admin/users/$userId');
+
+    final http.Response response = await http.delete(
+      url,
+      headers: _jsonHeaders,
     );
+
+    return _decodeMapResponse(response, 'Errore eliminazione account utente');
   }
 
-  final Uri url = _apiUri(
-    '/admin/users/$userId',
-  );
+  Future<Map<String, dynamic>> contactUser({
+    required int userId,
+    required String requestType,
+    int? subjectId,
+    required String subject,
+    required String message,
+  }) async {
+    if (userId <= 0) {
+      throw ArgumentError('Destinatario non valido.');
+    }
 
-  final http.Response response = await http.delete(
-    url,
-    headers: _jsonHeaders,
-  );
+    final String normalizedType = requestType.trim().toLowerCase();
 
-  return _decodeMapResponse(
-    response,
-    'Errore eliminazione account utente',
-  );
-}
+    if (!{'general', 'help', 'private_lesson'}.contains(normalizedType)) {
+      throw ArgumentError('Tipo di richiesta non valido.');
+    }
 
-Future<Map<String, dynamic>> contactUser({
-  required int userId,
-  required String requestType,
-  int? subjectId,
-  required String subject,
-  required String message,
-}) async {
-  if (userId <= 0) {
-    throw ArgumentError('Destinatario non valido.');
+    if ((normalizedType == 'help' || normalizedType == 'private_lesson') &&
+        (subjectId == null || subjectId <= 0)) {
+      throw ArgumentError('Seleziona una materia valida.');
+    }
+
+    final String normalizedSubject = subject
+        .trim()
+        .split(RegExp(r'\s+'))
+        .join(' ');
+    final String normalizedMessage = message.trim();
+
+    if (normalizedSubject.isEmpty) {
+      throw ArgumentError('Inserisci l’oggetto della richiesta.');
+    }
+
+    if (normalizedSubject.length > 160 ||
+        normalizedSubject.contains('\n') ||
+        normalizedSubject.contains('\r')) {
+      throw ArgumentError('Oggetto della richiesta non valido.');
+    }
+
+    if (normalizedMessage.isEmpty) {
+      throw ArgumentError('Inserisci il messaggio.');
+    }
+
+    if (normalizedMessage.length > 5000) {
+      throw ArgumentError('Il messaggio è troppo lungo.');
+    }
+
+    final Uri url = _apiUri('/contact/users/$userId');
+
+    final http.Response response = await http.post(
+      url,
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'request_type': normalizedType,
+        'subject_id': subjectId,
+        'subject': normalizedSubject,
+        'message': normalizedMessage,
+      }),
+    );
+
+    return _decodeMapResponse(response, 'Errore invio richiesta');
   }
-
-  final String normalizedType = requestType.trim().toLowerCase();
-
-  if (!{
-    'general',
-    'help',
-    'private_lesson',
-  }.contains(normalizedType)) {
-    throw ArgumentError('Tipo di richiesta non valido.');
-  }
-
-  if ((normalizedType == 'help' ||
-          normalizedType == 'private_lesson') &&
-      (subjectId == null || subjectId <= 0)) {
-    throw ArgumentError('Seleziona una materia valida.');
-  }
-
-  final String normalizedSubject =
-      subject.trim().split(RegExp(r'\s+')).join(' ');
-  final String normalizedMessage = message.trim();
-
-  if (normalizedSubject.isEmpty) {
-    throw ArgumentError('Inserisci l’oggetto della richiesta.');
-  }
-
-  if (normalizedSubject.length > 160 ||
-      normalizedSubject.contains('\n') ||
-      normalizedSubject.contains('\r')) {
-    throw ArgumentError('Oggetto della richiesta non valido.');
-  }
-
-  if (normalizedMessage.isEmpty) {
-    throw ArgumentError('Inserisci il messaggio.');
-  }
-
-  if (normalizedMessage.length > 5000) {
-    throw ArgumentError('Il messaggio è troppo lungo.');
-  }
-
-  final Uri url = _apiUri('/contact/users/$userId');
-
-  final http.Response response = await http.post(
-    url,
-    headers: _jsonHeaders,
-    body: jsonEncode({
-      'request_type': normalizedType,
-      'subject_id': subjectId,
-      'subject': normalizedSubject,
-      'message': normalizedMessage,
-    }),
-  );
-
-  return _decodeMapResponse(
-    response,
-    'Errore invio richiesta',
-  );
-}
 }
