@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../material/admin/admin_material_publications_page.dart';
 import '../../services/api_service.dart';
 import '../../theme/nightTheme.dart';
+import '../news/institutional_news_page.dart';
 import '../news/public_news_editor_page.dart';
+import 'admin_public_news_reports_page.dart';
 import 'admin_academic_paths_page.dart';
 import 'admin_grades_page.dart';
 import 'admin_reviews_page.dart';
@@ -108,19 +110,17 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
       return;
     }
 
-    final PublicNewsDraft? draft = await Navigator.of(context).push<PublicNewsDraft>(
-      MaterialPageRoute<PublicNewsDraft>(
+    final bool? created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => const PublicNewsEditorPage.admin(),
       ),
     );
 
-    if (!mounted || draft == null) {
+    if (!mounted || created != true) {
       return;
     }
 
-    _showMessage(
-      'Il form è pronto. La pubblicazione sarà attiva quando collegheremo gli endpoint PublicNews nel backend.',
-    );
+    _showMessage('News pubblicata correttamente.');
   }
 
   void _showPending(String feature) {
@@ -280,8 +280,11 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           title: 'Gestisci news',
           description:
               'Modera, elimina e controlla le news pubbliche.',
-          onTap: () => _showPending('La gestione delle PublicNews'),
-          pending: true,
+          onTap: () {
+            _openProtectedPage(
+              const InstitutionalNewsPage(),
+            );
+          },
         ),
         _AdminModuleCard(
           icon: Icons.fact_check_outlined,
@@ -360,8 +363,11 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           title: 'Segnalazioni news',
           description:
               'Gestisci segnalazioni e contenuti pubblici contestati.',
-          onTap: () => _showPending('La gestione delle segnalazioni PublicNews'),
-          pending: true,
+          onTap: () {
+            _openProtectedPage(
+              const AdminPublicNewsReportsPage(),
+            );
+          },
         ),
         _AdminModuleCard(
           icon: Icons.groups_2_outlined,

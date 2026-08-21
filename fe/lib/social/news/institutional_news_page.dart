@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../services/api_service.dart';
 import '../../services/auth_session.dart';
+import '../../services/public_news_api_service.dart';
 import '../../theme/nightTheme.dart';
 import '../social_models.dart';
 import 'models/public_news.dart';
+import 'public_news_editor_page.dart';
 
 class InstitutionalNewsPage extends StatefulWidget {
   final bool embedded;
-  final List<PublicNews> initialItems;
 
   const InstitutionalNewsPage({
     super.key,
     this.embedded = false,
-    this.initialItems = const [],
   });
 
   @override
@@ -21,56 +22,65 @@ class InstitutionalNewsPage extends StatefulWidget {
 }
 
 class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
+  final PublicNewsApiService _newsApi = PublicNewsApiService();
+  final ApiService _apiService = ApiService();
   final AuthSession _session = AuthSession.instance;
   final TextEditingController _searchController = TextEditingController();
 
-  late List<PublicNews> _items;
+  List<PublicNews> _items = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  String? _error;
+  int _total = 0;
+  int _offset = 0;
+  static const int _limit = 30;
 
+  bool _useAcademicFilter = true;
+  String _city = '';
   String _university = '';
   String _department = '';
   String _course = '';
   int? _subjectId;
-  String _subjectName = '';
-
-  bool _academicFilterEnabled = false;
 
   SocialUser? get _currentUser => _session.currentUser;
-
-  bool get _isGuest => _session.isGuest;
+  bool get _isGuest => _session.isGuest || !_session.isAuthenticated;
 
   bool get _canPublish {
     final SocialUser? user = _currentUser;
-
-    if (user == null) {
+    if (user == null || !user.isActive) {
       return false;
     }
 
-    return user.type == SocialUserType.teacher &&
-        user.isVerifiedTeacher;
+    final String role = user.role.trim().toLowerCase();
+    return role == 'admin' ||
+        role == 'creator' ||
+        (user.isTeacher && user.isVerifiedTeacher);
+  }
+
+  bool get _isAdminPublisher {
+    final String role = _currentUser?.role.trim().toLowerCase() ?? '';
+    return role == 'admin' || role == 'creator';
   }
 
   @override
   void initState() {
     super.initState();
-    _items = List<PublicNews>.from(widget.initialItems);
-    _applyDefaultAcademicContext();
+    _searchController.addListener(_onSearchChanged);
     _session.addListener(_onSessionChanged);
-  }
-
-  @override
-  void didUpdateWidget(covariant InstitutionalNewsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (!identical(oldWidget.initialItems, widget.initialItems)) {
-      _items = List<PublicNews>.from(widget.initialItems);
-    }
+    _applyDefaultAcademicFilter();
+    _load();
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _session.removeListener(_onSessionChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {});
   }
 
   void _onSessionChanged() {
@@ -78,545 +88,348 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       return;
     }
 
-    setState(_applyDefaultAcademicContext);
+    setState(_applyDefaultAcademicFilter);
+    _load();
   }
 
-  void _applyDefaultAcademicContext() {
+  void _applyDefaultAcademicFilter() {
     final SocialUser? user = _currentUser;
 
     if (user == null) {
-      _academicFilterEnabled = false;
+      _useAcademicFilter = false;
+      _city = '';
       _university = '';
       _department = '';
       _course = '';
       _subjectId = null;
-      _subjectName = '';
       return;
     }
 
-    final SocialAcademicPath? path = _preferredPath(user);
-
-    _university = path?.university.trim().isNotEmpty == true
-        ? path!.university.trim()
-        : user.university.trim();
-
-    _department = path?.department.trim().isNotEmpty == true
-        ? path!.department.trim()
-        : user.department.trim();
-
-    _course = path?.course.trim().isNotEmpty == true
-        ? path!.course.trim()
-        : user.course.trim();
-
+    _useAcademicFilter = true;
+    _university = user.university.trim();
+    _department = user.department.trim();
+    _course = user.course.trim();
+    _city = '';
     _subjectId = null;
-    _subjectName = '';
-    _academicFilterEnabled =
-        _university.isNotEmpty || _department.isNotEmpty || _course.isNotEmpty;
   }
 
-  SocialAcademicPath? _preferredPath(SocialUser user) {
-    for (final SocialAcademicPath path in user.academicPaths) {
-      if (path.isCurrent) {
-        return path;
-      }
+  Future<void> _load() async {
+    if (!mounted) {
+      return;
     }
 
-    for (final SocialAcademicPath path in user.academicPaths) {
-      if (path.isPrimary) {
-        return path;
-      }
-    }
+    setState(() {
+      _loading = true;
+      _error = null;
+      _offset = 0;
+    });
 
-    return user.academicPaths.isEmpty ? null : user.academicPaths.first;
-  }
-
-  List<SocialSubject> get _availableSubjects {
-    final SocialUser? user = _currentUser;
-
-    if (user == null) {
-      return const [];
-    }
-
-    final Map<int, SocialSubject> values = {};
-
-    for (final SocialSubject subject in user.subjects) {
-      if (subject.id > 0) {
-        values[subject.id] = subject;
-      }
-    }
-
-    for (final TeacherAssignment assignment in user.teacherAssignments) {
-      if (assignment.subject.id > 0) {
-        values[assignment.subject.id] = assignment.subject;
-      }
-    }
-
-    final List<SocialSubject> result = values.values.toList()
-      ..sort(
-        (SocialSubject a, SocialSubject b) =>
-            a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    try {
+      final PublicNewsFeedResult result = await _newsApi.getFeed(
+        search: _searchController.text,
+        city: _useAcademicFilter ? _city : '',
+        university: _useAcademicFilter ? _university : '',
+        department: _useAcademicFilter ? _department : '',
+        course: _useAcademicFilter ? _course : '',
+        subjectId: _useAcademicFilter ? _subjectId : null,
+        limit: _limit,
+        offset: 0,
       );
 
-    return result;
-  }
-
-  List<PublicNews> get _filteredItems {
-    final String query = _searchController.text.trim().toLowerCase();
-
-    final List<PublicNews> result = _items.where((PublicNews news) {
-      if (news.isExpired) {
-        return false;
+      if (!mounted) {
+        return;
       }
 
-      if (_academicFilterEnabled) {
-        if (_university.isNotEmpty &&
-            !_same(news.university, _university)) {
-          return false;
-        }
-
-        if (_department.isNotEmpty &&
-            !_same(news.department, _department)) {
-          return false;
-        }
-
-        if (_course.isNotEmpty && !_same(news.course, _course)) {
-          return false;
-        }
-
-        if (_subjectId != null && news.subjectId != _subjectId) {
-          return false;
-        }
+      setState(() {
+        _items = result.items;
+        _total = result.total;
+        _offset = result.items.length;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
       }
 
-      if (query.isEmpty) {
-        return true;
+      setState(() {
+        _loading = false;
+        _error = _friendlyError(error);
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore || _items.length >= _total) {
+      return;
+    }
+
+    setState(() {
+      _loadingMore = true;
+    });
+
+    try {
+      final PublicNewsFeedResult result = await _newsApi.getFeed(
+        search: _searchController.text,
+        city: _useAcademicFilter ? _city : '',
+        university: _useAcademicFilter ? _university : '',
+        department: _useAcademicFilter ? _department : '',
+        course: _useAcademicFilter ? _course : '',
+        subjectId: _useAcademicFilter ? _subjectId : null,
+        limit: _limit,
+        offset: _offset,
+      );
+
+      if (!mounted) {
+        return;
       }
 
-      final String searchable = [
-        news.author.fullName,
-        news.author.roleLabel,
-        news.title,
-        news.content,
-        news.city,
-        news.university,
-        news.department,
-        news.course,
-        news.subjectName,
-      ].join(' ').toLowerCase();
+      final Map<int, PublicNews> merged = {
+        for (final PublicNews item in _items) item.id: item,
+      };
 
-      return searchable.contains(query);
-    }).toList();
+      for (final PublicNews item in result.items) {
+        merged[item.id] = item;
+      }
 
-    result.sort(
-      (PublicNews a, PublicNews b) => b.createdAt.compareTo(a.createdAt),
-    );
+      final List<PublicNews> values = merged.values.toList()
+        ..sort(
+          (PublicNews a, PublicNews b) =>
+              b.createdAt.compareTo(a.createdAt),
+        );
 
-    return result;
+      setState(() {
+        _items = values;
+        _total = result.total;
+        _offset = result.offset + result.items.length;
+      });
+    } catch (error) {
+      _showMessage(_friendlyError(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingMore = false;
+        });
+      }
+    }
   }
 
-  bool _same(String first, String second) {
-    return first.trim().toLowerCase() == second.trim().toLowerCase();
-  }
+  Future<void> _openPublisher() async {
+    if (!_canPublish) {
+      return;
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final Widget content = SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 980),
-          child: RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(20),
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 16),
-                _buildSearchAndFilters(),
-                const SizedBox(height: 16),
-                _buildActiveFilterSummary(),
-                const SizedBox(height: 16),
-                _buildFeed(),
-                const SizedBox(height: 28),
-              ],
-            ),
+    bool? created;
+
+    if (_isAdminPublisher) {
+      created = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => const PublicNewsEditorPage.admin(),
+        ),
+      );
+    } else {
+      List<Map<String, dynamic>> subjects = [];
+
+      try {
+        subjects = await _apiService.getTeacherSubjects();
+      } catch (_) {
+        _showMessage(
+          'Non è stato possibile caricare le materie verificate.',
+        );
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      created = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => PublicNewsEditorPage.teacher(
+            subjects: subjects,
           ),
         ),
-      ),
-    );
-
-    if (widget.embedded) {
-      return Scaffold(
-        backgroundColor: AppColors.darkElegance,
-        appBar: _buildAppBar(),
-        body: content,
-        floatingActionButton: _canPublish ? _buildPublishButton() : null,
       );
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.darkElegance,
-      appBar: _buildAppBar(),
-      body: content,
-      floatingActionButton: _canPublish ? _buildPublishButton() : null,
-    );
+    if (created == true && mounted) {
+      await _load();
+    }
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: AppColors.brandNightBlue,
-      foregroundColor: AppColors.pureWhite,
-      elevation: 0,
-      title: const Text('News'),
-      actions: [
-        if (!_isGuest)
-          IconButton(
-            tooltip: 'Comunicazioni private',
-            onPressed: _openPrivateInfo,
-            icon: const Icon(Icons.lock_outline_rounded),
-          ),
-        IconButton(
-          tooltip: 'Aggiorna',
-          onPressed: _refresh,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-      ],
+  Future<void> _delete(PublicNews news) async {
+    final bool confirmed = await _confirm(
+      title: 'Elimina news',
+      message: 'Vuoi eliminare questa news?',
+      action: 'Elimina',
+      destructive: true,
     );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await _newsApi.delete(news.id);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _items.removeWhere((PublicNews item) => item.id == news.id);
+        if (_total > 0) {
+          _total--;
+        }
+      });
+      _showMessage('News eliminata.');
+    } catch (error) {
+      _showMessage(_friendlyError(error));
+    }
   }
 
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(19),
-      decoration: BoxDecoration(
-        color: AppColors.eleganceMidnight,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(
-          color: AppColors.teacherIndigo.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: AppColors.teacherIndigo.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.campaign_outlined,
-              color: AppColors.teacherIndigo,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'News StudentLab',
-                  style: TextStyle(
-                    color: AppColors.pureWhite,
-                    fontSize: 19,
-                    fontWeight: FontWeight.bold,
-                  ),
+  Future<void> _moderate(PublicNews news) async {
+    final TextEditingController controller = TextEditingController();
+
+    final String? reason = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        String? validationError;
+
+        return StatefulBuilder(
+          builder: (
+            BuildContext context,
+            StateSetter setDialogState,
+          ) {
+            return AlertDialog(
+              backgroundColor: AppColors.eleganceDeepNavy,
+              title: const Text(
+                'Rimuovi news',
+                style: TextStyle(color: AppColors.pureWhite),
+              ),
+              content: TextField(
+                controller: controller,
+                minLines: 2,
+                maxLines: 5,
+                maxLength: 1000,
+                style: const TextStyle(color: AppColors.pureWhite),
+                decoration: InputDecoration(
+                  labelText: 'Motivo',
+                  errorText: validationError,
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  _isGuest
-                      ? 'Consulta le comunicazioni pubbliche della community. Puoi filtrare per contesto accademico senza accedere.'
-                      : 'Comunicazioni pubbliche dei docenti verificati e, quando il backend pubblico sarà collegato, degli amministratori e del Creator.',
-                  style: TextStyle(
-                    color: AppColors.pureWhite.withValues(alpha: 0.50),
-                    fontSize: 11,
-                    height: 1.4,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Annulla'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final String value = controller.text.trim();
+                    if (value.isEmpty) {
+                      setDialogState(() {
+                        validationError = 'Inserisci il motivo';
+                      });
+                      return;
+                    }
+                    Navigator.pop(dialogContext, value);
+                  },
+                  child: const Text(
+                    'Rimuovi',
+                    style: TextStyle(color: Colors.redAccent),
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchAndFilters() {
-    return Column(
-      children: [
-        TextField(
-          controller: _searchController,
-          onChanged: (_) => setState(() {}),
-          style: const TextStyle(color: AppColors.pureWhite),
-          decoration: InputDecoration(
-            hintText: 'Cerca autore, materia, corso, contenuto...',
-            hintStyle: const TextStyle(color: Colors.white38),
-            prefixIcon: const Icon(
-              Icons.search_rounded,
-              color: AppColors.skyBlue,
-            ),
-            suffixIcon: IconButton(
-              tooltip: 'Filtri',
-              onPressed: _openFilters,
-              icon: const Icon(
-                Icons.tune_rounded,
-                color: AppColors.materialSky,
-              ),
-            ),
-            filled: true,
-            fillColor: AppColors.eleganceMidnight,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _FilterModeButton(
-                selected: _academicFilterEnabled,
-                icon: Icons.school_outlined,
-                label: 'Il mio percorso',
-                onTap: () {
-                  if (_currentUser == null) {
-                    _showMessage(
-                      'Accedi per usare automaticamente il tuo percorso accademico.',
-                    );
-                    return;
-                  }
-
-                  setState(() {
-                    _applyDefaultAcademicContext();
-                    _academicFilterEnabled = true;
-                  });
-                },
-              ),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: _FilterModeButton(
-                selected: !_academicFilterEnabled,
-                icon: Icons.public_rounded,
-                label: 'Tutte',
-                onTap: () {
-                  setState(() {
-                    _academicFilterEnabled = false;
-                    _subjectId = null;
-                    _subjectName = '';
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActiveFilterSummary() {
-    final List<String> values = [];
-
-    if (_academicFilterEnabled) {
-      if (_university.isNotEmpty) {
-        values.add(_university);
-      }
-
-      if (_department.isNotEmpty) {
-        values.add(_department);
-      }
-
-      if (_course.isNotEmpty) {
-        values.add(_course);
-      }
-
-      if (_subjectName.isNotEmpty) {
-        values.add(_subjectName);
-      }
-    }
-
-    return Row(
-      children: [
-        const Icon(
-          Icons.filter_alt_outlined,
-          color: AppColors.materialSky,
-          size: 16,
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            values.isEmpty ? 'Tutte le news pubbliche' : values.join(' • '),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.pureWhite.withValues(alpha: 0.52),
-              fontSize: 10,
-              height: 1.35,
-            ),
-          ),
-        ),
-        Text(
-          '${_filteredItems.length}',
-          style: const TextStyle(
-            color: AppColors.materialSky,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeed() {
-    final List<PublicNews> items = _filteredItems;
-
-    if (_items.isEmpty) {
-      return _buildBackendPendingState();
-    }
-
-    if (items.isEmpty) {
-      return _buildEmptyFilteredState();
-    }
-
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final int columns = constraints.maxWidth >= 760 ? 2 : 1;
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 285,
-          ),
-          itemBuilder: (BuildContext context, int index) {
-            final PublicNews news = items[index];
-
-            return _PublicNewsCard(
-              news: news,
-              isGuest: _isGuest,
-              onOpen: () => _openNews(news),
             );
           },
         );
       },
     );
+
+    controller.dispose();
+
+    if (reason == null || reason.isEmpty) {
+      return;
+    }
+
+    try {
+      await _newsApi.moderate(
+        newsId: news.id,
+        reason: reason,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _items.removeWhere((PublicNews item) => item.id == news.id);
+        if (_total > 0) {
+          _total--;
+        }
+      });
+
+      _showMessage('News rimossa.');
+    } catch (error) {
+      _showMessage(_friendlyError(error));
+    }
   }
 
-  Widget _buildBackendPendingState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.eleganceMidnight,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.skyBlue.withValues(alpha: 0.08),
-        ),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.newspaper_outlined,
-            color: AppColors.skyBlue,
-            size: 42,
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Nessuna news pubblica disponibile',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.pureWhite,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'La sezione è ora collegata alla navigazione principale. Il feed pubblico non usa le news dei gruppi e verrà popolato quando aggiungeremo gli endpoint PublicNews dedicati nel backend.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.pureWhite.withValues(alpha: 0.48),
-              fontSize: 11,
-              height: 1.45,
-            ),
-          ),
-        ],
-      ),
+  Future<void> _report(PublicNews news) async {
+    final _ReportDraft? draft = await showModalBottomSheet<_ReportDraft>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.eleganceDeepNavy,
+      builder: (_) => const _PublicNewsReportSheet(),
     );
+
+    if (draft == null) {
+      return;
+    }
+
+    try {
+      await _newsApi.report(
+        newsId: news.id,
+        reason: draft.reason,
+        description: draft.description,
+      );
+      _showMessage('Segnalazione inviata.');
+    } catch (error) {
+      _showMessage(_friendlyError(error));
+    }
   }
 
-  Widget _buildEmptyFilteredState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.eleganceMidnight,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.filter_alt_off_outlined,
-            color: Colors.white30,
-            size: 38,
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Nessuna news con questi filtri',
-            style: TextStyle(
-              color: AppColors.pureWhite,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Modifica il percorso, la materia o la ricerca.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.pureWhite.withValues(alpha: 0.45),
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
+  Future<void> _block(PublicNews news) async {
+    final bool confirmed = await _confirm(
+      title: 'Blocca utente',
+      message:
+          'Non vedrai più le news pubblicate da ${news.author.fullName}. Vuoi continuare?',
+      action: 'Blocca',
+      destructive: true,
     );
-  }
 
-  Widget _buildPublishButton() {
-    return FloatingActionButton.extended(
-      onPressed: _showPublishingPending,
-      backgroundColor: AppColors.socialBlue,
-      foregroundColor: AppColors.pureWhite,
-      icon: const Icon(Icons.edit_note_rounded),
-      label: const Text('Pubblica'),
-    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await _newsApi.blockAuthor(news.authorUserId);
+      _showMessage('Utente bloccato.');
+      await _load();
+    } catch (error) {
+      _showMessage(_friendlyError(error));
+    }
   }
 
   Future<void> _openFilters() async {
+    bool enabled = _useAcademicFilter;
+    String city = _city;
     String university = _university;
     String department = _department;
     String course = _course;
     int? subjectId = _subjectId;
-    String subjectName = _subjectName;
-    bool enabled = _academicFilterEnabled;
 
     final bool? apply = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.eleganceDeepNavy,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(22),
-        ),
-      ),
       builder: (BuildContext sheetContext) {
         return StatefulBuilder(
           builder: (
@@ -628,7 +441,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                 18,
                 18,
                 18,
-                18 + MediaQuery.of(context).viewInsets.bottom,
+                18 + MediaQuery.viewInsetsOf(context).bottom,
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -647,11 +460,8 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                       value: enabled,
                       contentPadding: EdgeInsets.zero,
                       title: const Text(
-                        'Filtra per percorso accademico',
-                        style: TextStyle(
-                          color: AppColors.pureWhite,
-                          fontSize: 12,
-                        ),
+                        'Usa contesto accademico',
+                        style: TextStyle(color: AppColors.pureWhite),
                       ),
                       onChanged: (bool value) {
                         setSheetState(() {
@@ -661,88 +471,48 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
+                      initialValue: city,
+                      enabled: enabled,
+                      style: const TextStyle(color: AppColors.pureWhite),
+                      decoration: const InputDecoration(labelText: 'Città'),
+                      onChanged: (String value) => city = value.trim(),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
                       initialValue: university,
                       enabled: enabled,
                       style: const TextStyle(color: AppColors.pureWhite),
-                      decoration: const InputDecoration(
-                        labelText: 'Ateneo',
-                        prefixIcon: Icon(Icons.account_balance_outlined),
-                      ),
-                      onChanged: (String value) {
-                        university = value.trim();
-                      },
+                      decoration: const InputDecoration(labelText: 'Ateneo'),
+                      onChanged: (String value) => university = value.trim(),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
                       initialValue: department,
                       enabled: enabled,
                       style: const TextStyle(color: AppColors.pureWhite),
-                      decoration: const InputDecoration(
-                        labelText: 'Dipartimento',
-                        prefixIcon: Icon(Icons.domain_outlined),
-                      ),
-                      onChanged: (String value) {
-                        department = value.trim();
-                      },
+                      decoration:
+                          const InputDecoration(labelText: 'Dipartimento'),
+                      onChanged: (String value) => department = value.trim(),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
                       initialValue: course,
                       enabled: enabled,
                       style: const TextStyle(color: AppColors.pureWhite),
-                      decoration: const InputDecoration(
-                        labelText: 'Corso',
-                        prefixIcon: Icon(Icons.school_outlined),
-                      ),
-                      onChanged: (String value) {
-                        course = value.trim();
-                      },
+                      decoration: const InputDecoration(labelText: 'Corso'),
+                      onChanged: (String value) => course = value.trim(),
                     ),
                     const SizedBox(height: 10),
-                    DropdownButtonFormField<int?>(
-                      initialValue: subjectId,
-                      isExpanded: true,
-                      dropdownColor: AppColors.eleganceDeepNavy,
-                      decoration: const InputDecoration(
-                        labelText: 'Materia',
-                        prefixIcon: Icon(Icons.menu_book_outlined),
-                      ),
-                      items: [
-                        const DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text(
-                            'Tutte le materie',
-                            style: TextStyle(color: AppColors.pureWhite),
-                          ),
-                        ),
-                        ..._availableSubjects.map(
-                          (SocialSubject subject) => DropdownMenuItem<int?>(
-                            value: subject.id,
-                            child: Text(
-                              subject.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.pureWhite,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                      onChanged: enabled
-                          ? (int? value) {
-                              setSheetState(() {
-                                subjectId = value;
-                                subjectName = value == null
-                                    ? ''
-                                    : _availableSubjects
-                                        .firstWhere(
-                                          (SocialSubject subject) =>
-                                              subject.id == value,
-                                        )
-                                        .name;
-                              });
-                            }
-                          : null,
+                    TextFormField(
+                      initialValue: subjectId?.toString() ?? '',
+                      enabled: enabled,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: AppColors.pureWhite),
+                      decoration:
+                          const InputDecoration(labelText: 'ID materia'),
+                      onChanged: (String value) {
+                        subjectId = int.tryParse(value.trim());
+                      },
                     ),
                     const SizedBox(height: 18),
                     Row(
@@ -752,11 +522,11 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                             onPressed: () {
                               setSheetState(() {
                                 enabled = false;
+                                city = '';
                                 university = '';
                                 department = '';
                                 course = '';
                                 subjectId = null;
-                                subjectName = '';
                               });
                             },
                             child: const Text('Azzera'),
@@ -787,18 +557,263 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     }
 
     setState(() {
-      _academicFilterEnabled = enabled;
+      _useAcademicFilter = enabled;
+      _city = city;
       _university = university;
       _department = department;
       _course = course;
       _subjectId = subjectId;
-      _subjectName = subjectName;
     });
+
+    await _load();
   }
 
-  Future<void> _openNews(PublicNews news) async {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.darkElegance,
+      appBar: AppBar(
+        backgroundColor: AppColors.brandNightBlue,
+        foregroundColor: AppColors.pureWhite,
+        elevation: 0,
+        automaticallyImplyLeading: !widget.embedded,
+        title: const Text('News'),
+        actions: [
+          IconButton(
+            tooltip: 'Filtri',
+            onPressed: _openFilters,
+            icon: const Icon(Icons.tune_rounded),
+          ),
+          IconButton(
+            tooltip: 'Aggiorna',
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      floatingActionButton: _canPublish
+          ? FloatingActionButton.extended(
+              onPressed: _openPublisher,
+              backgroundColor: _isAdminPublisher
+                  ? AppColors.socialBlue
+                  : AppColors.teacherIndigo,
+              foregroundColor: AppColors.pureWhite,
+              icon: const Icon(Icons.edit_note_rounded),
+              label: const Text('Pubblica'),
+            )
+          : null,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 920),
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildSearch(),
+                  const SizedBox(height: 12),
+                  _buildFilterSummary(),
+                  const SizedBox(height: 16),
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 80),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_error != null)
+                    _buildError()
+                  else if (_items.isEmpty)
+                    _buildEmpty()
+                  else ...[
+                    for (final PublicNews news in _items)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _PublicNewsCard(
+                          news: news,
+                          isGuest: _isGuest,
+                          onOpen: () => _openDetail(news),
+                          onDelete:
+                              news.canDelete ? () => _delete(news) : null,
+                          onModerate:
+                              news.canModerate ? () => _moderate(news) : null,
+                          onReport:
+                              news.canReport ? () => _report(news) : null,
+                          onBlock: news.canBlockAuthor
+                              ? () => _block(news)
+                              : null,
+                        ),
+                      ),
+                    if (_items.length < _total)
+                      OutlinedButton(
+                        onPressed: _loadingMore ? null : _loadMore,
+                        child: Text(
+                          _loadingMore ? 'Caricamento...' : 'Carica altre news',
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 80),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearch() {
+    return TextField(
+      controller: _searchController,
+      textInputAction: TextInputAction.search,
+      onSubmitted: (_) => _load(),
+      style: const TextStyle(color: AppColors.pureWhite),
+      decoration: InputDecoration(
+        hintText: 'Cerca autore, materia, corso, contenuto...',
+        prefixIcon: const Icon(
+          Icons.search_rounded,
+          color: AppColors.skyBlue,
+        ),
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                tooltip: 'Cancella',
+                onPressed: () {
+                  _searchController.clear();
+                  _load();
+                },
+                icon: const Icon(Icons.close_rounded),
+              )
+            : null,
+        filled: true,
+        fillColor: AppColors.eleganceMidnight,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSummary() {
+    final List<String> values = [];
+
+    if (_useAcademicFilter) {
+      values.addAll([
+        _city,
+        _university,
+        _department,
+        _course,
+        if (_subjectId != null) 'Materia #$_subjectId',
+      ].where((String value) => value.trim().isNotEmpty));
+    }
+
+    return Row(
+      children: [
+        Icon(
+          _useAcademicFilter
+              ? Icons.school_outlined
+              : Icons.public_rounded,
+          color: AppColors.materialSky,
+          size: 16,
+        ),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            values.isEmpty ? 'Tutte le news pubbliche' : values.join(' • '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+            ),
+          ),
+        ),
+        Text(
+          '$_total',
+          style: const TextStyle(
+            color: AppColors.materialSky,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildError() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.eleganceMidnight,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Colors.redAccent,
+            size: 36,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Riprova'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: AppColors.eleganceMidnight,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        children: [
+          Icon(
+            Icons.newspaper_outlined,
+            color: Colors.white30,
+            size: 42,
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Nessuna news disponibile',
+            style: TextStyle(
+              color: AppColors.pureWhite,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Non ci sono comunicazioni compatibili con i filtri selezionati.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openDetail(PublicNews news) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => PublicNewsDetailPage(
           news: news,
           isGuest: _isGuest,
@@ -807,46 +822,69 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     );
   }
 
-  Future<void> _refresh() async {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
-  }
-
-  void _showPublishingPending() {
-    showDialog<void>(
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String action,
+    bool destructive = false,
+  }) async {
+    final bool? result = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text(
-            'Pubblicazione news',
-            style: TextStyle(color: AppColors.pureWhite),
+          title: Text(
+            title,
+            style: const TextStyle(color: AppColors.pureWhite),
           ),
           content: Text(
-            'Il frontend è predisposto. La pubblicazione nel feed principale verrà attivata quando aggiungeremo gli endpoint PublicNews e i permessi per docente verificato, admin e Creator.',
-            style: TextStyle(
-              color: AppColors.pureWhite.withValues(alpha: 0.64),
-              height: 1.4,
-            ),
+            message,
+            style: const TextStyle(color: Colors.white70),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Chiudi'),
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Annulla'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                action,
+                style: TextStyle(
+                  color: destructive ? Colors.redAccent : AppColors.skyBlue,
+                ),
+              ),
             ),
           ],
         );
       },
     );
+
+    return result == true;
   }
 
-  void _openPrivateInfo() {
-    _showMessage(
-      'Le comunicazioni private restano separate dal feed pubblico e sono accessibili dalle sezioni dedicate.',
-    );
+  String _friendlyError(Object error) {
+    final String value = error.toString().toLowerCase();
+
+    if (value.contains('401')) {
+      return 'La sessione non è più valida. Accedi nuovamente.';
+    }
+    if (value.contains('403')) {
+      return 'Non hai i permessi necessari per questa operazione.';
+    }
+    if (value.contains('404')) {
+      return 'La news non è più disponibile.';
+    }
+    if (value.contains('409')) {
+      return 'Questa operazione è già stata registrata.';
+    }
+    if (value.contains('socket') ||
+        value.contains('network') ||
+        value.contains('connection') ||
+        value.contains('host lookup')) {
+      return 'Non è stato possibile connettersi a StudentLab. Controlla la connessione e riprova.';
+    }
+    return 'Non è stato possibile completare l’operazione. Riprova.';
   }
 
   void _showMessage(String message) {
@@ -905,16 +943,35 @@ class _PublicNewsCard extends StatelessWidget {
   final bool isGuest;
   final bool expanded;
   final VoidCallback? onOpen;
+  final VoidCallback? onDelete;
+  final VoidCallback? onModerate;
+  final VoidCallback? onReport;
+  final VoidCallback? onBlock;
 
   const _PublicNewsCard({
     required this.news,
     required this.isGuest,
     this.expanded = false,
     this.onOpen,
+    this.onDelete,
+    this.onModerate,
+    this.onReport,
+    this.onBlock,
   });
 
   @override
   Widget build(BuildContext context) {
+    final Widget content = Text(
+      news.content,
+      maxLines: expanded ? null : 6,
+      overflow: expanded ? null : TextOverflow.ellipsis,
+      style: TextStyle(
+        color: AppColors.pureWhite.withValues(alpha: 0.78),
+        fontSize: 12,
+        height: 1.45,
+      ),
+    );
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -970,8 +1027,8 @@ class _PublicNewsCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       _formatDate(news.createdAt),
-                      style: TextStyle(
-                        color: AppColors.pureWhite.withValues(alpha: 0.36),
+                      style: const TextStyle(
+                        color: Colors.white38,
                         fontSize: 9,
                       ),
                     ),
@@ -979,21 +1036,61 @@ class _PublicNewsCard extends StatelessWidget {
                 ),
               ),
               if (!isGuest &&
-                  (news.canDelete ||
-                      news.canModerate ||
-                      news.canReport ||
-                      news.canBlockAuthor))
-                const Icon(
-                  Icons.more_vert_rounded,
-                  color: Colors.white38,
+                  (onDelete != null ||
+                      onModerate != null ||
+                      onReport != null ||
+                      onBlock != null))
+                PopupMenuButton<String>(
+                  tooltip: 'Azioni',
+                  color: AppColors.eleganceDeepNavy,
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    color: Colors.white54,
+                  ),
+                  onSelected: (String value) {
+                    if (value == 'delete') {
+                      onDelete?.call();
+                    } else if (value == 'moderate') {
+                      onModerate?.call();
+                    } else if (value == 'report') {
+                      onReport?.call();
+                    } else if (value == 'block') {
+                      onBlock?.call();
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    if (onReport != null)
+                      const PopupMenuItem(
+                        value: 'report',
+                        child: Text('Segnala'),
+                      ),
+                    if (onBlock != null)
+                      const PopupMenuItem(
+                        value: 'block',
+                        child: Text('Blocca autore'),
+                      ),
+                    if (onModerate != null)
+                      const PopupMenuItem(
+                        value: 'moderate',
+                        child: Text('Rimuovi come moderatore'),
+                      ),
+                    if (onDelete != null)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text(
+                          'Elimina',
+                          style: TextStyle(color: Colors.redAccent),
+                        ),
+                      ),
+                  ],
                 ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
             news.academicContext,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            maxLines: expanded ? null : 2,
+            overflow: expanded ? null : TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.materialSky,
               fontSize: 10,
@@ -1001,55 +1098,29 @@ class _PublicNewsCard extends StatelessWidget {
               height: 1.3,
             ),
           ),
-          if (news.title.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              news.title,
-              maxLines: expanded ? null : 2,
-              overflow: expanded ? null : TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.pureWhite,
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                height: 1.25,
-              ),
+          const SizedBox(height: 12),
+          Text(
+            news.title,
+            maxLines: expanded ? null : 2,
+            overflow: expanded ? null : TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.pureWhite,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              height: 1.25,
             ),
-          ],
+          ),
           const SizedBox(height: 10),
-          if (expanded)
-            Text(
-              news.content,
-              style: TextStyle(
-                color: AppColors.pureWhite.withValues(alpha: 0.76),
-                fontSize: 12,
-                height: 1.45,
-              ),
-            )
-          else
-            Flexible(
-              child: Text(
-                news.content,
-                maxLines: 6,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.pureWhite.withValues(alpha: 0.76),
-                  fontSize: 12,
-                  height: 1.45,
-                ),
-              ),
-            ),
+          content,
           if (!expanded && news.needsDedicatedPage && onOpen != null) ...[
             const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: onOpen,
-                icon: const Icon(
-                  Icons.open_in_new_rounded,
-                  size: 16,
-                ),
-                label: const Text('Apri news'),
+            TextButton.icon(
+              onPressed: onOpen,
+              icon: const Icon(
+                Icons.open_in_new_rounded,
+                size: 16,
               ),
+              label: const Text('Apri news'),
             ),
           ],
         ],
@@ -1078,7 +1149,6 @@ class _PublicNewsCard extends StatelessWidget {
 
   String _formatDate(DateTime value) {
     final DateTime date = value.toLocal();
-
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year} · '
@@ -1087,67 +1157,116 @@ class _PublicNewsCard extends StatelessWidget {
   }
 }
 
-class _FilterModeButton extends StatelessWidget {
-  final bool selected;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+class _PublicNewsReportSheet extends StatefulWidget {
+  const _PublicNewsReportSheet();
 
-  const _FilterModeButton({
-    required this.selected,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+  @override
+  State<_PublicNewsReportSheet> createState() =>
+      _PublicNewsReportSheetState();
+}
+
+class _PublicNewsReportSheetState extends State<_PublicNewsReportSheet> {
+  final TextEditingController _controller = TextEditingController();
+  String _reason = 'spam';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 11,
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          18,
+          18,
+          18,
+          18 + MediaQuery.viewInsetsOf(context).bottom,
         ),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.skyBlue.withValues(alpha: 0.14)
-              : AppColors.eleganceMidnight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected
-                ? AppColors.skyBlue.withValues(alpha: 0.30)
-                : AppColors.skyBlue.withValues(alpha: 0.09),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 17,
-              color: selected ? AppColors.skyBlue : Colors.white38,
-            ),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Segnala news',
                 style: TextStyle(
-                  color:
-                      selected ? AppColors.pureWhite : Colors.white54,
-                  fontSize: 10,
-                  fontWeight:
-                      selected ? FontWeight.w600 : FontWeight.normal,
+                  color: AppColors.pureWhite,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _reason,
+                dropdownColor: AppColors.eleganceDeepNavy,
+                items: const [
+                  DropdownMenuItem(value: 'spam', child: Text('Spam')),
+                  DropdownMenuItem(
+                    value: 'harassment',
+                    child: Text('Molestie o comportamento offensivo'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'hate',
+                    child: Text('Contenuto discriminatorio'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'privacy',
+                    child: Text('Violazione della privacy'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'illegal_content',
+                    child: Text('Contenuto illecito'),
+                  ),
+                  DropdownMenuItem(value: 'other', child: Text('Altro')),
+                ],
+                onChanged: (String? value) {
+                  if (value != null) {
+                    setState(() {
+                      _reason = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _controller,
+                minLines: 3,
+                maxLines: 6,
+                maxLength: 1000,
+                style: const TextStyle(color: AppColors.pureWhite),
+                decoration: const InputDecoration(
+                  labelText: 'Dettagli facoltativi',
+                ),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(
+                    context,
+                    _ReportDraft(
+                      reason: _reason,
+                      description: _controller.text.trim(),
+                    ),
+                  );
+                },
+                child: const Text('Invia segnalazione'),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _ReportDraft {
+  final String reason;
+  final String description;
+
+  const _ReportDraft({
+    required this.reason,
+    required this.description,
+  });
 }

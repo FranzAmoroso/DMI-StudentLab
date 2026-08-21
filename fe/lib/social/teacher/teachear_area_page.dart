@@ -188,22 +188,20 @@ class _TeacherAreaPageState extends State<TeacherAreaPage> {
       return;
     }
 
-    final PublicNewsDraft? draft =
-        await Navigator.of(context).push<PublicNewsDraft>(
-      MaterialPageRoute<PublicNewsDraft>(
+    final bool? created =
+        await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => PublicNewsEditorPage.teacher(
           subjects: _subjects,
         ),
       ),
     );
 
-    if (!mounted || draft == null) {
+    if (!mounted || created != true) {
       return;
     }
 
-    _showMessage(
-      'Il form è pronto. La pubblicazione sarà attiva quando collegheremo gli endpoint PublicNews nel backend.',
-    );
+    _showMessage('News pubblicata correttamente.');
   }
 
   @override
@@ -373,7 +371,6 @@ class _TeacherAreaPageState extends State<TeacherAreaPage> {
               description:
                   'Prepara una news pubblica nel contesto delle tue materie verificate.',
               onTap: _openNewsEditor,
-              pending: true,
             ),
             _TeacherActionCard(
               icon: Icons.folder_copy_outlined,

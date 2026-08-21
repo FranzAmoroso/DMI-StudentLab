@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/public_news_api_service.dart';
 import '../../theme/nightTheme.dart';
 
 enum PublicNewsPublisherMode {
@@ -13,30 +14,6 @@ enum PublicNewsTargetType {
   department,
   course,
   subject,
-}
-
-class PublicNewsDraft {
-  final String title;
-  final String content;
-  final PublicNewsTargetType targetType;
-  final String city;
-  final String university;
-  final String department;
-  final String course;
-  final int? subjectId;
-  final String subjectName;
-
-  const PublicNewsDraft({
-    required this.title,
-    required this.content,
-    required this.targetType,
-    required this.city,
-    required this.university,
-    required this.department,
-    required this.course,
-    required this.subjectId,
-    required this.subjectName,
-  });
 }
 
 class PublicNewsEditorPage extends StatefulWidget {
@@ -58,6 +35,7 @@ class PublicNewsEditorPage extends StatefulWidget {
 }
 
 class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
+  final PublicNewsApiService _apiService = PublicNewsApiService();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
@@ -68,6 +46,8 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
 
   PublicNewsTargetType _targetType = PublicNewsTargetType.subject;
   int? _subjectId;
+  bool _sending = false;
+  String? _error;
 
   bool get _isAdmin => widget.mode == PublicNewsPublisherMode.admin;
 
@@ -75,15 +55,14 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
   void initState() {
     super.initState();
 
-    if (!_isAdmin) {
+    if (_isAdmin) {
+      _targetType = PublicNewsTargetType.all;
+    } else {
       _targetType = PublicNewsTargetType.subject;
-
       if (widget.subjects.length == 1) {
         _subjectId = _toInt(widget.subjects.first['id']);
         _fillAcademicContext(widget.subjects.first);
       }
-    } else {
-      _targetType = PublicNewsTargetType.all;
     }
   }
 
@@ -98,51 +77,8 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
     super.dispose();
   }
 
-  void _fillAcademicContext(Map<String, dynamic> subject) {
-    _cityController.text = _firstNonEmpty([
-      subject['city'],
-    ]);
-    _universityController.text = _firstNonEmpty([
-      subject['university'],
-    ]);
-    _departmentController.text = _firstNonEmpty([
-      subject['department'],
-    ]);
-    _courseController.text = _firstNonEmpty([
-      subject['course'],
-    ]);
-  }
-
-  void _submit() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    if (_targetType == PublicNewsTargetType.subject && _subjectId == null) {
-      _showMessage('Seleziona una materia.');
-      return;
-    }
-
-    final Map<String, dynamic>? subject = _selectedSubject;
-
-    Navigator.of(context).pop(
-      PublicNewsDraft(
-        title: _normalizeSingleLine(_titleController.text),
-        content: _contentController.text.trim(),
-        targetType: _targetType,
-        city: _cityController.text.trim(),
-        university: _universityController.text.trim(),
-        department: _departmentController.text.trim(),
-        course: _courseController.text.trim(),
-        subjectId: _subjectId,
-        subjectName: subject?['name']?.toString().trim() ?? '',
-      ),
-    );
-  }
-
   Map<String, dynamic>? get _selectedSubject {
     final int? id = _subjectId;
-
     if (id == null) {
       return null;
     }
@@ -154,6 +90,90 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
     }
 
     return null;
+  }
+
+  void _fillAcademicContext(Map<String, dynamic> subject) {
+    _cityController.text = _firstNonEmpty([subject['city']]);
+    _universityController.text = _firstNonEmpty([subject['university']]);
+    _departmentController.text = _firstNonEmpty([subject['department']]);
+    _courseController.text = _firstNonEmpty([subject['course']]);
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+
+    if (_sending || !_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_targetType == PublicNewsTargetType.subject && _subjectId == null) {
+      _showMessage('Seleziona una materia.');
+      return;
+    }
+
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+
+    try {
+      final Map<String, dynamic>? subject = _selectedSubject;
+
+      await _apiService.create(
+        targetType: _targetValue(_targetType),
+        title: _titleController.text,
+        content: _contentController.text,
+        subjectId: _subjectId,
+        city: _cityController.text,
+        university: _isAdmin
+            ? _universityController.text
+            : _firstNonEmpty([subject?['university']]),
+        universityCode: _firstNonEmpty([
+          subject?['university_code'],
+          subject?['universityCode'],
+        ]),
+        department: _isAdmin
+            ? _departmentController.text
+            : _firstNonEmpty([subject?['department']]),
+        departmentCode: _firstNonEmpty([
+          subject?['department_code'],
+          subject?['departmentCode'],
+        ]),
+        course: _isAdmin
+            ? _courseController.text
+            : _firstNonEmpty([subject?['course']]),
+        courseCode: _firstNonEmpty([
+          subject?['course_code'],
+          subject?['courseCode'],
+        ]),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('News pubblicata correttamente.'),
+        ),
+      );
+
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = _friendlyError(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+        });
+      }
+    }
   }
 
   @override
@@ -181,6 +201,7 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
                   const SizedBox(height: 20),
                   TextFormField(
                     controller: _titleController,
+                    enabled: !_sending,
                     maxLength: 160,
                     textInputAction: TextInputAction.next,
                     style: const TextStyle(
@@ -191,14 +212,11 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
                       prefixIcon: Icon(Icons.title_rounded),
                     ),
                     validator: (String? value) {
-                      final String text = _normalizeSingleLine(value ?? '');
+                      final String text =
+                          (value ?? '').trim().split(RegExp(r'\s+')).join(' ');
 
                       if (text.isEmpty) {
                         return 'Inserisci il titolo';
-                      }
-
-                      if (text.length > 160) {
-                        return 'Il titolo è troppo lungo';
                       }
 
                       return null;
@@ -235,19 +253,20 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
                           child: Text('Materia'),
                         ),
                       ],
-                      onChanged: (PublicNewsTargetType? value) {
-                        if (value == null) {
-                          return;
-                        }
+                      onChanged: _sending
+                          ? null
+                          : (PublicNewsTargetType? value) {
+                              if (value == null) {
+                                return;
+                              }
 
-                        setState(() {
-                          _targetType = value;
-
-                          if (value != PublicNewsTargetType.subject) {
-                            _subjectId = null;
-                          }
-                        });
-                      },
+                              setState(() {
+                                _targetType = value;
+                                if (value != PublicNewsTargetType.subject) {
+                                  _subjectId = null;
+                                }
+                              });
+                            },
                     ),
                     const SizedBox(height: 14),
                   ],
@@ -264,18 +283,17 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
                           .map(
                             (Map<String, dynamic> subject) {
                               final int? id = _toInt(subject['id']);
-
                               if (id == null) {
                                 return null;
                               }
 
+                              final String name =
+                                  subject['name']?.toString().trim() ?? '';
+
                               return DropdownMenuItem<int>(
                                 value: id,
                                 child: Text(
-                                  subject['name']?.toString().trim().isNotEmpty ==
-                                          true
-                                      ? subject['name'].toString().trim()
-                                      : 'Materia #$id',
+                                  name.isEmpty ? 'Materia #$id' : name,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               );
@@ -283,25 +301,28 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
                           )
                           .whereType<DropdownMenuItem<int>>()
                           .toList(),
-                      onChanged: (int? value) {
-                        setState(() {
-                          _subjectId = value;
-
-                          final Map<String, dynamic>? subject = _selectedSubject;
-
-                          if (subject != null) {
-                            _fillAcademicContext(subject);
-                          }
-                        });
-                      },
+                      onChanged: _sending
+                          ? null
+                          : (int? value) {
+                              setState(() {
+                                _subjectId = value;
+                                final Map<String, dynamic>? selected =
+                                    _selectedSubject;
+                                if (selected != null) {
+                                  _fillAcademicContext(selected);
+                                }
+                              });
+                            },
                     ),
-                  if (!_isAdmin || _targetType != PublicNewsTargetType.all) ...[
+                  if (_isAdmin &&
+                      _targetType != PublicNewsTargetType.all) ...[
                     const SizedBox(height: 14),
                     _buildAcademicFields(),
                   ],
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: _contentController,
+                    enabled: !_sending,
                     minLines: 7,
                     maxLines: 14,
                     maxLength: 5000,
@@ -316,24 +337,33 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
                       hintText: 'Scrivi la comunicazione...',
                     ),
                     validator: (String? value) {
-                      final String text = value?.trim() ?? '';
-
-                      if (text.isEmpty) {
+                      if ((value?.trim() ?? '').isEmpty) {
                         return 'Inserisci il contenuto';
                       }
-
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-                  _buildBackendNotice(),
+                  if (_error != null) ...[
+                    const SizedBox(height: 14),
+                    _buildError(),
+                  ],
                   const SizedBox(height: 20),
                   SizedBox(
                     height: 52,
                     child: ElevatedButton.icon(
-                      onPressed: _submit,
-                      icon: const Icon(Icons.send_rounded),
-                      label: const Text('Prepara pubblicazione'),
+                      onPressed: _sending ? null : _submit,
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded),
+                      label: Text(
+                        _sending ? 'Pubblicazione...' : 'Pubblica news',
+                      ),
                     ),
                   ),
                 ],
@@ -366,8 +396,8 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
           Expanded(
             child: Text(
               _isAdmin
-                  ? 'L’admin può preparare comunicazioni globali o indirizzate a uno specifico contesto accademico.'
-                  : 'Il docente può preparare comunicazioni soltanto nel contesto delle proprie materie verificate.',
+                  ? 'Pubblica una comunicazione globale o indirizzata a uno specifico contesto accademico.'
+                  : 'Puoi pubblicare soltanto per una materia verificata associata al tuo profilo docente.',
               style: TextStyle(
                 color: AppColors.pureWhite.withValues(alpha: 0.58),
                 fontSize: 11,
@@ -385,6 +415,7 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
       children: [
         TextFormField(
           controller: _cityController,
+          enabled: !_sending,
           style: const TextStyle(color: AppColors.pureWhite),
           decoration: const InputDecoration(
             labelText: 'Città',
@@ -394,6 +425,7 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _universityController,
+          enabled: !_sending,
           style: const TextStyle(color: AppColors.pureWhite),
           decoration: const InputDecoration(
             labelText: 'Ateneo',
@@ -404,58 +436,72 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
                 (value?.trim().isEmpty ?? true)) {
               return 'Inserisci l’ateneo';
             }
-
             return null;
           },
         ),
         const SizedBox(height: 10),
         TextFormField(
           controller: _departmentController,
+          enabled: !_sending,
           style: const TextStyle(color: AppColors.pureWhite),
           decoration: const InputDecoration(
             labelText: 'Dipartimento',
             prefixIcon: Icon(Icons.domain_outlined),
           ),
+          validator: (String? value) {
+            if ((_targetType == PublicNewsTargetType.department ||
+                    _targetType == PublicNewsTargetType.course) &&
+                (value?.trim().isEmpty ?? true)) {
+              return 'Inserisci il dipartimento';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 10),
         TextFormField(
           controller: _courseController,
+          enabled: !_sending,
           style: const TextStyle(color: AppColors.pureWhite),
           decoration: const InputDecoration(
             labelText: 'Corso',
             prefixIcon: Icon(Icons.school_outlined),
           ),
+          validator: (String? value) {
+            if (_targetType == PublicNewsTargetType.course &&
+                (value?.trim().isEmpty ?? true)) {
+              return 'Inserisci il corso';
+            }
+            return null;
+          },
         ),
       ],
     );
   }
 
-  Widget _buildBackendNotice() {
+  Widget _buildError() {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.06),
+        color: Colors.redAccent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.amber.withValues(alpha: 0.14),
+          color: Colors.redAccent.withValues(alpha: 0.18),
         ),
       ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Icon(
-            Icons.info_outline_rounded,
-            color: Colors.amber,
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Colors.redAccent,
             size: 18,
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Il form frontend è pronto. L’invio effettivo verrà abilitato quando saranno disponibili gli endpoint PublicNews e i relativi controlli server.',
-              style: TextStyle(
-                color: Colors.white60,
-                fontSize: 10,
-                height: 1.4,
+              _error!,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
               ),
             ),
           ),
@@ -464,39 +510,66 @@ class _PublicNewsEditorPageState extends State<PublicNewsEditorPage> {
     );
   }
 
-  String _normalizeSingleLine(String value) {
-    return value
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((String part) => part.isNotEmpty)
-        .join(' ');
+  String _friendlyError(Object error) {
+    final String value = error.toString().toLowerCase();
+
+    if (value.contains('401') || value.contains('non autenticato')) {
+      return 'La sessione non è più valida. Accedi nuovamente.';
+    }
+    if (value.contains('403')) {
+      return 'Non hai i permessi necessari per pubblicare in questo contesto.';
+    }
+    if (value.contains('404')) {
+      return 'La materia o il contesto selezionato non è più disponibile.';
+    }
+    if (value.contains('socket') ||
+        value.contains('connection') ||
+        value.contains('network') ||
+        value.contains('host lookup')) {
+      return 'Non è stato possibile connettersi a StudentLab. Controlla la connessione e riprova.';
+    }
+    return 'Non è stato possibile pubblicare la news. Controlla i dati e riprova.';
   }
 
-  static int? _toInt(dynamic value) {
+  String _targetValue(PublicNewsTargetType value) {
+    switch (value) {
+      case PublicNewsTargetType.all:
+        return 'all';
+      case PublicNewsTargetType.university:
+        return 'university';
+      case PublicNewsTargetType.department:
+        return 'department';
+      case PublicNewsTargetType.course:
+        return 'course';
+      case PublicNewsTargetType.subject:
+        return 'subject';
+    }
+  }
+
+  int? _toInt(dynamic value) {
     if (value is int) {
       return value;
     }
-
     if (value is num) {
       return value.toInt();
     }
-
     return int.tryParse(value?.toString() ?? '');
   }
 
   String _firstNonEmpty(List<dynamic> values) {
     for (final dynamic value in values) {
       final String normalized = value?.toString().trim() ?? '';
-
       if (normalized.isNotEmpty) {
         return normalized;
       }
     }
-
     return '';
   }
 
   void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
