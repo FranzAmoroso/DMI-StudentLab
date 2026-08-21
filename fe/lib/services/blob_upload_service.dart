@@ -299,7 +299,7 @@ class StudentLabUploadService {
     final Map<String, dynamic> blob = await _requestBlobUpload(
       uploadKind: 'group_material',
       pathname: pathname,
-      resolvedMimeType: resolvedMimeType,
+      mimeType: resolvedMimeType,
       size: size,
       fileHash: fileHash,
       uploadToken: uploadToken,
@@ -313,7 +313,7 @@ class StudentLabUploadService {
     await _putFile(
       file: file,
       size: size,
-      resolvedMimeType: resolvedMimeType,
+      mimeType: resolvedMimeType,
       presignedUrl: presignedUrl,
     );
     return _postJson(
