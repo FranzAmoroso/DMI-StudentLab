@@ -1161,7 +1161,7 @@ class _SecurityPrinciplesCard
                 'Privilegi amministrativi',
 
             description:
-                'Moderazione e gestione account devono essere autorizzate esclusivamente dal backend.',
+                'Moderazione e gestione account devono essere autorizzate esclusivamente dal server.',
           ),
         ],
       ),

@@ -8,13 +8,14 @@ import '../../services/auth_session.dart';
 
 import '../social_models.dart';
 
-import '../message/message_page.dart';
+import '../message/contact_user_page.dart';
 
 import '../reviews/user_reviews_section.dart';
 
 import 'academic_paths_page.dart';
 
 import 'teacher_assignment_page.dart';
+import 'user_block_action.dart';
 
 class SocialUserProfilePage extends StatefulWidget {
   final SocialUser user;
@@ -42,8 +43,10 @@ class _SocialUserProfilePageState
 
   late SocialUser _user;
 
-  bool _refreshingProfile =
-      false;
+  bool _refreshingProfile = false;
+  bool _reportingProfile = false;
+  bool _reportingError = false;
+  bool _deletingAccount = false;
 
   @override
   void initState() {
@@ -90,7 +93,6 @@ class _SocialUserProfilePageState
         )
         .toList();
   }
-
 
   List<SocialAcademicTitle>
       get _academicTitlesForDisplay {
@@ -390,153 +392,79 @@ class _SocialUserProfilePageState
 
   Widget _buildReportProfile() {
     return Container(
-      width:
-          double.infinity,
-
-      padding:
-          const EdgeInsets.all(
-        16,
-      ),
-
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.eleganceMidnight,
-
-        borderRadius:
-            BorderRadius.circular(
-          16,
-        ),
-
-        border:
-            Border.all(
-          color:
-              Colors.redAccent
-                  .withOpacity(
-            0.12,
-          ),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.eleganceMidnight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.redAccent.withOpacity(0.12),
         ),
       ),
-
-      child:
-          Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
               Icon(
-                Icons
-                    .flag_outlined,
-
-                color:
-                    Colors.redAccent,
-
-                size:
-                    18,
+                Icons.shield_outlined,
+                color: Colors.redAccent,
+                size: 18,
               ),
-
-              SizedBox(
-                width:
-                    8,
-              ),
-
+              SizedBox(width: 8),
               Text(
-                'Hai notato un problema?',
-
-                style:
-                    TextStyle(
-                  color:
-                      AppColors.pureWhite,
-
-                  fontSize:
-                      13,
-
-                  fontWeight:
-                      FontWeight.w600,
+                'Sicurezza e moderazione',
+                style: TextStyle(
+                  color: AppColors.pureWhite,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-
-          const SizedBox(
-            height:
-                7,
-          ),
-
+          const SizedBox(height: 7),
           Text(
-            'Puoi segnalare questo profilo se contiene informazioni inappropriate, false o viola le regole della community.',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.46,
-              ),
-
-              fontSize:
-                  10,
-
-              height:
-                  1.4,
+            'Puoi bloccare questo utente oppure segnalarne il profilo. '
+            'Il blocco limita le interazioni private anche lato server.',
+            style: TextStyle(
+              color: AppColors.pureWhite.withOpacity(0.46),
+              fontSize: 10,
+              height: 1.4,
             ),
           ),
-
-          const SizedBox(
-            height:
-                13,
+          const SizedBox(height: 13),
+          UserBlockAction(
+            userId: _user.id,
+            userName: _user.name,
           ),
-
+          const SizedBox(height: 9),
           SizedBox(
-            width:
-                double.infinity,
-
-            child:
-                OutlinedButton.icon(
-              onPressed:
-                  _reportProfile,
-
-              icon:
-                  const Icon(
-                Icons.flag_outlined,
-
-                size:
-                    17,
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _reportingProfile ? null : _reportProfile,
+              icon: _reportingProfile
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      Icons.flag_outlined,
+                      size: 17,
+                    ),
+              label: Text(
+                _reportingProfile
+                    ? 'Invio segnalazione...'
+                    : 'Segnala profilo',
               ),
-
-              label:
-                  const Text(
-                'Segnala profilo',
-              ),
-
-              style:
-                  OutlinedButton.styleFrom(
-                foregroundColor:
-                    Colors.redAccent,
-
-                side:
-                    BorderSide(
-                  color:
-                      Colors.redAccent
-                          .withOpacity(
-                    0.35,
-                  ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: BorderSide(
+                  color: Colors.redAccent.withOpacity(0.35),
                 ),
-
-                padding:
-                    const EdgeInsets.symmetric(
-                  vertical:
-                      12,
-                ),
-
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    12,
-                  ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
@@ -2833,17 +2761,14 @@ class _SocialUserProfilePageState
   Future<void> _openMessages() async {
     if (!_isAuthenticated) {
       _showAuthenticationRequired();
-
       return;
     }
 
-    await Navigator.of(
-      context,
-    ).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) =>
-                const MessagesPage(),
+        builder: (_) => ContactUserPage(
+          user: _user,
+        ),
       ),
     );
   }
@@ -2885,216 +2810,125 @@ class _SocialUserProfilePageState
   Future<void> _reportProfile() async {
     if (!_isAuthenticated) {
       _showAuthenticationRequired();
-
       return;
     }
 
-    final TextEditingController
-        controller =
-        TextEditingController();
+    if (_reportingProfile) {
+      return;
+    }
 
-    String reason =
-        'Profilo falso o informazioni errate';
+    final TextEditingController controller = TextEditingController();
+    String reason = 'fake_profile';
 
-    final bool? submitted =
-        await showDialog<bool>(
-      context:
-          context,
-
-      builder:
-          (
-        BuildContext dialogContext,
-      ) {
+    final bool? submitted = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder:
-              (
+          builder: (
             BuildContext context,
             StateSetter setDialogState,
           ) {
             return AlertDialog(
-              backgroundColor:
-                  AppColors
-                      .eleganceDeepNavy,
-
-              title:
-                  const Text(
+              backgroundColor: AppColors.eleganceDeepNavy,
+              title: const Text(
                 'Segnala profilo',
-
-                style:
-                    TextStyle(
-                  color:
-                      AppColors.pureWhite,
+                style: TextStyle(
+                  color: AppColors.pureWhite,
                 ),
               ),
-
-              content:
-                  SingleChildScrollView(
-                child:
-                    Column(
-                  mainAxisSize:
-                      MainAxisSize.min,
-
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    DropdownButtonFormField<
-                        String>(
-                      value:
-                          reason,
-
-                      isExpanded:
-                          true,
-
-                      dropdownColor:
-                          AppColors
-                              .eleganceDeepNavy,
-
-                      decoration:
-                          const InputDecoration(
-                        labelText:
-                            'Motivo',
+                    DropdownButtonFormField<String>(
+                      value: reason,
+                      isExpanded: true,
+                      dropdownColor: AppColors.eleganceDeepNavy,
+                      decoration: const InputDecoration(
+                        labelText: 'Motivo',
                       ),
-
-                      items:
-                          const [
+                      items: const [
                         DropdownMenuItem(
-                          value:
-                              'Profilo falso o informazioni errate',
-
-                          child:
-                              Text(
-                            'Profilo falso o informazioni errate',
-                          ),
+                          value: 'fake_profile',
+                          child: Text('Profilo falso'),
                         ),
-
                         DropdownMenuItem(
-                          value:
-                              'Comportamento inappropriato',
-
-                          child:
-                              Text(
-                            'Comportamento inappropriato',
-                          ),
+                          value: 'false_information',
+                          child: Text('Informazioni false o errate'),
                         ),
-
                         DropdownMenuItem(
-                          value:
-                              'Spam o pubblicità',
-
-                          child:
-                              Text(
-                            'Spam o pubblicità',
-                          ),
+                          value: 'inappropriate_behavior',
+                          child: Text('Comportamento inappropriato'),
                         ),
-
                         DropdownMenuItem(
-                          value:
-                              'Contenuto offensivo',
-
-                          child:
-                              Text(
-                            'Contenuto offensivo',
-                          ),
+                          value: 'spam',
+                          child: Text('Spam o pubblicità'),
                         ),
-
                         DropdownMenuItem(
-                          value:
-                              'Altro',
-
-                          child:
-                              Text(
-                            'Altro',
-                          ),
+                          value: 'offensive_content',
+                          child: Text('Contenuto offensivo'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'harassment',
+                          child: Text('Molestie'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'impersonation',
+                          child: Text('Furto di identità'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'other',
+                          child: Text('Altro'),
                         ),
                       ],
-
-                      onChanged:
-                          (
-                        String? value,
-                      ) {
-                        if (value ==
-                            null) {
+                      onChanged: (String? value) {
+                        if (value == null) {
                           return;
                         }
 
-                        setDialogState(
-                          () {
-                            reason =
-                                value;
-                          },
-                        );
+                        setDialogState(() {
+                          reason = value;
+                        });
                       },
                     ),
-
-                    const SizedBox(
-                      height:
-                          14,
-                    ),
-
+                    const SizedBox(height: 14),
                     TextField(
-                      controller:
-                          controller,
-
-                      maxLines:
-                          4,
-
-                      style:
-                          const TextStyle(
-                        color:
-                            AppColors
-                                .pureWhite,
+                      controller: controller,
+                      maxLines: 4,
+                      maxLength: 5000,
+                      style: const TextStyle(
+                        color: AppColors.pureWhite,
                       ),
-
-                      decoration:
-                          const InputDecoration(
-                        labelText:
-                            'Descrizione',
-
-                        hintText:
-                            'Descrivi il problema...',
+                      decoration: const InputDecoration(
+                        labelText: 'Descrizione',
+                        hintText: 'Descrivi il problema...',
                       ),
                     ),
                   ],
                 ),
               ),
-
               actions: [
                 TextButton(
-                  onPressed:
-                      () {
+                  onPressed: () {
                     Navigator.pop(
                       dialogContext,
                       false,
                     );
                   },
-
-                  child:
-                      const Text(
-                    'Annulla',
-                  ),
+                  child: const Text('Annulla'),
                 ),
-
                 ElevatedButton(
-                  onPressed:
-                      () {
+                  onPressed: () {
                     Navigator.pop(
                       dialogContext,
                       true,
                     );
                   },
-
-                  style:
-                      ElevatedButton
-                          .styleFrom(
-                    backgroundColor:
-                        Colors.redAccent,
-
-                    foregroundColor:
-                        Colors.white,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
                   ),
-
-                  child:
-                      const Text(
-                    'Invia segnalazione',
-                  ),
+                  child: const Text('Invia segnalazione'),
                 ),
               ],
             );
@@ -3103,239 +2937,315 @@ class _SocialUserProfilePageState
       },
     );
 
+    final String description = controller.text.trim();
     controller.dispose();
 
-    if (
-      submitted != true ||
-      !mounted
-    ) {
+    if (submitted != true || !mounted) {
       return;
     }
 
-    _showMessage(
-      'La segnalazione verrà collegata al sistema di moderazione.',
-    );
+    setState(() {
+      _reportingProfile = true;
+    });
+
+    try {
+      await _apiService.createUserReport(
+        reportedUserId: _user.id,
+        reason: reason,
+        description: description,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Segnalazione inviata. Verrà esaminata dalla moderazione di StudentLab.',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      final String error = e.toString().toLowerCase();
+
+      if (error.contains('409') ||
+          error.contains('già una segnalazione')) {
+        _showMessage(
+          'Hai già una segnalazione attiva per questo profilo.',
+        );
+      } else {
+        _showMessage(
+          _cleanError(e),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reportingProfile = false;
+        });
+      }
+    }
   }
 
   Future<void> _reportError() async {
-    final TextEditingController
-        controller =
-        TextEditingController();
+    if (!_isAuthenticated || _reportingError) {
+      return;
+    }
 
-    final bool? submitted =
-        await showDialog<bool>(
-      context:
-          context,
+    final TextEditingController controller = TextEditingController();
+    String category = 'personal_data';
 
-      builder:
-          (
-        BuildContext dialogContext,
-      ) {
-        return AlertDialog(
-          backgroundColor:
-              AppColors
-                  .eleganceDeepNavy,
-
-          title:
-              const Text(
-            'Segnala un errore',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
-          ),
-
-          content:
-              Column(
-            mainAxisSize:
-                MainAxisSize.min,
-
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-            children: [
-              Text(
-                'Segnala un problema relativo al tuo profilo, ai dati accademici, alle materie o alle verifiche.',
-
-                style:
-                    TextStyle(
-                  color:
-                      AppColors.pureWhite
-                          .withOpacity(
-                    0.55,
-                  ),
-
-                  fontSize:
-                      11,
-
-                  height:
-                      1.4,
+    final bool? submitted = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (
+            BuildContext context,
+            StateSetter setDialogState,
+          ) {
+            return AlertDialog(
+              backgroundColor: AppColors.eleganceDeepNavy,
+              title: const Text(
+                'Segnala un errore',
+                style: TextStyle(
+                  color: AppColors.pureWhite,
                 ),
               ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Segnala un problema relativo al tuo profilo o ai tuoi dati accademici.',
+                      style: TextStyle(
+                        color: AppColors.pureWhite.withOpacity(0.55),
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: category,
+                      isExpanded: true,
+                      dropdownColor: AppColors.eleganceDeepNavy,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoria',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'personal_data',
+                          child: Text('Dati personali'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'academic_path',
+                          child: Text('Percorso accademico'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'degree_verification',
+                          child: Text('Verifica laurea/titolo'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'subject',
+                          child: Text('Materia'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'grade_verification',
+                          child: Text('Verifica voto'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'teacher_assignment',
+                          child: Text('Insegnamento docente'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'teacher_verification',
+                          child: Text('Verifica docente'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'availability',
+                          child: Text('Disponibilità'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'other',
+                          child: Text('Altro'),
+                        ),
+                      ],
+                      onChanged: (String? value) {
+                        if (value == null) {
+                          return;
+                        }
 
-              const SizedBox(
-                height:
-                    14,
-              ),
-
-              TextField(
-                controller:
-                    controller,
-
-                maxLines:
-                    5,
-
-                style:
-                    const TextStyle(
-                  color:
-                      AppColors.pureWhite,
+                        setDialogState(() {
+                          category = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: controller,
+                      maxLines: 5,
+                      maxLength: 5000,
+                      style: const TextStyle(
+                        color: AppColors.pureWhite,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Descrizione errore',
+                        hintText: 'Descrivi cosa non è corretto...',
+                      ),
+                    ),
+                  ],
                 ),
-
-                decoration:
-                    const InputDecoration(
-                  labelText:
-                      'Descrizione errore',
-
-                  hintText:
-                      'Descrivi cosa non è corretto...',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(
+                      dialogContext,
+                      false,
+                    );
+                  },
+                  child: const Text('Annulla'),
                 ),
-              ),
-            ],
-          ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (controller.text.trim().isEmpty) {
+                      return;
+                    }
 
-          actions: [
-            TextButton(
-              onPressed:
-                  () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
-              },
-
-              child:
-                  const Text(
-                'Annulla',
-              ),
-            ),
-
-            ElevatedButton(
-              onPressed:
-                  controller.text
-                          .trim()
-                          .isEmpty
-                      ? null
-                      : () {
-                          Navigator.pop(
-                            dialogContext,
-                            true,
-                          );
-                        },
-
-              child:
-                  const Text(
-                'Invia',
-              ),
-            ),
-          ],
+                    Navigator.pop(
+                      dialogContext,
+                      true,
+                    );
+                  },
+                  child: const Text('Invia'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
 
+    final String description = controller.text.trim();
     controller.dispose();
 
-    if (
-      submitted != true ||
-      !mounted
-    ) {
+    if (submitted != true || !mounted) {
       return;
     }
 
-    _showMessage(
-      'La segnalazione errore verrà collegata al sistema di supporto.',
-    );
+    setState(() {
+      _reportingError = true;
+    });
+
+    try {
+      await _apiService.createProfileErrorReport(
+        category: category,
+        description: description,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Segnalazione inviata correttamente.',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      final String error = e.toString().toLowerCase();
+
+      if (error.contains('409') ||
+          error.contains('già una segnalazione')) {
+        _showMessage(
+          'Hai già una segnalazione attiva per questa categoria.',
+        );
+      } else {
+        _showMessage(
+          _cleanError(e),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reportingError = false;
+        });
+      }
+    }
   }
 
-  Future<void>
-      _confirmDeleteAccount() async {
-    final bool? confirmed =
-        await showDialog<bool>(
-      context:
-          context,
+  Future<void> _confirmDeleteAccount() async {
+    if (!_isAuthenticated || !_isOwnProfile || _deletingAccount) {
+      return;
+    }
 
-      builder:
-          (
-        BuildContext dialogContext,
-      ) {
+    final TextEditingController noteController = TextEditingController();
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
-          backgroundColor:
-              AppColors
-                  .eleganceDeepNavy,
-
-          title:
-              const Text(
+          backgroundColor: AppColors.eleganceDeepNavy,
+          title: const Text(
             'Elimina account',
-
-            style:
-                TextStyle(
-              color:
-                  Colors.redAccent,
+            style: TextStyle(
+              color: Colors.redAccent,
             ),
           ),
-
-          content:
-              Text(
-            'L\'eliminazione dell\'account è permanente. '
-            'Prima di procedere dovremo inoltre verificare eventuali gruppi di cui sei proprietario.',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.62,
-              ),
-
-              height:
-                  1.4,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'L’eliminazione dell’account è permanente. '
+                  'StudentLab verificherà prima eventuali gruppi di cui sei proprietario. '
+                  'La stessa procedura personale è disponibile per studenti, docenti, admin e creator.',
+                  style: TextStyle(
+                    color: AppColors.pureWhite.withOpacity(0.62),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: noteController,
+                  maxLines: 3,
+                  maxLength: 5000,
+                  style: const TextStyle(
+                    color: AppColors.pureWhite,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Nota facoltativa',
+                    hintText: 'Puoi indicarci il motivo della cancellazione...',
+                  ),
+                ),
+              ],
             ),
           ),
-
           actions: [
             TextButton(
-              onPressed:
-                  () {
+              onPressed: () {
                 Navigator.pop(
                   dialogContext,
                   false,
                 );
               },
-
-              child:
-                  const Text(
-                'Annulla',
-              ),
+              child: const Text('Annulla'),
             ),
-
             TextButton(
-              onPressed:
-                  () {
+              onPressed: () {
                 Navigator.pop(
                   dialogContext,
                   true,
                 );
               },
-
-              child:
-                  const Text(
+              child: const Text(
                 'Continua',
-
-                style:
-                    TextStyle(
-                  color:
-                      Colors.redAccent,
+                style: TextStyle(
+                  color: Colors.redAccent,
                 ),
               ),
             ),
@@ -3344,16 +3254,140 @@ class _SocialUserProfilePageState
       },
     );
 
-    if (
-      confirmed != true ||
-      !mounted
-    ) {
+    final String note = noteController.text.trim();
+    noteController.dispose();
+
+    if (confirmed != true || !mounted) {
       return;
     }
 
-    _showMessage(
-      'La procedura di eliminazione account verrà collegata al backend dopo la gestione del trasferimento dei gruppi.',
-    );
+    setState(() {
+      _deletingAccount = true;
+    });
+
+    try {
+      await _apiService.createAccountDeletionRequest(
+        reason: 'user_request',
+        note: note,
+      );
+
+      final Map<String, dynamic> detail =
+          await _apiService.getMyAccountDeletionDetail();
+
+      if (!mounted) {
+        return;
+      }
+
+      final bool canDeleteImmediately =
+          detail['can_delete_immediately'] == true;
+
+      final dynamic ownedGroupsValue = detail['owned_groups'];
+      final List<dynamic> ownedGroups =
+          ownedGroupsValue is List ? ownedGroupsValue : const [];
+
+      if (!canDeleteImmediately) {
+        _showMessage(
+          ownedGroups.isNotEmpty
+              ? 'Richiesta registrata. Prima dell’eliminazione devi trasferire '
+                  'la proprietà dei gruppi che possiedi.'
+              : 'Richiesta registrata. L’account non è ancora pronto per '
+                  'l’eliminazione definitiva.',
+        );
+        return;
+      }
+
+      final bool? finalConfirmed = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            backgroundColor: AppColors.eleganceDeepNavy,
+            title: const Text(
+              'Conferma eliminazione definitiva',
+              style: TextStyle(
+                color: Colors.redAccent,
+              ),
+            ),
+            content: Text(
+              'Non risultano vincoli pendenti. Vuoi eliminare definitivamente '
+              'il tuo account StudentLab?',
+              style: TextStyle(
+                color: AppColors.pureWhite.withOpacity(0.62),
+                height: 1.4,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(
+                    dialogContext,
+                    false,
+                  );
+                },
+                child: const Text('Non ora'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(
+                    dialogContext,
+                    true,
+                  );
+                },
+                child: const Text(
+                  'Elimina definitivamente',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (finalConfirmed != true || !mounted) {
+        return;
+      }
+
+      await _apiService.completeAccountDeletion();
+      await _authService.logout();
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Account eliminato.',
+      );
+
+      Navigator.of(context).popUntil(
+        (Route<dynamic> route) => route.isFirst,
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      final String error = e.toString().toLowerCase();
+
+      if (error.contains('409') ||
+          error.contains('grupp') ||
+          error.contains('ownership')) {
+        _showMessage(
+          'Prima di eliminare l’account devi completare il trasferimento '
+          'dei gruppi di cui sei proprietario.',
+        );
+      } else {
+        _showMessage(
+          _cleanError(e),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingAccount = false;
+        });
+      }
+    }
   }
 
   Future<void> _confirmLogout() async {

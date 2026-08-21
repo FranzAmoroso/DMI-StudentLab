@@ -1,395 +1,208 @@
 import 'package:flutter/material.dart';
 
+import '../../services/auth_service.dart';
 import '../../theme/nightTheme.dart';
-
 import '../social_models.dart';
 
-
-// =============================================================================
-// TIPO RICHIESTA
-// =============================================================================
-
-enum ContactRequestType {
-  general,
-  help,
-  privateLesson,
-}
-
-
-// =============================================================================
-// CONTACT USER PAGE
-// =============================================================================
+enum ContactRequestType { general, help, privateLesson }
 
 class ContactUserPage extends StatefulWidget {
   final SocialUser user;
 
-  const ContactUserPage({
-    super.key,
-    required this.user,
-  });
+  const ContactUserPage({super.key, required this.user});
 
   @override
-  State<ContactUserPage> createState() =>
-      _ContactUserPageState();
+  State<ContactUserPage> createState() => _ContactUserPageState();
 }
 
+class _ContactUserPageState extends State<ContactUserPage> {
+  final AuthService _authService = AuthService();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _subjectController = TextEditingController();
+  final TextEditingController _messageController = TextEditingController();
 
-// =============================================================================
-// STATE
-// =============================================================================
-
-class _ContactUserPageState
-    extends State<ContactUserPage> {
-
-  final GlobalKey<FormState> _formKey =
-      GlobalKey<FormState>();
-
-
-  final TextEditingController
-      _subjectController =
-      TextEditingController();
-
-  final TextEditingController
-      _messageController =
-      TextEditingController();
-
-
-  ContactRequestType _requestType =
-      ContactRequestType.general;
-
-
+  ContactRequestType _requestType = ContactRequestType.general;
   int? _selectedSubjectId;
+  bool _sending = false;
+  String? _error;
 
-
-  bool _sending =
-      false;
-
-
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
+  @override
+  void initState() {
+    super.initState();
+    _requestType = _initialRequestType();
+  }
 
   @override
   void dispose() {
     _subjectController.dispose();
-
     _messageController.dispose();
-
     super.dispose();
   }
 
-
-  // ===========================================================================
-  // MATERIE DISPONIBILI
-  // ===========================================================================
+  ContactRequestType _initialRequestType() {
+    if (widget.user.available) return ContactRequestType.general;
+    if (widget.user.availableForHelp) return ContactRequestType.help;
+    if (widget.user.availableForPrivateLessons) return ContactRequestType.privateLesson;
+    return ContactRequestType.general;
+  }
 
   List<SocialSubject> get _availableSubjects {
     switch (_requestType) {
       case ContactRequestType.help:
-        /*
-         * Per una richiesta di aiuto mostriamo
-         * soltanto le materie sulle quali l'utente
-         * ha dichiarato canHelp = true.
-         */
-        return widget.user.subjects
-            .where(
-              (subject) =>
-                  subject.canHelp,
-            )
-            .toList();
-
+        return widget.user.subjects.where((subject) => subject.canHelp).toList();
       case ContactRequestType.privateLesson:
-        /*
-         * Per le lezioni private possiamo mostrare
-         * tutte le materie associate al profilo.
-         */
-        return widget.user.subjects;
-
+        return widget.user.subjects.where((subject) => subject.canGivePrivateLessons).toList();
       case ContactRequestType.general:
         return const [];
     }
   }
 
+  bool get _requiresSubject => _requestType == ContactRequestType.help || _requestType == ContactRequestType.privateLesson;
 
-  bool get _requiresSubject {
-    return _requestType ==
-            ContactRequestType.help ||
-        _requestType ==
-            ContactRequestType.privateLesson;
+  bool get _requestAvailable {
+    switch (_requestType) {
+      case ContactRequestType.general:
+        return widget.user.available;
+      case ContactRequestType.help:
+        return widget.user.availableForHelp;
+      case ContactRequestType.privateLesson:
+        return widget.user.availableForPrivateLessons;
+    }
   }
 
+  bool get _hasAnyContactOption => widget.user.available || widget.user.availableForHelp || widget.user.availableForPrivateLessons;
 
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
+  SocialSubject? get _selectedSubject {
+    final int? id = _selectedSubjectId;
+    if (id == null) return null;
+    for (final subject in _availableSubjects) {
+      if (subject.id == id) return subject;
+    }
+    return null;
+  }
+
+  String get _requestTypeLabel {
+    switch (_requestType) {
+      case ContactRequestType.general:
+        return 'Messaggio generico';
+      case ContactRequestType.help:
+        return 'Richiesta di aiuto';
+      case ContactRequestType.privateLesson:
+        return 'Lezione privata';
+    }
+  }
+
+  String get _requestTypeApiValue {
+    switch (_requestType) {
+      case ContactRequestType.general:
+        return 'general';
+      case ContactRequestType.help:
+        return 'help';
+      case ContactRequestType.privateLesson:
+        return 'private_lesson';
+    }
+  }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
-
+      backgroundColor: AppColors.darkElegance,
       appBar: AppBar(
-        backgroundColor:
-            AppColors.brandNightBlue,
-
-        foregroundColor:
-            AppColors.pureWhite,
-
-        elevation:
-            0,
-
-        title: const Text(
-          'Contatta utente',
-
-          style: TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        backgroundColor: AppColors.brandNightBlue,
+        foregroundColor: AppColors.pureWhite,
+        elevation: 0,
+        title: const Text('Contatta', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
       ),
-
       body: SafeArea(
         child: Center(
-          child: LayoutBuilder(
-            builder:
-                (
-              context,
-              constraints,
-            ) {
-              final double width =
-                  constraints.maxWidth > 700
-                      ? 650
-                      : constraints.maxWidth;
-
-              return SizedBox(
-                width: width,
-
-                child: Form(
-                  key: _formKey,
-
-                  child: ListView(
-                    padding:
-                        const EdgeInsets.all(20),
-
-                    children: [
-                      _buildUserHeader(),
-
-                      const SizedBox(
-                        height: 24,
-                      ),
-
-                      _buildSectionTitle(
-                        'Tipo di richiesta',
-                        'Scegli il motivo del contatto.',
-                      ),
-
-                      const SizedBox(
-                        height: 12,
-                      ),
-
-                      _buildRequestTypeCard(),
-
-                      if (_requiresSubject) ...[
-                        const SizedBox(
-                          height: 24,
-                        ),
-
-                        _buildSectionTitle(
-                          'Materia',
-                          _requestType ==
-                                  ContactRequestType.help
-                              ? 'Seleziona la materia per cui vuoi chiedere aiuto.'
-                              : 'Seleziona la materia per la lezione privata.',
-                        ),
-
-                        const SizedBox(
-                          height: 12,
-                        ),
-
-                        _buildSubjectSelector(),
-                      ],
-
-                      const SizedBox(
-                        height: 24,
-                      ),
-
-                      _buildSectionTitle(
-                        'Messaggio',
-                        'Scrivi l\'oggetto e il contenuto del messaggio.',
-                      ),
-
-                      const SizedBox(
-                        height: 12,
-                      ),
-
-                      _buildMessageCard(),
-
-                      const SizedBox(
-                        height: 24,
-                      ),
-
-                      _buildSummary(),
-
-                      const SizedBox(
-                        height: 22,
-                      ),
-
-                      _buildSendButton(),
-
-                      const SizedBox(
-                        height: 20,
-                      ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildUserHeader(),
+                  const SizedBox(height: 18),
+                  _buildPrivacyInfo(),
+                  const SizedBox(height: 24),
+                  if (!_hasAnyContactOption)
+                    _buildUnavailableState()
+                  else ...[
+                    _buildSectionTitle('Tipo di richiesta', 'Scegli come vuoi contattare ${widget.user.name}.'),
+                    const SizedBox(height: 12),
+                    _buildRequestTypes(),
+                    if (_requiresSubject) ...[
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Materia', 'Seleziona una materia per cui l’utente ha dichiarato disponibilità.'),
+                      const SizedBox(height: 12),
+                      _buildSubjectSelector(),
                     ],
-                  ),
-                ),
-              );
-            },
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Messaggio', 'StudentLab inoltrerà la richiesta senza mostrare l’indirizzo email del destinatario.'),
+                    const SizedBox(height: 12),
+                    _buildMessageCard(),
+                    const SizedBox(height: 20),
+                    _buildSummary(),
+                    if (_error != null) ...[
+                      const SizedBox(height: 14),
+                      _buildError(),
+                    ],
+                    const SizedBox(height: 22),
+                    _buildSendButton(),
+                  ],
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-
-  // ===========================================================================
-  // HEADER UTENTE
-  // ===========================================================================
-
   Widget _buildUserHeader() {
-    final bool isTeacher =
-        widget.user.type ==
-            SocialUserType.teacher;
-
-
-    final Color roleColor =
-        isTeacher
-            ? AppColors.teacherIndigo
-            : AppColors.studentBlue;
-
-
-    final String role =
-        isTeacher
-            ? 'Insegnante'
-            : 'Studente';
-
-
+    final bool isTeacher = widget.user.type == SocialUserType.teacher;
+    final Color roleColor = isTeacher ? AppColors.teacherIndigo : AppColors.studentBlue;
     return Container(
-      padding:
-          const EdgeInsets.all(18),
-
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color:
-            AppColors.eleganceDeepNavy,
-
-        borderRadius:
-            BorderRadius.circular(18),
-
-        border: Border.all(
-          color:
-              roleColor.withOpacity(0.25),
-        ),
+        color: AppColors.eleganceDeepNavy,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: roleColor.withValues(alpha: 0.24)),
       ),
-
       child: Row(
         children: [
           CircleAvatar(
             radius: 27,
-
-            backgroundColor:
-                roleColor,
-
-            child: Text(
-              widget.user.name.isNotEmpty
-                  ? widget.user.name[0]
-                      .toUpperCase()
-                  : '?',
-
-              style: const TextStyle(
-                color:
-                    AppColors.pureWhite,
-
-                fontWeight:
-                    FontWeight.bold,
-
-                fontSize:
-                    18,
-              ),
-            ),
+            backgroundColor: roleColor,
+            child: Text(_initial(), style: const TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.bold, fontSize: 18)),
           ),
-
-          const SizedBox(
-            width: 13,
-          ),
-
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(widget.user.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.pureWhite, fontSize: 17, fontWeight: FontWeight.bold)),
+                    ),
+                    if (isTeacher && widget.user.isVerifiedTeacher) ...[
+                      const SizedBox(width: 5),
+                      const Icon(Icons.verified_rounded, color: Colors.greenAccent, size: 15),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  widget.user.name,
-
-                  maxLines: 1,
-
-                  overflow:
-                      TextOverflow.ellipsis,
-
-                  style: const TextStyle(
-                    color:
-                        AppColors.pureWhite,
-
-                    fontSize:
-                        17,
-
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
+                  isTeacher ? (widget.user.isVerifiedTeacher ? 'Docente verificato' : 'Docente') : 'Studente',
+                  style: TextStyle(color: roleColor, fontSize: 12, fontWeight: FontWeight.w600),
                 ),
-
-                const SizedBox(
-                  height: 3,
-                ),
-
-                Text(
-                  role,
-
-                  style: TextStyle(
-                    color:
-                        roleColor,
-
-                    fontSize:
-                        12,
-
-                    fontWeight:
-                        FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 4,
-                ),
-
-                Text(
-                  widget.user.email,
-
-                  maxLines: 1,
-
-                  overflow:
-                      TextOverflow.ellipsis,
-
-                  style: TextStyle(
-                    color:
-                        AppColors.pureWhite
-                            .withOpacity(0.45),
-
-                    fontSize:
-                        11,
-                  ),
-                ),
+                if (widget.user.course.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(widget.user.course.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.45), fontSize: 10)),
+                ],
               ],
             ),
           ),
@@ -398,433 +211,194 @@ class _ContactUserPageState
     );
   }
 
+  Widget _buildPrivacyInfo() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.skyBlue.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.privacy_tip_outlined, color: AppColors.materialSky, size: 20),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              'StudentLab non mostra l’indirizzo email del destinatario. La richiesta viene inviata tramite il servizio StudentLab e il destinatario potrà risponderti usando l’indirizzo di risposta associato alla richiesta.',
+              style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.58), fontSize: 10, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  // ===========================================================================
-  // SECTION TITLE
-  // ===========================================================================
+  Widget _buildUnavailableState() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.eleganceMidnight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.contact_mail_outlined, color: Colors.orangeAccent, size: 34),
+          const SizedBox(height: 12),
+          const Text('Contatto non disponibile', textAlign: TextAlign.center, style: TextStyle(color: AppColors.pureWhite, fontSize: 15, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 7),
+          Text('Questo utente non ha attivato al momento nessuna modalità di contatto.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.50), fontSize: 11, height: 1.4)),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildSectionTitle(
-    String title,
-    String subtitle,
-  ) {
+  Widget _buildSectionTitle(String title, String subtitle) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-
-          style: const TextStyle(
-            color:
-                AppColors.pureWhite,
-
-            fontSize:
-                17,
-
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(
-          height: 4,
-        ),
-
-        Text(
-          subtitle,
-
-          style: TextStyle(
-            color:
-                AppColors.pureWhite
-                    .withOpacity(0.48),
-
-            fontSize:
-                12,
-          ),
-        ),
+        Text(title, style: const TextStyle(color: AppColors.pureWhite, fontSize: 17, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(subtitle, style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.46), fontSize: 11, height: 1.35)),
       ],
     );
   }
 
-
-  // ===========================================================================
-  // TIPO RICHIESTA
-  // ===========================================================================
-
-  Widget _buildRequestTypeCard() {
+  Widget _buildRequestTypes() {
     return Container(
-      padding:
-          const EdgeInsets.all(14),
-
-      decoration: BoxDecoration(
-        color:
-            AppColors.eleganceMidnight,
-
-        borderRadius:
-            BorderRadius.circular(16),
-
-        border: Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(0.12),
-        ),
-      ),
-
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: AppColors.eleganceMidnight, borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
           _RequestTypeTile(
-            icon:
-                Icons.mail_outline_rounded,
-
-            title:
-                'Messaggio generico',
-
-            description:
-                'Invia un messaggio senza richiedere assistenza specifica.',
-
-            selected:
-                _requestType ==
-                    ContactRequestType.general,
-
-            onTap: () {
-              _changeRequestType(
-                ContactRequestType.general,
-              );
-            },
+            icon: Icons.mail_outline_rounded,
+            title: 'Messaggio generico',
+            description: 'Contatta l’utente per una richiesta generale.',
+            selected: _requestType == ContactRequestType.general,
+            enabled: widget.user.available,
+            onTap: () => _changeRequestType(ContactRequestType.general),
           ),
-
-          const SizedBox(
-            height: 8,
-          ),
-
+          const SizedBox(height: 8),
           _RequestTypeTile(
-            icon:
-                Icons.support_agent_rounded,
-
-            title:
-                'Richiesta di aiuto',
-
-            description:
-                'Chiedi supporto su una materia specifica.',
-
-            selected:
-                _requestType ==
-                    ContactRequestType.help,
-
-            onTap: () {
-              _changeRequestType(
-                ContactRequestType.help,
-              );
-            },
+            icon: Icons.volunteer_activism_outlined,
+            title: 'Richiesta di aiuto',
+            description: 'Chiedi supporto su una materia in cui l’utente ha dichiarato disponibilità.',
+            selected: _requestType == ContactRequestType.help,
+            enabled: widget.user.availableForHelp,
+            onTap: () => _changeRequestType(ContactRequestType.help),
           ),
-
-          if (widget.user.willingToTeach) ...[
-            const SizedBox(
-              height: 8,
-            ),
-
-            _RequestTypeTile(
-              icon:
-                  Icons.school_outlined,
-
-              title:
-                  'Lezione privata',
-
-              description:
-                  'Richiedi una lezione privata su una materia.',
-
-              selected:
-                  _requestType ==
-                      ContactRequestType.privateLesson,
-
-              onTap: () {
-                _changeRequestType(
-                  ContactRequestType.privateLesson,
-                );
-              },
-            ),
-          ],
+          const SizedBox(height: 8),
+          _RequestTypeTile(
+            icon: Icons.cast_for_education_outlined,
+            title: 'Lezione privata',
+            description: 'Richiedi una lezione su una materia per cui l’utente offre questa disponibilità.',
+            selected: _requestType == ContactRequestType.privateLesson,
+            enabled: widget.user.availableForPrivateLessons,
+            onTap: () => _changeRequestType(ContactRequestType.privateLesson),
+          ),
         ],
       ),
     );
   }
 
-
-  void _changeRequestType(
-    ContactRequestType type,
-  ) {
+  void _changeRequestType(ContactRequestType type) {
+    if (_sending) return;
+    final bool enabled = switch (type) {
+      ContactRequestType.general => widget.user.available,
+      ContactRequestType.help => widget.user.availableForHelp,
+      ContactRequestType.privateLesson => widget.user.availableForPrivateLessons,
+    };
+    if (!enabled) {
+      _showMessage('L’utente non è disponibile per questo tipo di richiesta.');
+      return;
+    }
     setState(() {
-      _requestType =
-          type;
-
-      _selectedSubjectId =
-          null;
+      _requestType = type;
+      _selectedSubjectId = null;
+      _error = null;
     });
   }
 
-
-  // ===========================================================================
-  // MATERIA
-  // ===========================================================================
-
   Widget _buildSubjectSelector() {
-    final List<SocialSubject> subjects =
-        _availableSubjects;
-
-
+    final List<SocialSubject> subjects = _availableSubjects;
     if (subjects.isEmpty) {
-      return Container(
-        width:
-            double.infinity,
-
-        padding:
-            const EdgeInsets.all(16),
-
-        decoration: BoxDecoration(
-          color:
-              AppColors.eleganceMidnight,
-
-          borderRadius:
-              BorderRadius.circular(14),
-
-          border: Border.all(
-            color:
-                Colors.orangeAccent
-                    .withOpacity(0.20),
-          ),
-        ),
-
-        child: Row(
-          children: [
-            const Icon(
-              Icons.info_outline_rounded,
-
-              color:
-                  Colors.orangeAccent,
-            ),
-
-            const SizedBox(
-              width: 10,
-            ),
-
-            Expanded(
-              child: Text(
-                _requestType ==
-                        ContactRequestType.help
-                    ? 'L\'utente non ha indicato materie per cui offre aiuto.'
-                    : 'L\'utente non ha materie disponibili per lezioni private.',
-
-                style: TextStyle(
-                  color:
-                      AppColors.pureWhite
-                          .withOpacity(0.65),
-
-                  fontSize:
-                      12,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+      return const _InfoState(message: 'Non risultano materie disponibili per questo tipo di richiesta.');
     }
-
-
-    return Container(
-      padding:
-          const EdgeInsets.all(14),
-
-      decoration: BoxDecoration(
-        color:
-            AppColors.eleganceMidnight,
-
-        borderRadius:
-            BorderRadius.circular(16),
+    return DropdownButtonFormField<int>(
+      initialValue: _selectedSubjectId,
+      isExpanded: true,
+      dropdownColor: AppColors.eleganceDeepNavy,
+      decoration: const InputDecoration(
+        labelText: 'Materia',
+        prefixIcon: Icon(Icons.menu_book_outlined, color: AppColors.skyBlue),
       ),
-
-      child: DropdownButtonFormField<int>(
-        value:
-            _selectedSubjectId,
-
-        dropdownColor:
-            AppColors.eleganceDeepNavy,
-
-        isExpanded:
-            true,
-
-        validator:
-            (value) {
-          if (_requiresSubject &&
-              value == null) {
-            return 'Seleziona una materia';
-          }
-
-          return null;
-        },
-
-        decoration: InputDecoration(
-          prefixIcon:
-              const Icon(
-            Icons.menu_book_outlined,
-
-            color:
-                AppColors.skyBlue,
-          ),
-
-          hintText:
-              'Seleziona materia',
-
-          hintStyle:
-              const TextStyle(
-            color:
-                Colors.white38,
-          ),
-
-          filled:
-              true,
-
-          fillColor:
-              AppColors.brandNightBlue,
-
-          border:
-              OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(12),
-
-            borderSide:
-                BorderSide.none,
-          ),
-        ),
-
-        items: subjects.map(
-          (subject) {
-            return DropdownMenuItem<int>(
-              value:
-                  subject.id,
-
-              child: Text(
-                subject.name,
-
-                overflow:
-                    TextOverflow.ellipsis,
-
-                style: const TextStyle(
-                  color:
-                      AppColors.pureWhite,
-                ),
-              ),
-            );
-          },
-        ).toList(),
-
-        onChanged:
-            (value) {
-          setState(() {
-            _selectedSubjectId =
-                value;
-          });
-        },
-      ),
+      validator: (int? value) {
+        if (_requiresSubject && value == null) return 'Seleziona una materia';
+        if (value != null && !subjects.any((subject) => subject.id == value)) return 'La materia selezionata non è disponibile';
+        return null;
+      },
+      items: subjects.map((subject) => DropdownMenuItem<int>(
+        value: subject.id,
+        child: Text(subject.name, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.pureWhite)),
+      )).toList(),
+      onChanged: _sending ? null : (int? value) => setState(() {
+        _selectedSubjectId = value;
+        _error = null;
+      }),
     );
   }
-
-
-  // ===========================================================================
-  // MESSAGGIO
-  // ===========================================================================
 
   Widget _buildMessageCard() {
     return Container(
-      padding:
-          const EdgeInsets.all(16),
-
-      decoration: BoxDecoration(
-        color:
-            AppColors.eleganceMidnight,
-
-        borderRadius:
-            BorderRadius.circular(16),
-
-        border: Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(0.12),
-        ),
-      ),
-
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(color: AppColors.eleganceMidnight, borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
           TextFormField(
-            controller:
-                _subjectController,
-
-            style:
-                const TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
-
-            validator:
-                (value) {
-              if (value == null ||
-                  value.trim().isEmpty) {
-                return 'Inserisci l\'oggetto';
-              }
-
+            controller: _subjectController,
+            enabled: !_sending,
+            maxLength: 160,
+            textInputAction: TextInputAction.next,
+            autocorrect: true,
+            enableSuggestions: true,
+            style: const TextStyle(color: AppColors.pureWhite),
+            validator: (String? value) {
+              final String text = _normalizeSingleLine(value);
+              if (text.isEmpty) return 'Inserisci l’oggetto';
+              if (value != null && (value.contains('\n') || value.contains('\r'))) return 'L’oggetto non è valido';
+              if (text.length > 160) return 'L’oggetto è troppo lungo';
               return null;
             },
-
-            decoration:
-                _inputDecoration(
-              label:
-                  'Oggetto',
-
-              hint:
-                  'Es. Aiuto con gli esercizi',
-              
-              icon:
-                  Icons.subject_rounded,
+            decoration: const InputDecoration(
+              labelText: 'Oggetto',
+              hintText: 'Es. Aiuto con gli esercizi',
+              prefixIcon: Icon(Icons.subject_rounded, color: AppColors.skyBlue),
             ),
           ),
-
-          const SizedBox(
-            height: 14,
-          ),
-
+          const SizedBox(height: 10),
           TextFormField(
-            controller:
-                _messageController,
-
-            maxLines:
-                7,
-
-            style:
-                const TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
-
-            validator:
-                (value) {
-              if (value == null ||
-                  value.trim().isEmpty) {
-                return 'Inserisci un messaggio';
-              }
-
+            controller: _messageController,
+            enabled: !_sending,
+            minLines: 5,
+            maxLines: 8,
+            maxLength: 5000,
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
+            autocorrect: true,
+            enableSuggestions: true,
+            style: const TextStyle(color: AppColors.pureWhite),
+            validator: (String? value) {
+              final String text = value?.trim() ?? '';
+              if (text.isEmpty) return 'Inserisci un messaggio';
+              if (text.length > 5000) return 'Il messaggio è troppo lungo';
               return null;
             },
-
-            decoration:
-                _inputDecoration(
-              label:
-                  'Messaggio',
-
-              hint:
-                  'Scrivi il tuo messaggio...',
-
-              icon:
-                  Icons.chat_bubble_outline_rounded,
+            decoration: const InputDecoration(
+              labelText: 'Messaggio',
+              hintText: 'Scrivi il tuo messaggio...',
+              alignLabelWithHint: true,
             ),
           ),
         ],
@@ -832,561 +406,215 @@ class _ContactUserPageState
     );
   }
 
-
-  InputDecoration _inputDecoration({
-    required String label,
-    required String hint,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText:
-          label,
-
-      hintText:
-          hint,
-
-      labelStyle:
-          TextStyle(
-        color:
-            AppColors.pureWhite
-                .withOpacity(0.55),
-      ),
-
-      hintStyle:
-          TextStyle(
-        color:
-            AppColors.pureWhite
-                .withOpacity(0.30),
-      ),
-
-      prefixIcon:
-          Icon(
-        icon,
-
-        color:
-            AppColors.skyBlue,
-      ),
-
-      filled:
-          true,
-
-      fillColor:
-          AppColors.darkElegance,
-
-      border:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(13),
-
-        borderSide:
-            BorderSide.none,
-      ),
-    );
-  }
-
-
-  // ===========================================================================
-  // SUMMARY
-  // ===========================================================================
-
   Widget _buildSummary() {
-    final SocialSubject? selectedSubject =
-        _selectedSubject;
-
-
     return Container(
-      width:
-          double.infinity,
-
-      padding:
-          const EdgeInsets.all(16),
-
-      decoration: BoxDecoration(
-        color:
-            AppColors.eleganceDeepNavy,
-
-        borderRadius:
-            BorderRadius.circular(16),
-      ),
-
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(color: AppColors.eleganceDeepNavy, borderRadius: BorderRadius.circular(16)),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Riepilogo',
-
-            style: TextStyle(
-              color:
-                  AppColors.pureWhite,
-
-              fontSize:
-                  14,
-
-              fontWeight:
-                  FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(
-            height: 12,
-          ),
-
-          _SummaryRow(
-            label:
-                'Destinatario',
-
-            value:
-                widget.user.email,
-          ),
-
-          const SizedBox(
-            height: 8,
-          ),
-
-          _SummaryRow(
-            label:
-                'Richiesta',
-
-            value:
-                _requestTypeLabel,
-          ),
-
+          const Text('Riepilogo', style: TextStyle(color: AppColors.pureWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          _SummaryRow(label: 'Destinatario', value: widget.user.name),
+          const SizedBox(height: 8),
+          _SummaryRow(label: 'Richiesta', value: _requestTypeLabel),
           if (_requiresSubject) ...[
-            const SizedBox(
-              height: 8,
-            ),
-
-            _SummaryRow(
-              label:
-                  'Materia',
-
-              value:
-                  selectedSubject
-                          ?.name ??
-                      'Non selezionata',
-            ),
+            const SizedBox(height: 8),
+            _SummaryRow(label: 'Materia', value: _selectedSubject?.name ?? 'Non selezionata'),
           ],
         ],
       ),
     );
   }
 
-
-  SocialSubject? get _selectedSubject {
-    if (_selectedSubjectId ==
-        null) {
-      return null;
-    }
-
-
-    for (final SocialSubject subject
-        in widget.user.subjects) {
-      if (subject.id ==
-          _selectedSubjectId) {
-        return subject;
-      }
-    }
-
-
-    return null;
+  Widget _buildError() {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(_error!, style: const TextStyle(color: Colors.white70, fontSize: 11))),
+        ],
+      ),
+    );
   }
-
-
-  String get _requestTypeLabel {
-    switch (_requestType) {
-      case ContactRequestType.general:
-        return 'Messaggio generico';
-
-      case ContactRequestType.help:
-        return 'Richiesta di aiuto';
-
-      case ContactRequestType.privateLesson:
-        return 'Lezione privata';
-    }
-  }
-
-
-  // ===========================================================================
-  // SEND BUTTON
-  // ===========================================================================
 
   Widget _buildSendButton() {
     return SizedBox(
-      width:
-          double.infinity,
-
-      height:
-          52,
-
+      height: 52,
       child: ElevatedButton.icon(
-        onPressed:
-            _sending
-                ? null
-                : _send,
-
-        icon:
-            _sending
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-
-                    child:
-                        CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(
-                    Icons.send_rounded,
-                  ),
-
-        label: Text(
-          _sending
-              ? 'Invio...'
-              : 'Invia richiesta',
-        ),
-
-        style:
-            ElevatedButton.styleFrom(
-          backgroundColor:
-              AppColors.skyBlue,
-
-          foregroundColor:
-              AppColors.brandNightBlue,
-
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
-          ),
-
-          textStyle:
-              const TextStyle(
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
+        onPressed: _sending || !_requestAvailable ? null : _send,
+        icon: _sending
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.send_rounded),
+        label: Text(_sending ? 'Invio...' : 'Invia richiesta'),
       ),
     );
   }
-
-
-  // ===========================================================================
-  // INVIO
-  // ===========================================================================
 
   Future<void> _send() async {
-    if (!_formKey.currentState!
-        .validate()) {
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) return;
+    if (!_requestAvailable) {
+      _showMessage('L’utente non è disponibile per questo tipo di richiesta.');
       return;
     }
-
-
-    if (_requestType ==
-            ContactRequestType.privateLesson &&
-        !widget.user.willingToTeach) {
-      _showMessage(
-        'Questo utente non accetta richieste di lezioni private.',
-      );
-
+    if (_requiresSubject && _selectedSubject == null) {
+      _showMessage('Seleziona una materia disponibile.');
       return;
     }
-
-
-    if (_requiresSubject &&
-        _selectedSubjectId == null) {
-      _showMessage(
-        'Seleziona una materia.',
-      );
-
-      return;
-    }
-
-
+    final String normalizedSubject = _normalizeSingleLine(_subjectController.text);
+    final String normalizedMessage = _messageController.text.trim();
     setState(() {
-      _sending =
-          true;
+      _sending = true;
+      _error = null;
     });
-
-
     try {
-      /*
-       * AL MOMENTO:
-       *
-       * Non abbiamo ancora un endpoint backend
-       * per inviare email.
-       *
-       * I dati sono però già pronti:
-       *
-       * destinatario:
-       * widget.user.email
-       *
-       * tipo:
-       * _requestType
-       *
-       * materia:
-       * _selectedSubject
-       *
-       * oggetto:
-       * _subjectController.text
-       *
-       * messaggio:
-       * _messageController.text
-       *
-       *
-       * In seguito potremo creare:
-       *
-       * POST /contact_user
-       *
-       * oppure
-       *
-       * POST /messages
-       */
-
-      await Future<void>.delayed(
-        const Duration(
-          milliseconds: 250,
-        ),
+      await _authService.contactUser(
+        userId: widget.user.id,
+        requestType: _requestTypeApiValue,
+        subjectId: _selectedSubjectId,
+        subject: normalizedSubject,
+        message: normalizedMessage,
       );
-
-
-      if (!mounted) {
-        return;
-      }
-
-
-      _showMessage(
-        'Richiesta preparata correttamente.',
-      );
-
-
-      Navigator.of(context).pop();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Richiesta inviata correttamente.')));
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = _friendlyError(error));
     } finally {
-      if (mounted) {
-        setState(() {
-          _sending =
-              false;
-        });
-      }
+      if (mounted) setState(() => _sending = false);
     }
   }
 
+  String _friendlyError(Object error) {
+    final String value = error.toString().toLowerCase();
+    if (value.contains('401') || value.contains('non autenticato') || value.contains('sessione')) return 'La sessione non è più valida. Accedi nuovamente.';
+    if (value.contains('403') || value.contains('non puoi contattare') || value.contains('non è possibile contattare') || value.contains('blocc')) return 'Non è possibile contattare questo utente.';
+    if (value.contains('404') || value.contains('utente non disponibile') || value.contains('non è disponibile')) return 'L’utente non è più disponibile.';
+    if (value.contains('429') || value.contains('troppe richieste') || value.contains('rate limit')) return 'Hai inviato troppe richieste. Riprova più tardi.';
+    if (value.contains('timeout')) return 'La richiesta sta impiegando troppo tempo. Riprova.';
+    if (value.contains('network') || value.contains('socket') || value.contains('connection') || value.contains('host lookup') || value.contains('failed host lookup')) return 'Non è stato possibile connettersi a StudentLab. Controlla la connessione e riprova.';
+    if (value.contains('503') || value.contains('servizio email') || value.contains('email service')) return 'Il servizio di invio non è temporaneamente disponibile. Riprova tra qualche momento.';
+    if (value.contains('400') || value.contains('materia') || value.contains('oggetto') || value.contains('messaggio')) return 'Controlla i dati inseriti e riprova.';
+    return 'Non è stato possibile inviare la richiesta. Riprova.';
+  }
 
-  void _showMessage(
-    String message,
-  ) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      SnackBar(
-        content:
-            Text(message),
-      ),
-    );
+  String _normalizeSingleLine(String? value) => (value ?? '').trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).join(' ');
+
+  String _initial() {
+    final String name = widget.user.name.trim();
+    return name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
-
-// =============================================================================
-// REQUEST TYPE TILE
-// =============================================================================
-
-class _RequestTypeTile
-    extends StatelessWidget {
-
+class _RequestTypeTile extends StatelessWidget {
   final IconData icon;
-
   final String title;
-
   final String description;
-
   final bool selected;
-
+  final bool enabled;
   final VoidCallback onTap;
-
 
   const _RequestTypeTile({
     required this.icon,
     required this.title,
     required this.description,
     required this.selected,
+    required this.enabled,
     required this.onTap,
   });
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return InkWell(
-      onTap:
-          onTap,
-
-      borderRadius:
-          BorderRadius.circular(12),
-
-      child: Container(
-        padding:
-            const EdgeInsets.all(12),
-
-        decoration: BoxDecoration(
-          color:
-              selected
-                  ? AppColors.brandNightBlue
-                  : Colors.transparent,
-
-          borderRadius:
-              BorderRadius.circular(12),
-
-          border: Border.all(
-            color:
-                selected
-                    ? AppColors.skyBlue
-                        .withOpacity(0.30)
-                    : Colors.white
-                        .withOpacity(0.05),
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.brandNightBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppColors.skyBlue.withValues(alpha: 0.30) : Colors.white.withValues(alpha: 0.05),
+            ),
           ),
-        ),
-
-        child: Row(
-          children: [
-            Icon(
-              icon,
-
-              color:
-                  selected
-                      ? AppColors.skyBlue
-                      : Colors.white54,
-
-              size:
-                  22,
-            ),
-
-            const SizedBox(
-              width: 12,
-            ),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
-                children: [
-                  Text(
-                    title,
-
-                    style: const TextStyle(
-                      color:
-                          AppColors.pureWhite,
-
-                      fontSize:
-                          13,
-
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height: 3,
-                  ),
-
-                  Text(
-                    description,
-
-                    style: TextStyle(
-                      color:
-                          AppColors.pureWhite
-                              .withOpacity(0.45),
-
-                      fontSize:
-                          10,
-                    ),
-                  ),
-                ],
+          child: Row(
+            children: [
+              Icon(icon, color: selected ? AppColors.skyBlue : Colors.white54, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(color: AppColors.pureWhite, fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 3),
+                    Text(enabled ? description : 'Non disponibile sul profilo.', style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.43), fontSize: 10, height: 1.3)),
+                  ],
+                ),
               ),
-            ),
-
-            Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-
-              color:
-                  selected
-                      ? AppColors.skyBlue
-                      : Colors.white30,
-            ),
-          ],
+              Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selected ? AppColors.skyBlue : Colors.white30),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-
-// =============================================================================
-// SUMMARY ROW
-// =============================================================================
-
-class _SummaryRow
-    extends StatelessWidget {
-
+class _SummaryRow extends StatelessWidget {
   final String label;
-
   final String value;
 
-
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-  });
-
+  const _SummaryRow({required this.label, required this.value});
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 90,
-
-          child: Text(
-            label,
-
-            style: TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(0.45),
-
-              fontSize: 11,
-            ),
-          ),
-        ),
-
-        Expanded(
-          child: Text(
-            value,
-
-            textAlign:
-                TextAlign.right,
-
-            style: const TextStyle(
-              color:
-                  AppColors.pureWhite,
-
-              fontSize: 11,
-
-              fontWeight:
-                  FontWeight.w500,
-            ),
-          ),
-        ),
+        SizedBox(width: 90, child: Text(label, style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.42), fontSize: 10))),
+        Expanded(child: Text(value, textAlign: TextAlign.right, style: const TextStyle(color: AppColors.pureWhite, fontSize: 11, fontWeight: FontWeight.w500))),
       ],
+    );
+  }
+}
+
+class _InfoState extends StatelessWidget {
+  final String message;
+
+  const _InfoState({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orangeAccent.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: Colors.orangeAccent, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message, style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.58), fontSize: 10))),
+        ],
+      ),
     );
   }
 }

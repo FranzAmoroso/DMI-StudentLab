@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../models/study_group.dart';
-
 import 'package:fe/theme/nightTheme.dart';
 
+import '../models/study_group.dart';
 
 class StudyGroupCard extends StatelessWidget {
   final StudyGroup group;
-
   final VoidCallback onTap;
-
 
   const StudyGroupCard({
     super.key,
@@ -17,575 +14,225 @@ class StudyGroupCard extends StatelessWidget {
     required this.onTap,
   });
 
-
   @override
   Widget build(
     BuildContext context,
   ) {
     return LayoutBuilder(
-      builder:
-          (
-        context,
-        constraints,
+      builder: (
+        BuildContext context,
+        BoxConstraints constraints,
       ) {
-        final double width =
-            constraints.maxWidth;
-
-
         final bool compact =
-            width < 180;
-
-
-        final bool medium =
-            width >= 180 &&
-            width < 260;
-
-
-        final double padding =
-            compact
-                ? 12
-                : medium
-                    ? 15
-                    : 18;
-
-
-        final double iconSize =
-            compact
-                ? 42
-                : medium
-                    ? 46
-                    : 50;
-
-
-        final double icon =
-            compact
-                ? 22
-                : medium
-                    ? 25
-                    : 28;
-
+            constraints.maxWidth < 220;
 
         return Material(
-          color:
-              Colors.transparent,
-
-          child:
-              InkWell(
-            onTap:
-                onTap,
-
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
             borderRadius:
-                BorderRadius.circular(
-              18,
-            ),
-
-            child:
-                Container(
-              width:
-                  double.infinity,
-
-              padding:
-                  EdgeInsets.all(
-                padding,
+                BorderRadius.circular(18),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(
+                compact ? 13 : 16,
               ),
-
-              decoration:
-                  BoxDecoration(
+              decoration: BoxDecoration(
                 color:
-                    AppColors
-                        .eleganceMidnight,
-
+                    AppColors.eleganceMidnight,
                 borderRadius:
-                    BorderRadius.circular(
-                  18,
+                    BorderRadius.circular(18),
+                border: Border.all(
+                  color: AppColors.skyBlue
+                      .withValues(alpha: 0.16),
                 ),
-
-                border:
-                    Border.all(
-                  color:
-                      AppColors.skyBlue
-                          .withOpacity(
-                    0.18,
-                  ),
-                ),
-
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        Colors.black
-                            .withOpacity(
-                      0.15,
-                    ),
-
-                    blurRadius:
-                        8,
-
-                    offset:
-                        const Offset(
-                      0,
-                      4,
-                    ),
-                  ),
-                ],
               ),
-
-              child:
-                  Column(
+              child: Column(
                 crossAxisAlignment:
-                    CrossAxisAlignment
-                        .start,
-
+                    CrossAxisAlignment.start,
                 children: [
-                  // ==========================================================
-                  // HEADER
-                  // ==========================================================
-
                   Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width:
-                            iconSize,
-
-                        height:
-                            iconSize,
-
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              AppColors
-                                  .brandNightBlue,
-
+                        width: compact ? 42 : 46,
+                        height: compact ? 42 : 46,
+                        decoration: BoxDecoration(
+                          color: AppColors
+                              .brandNightBlue,
                           borderRadius:
-                              BorderRadius
-                                  .circular(
-                            14,
+                              BorderRadius.circular(
+                            13,
                           ),
                         ),
-
-                        child:
-                            Icon(
-                          Icons
-                              .groups_rounded,
-
+                        child: const Icon(
+                          Icons.groups_rounded,
                           color:
-                              AppColors
-                                  .skyBlue,
-
-                          size:
-                              icon,
+                              AppColors.skyBlue,
+                          size: 24,
                         ),
                       ),
-
-                      const Spacer(),
-
-
-                      if (group.isOwner)
-                        Container(
-                          margin:
-                              const EdgeInsets
-                                  .only(
-                            right:
-                                7,
-                          ),
-
-                          padding:
-                              EdgeInsets
-                                  .symmetric(
-                            horizontal:
-                                compact
-                                    ? 6
-                                    : 8,
-
-                            vertical:
-                                compact
-                                    ? 4
-                                    : 5,
-                          ),
-
-                          decoration:
-                              BoxDecoration(
+                      const SizedBox(
+                        width: 10,
+                      ),
+                      Expanded(
+                        child: Text(
+                          group.name.isEmpty
+                              ? 'Gruppo senza nome'
+                              : group.name,
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          style: TextStyle(
                             color:
-                                AppColors
-                                    .skyBlue
-                                    .withOpacity(
-                              0.10,
-                            ),
-
-                            borderRadius:
-                                BorderRadius
-                                    .circular(
-                              8,
-                            ),
-                          ),
-
-                          child:
-                              Text(
-                            'OWNER',
-
-                            style:
-                                TextStyle(
-                              color:
-                                  AppColors
-                                      .materialSky,
-
-                              fontSize:
-                                  compact
-                                      ? 7
-                                      : 9,
-
-                              fontWeight:
-                                  FontWeight
-                                      .bold,
-                            ),
+                                AppColors.pureWhite,
+                            fontSize:
+                                compact ? 14 : 16,
+                            fontWeight:
+                                FontWeight.bold,
+                            height: 1.2,
                           ),
                         ),
-
-
-                      if (group.isPrivate)
-                        Padding(
-                          padding:
-                              const EdgeInsets
-                                  .only(
-                            right:
-                                8,
-                          ),
-
-                          child:
-                              Icon(
-                            Icons
-                                .lock_outline_rounded,
-
-                            color:
-                                AppColors
-                                    .pureWhite
-                                    .withOpacity(
-                              0.45,
-                            ),
-
-                            size:
-                                compact
-                                    ? 15
-                                    : 18,
-                          ),
-                        ),
-
-
-                      Icon(
+                      ),
+                      const SizedBox(
+                        width: 8,
+                      ),
+                      const Icon(
                         Icons
-                            .arrow_forward_ios_rounded,
-
-                        color:
-                            AppColors
-                                .pureWhite
-                                .withOpacity(
-                          0.45,
-                        ),
-
-                        size:
-                            compact
-                                ? 13
-                                : 16,
+                            .chevron_right_rounded,
+                        color: Colors.white38,
                       ),
                     ],
                   ),
-
-
-                  SizedBox(
-                    height:
-                        compact
-                            ? 12
-                            : 16,
+                  const SizedBox(
+                    height: 12,
                   ),
-
-
-                  // ==========================================================
-                  // NOME
-                  // ==========================================================
-
-                  Text(
-                    group.name,
-
-                    maxLines:
-                        2,
-
-                    overflow:
-                        TextOverflow
-                            .ellipsis,
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors
-                              .pureWhite,
-
-                      fontSize:
-                          compact
-                              ? 14
-                              : medium
-                                  ? 16
-                                  : 17,
-
-                      fontWeight:
-                          FontWeight.bold,
-
-                      height:
-                          1.2,
-                    ),
-                  ),
-
-
-                  SizedBox(
-                    height:
-                        compact
-                            ? 5
-                            : 7,
-                  ),
-
-
-                  // ==========================================================
-                  // MATERIA
-                  // ==========================================================
-
-                  Text(
-                    _subjectText(),
-
-                    maxLines:
-                        1,
-
-                    overflow:
-                        TextOverflow
-                            .ellipsis,
-
-                    style:
-                        TextStyle(
-                      color:
-                          group.subject
-                                  .isNotEmpty
-                              ? AppColors
-                                  .materialSky
-                              : AppColors
-                                  .pureWhite
-                                  .withOpacity(
-                                  0.60,
-                                ),
-
-                      fontSize:
-                          compact
-                              ? 10
-                              : 12,
-
-                      fontWeight:
-                          group.subject
-                                  .isNotEmpty
-                              ? FontWeight
-                                  .w500
-                              : FontWeight
-                                  .normal,
-                    ),
-                  ),
-
-
-                  SizedBox(
-                    height:
-                        compact
-                            ? 4
-                            : 6,
-                  ),
-
-
-                  // ==========================================================
-                  // CORSO
-                  // ==========================================================
-
-                  Text(
-                    group.course,
-
-                    maxLines:
-                        1,
-
-                    overflow:
-                        TextOverflow
-                            .ellipsis,
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors
-                              .pureWhite
-                              .withOpacity(
-                        0.50,
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      _Badge(
+                        icon: group.isPrivate
+                            ? Icons
+                                .lock_outline_rounded
+                            : Icons.public_rounded,
+                        label:
+                            group.visibilityLabel,
                       ),
-
-                      fontSize:
-                          compact
-                              ? 9
-                              : 11,
+                      if (group.isOwner)
+                        const _Badge(
+                          icon: Icons
+                              .workspace_premium_outlined,
+                          label: 'Owner',
+                        ),
+                      if (!group.isOwner &&
+                          group.isAdmin)
+                        const _Badge(
+                          icon: Icons
+                              .admin_panel_settings_outlined,
+                          label: 'Admin',
+                        ),
+                    ],
+                  ),
+                  if (group.creatorName
+                      .trim()
+                      .isNotEmpty) ...[
+                    const SizedBox(
+                      height: 11,
                     ),
+                    _InfoRow(
+                      icon:
+                          Icons.person_outline_rounded,
+                      text:
+                          'Creato da ${group.creatorName}',
+                    ),
+                  ],
+                  if (group.university
+                      .trim()
+                      .isNotEmpty) ...[
+                    const SizedBox(
+                      height: 8,
+                    ),
+                    _InfoRow(
+                      icon: Icons
+                          .account_balance_outlined,
+                      text: group.university,
+                    ),
+                  ],
+                  if (group.department
+                          .trim()
+                          .isNotEmpty ||
+                      group.course
+                          .trim()
+                          .isNotEmpty) ...[
+                    const SizedBox(
+                      height: 7,
+                    ),
+                    _InfoRow(
+                      icon:
+                          Icons.school_outlined,
+                      text: _academicPath(),
+                    ),
+                  ],
+                  if (group.subject
+                      .trim()
+                      .isNotEmpty) ...[
+                    const SizedBox(
+                      height: 7,
+                    ),
+                    _InfoRow(
+                      icon:
+                          Icons.menu_book_outlined,
+                      text: group.subject,
+                      highlighted: true,
+                    ),
+                  ],
+                  const SizedBox(
+                    height: 12,
                   ),
-
-
-                  SizedBox(
-                    height:
-                        compact
-                            ? 8
-                            : 10,
-                  ),
-
-
-                  // ==========================================================
-                  // DESCRIZIONE
-                  // ==========================================================
-
                   Expanded(
-                    child:
-                        Text(
+                    child: Text(
                       group.description
+                              .trim()
                               .isEmpty
                           ? 'Nessuna descrizione.'
-                          : group
-                              .description,
-
-                      maxLines:
-                          compact
-                              ? 2
-                              : 3,
-
+                          : group.description,
+                      maxLines: compact ? 2 : 3,
                       overflow:
-                          TextOverflow
-                              .ellipsis,
-
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors
-                                .pureWhite
-                                .withOpacity(
-                          0.50,
+                          TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.pureWhite
+                            .withValues(
+                          alpha: 0.50,
                         ),
-
                         fontSize:
-                            compact
-                                ? 10
-                                : 12,
-
-                        height:
-                            1.3,
+                            compact ? 10 : 11,
+                        height: 1.35,
                       ),
                     ),
                   ),
-
-
-                  SizedBox(
-                    height:
-                        compact
-                            ? 12
-                            : 16,
+                  const SizedBox(
+                    height: 12,
                   ),
-
-
-                  // ==========================================================
-                  // INFORMAZIONI
-                  // ==========================================================
-
                   Row(
                     children: [
-                      Icon(
-                        Icons
+                      _Counter(
+                        icon: Icons
                             .people_outline_rounded,
-
-                        size:
-                            compact
-                                ? 14
-                                : 16,
-
-                        color:
-                            AppColors
-                                .materialSky,
+                        value:
+                            '${group.memberCount}',
+                        label: 'membri',
                       ),
-
                       const SizedBox(
-                        width:
-                            5,
+                        width: 14,
                       ),
-
-                      Expanded(
-                        child:
-                            Text(
-                          '${group.memberCount} partecipanti',
-
-                          maxLines:
-                              1,
-
-                          overflow:
-                              TextOverflow
-                                  .ellipsis,
-
-                          style:
-                              TextStyle(
-                            color:
-                                AppColors
-                                    .materialSky
-                                    .withOpacity(
-                              0.9,
-                            ),
-
-                            fontSize:
-                                compact
-                                    ? 10
-                                    : 12,
-
-                            fontWeight:
-                                FontWeight
-                                    .w500,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(
-                        width:
-                            8,
-                      ),
-
-                      Icon(
-                        Icons
-                            .folder_outlined,
-
-                        size:
-                            compact
-                                ? 14
-                                : 16,
-
-                        color:
-                            AppColors
-                                .materialSky,
-                      ),
-
-                      const SizedBox(
-                        width:
-                            5,
-                      ),
-
-                      Text(
-                        '${group.materialCount}',
-
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors
-                                  .materialSky
-                                  .withOpacity(
-                            0.9,
-                          ),
-
-                          fontSize:
-                              compact
-                                  ? 10
-                                  : 12,
-
-                          fontWeight:
-                              FontWeight
-                                  .w500,
-                        ),
+                      _Counter(
+                        icon:
+                            Icons.folder_outlined,
+                        value:
+                            '${group.materialCount}',
+                        label: 'materiali',
                       ),
                     ],
                   ),
@@ -598,22 +245,165 @@ class StudyGroupCard extends StatelessWidget {
     );
   }
 
+  String _academicPath() {
+    final List<String> values = [
+      group.department.trim(),
+      group.course.trim(),
+    ].where((String value) => value.isNotEmpty).toList();
 
-  // ===========================================================================
-  // NOME MATERIA
-  // ===========================================================================
+    return values.isEmpty
+        ? 'Percorso non specificato'
+        : values.join(' • ');
+  }
+}
 
-  String _subjectText() {
-    if (group.subject.isNotEmpty) {
-      return group.subject;
-    }
+class _Badge extends StatelessWidget {
+  final IconData icon;
+  final String label;
 
+  const _Badge({
+    required this.icon,
+    required this.label,
+  });
 
-    if (group.subjectId != null) {
-      return 'Materia #${group.subjectId}';
-    }
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.skyBlue
+            .withValues(alpha: 0.10),
+        borderRadius:
+            BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.skyBlue
+              .withValues(alpha: 0.14),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color:
+                AppColors.materialSky,
+          ),
+          const SizedBox(
+            width: 5,
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              color:
+                  AppColors.materialSky,
+              fontSize: 9,
+              fontWeight:
+                  FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final bool highlighted;
 
-    return 'Materia non specificata';
+  const _InfoRow({
+    required this.icon,
+    required this.text,
+    this.highlighted = false,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          size: 14,
+          color: highlighted
+              ? AppColors.materialSky
+              : AppColors.pureWhite
+                  .withValues(alpha: 0.42),
+        ),
+        const SizedBox(
+          width: 7,
+        ),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow:
+                TextOverflow.ellipsis,
+            style: TextStyle(
+              color: highlighted
+                  ? AppColors.materialSky
+                  : AppColors.pureWhite
+                      .withValues(alpha: 0.58),
+              fontSize: 10,
+              fontWeight: highlighted
+                  ? FontWeight.w600
+                  : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Counter extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+
+  const _Counter({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color:
+              AppColors.materialSky,
+          size: 15,
+        ),
+        const SizedBox(
+          width: 5,
+        ),
+        Text(
+          '$value $label',
+          style: TextStyle(
+            color: AppColors.pureWhite
+                .withValues(alpha: 0.58),
+            fontSize: 9,
+            fontWeight:
+                FontWeight.w500,
+          ),
+        ),
+      ],
+    );
   }
 }

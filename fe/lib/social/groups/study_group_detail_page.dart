@@ -14,11 +14,12 @@ import '../../local_storage/services/material_download_service.dart';
 
 import '../social_models.dart';
 
-import '../layers/group_chat_layer.dart';
+import '../news/widgets/group_news_section.dart';
 import '../layers/group_management_layer.dart';
 import '../layers/group_partecipants_layer.dart';
 
 import 'models/study_group.dart';
+
 
 class StudyGroupDetailPage
     extends StatefulWidget {
@@ -34,6 +35,7 @@ class StudyGroupDetailPage
       createState() =>
           _StudyGroupDetailPageState();
 }
+
 
 class _StudyGroupDetailPageState
     extends State<
@@ -76,25 +78,31 @@ class _StudyGroupDetailPageState
 
   String? _error;
 
+
   StudyGroup get group {
     return widget.group;
   }
+
 
   SocialUser? get currentUser {
     return _session.currentUser;
   }
 
+
   int? get currentUserId {
     return _session.currentUserId;
   }
+
 
   bool get isAuthenticated {
     return _session.isAuthenticated;
   }
 
+
   bool get isGuest {
     return _session.isGuest;
   }
+
 
   bool get isCurrentUserMember {
     final int? userId =
@@ -113,29 +121,27 @@ class _StudyGroupDetailPageState
     );
   }
 
-  bool get canUseGroupChat {
-    return isAuthenticated &&
-        (
-          isCurrentUserMember ||
-          group.isOwner
-        );
-  }
+
+
 
   bool get canUploadMaterial {
     return isAuthenticated &&
         group.isManager;
   }
 
+
   bool get canDeleteMaterial {
     return isAuthenticated &&
         group.isManager;
   }
+
 
   bool get canLeaveGroup {
     return isAuthenticated &&
         isCurrentUserMember &&
         !group.isOwner;
   }
+
 
   @override
   void initState() {
@@ -148,6 +154,7 @@ class _StudyGroupDetailPageState
     _loadGroupData();
   }
 
+
   @override
   void dispose() {
     _session.removeListener(
@@ -156,6 +163,7 @@ class _StudyGroupDetailPageState
 
     super.dispose();
   }
+
 
   void _onSessionChanged() {
     if (!mounted) {
@@ -166,6 +174,7 @@ class _StudyGroupDetailPageState
 
     _refreshDownloadedStates();
   }
+
 
   Future<void> _loadGroupData() async {
     if (mounted) {
@@ -231,6 +240,7 @@ class _StudyGroupDetailPageState
     }
   }
 
+
   Future<List<SocialUser>>
       _loadParticipants(
     Map<String, dynamic> groupData,
@@ -291,6 +301,7 @@ class _StudyGroupDetailPageState
     return users;
   }
 
+
   Future<List<_GroupMaterial>>
       _loadMaterials() async {
     final List<
@@ -312,6 +323,7 @@ class _StudyGroupDetailPageState
         )
         .toList();
   }
+
 
   Future<void> _loadDownloadedStates(
     List<_GroupMaterial> materials,
@@ -355,6 +367,7 @@ class _StudyGroupDetailPageState
       _materials,
     );
   }
+
 
   Future<void> _refreshMaterials() async {
     if (_loadingMaterials) {
@@ -404,6 +417,7 @@ class _StudyGroupDetailPageState
       }
     }
   }
+
 
   @override
   Widget build(
@@ -502,6 +516,7 @@ class _StudyGroupDetailPageState
       ),
     );
   }
+
 
   Widget _buildBody() {
     if (_loading) {
@@ -605,7 +620,19 @@ class _StudyGroupDetailPageState
                     ),
                   ],
 
-                  _buildChatCard(),
+                  GroupNewsSection(
+                    group:
+                        group,
+                    participants:
+                        _participants,
+                    currentUserId:
+                        currentUserId,
+                    isAuthenticated:
+                        isAuthenticated,
+                    isCurrentUserMember:
+                        isCurrentUserMember ||
+                        group.isOwner,
+                  ),
 
                   const SizedBox(
                     height:
@@ -619,7 +646,7 @@ class _StudyGroupDetailPageState
                         28,
                   ),
 
-                  GroupMaterialSection(
+                  _GroupMaterialSection(
                     group:
                         group,
 
@@ -672,6 +699,7 @@ class _StudyGroupDetailPageState
       ),
     );
   }
+
 
   Widget _buildGroupHeader() {
     return LayoutBuilder(
@@ -735,18 +763,14 @@ class _StudyGroupDetailPageState
                 Border.all(
               color:
                   AppColors.skyBlue
-                      .withValues(alpha: 
-                0.18,
-              ),
+                      .withValues(alpha: 0.18),
             ),
 
             boxShadow: [
               BoxShadow(
                 color:
                     Colors.black
-                        .withValues(alpha: 
-                  0.15,
-                ),
+                        .withValues(alpha: 0.15),
 
                 blurRadius:
                     8,
@@ -902,9 +926,7 @@ class _StudyGroupDetailPageState
                   color:
                       AppColors
                           .materialSky
-                          .withValues(alpha: 
-                        0.90,
-                      ),
+                          .withValues(alpha: 0.90),
 
                   fontSize:
                       compact
@@ -936,9 +958,7 @@ class _StudyGroupDetailPageState
                     color:
                         AppColors
                             .pureWhite
-                            .withValues(alpha: 
-                          0.60,
-                        ),
+                            .withValues(alpha: 0.60),
 
                     fontSize:
                         compact
@@ -970,9 +990,7 @@ class _StudyGroupDetailPageState
                     color:
                         AppColors
                             .pureWhite
-                            .withValues(alpha: 
-                          0.40,
-                        ),
+                            .withValues(alpha: 0.40),
 
                     fontSize:
                         compact
@@ -1007,9 +1025,7 @@ class _StudyGroupDetailPageState
                   color:
                       AppColors
                           .pureWhite
-                          .withValues(alpha: 
-                        0.58,
-                      ),
+                          .withValues(alpha: 0.58),
 
                   fontSize:
                       compact
@@ -1068,6 +1084,7 @@ class _StudyGroupDetailPageState
     );
   }
 
+
   Widget _buildGuestInfo() {
     return Container(
       padding:
@@ -1079,9 +1096,7 @@ class _StudyGroupDetailPageState
           BoxDecoration(
         color:
             AppColors.skyBlue
-                .withValues(alpha: 
-          0.06,
-        ),
+                .withValues(alpha: 0.06),
 
         borderRadius:
             BorderRadius.circular(
@@ -1092,9 +1107,7 @@ class _StudyGroupDetailPageState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withValues(alpha: 
-            0.13,
-          ),
+                  .withValues(alpha: 0.13),
         ),
       ),
 
@@ -1124,16 +1137,14 @@ class _StudyGroupDetailPageState
           Expanded(
             child:
                 Text(
-              'Stai visualizzando il gruppo come Guest. Puoi vedere i partecipanti che hanno reso disponibile il proprio profilo, consultare i materiali e scaricare i file disponibili per consultarli offline. Per utilizzare la chat, partecipare al gruppo o condividere materiale devi accedere a StudentLab.',
+              'Stai visualizzando il gruppo come Guest. Puoi vedere i partecipanti che hanno reso disponibile il proprio profilo, consultare i materiali e scaricare i file disponibili per consultarli offline. Per partecipare al gruppo, accedere alle comunicazioni riservate o condividere materiale devi accedere a StudentLab.',
 
               style:
                   TextStyle(
                 color:
                     AppColors
                         .pureWhite
-                        .withValues(alpha: 
-                      0.55,
-                    ),
+                        .withValues(alpha: 0.55),
 
                 fontSize:
                     11,
@@ -1148,6 +1159,7 @@ class _StudyGroupDetailPageState
     );
   }
 
+
   Widget _buildNonMemberInfo() {
     return Container(
       padding:
@@ -1159,9 +1171,7 @@ class _StudyGroupDetailPageState
           BoxDecoration(
         color:
             AppColors.skyBlue
-                .withValues(alpha: 
-          0.05,
-        ),
+                .withValues(alpha: 0.05),
 
         borderRadius:
             BorderRadius.circular(
@@ -1172,9 +1182,7 @@ class _StudyGroupDetailPageState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withValues(alpha: 
-            0.10,
-          ),
+                  .withValues(alpha: 0.10),
         ),
       ),
 
@@ -1201,16 +1209,14 @@ class _StudyGroupDetailPageState
           Expanded(
             child:
                 Text(
-              'Puoi esplorare il gruppo e scaricare il materiale, ma la chat è riservata ai partecipanti.',
+              'Puoi esplorare il gruppo e scaricare il materiale, ma le comunicazioni riservate sono disponibili solo ai partecipanti.',
 
               style:
                   TextStyle(
                 color:
                     AppColors
                         .pureWhite
-                        .withValues(alpha: 
-                      0.52,
-                    ),
+                        .withValues(alpha: 0.52),
 
                 fontSize:
                     11,
@@ -1225,73 +1231,6 @@ class _StudyGroupDetailPageState
     );
   }
 
-  Widget _buildChatCard() {
-    return _GroupActionCard(
-      icon:
-          Icons
-              .chat_bubble_outline_rounded,
-
-      title:
-          'Chat del gruppo',
-
-      description:
-          canUseGroupChat
-              ? 'Parla con i partecipanti del gruppo.'
-              : isGuest
-                  ? 'Accedi per utilizzare la chat del gruppo.'
-                  : 'La chat è disponibile ai partecipanti del gruppo.',
-
-      counter:
-          'Chat',
-
-      enabled:
-          canUseGroupChat,
-
-      onTap:
-          _openChat,
-    );
-  }
-
-  void _openChat() {
-    final SocialUser? user =
-        currentUser;
-
-    if (user == null) {
-      _showAuthenticationRequired();
-
-      return;
-    }
-
-    if (!canUseGroupChat) {
-      _showMessage(
-        'Devi partecipare al gruppo per utilizzare la chat.',
-      );
-
-      return;
-    }
-
-    Navigator.of(
-      context,
-    ).push(
-      MaterialPageRoute(
-        builder:
-            (_) =>
-                GroupChatLayer(
-          groupId:
-              group.id,
-
-          groupName:
-              group.name,
-
-          subjectName:
-              group.subject,
-
-          currentUser:
-              user,
-        ),
-      ),
-    );
-  }
 
   Widget _buildParticipantsCard() {
     return _GroupActionCard(
@@ -1316,6 +1255,7 @@ class _StudyGroupDetailPageState
     );
   }
 
+
   void _openParticipants() {
     Navigator.of(
       context,
@@ -1330,6 +1270,7 @@ class _StudyGroupDetailPageState
       ),
     );
   }
+
 
   void _openGroupManagement() {
     if (
@@ -1362,6 +1303,7 @@ class _StudyGroupDetailPageState
       },
     );
   }
+
 
   Future<void> _openMaterial(
     _GroupMaterial material,
@@ -1796,6 +1738,7 @@ class _StudyGroupDetailPageState
     }
   }
 
+
   void _showOptions() {
     if (!canLeaveGroup) {
       return;
@@ -1897,6 +1840,7 @@ class _StudyGroupDetailPageState
       },
     );
   }
+
 
   Future<void> _leaveGroup() async {
     final int? userId =
@@ -2045,11 +1989,13 @@ class _StudyGroupDetailPageState
     }
   }
 
+
   void _showAuthenticationRequired() {
     _showMessage(
       'Accedi a StudentLab per utilizzare questa funzione.',
     );
   }
+
 
   void _showMessage(
     String message,
@@ -2069,6 +2015,7 @@ class _StudyGroupDetailPageState
       ),
     );
   }
+
 
   String _cleanError(
     Object error, {
@@ -2175,6 +2122,7 @@ class _StudyGroupDetailPageState
     return fallback;
   }
 
+
   static int? _toInt(
     dynamic value,
   ) {
@@ -2192,6 +2140,7 @@ class _StudyGroupDetailPageState
     );
   }
 }
+
 
 class _GroupMaterial {
   final int id;
@@ -2212,6 +2161,7 @@ class _GroupMaterial {
 
   final DateTime? createdAt;
 
+
   const _GroupMaterial({
     required this.id,
     required this.groupId,
@@ -2223,6 +2173,7 @@ class _GroupMaterial {
     required this.size,
     required this.createdAt,
   });
+
 
   factory _GroupMaterial.fromJson(
     Map<String, dynamic> json,
@@ -2280,6 +2231,7 @@ class _GroupMaterial {
       ),
     );
   }
+
 
   String get type {
     if (
@@ -2345,6 +2297,7 @@ class _GroupMaterial {
     return 'FILE';
   }
 
+
   String get formattedSize {
     if (size < 1024) {
       return '$size B';
@@ -2359,6 +2312,7 @@ class _GroupMaterial {
 
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
+
 
   IconData get icon {
     switch (type) {
@@ -2389,6 +2343,7 @@ class _GroupMaterial {
     }
   }
 
+
   static int? _toInt(
     dynamic value,
   ) {
@@ -2407,6 +2362,7 @@ class _GroupMaterial {
   }
 }
 
+
 class _GroupHeaderBadge
     extends StatelessWidget {
   final IconData icon;
@@ -2415,11 +2371,13 @@ class _GroupHeaderBadge
 
   final bool compact;
 
+
   const _GroupHeaderBadge({
     required this.icon,
     required this.label,
     required this.compact,
   });
+
 
   @override
   Widget build(
@@ -2454,9 +2412,7 @@ class _GroupHeaderBadge
             Border.all(
           color:
               AppColors.skyBlue
-                  .withValues(alpha: 
-            0.12,
-          ),
+                  .withValues(alpha: 0.12),
         ),
       ),
 
@@ -2507,6 +2463,7 @@ class _GroupHeaderBadge
   }
 }
 
+
 class _GroupHeaderInfo
     extends StatelessWidget {
   final IconData icon;
@@ -2515,11 +2472,13 @@ class _GroupHeaderInfo
 
   final bool compact;
 
+
   const _GroupHeaderInfo({
     required this.icon,
     required this.text,
     required this.compact,
   });
+
 
   @override
   Widget build(
@@ -2556,9 +2515,7 @@ class _GroupHeaderInfo
             color:
                 AppColors
                     .materialSky
-                    .withValues(alpha: 
-                  0.90,
-                ),
+                    .withValues(alpha: 0.90),
 
             fontSize:
                 compact
@@ -2574,6 +2531,7 @@ class _GroupHeaderInfo
   }
 }
 
+
 class _GroupActionCard
     extends StatelessWidget {
   final IconData icon;
@@ -2588,6 +2546,7 @@ class _GroupActionCard
 
   final VoidCallback onTap;
 
+
   const _GroupActionCard({
     required this.icon,
     required this.title,
@@ -2596,6 +2555,7 @@ class _GroupActionCard
     required this.enabled,
     required this.onTap,
   });
+
 
   @override
   Widget build(
@@ -2642,8 +2602,8 @@ class _GroupActionCard
                 Border.all(
               color:
                   AppColors.skyBlue
-                      .withValues(alpha: 
-                enabled
+                      .withValues(
+                alpha: enabled
                     ? 0.12
                     : 0.05,
               ),
@@ -2733,8 +2693,8 @@ class _GroupActionCard
                         color:
                             AppColors
                                 .pureWhite
-                                .withValues(alpha: 
-                              enabled
+                                .withValues(
+                              alpha: enabled
                                   ? 0.47
                                   : 0.25,
                             ),
@@ -2799,7 +2759,8 @@ class _GroupActionCard
   }
 }
 
-class GroupMaterialSection
+
+class _GroupMaterialSection
     extends StatelessWidget {
   final StudyGroup group;
 
@@ -2837,7 +2798,8 @@ class GroupMaterialSection
     _GroupMaterial material,
   ) onDeleteMaterial;
 
-  const GroupMaterialSection({
+
+  const _GroupMaterialSection({
     super.key,
     required this.group,
     required this.materials,
@@ -2853,6 +2815,7 @@ class GroupMaterialSection
     required this.onDownloadMaterial,
     required this.onDeleteMaterial,
   });
+
 
   @override
   Widget build(
@@ -2976,9 +2939,7 @@ class GroupMaterialSection
             color:
                 AppColors
                     .pureWhite
-                    .withValues(alpha: 
-                  0.55,
-                ),
+                    .withValues(alpha: 0.55),
 
             fontSize:
                 13,
@@ -3136,16 +3097,19 @@ class GroupMaterialSection
   }
 }
 
+
 class _AddGroupMaterialCard
     extends StatelessWidget {
   final VoidCallback? onTap;
 
   final bool uploading;
 
+
   const _AddGroupMaterialCard({
     required this.onTap,
     required this.uploading,
   });
+
 
   @override
   Widget build(
@@ -3187,9 +3151,7 @@ class _AddGroupMaterialCard
                 Border.all(
               color:
                   AppColors.skyBlue
-                      .withValues(alpha: 
-                0.18,
-              ),
+                      .withValues(alpha: 0.18),
             ),
           ),
 
@@ -3296,6 +3258,7 @@ class _AddGroupMaterialCard
   }
 }
 
+
 class _GroupMaterialCard
     extends StatelessWidget {
   final _GroupMaterial material;
@@ -3312,6 +3275,7 @@ class _GroupMaterialCard
 
   final VoidCallback onDelete;
 
+
   const _GroupMaterialCard({
     required this.material,
     required this.canDelete,
@@ -3321,6 +3285,7 @@ class _GroupMaterialCard
     required this.onDownload,
     required this.onDelete,
   });
+
 
   @override
   Widget build(
@@ -3364,14 +3329,10 @@ class _GroupMaterialCard
                   downloaded
                       ? AppColors
                           .materialSky
-                          .withValues(alpha: 
-                            0.22,
-                          )
+                          .withValues(alpha: 0.22)
                       : AppColors
                           .skyBlue
-                          .withValues(alpha: 
-                            0.10,
-                          ),
+                          .withValues(alpha: 0.10),
             ),
           ),
 
@@ -3636,9 +3597,11 @@ class _GroupMaterialCard
   }
 }
 
+
 class _EmptyGroupMaterials
     extends StatelessWidget {
   const _EmptyGroupMaterials();
+
 
   @override
   Widget build(
@@ -3668,9 +3631,7 @@ class _EmptyGroupMaterials
             Border.all(
           color:
               AppColors.skyBlue
-                  .withValues(alpha: 
-            0.08,
-          ),
+                  .withValues(alpha: 0.08),
         ),
       ),
 
@@ -3714,6 +3675,7 @@ class _EmptyGroupMaterials
   }
 }
 
+
 class _GroupErrorCard
     extends StatelessWidget {
   final String message;
@@ -3721,10 +3683,12 @@ class _GroupErrorCard
   final Future<void> Function()
       onRetry;
 
+
   const _GroupErrorCard({
     required this.message,
     required this.onRetry,
   });
+
 
   @override
   Widget build(
@@ -3754,9 +3718,7 @@ class _GroupErrorCard
             Border.all(
           color:
               Colors.redAccent
-                  .withValues(alpha: 
-            0.20,
-          ),
+                  .withValues(alpha: 0.20),
         ),
       ),
 

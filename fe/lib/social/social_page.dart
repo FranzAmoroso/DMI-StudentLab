@@ -9,12 +9,14 @@ import 'social_models.dart';
 
 import 'auth/login_page.dart';
 
-import 'message/message_page.dart';
+import 'news/private_news_page.dart';
+import 'news/institutional_news_page.dart';
 
 import 'groups/models/study_group.dart';
 import 'groups/study_group_detail_page.dart';
 import 'groups/create_group_page.dart';
 import 'groups/public_groups_page.dart';
+import 'groups/widgets/study_group_card.dart';
 
 import 'widgets/social_intro.dart';
 import 'widgets/social_login_intro.dart';
@@ -153,6 +155,10 @@ class _SocialPageState
                   _SocialUsersPage(),
 
                   _SocialGroupsPage(),
+
+                  InstitutionalNewsPage(
+                    embedded: true,
+                  ),
                 ],
               ),
             ),
@@ -193,6 +199,15 @@ class _SocialPageState
         label:
             'Gruppi',
       ),
+
+      (
+        icon:
+            Icons.newspaper_outlined,
+        selectedIcon:
+            Icons.newspaper_rounded,
+        label:
+            'News',
+      ),
     ];
 
     return Container(
@@ -218,7 +233,7 @@ class _SocialPageState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.12,
           ),
         ),
@@ -273,7 +288,7 @@ class _SocialPageState
                     color:
                         selected
                             ? AppColors.skyBlue
-                                .withOpacity(
+                                .withValues(alpha: 
                                 0.16,
                               )
                             : Colors.transparent,
@@ -302,7 +317,7 @@ class _SocialPageState
                             selected
                                 ? AppColors.materialSky
                                 : AppColors.pureWhite
-                                    .withOpacity(
+                                    .withValues(alpha: 
                                     0.45,
                                   ),
                       ),
@@ -321,7 +336,7 @@ class _SocialPageState
                               selected
                                   ? AppColors.pureWhite
                                   : AppColors.pureWhite
-                                      .withOpacity(
+                                      .withValues(alpha: 
                                       0.45,
                                     ),
 
@@ -502,6 +517,29 @@ class _GuestSocialPageState
                 FontWeight.w500,
           ),
         ),
+
+        actions: [
+          IconButton(
+            tooltip:
+                'News',
+            onPressed:
+                () {
+              Navigator.of(
+                context,
+              ).push(
+                MaterialPageRoute(
+                  builder:
+                      (_) =>
+                          const InstitutionalNewsPage(),
+                ),
+              );
+            },
+            icon:
+                const Icon(
+              Icons.newspaper_outlined,
+            ),
+          ),
+        ],
       ),
 
       body:
@@ -629,7 +667,7 @@ class _GuestSocialPageState
                             TextStyle(
                           color:
                               AppColors.pureWhite
-                                  .withOpacity(
+                                  .withValues(alpha: 
                             0.48,
                           ),
 
@@ -687,7 +725,7 @@ class _GuestSocialPageState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.12,
           ),
         ),
@@ -766,14 +804,14 @@ class _GuestSocialPageState
                   'Come Guest puoi vedere studenti e insegnanti, '
                   'aprire i gruppi pubblici, consultare i partecipanti '
                   'e scaricare il materiale disponibile. '
-                  'Accedi quando vuoi partecipare, chattare '
-                  'o condividere contenuti.',
+                  'Accedi per partecipare ai gruppi, accedere alle '
+                  'comunicazioni riservate e condividere contenuti.',
 
                   style:
                       TextStyle(
                     color:
                         AppColors.pureWhite
-                            .withOpacity(
+                            .withValues(alpha: 
                       0.50,
                     ),
 
@@ -817,7 +855,7 @@ class _GuestSocialPageState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.12,
           ),
         ),
@@ -906,7 +944,7 @@ class _GuestSocialPageState
                           TextStyle(
                         color:
                             AppColors.pureWhite
-                                .withOpacity(
+                                .withValues(alpha: 
                           0.52,
                         ),
 
@@ -1059,7 +1097,7 @@ class _GuestSocialPageState
           color:
               selected
                   ? AppColors.skyBlue
-                      .withOpacity(
+                      .withValues(alpha: 
                       0.16,
                     )
                   : AppColors.eleganceMidnight,
@@ -1074,11 +1112,11 @@ class _GuestSocialPageState
             color:
                 selected
                     ? AppColors.skyBlue
-                        .withOpacity(
+                        .withValues(alpha: 
                         0.35,
                       )
                     : AppColors.skyBlue
-                        .withOpacity(
+                        .withValues(alpha: 
                         0.10,
                       ),
           ),
@@ -1097,7 +1135,7 @@ class _GuestSocialPageState
                   selected
                       ? AppColors.materialSky
                       : AppColors.pureWhite
-                          .withOpacity(
+                          .withValues(alpha: 
                           0.50,
                         ),
 
@@ -1119,7 +1157,7 @@ class _GuestSocialPageState
                     selected
                         ? AppColors.pureWhite
                         : AppColors.pureWhite
-                            .withOpacity(
+                            .withValues(alpha: 
                             0.55,
                           ),
 
@@ -1261,9 +1299,6 @@ class _SocialProfilePageState
 
   SocialUser? _user;
 
-  List<StudyGroup> _groups =
-      [];
-
   bool _loading =
       true;
 
@@ -1311,18 +1346,6 @@ class _SocialProfilePageState
           await _apiService
               .getCurrentUser();
 
-      final List<StudyGroup> groups =
-          await _loadGroupsFromBackend(
-        apiService:
-            _apiService,
-
-        currentUserId:
-            currentUserId,
-
-        onlyUserGroups:
-            true,
-      );
-
       if (!mounted) {
         return;
       }
@@ -1334,9 +1357,6 @@ class _SocialProfilePageState
       setState(() {
         _user =
             user;
-
-        _groups =
-            groups;
 
         _loading =
             false;
@@ -1359,14 +1379,14 @@ class _SocialProfilePageState
   }
 
 
-  void _openMessages() {
+  void _openPrivateNews() {
     Navigator.of(
       context,
     ).push(
       MaterialPageRoute(
         builder:
             (_) =>
-                const MessagesPage(),
+                const PrivateNewsPage(),
       ),
     );
   }
@@ -1449,7 +1469,7 @@ class _SocialProfilePageState
 
           IconButton(
             tooltip:
-                'Messaggi',
+                'Comunicazioni private',
 
             icon:
                 const Icon(
@@ -1457,7 +1477,7 @@ class _SocialProfilePageState
             ),
 
             onPressed:
-                _openMessages,
+                _openPrivateNews,
           ),
         ],
       ),
@@ -1534,20 +1554,6 @@ class _SocialProfilePageState
 
           const SizedBox(
             height:
-                18,
-          ),
-
-          _buildStatistics(),
-
-          const SizedBox(
-            height:
-                28,
-          ),
-
-          _buildMyGroups(),
-
-          const SizedBox(
-            height:
                 20,
           ),
         ],
@@ -1586,7 +1592,7 @@ class _SocialProfilePageState
                 isTeacher
                     ? AppColors.teacherIndigo
                     : AppColors.studentBlue
-              ).withOpacity(
+              ).withValues(alpha: 
             0.22,
           ),
         ),
@@ -1724,7 +1730,7 @@ class _SocialProfilePageState
                           TextStyle(
                         color:
                             AppColors.pureWhite
-                                .withOpacity(
+                                .withValues(alpha: 
                           0.48,
                         ),
 
@@ -1941,7 +1947,7 @@ class _SocialProfilePageState
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
+                        .withValues(alpha: 
                   0.45,
                 ),
 
@@ -1985,7 +1991,7 @@ class _SocialProfilePageState
                 TextStyle(
               color:
                   AppColors.pureWhite
-                      .withOpacity(
+                      .withValues(alpha: 
                 0.66,
               ),
 
@@ -2038,202 +2044,7 @@ class _SocialProfilePageState
   }
 
 
-  Widget _buildStatistics() {
-    final int materialCount =
-        _groups.fold<int>(
-      0,
-      (
-        total,
-        group,
-      ) =>
-          total +
-          group.materialCount,
-    );
 
-    return Row(
-      children: [
-        Expanded(
-          child:
-              _StatisticCard(
-            icon:
-                Icons.groups_rounded,
-
-            value:
-                '${_groups.length}',
-
-            label:
-                'Gruppi',
-          ),
-        ),
-
-        const SizedBox(
-          width:
-              10,
-        ),
-
-        Expanded(
-          child:
-              _StatisticCard(
-            icon:
-                Icons.folder_rounded,
-
-            value:
-                '$materialCount',
-
-            label:
-                'Materiali',
-          ),
-        ),
-      ],
-    );
-  }
-
-
-  Widget _buildMyGroups() {
-    return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-
-      children: [
-        const Text(
-          'I miei gruppi',
-
-          style:
-              TextStyle(
-            color:
-                AppColors.pureWhite,
-
-            fontSize:
-                20,
-
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(
-          height:
-              5,
-        ),
-
-        Text(
-          'Una panoramica dei gruppi a cui partecipi.',
-
-          style:
-              TextStyle(
-            color:
-                AppColors.pureWhite
-                    .withOpacity(
-              0.50,
-            ),
-
-            fontSize:
-                12,
-          ),
-        ),
-
-        const SizedBox(
-          height:
-              14,
-        ),
-
-        if (_groups.isEmpty)
-          const _EmptyCard(
-            icon:
-                Icons.groups_outlined,
-
-            title:
-                'Nessun gruppo',
-
-            message:
-                'Non partecipi ancora a nessun gruppo.',
-          )
-        else
-          LayoutBuilder(
-            builder:
-                (
-              context,
-              constraints,
-            ) {
-
-              int columns =
-                  2;
-
-              if (constraints.maxWidth <
-                  420) {
-                columns =
-                    1;
-              } else if (constraints.maxWidth >=
-                  700) {
-                columns =
-                    3;
-              }
-
-              return GridView.builder(
-                shrinkWrap:
-                    true,
-
-                physics:
-                    const NeverScrollableScrollPhysics(),
-
-                itemCount:
-                    _groups.length,
-
-                gridDelegate:
-                    SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount:
-                      columns,
-
-                  crossAxisSpacing:
-                      12,
-
-                  mainAxisSpacing:
-                      12,
-
-                  mainAxisExtent:
-                      175,
-                ),
-
-                itemBuilder:
-                    (
-                  context,
-                  index,
-                ) {
-
-                  final StudyGroup group =
-                      _groups[index];
-
-                  return _MiniGroupCard(
-                    group:
-                        group,
-
-                    onTap:
-                        () async {
-                      await Navigator.of(
-                        context,
-                      ).push(
-                        MaterialPageRoute(
-                          builder:
-                              (_) =>
-                                  StudyGroupDetailPage(
-                            group:
-                                group,
-                          ),
-                        ),
-                      );
-
-                      if (mounted) {
-                        _loadProfile();
-                      }
-                    },
-                  );
-                },
-              );
-            },
-          ),
-      ],
-    );
-  }
 }
 
 
@@ -2455,7 +2266,7 @@ class _SocialUsersPageState
 
           IconButton(
             tooltip:
-                'Messaggi',
+                'Comunicazioni private',
 
             onPressed:
                 () {
@@ -2465,7 +2276,7 @@ class _SocialUsersPageState
                 MaterialPageRoute(
                   builder:
                       (_) =>
-                          const MessagesPage(),
+                          const PrivateNewsPage(),
                 ),
               );
             },
@@ -2726,6 +2537,13 @@ class _SocialUsersPageState
 }
 
 
+enum _UserGroupFilter {
+  all,
+  owned,
+  member,
+}
+
+
 class _SocialGroupsPage
     extends StatefulWidget {
 
@@ -2747,6 +2565,9 @@ class _SocialGroupsPageState
 
   List<StudyGroup> _groups =
       [];
+
+  _UserGroupFilter _selectedFilter =
+      _UserGroupFilter.all;
 
   bool _loading =
       true;
@@ -2778,6 +2599,9 @@ class _SocialGroupsPageState
 
         _loading =
             false;
+
+        _error =
+            'Accedi per visualizzare i tuoi gruppi.';
       });
 
       return;
@@ -2801,7 +2625,7 @@ class _SocialGroupsPageState
             currentUserId,
 
         onlyUserGroups:
-            false,
+            true,
       );
 
       if (!mounted) {
@@ -2833,6 +2657,52 @@ class _SocialGroupsPageState
   }
 
 
+  List<StudyGroup> get _visibleGroups {
+    switch (_selectedFilter) {
+      case _UserGroupFilter.all:
+        return _groups;
+
+      case _UserGroupFilter.owned:
+        return _groups
+            .where(
+              (
+                StudyGroup group,
+              ) =>
+                  group.isOwner,
+            )
+            .toList();
+
+      case _UserGroupFilter.member:
+        return _groups
+            .where(
+              (
+                StudyGroup group,
+              ) =>
+                  !group.isOwner,
+            )
+            .toList();
+    }
+  }
+
+
+  int get _ownedCount {
+    return _groups
+        .where(
+          (
+            StudyGroup group,
+          ) =>
+              group.isOwner,
+        )
+        .length;
+  }
+
+
+  int get _memberCount {
+    return _groups.length -
+        _ownedCount;
+  }
+
+
   Future<void> _createGroup() async {
     await Navigator.of(
       context,
@@ -2845,7 +2715,7 @@ class _SocialGroupsPageState
     );
 
     if (mounted) {
-      _loadGroups();
+      await _loadGroups();
     }
   }
 
@@ -2862,7 +2732,7 @@ class _SocialGroupsPageState
     );
 
     if (mounted) {
-      _loadGroups();
+      await _loadGroups();
     }
   }
 
@@ -2884,7 +2754,7 @@ class _SocialGroupsPageState
     );
 
     if (mounted) {
-      _loadGroups();
+      await _loadGroups();
     }
   }
 
@@ -2916,7 +2786,9 @@ class _SocialGroupsPageState
                 'Aggiorna',
 
             onPressed:
-                _loadGroups,
+                _loading
+                    ? null
+                    : _loadGroups,
 
             icon:
                 const Icon(
@@ -2926,7 +2798,7 @@ class _SocialGroupsPageState
 
           IconButton(
             tooltip:
-                'Messaggi',
+                'Comunicazioni private',
 
             onPressed:
                 () {
@@ -2936,7 +2808,7 @@ class _SocialGroupsPageState
                 MaterialPageRoute(
                   builder:
                       (_) =>
-                          const MessagesPage(),
+                          const PrivateNewsPage(),
                 ),
               );
             },
@@ -2958,7 +2830,7 @@ class _SocialGroupsPageState
             constraints:
                 const BoxConstraints(
               maxWidth:
-                  1000,
+                  1050,
             ),
 
             child:
@@ -2977,115 +2849,422 @@ class _SocialGroupsPageState
                 ),
 
                 children: [
-                  const Text(
-                    'Gruppi',
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite,
-
-                      fontSize:
-                          25,
-
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
-                  ),
+                  _buildHeader(),
 
                   const SizedBox(
                     height:
-                        5,
+                        18,
                   ),
 
-                  Text(
-                    'Gestisci i tuoi gruppi e scopri nuove community.',
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite
-                              .withOpacity(
-                        0.52,
-                      ),
-
-                      fontSize:
-                          12,
-                    ),
-                  ),
+                  _buildPrimaryActions(),
 
                   const SizedBox(
                     height:
                         22,
                   ),
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child:
-                            OutlinedButton.icon(
-                          onPressed:
-                              _createGroup,
-
-                          icon:
-                              const Icon(
-                            Icons
-                                .add_circle_outline_rounded,
-                          ),
-
-                          label:
-                              const Text(
-                            'Crea gruppo',
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(
-                        width:
-                            10,
-                      ),
-
-                      Expanded(
-                        child:
-                            ElevatedButton.icon(
-                          onPressed:
-                              _exploreGroups,
-
-                          icon:
-                              const Icon(
-                            Icons.search_rounded,
-                          ),
-
-                          label:
-                              const Text(
-                            'Esplora',
-                          ),
-
-                          style:
-                              ElevatedButton.styleFrom(
-                            backgroundColor:
-                                AppColors.socialBlue,
-
-                            foregroundColor:
-                                AppColors.pureWhite,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _buildFilterBar(),
 
                   const SizedBox(
                     height:
-                        26,
+                        16,
+                  ),
+
+                  _buildResultsHeader(),
+
+                  const SizedBox(
+                    height:
+                        14,
                   ),
 
                   _buildGroups(),
+
+                  const SizedBox(
+                    height:
+                        24,
+                  ),
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+
+  Widget _buildHeader() {
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        18,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.eleganceMidnight,
+
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
+
+        border:
+            Border.all(
+          color:
+              AppColors.skyBlue
+                  .withValues(
+            alpha:
+                0.12,
+          ),
+        ),
+      ),
+
+      child:
+          Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          Container(
+            width:
+                50,
+
+            height:
+                50,
+
+            decoration:
+                BoxDecoration(
+              color:
+                  AppColors.brandNightBlue,
+
+              borderRadius:
+                  BorderRadius.circular(
+                14,
+              ),
+            ),
+
+            child:
+                const Icon(
+              Icons.groups_2_rounded,
+
+              color:
+                  AppColors.skyBlue,
+
+              size:
+                  27,
+            ),
+          ),
+
+          const SizedBox(
+            width:
+                13,
+          ),
+
+          Expanded(
+            child:
+                Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+
+              children: [
+                const Text(
+                  'I tuoi gruppi',
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite,
+
+                    fontSize:
+                        20,
+
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      5,
+                ),
+
+                Text(
+                  'Qui trovi i gruppi che hai creato e quelli a cui partecipi.',
+
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite
+                            .withValues(
+                      alpha:
+                          0.52,
+                    ),
+
+                    fontSize:
+                        11,
+
+                    height:
+                        1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildPrimaryActions() {
+    return LayoutBuilder(
+      builder:
+          (
+        BuildContext context,
+        BoxConstraints constraints,
+      ) {
+        final bool compact =
+            constraints.maxWidth <
+                470;
+
+        final Widget create =
+            OutlinedButton.icon(
+          onPressed:
+              _createGroup,
+
+          icon:
+              const Icon(
+            Icons
+                .add_circle_outline_rounded,
+          ),
+
+          label:
+              const Text(
+            'Crea gruppo',
+          ),
+        );
+
+        final Widget explore =
+            ElevatedButton.icon(
+          onPressed:
+              _exploreGroups,
+
+          icon:
+              const Icon(
+            Icons.search_rounded,
+          ),
+
+          label:
+              const Text(
+            'Esplora gruppi',
+          ),
+
+          style:
+              ElevatedButton.styleFrom(
+            backgroundColor:
+                AppColors.socialBlue,
+
+            foregroundColor:
+                AppColors.pureWhite,
+
+            elevation:
+                0,
+          ),
+        );
+
+        if (compact) {
+          return Column(
+            children: [
+              SizedBox(
+                width:
+                    double.infinity,
+
+                child:
+                    create,
+              ),
+
+              const SizedBox(
+                height:
+                    10,
+              ),
+
+              SizedBox(
+                width:
+                    double.infinity,
+
+                child:
+                    explore,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child:
+                  create,
+            ),
+
+            const SizedBox(
+              width:
+                  10,
+            ),
+
+            Expanded(
+              child:
+                  explore,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+  Widget _buildFilterBar() {
+    return SingleChildScrollView(
+      scrollDirection:
+          Axis.horizontal,
+
+      child:
+          Row(
+        children: [
+          _UserGroupFilterChip(
+            label:
+                'Tutti',
+
+            count:
+                _groups.length,
+
+            selected:
+                _selectedFilter ==
+                    _UserGroupFilter.all,
+
+            onTap:
+                () {
+              setState(() {
+                _selectedFilter =
+                    _UserGroupFilter.all;
+              });
+            },
+          ),
+
+          const SizedBox(
+            width:
+                8,
+          ),
+
+          _UserGroupFilterChip(
+            label:
+                'Creati da te',
+
+            count:
+                _ownedCount,
+
+            selected:
+                _selectedFilter ==
+                    _UserGroupFilter.owned,
+
+            onTap:
+                () {
+              setState(() {
+                _selectedFilter =
+                    _UserGroupFilter.owned;
+              });
+            },
+          ),
+
+          const SizedBox(
+            width:
+                8,
+          ),
+
+          _UserGroupFilterChip(
+            label:
+                'Partecipi',
+
+            count:
+                _memberCount,
+
+            selected:
+                _selectedFilter ==
+                    _UserGroupFilter.member,
+
+            onTap:
+                () {
+              setState(() {
+                _selectedFilter =
+                    _UserGroupFilter.member;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildResultsHeader() {
+    if (
+      _loading ||
+      _error != null
+    ) {
+      return const SizedBox.shrink();
+    }
+
+    final int count =
+        _visibleGroups.length;
+
+    return Row(
+      children: [
+        Expanded(
+          child:
+              Text(
+            count == 1
+                ? '1 gruppo'
+                : '$count gruppi',
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite
+                      .withValues(
+                alpha:
+                    0.55,
+              ),
+
+              fontSize:
+                  11,
+
+              fontWeight:
+                  FontWeight.w500,
+            ),
+          ),
+        ),
+
+        Text(
+          '${_ownedCount} creati da te',
+
+          style:
+              TextStyle(
+            color:
+                AppColors.materialSky
+                    .withValues(
+              alpha:
+                  0.78,
+            ),
+
+            fontSize:
+                10,
+          ),
+        ),
+      ],
     );
   }
 
@@ -3117,35 +3296,45 @@ class _SocialGroupsPageState
       );
     }
 
-    if (_groups.isEmpty) {
-      return const _EmptyCard(
-        icon:
-            Icons.groups_outlined,
+    final List<StudyGroup> groups =
+        _visibleGroups;
 
-        title:
-            'Nessun gruppo',
+    if (groups.isEmpty) {
+      final bool filtering =
+          _selectedFilter !=
+              _UserGroupFilter.all;
 
-        message:
-            'Non sono ancora presenti gruppi.',
+      return _EmptyGroupHubCard(
+        filtered:
+            filtering,
+
+        onCreate:
+            _createGroup,
+
+        onExplore:
+            _exploreGroups,
       );
     }
 
     return LayoutBuilder(
       builder:
           (
-        context,
-        constraints,
+        BuildContext context,
+        BoxConstraints constraints,
       ) {
-
         int columns =
             2;
 
-        if (constraints.maxWidth <
-            450) {
+        if (
+          constraints.maxWidth <
+          520
+        ) {
           columns =
               1;
-        } else if (constraints.maxWidth >=
-            750) {
+        } else if (
+          constraints.maxWidth >=
+          900
+        ) {
           columns =
               3;
         }
@@ -3158,7 +3347,7 @@ class _SocialGroupsPageState
               const NeverScrollableScrollPhysics(),
 
           itemCount:
-              _groups.length,
+              groups.length,
 
           gridDelegate:
               SliverGridDelegateWithFixedCrossAxisCount(
@@ -3172,19 +3361,18 @@ class _SocialGroupsPageState
                 12,
 
             mainAxisExtent:
-                185,
+                300,
           ),
 
           itemBuilder:
               (
-            context,
-            index,
+            BuildContext context,
+            int index,
           ) {
-
             final StudyGroup group =
-                _groups[index];
+                groups[index];
 
-            return _MiniGroupCard(
+            return StudyGroupCard(
               group:
                   group,
 
@@ -3203,16 +3391,19 @@ class _SocialGroupsPageState
 }
 
 
-class _MiniGroupCard
+class _UserGroupFilterChip
     extends StatelessWidget {
 
-  final StudyGroup group;
-
+  final String label;
+  final int count;
+  final bool selected;
   final VoidCallback onTap;
 
 
-  const _MiniGroupCard({
-    required this.group,
+  const _UserGroupFilterChip({
+    required this.label,
+    required this.count,
+    required this.selected,
     required this.onTap,
   });
 
@@ -3221,143 +3412,125 @@ class _MiniGroupCard
   Widget build(
     BuildContext context,
   ) {
-    return Material(
-      color:
-          Colors.transparent,
+    return InkWell(
+      onTap:
+          onTap,
+
+      borderRadius:
+          BorderRadius.circular(
+        11,
+      ),
 
       child:
-          InkWell(
-        onTap:
-            onTap,
+          AnimatedContainer(
+        duration:
+            const Duration(
+          milliseconds:
+              180,
+        ),
 
-        borderRadius:
-            BorderRadius.circular(
-          17,
+        padding:
+            const EdgeInsets.symmetric(
+          horizontal:
+              11,
+
+          vertical:
+              9,
+        ),
+
+        decoration:
+            BoxDecoration(
+          color:
+              selected
+                  ? AppColors.skyBlue
+                      .withValues(
+                      alpha:
+                          0.14,
+                    )
+                  : AppColors
+                      .eleganceMidnight,
+
+          borderRadius:
+              BorderRadius.circular(
+            11,
+          ),
+
+          border:
+              Border.all(
+            color:
+                selected
+                    ? AppColors.skyBlue
+                        .withValues(
+                        alpha:
+                            0.32,
+                      )
+                    : AppColors.skyBlue
+                        .withValues(
+                        alpha:
+                            0.10,
+                      ),
+          ),
         ),
 
         child:
-            Container(
-          padding:
-              const EdgeInsets.all(
-            14,
-          ),
+            Row(
+          mainAxisSize:
+              MainAxisSize.min,
 
-          decoration:
-              BoxDecoration(
-            color:
-                AppColors.eleganceMidnight,
+          children: [
+            Text(
+              label,
 
-            borderRadius:
-                BorderRadius.circular(
-              17,
-            ),
+              style:
+                  TextStyle(
+                color:
+                    selected
+                        ? AppColors.pureWhite
+                        : AppColors.pureWhite
+                            .withValues(
+                            alpha:
+                                0.58,
+                          ),
 
-            border:
-                Border.all(
-              color:
-                  AppColors.skyBlue
-                      .withOpacity(
-                0.12,
-              ),
-            ),
-          ),
-
-          child:
-              Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width:
-                        40,
-
-                    height:
-                        40,
-
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          AppColors.brandNightBlue,
-
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
-                    ),
-
-                    child:
-                        const Icon(
-                      Icons.groups_rounded,
-
-                      color:
-                          AppColors.skyBlue,
-
-                      size:
-                          21,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  if (group.isOwner)
-                    const Icon(
-                      Icons
-                          .admin_panel_settings_outlined,
-
-                      color:
-                          AppColors.materialSky,
-
-                      size:
-                          17,
-                    ),
-                ],
-              ),
-
-              const SizedBox(
-                height:
+                fontSize:
                     10,
+
+                fontWeight:
+                    selected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+              ),
+            ),
+
+            const SizedBox(
+              width:
+                  7,
+            ),
+
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal:
+                    6,
+
+                vertical:
+                    2,
               ),
 
-              Text(
-                group.name,
+              decoration:
+                  BoxDecoration(
+                color:
+                    AppColors.brandNightBlue,
 
-                maxLines:
-                    2,
-
-                overflow:
-                    TextOverflow.ellipsis,
-
-                style:
-                    const TextStyle(
-                  color:
-                      AppColors.pureWhite,
-
-                  fontSize:
-                      13,
-
-                  fontWeight:
-                      FontWeight.bold,
+                borderRadius:
+                    BorderRadius.circular(
+                  7,
                 ),
               ),
 
-              const SizedBox(
-                height:
-                    5,
-              ),
-
-              Text(
-                group.subject.isEmpty
-                    ? 'Materia non specificata'
-                    : group.subject,
-
-                maxLines:
-                    1,
-
-                overflow:
-                    TextOverflow.ellipsis,
+              child:
+                  Text(
+                '$count',
 
                 style:
                     const TextStyle(
@@ -3365,38 +3538,14 @@ class _MiniGroupCard
                       AppColors.materialSky,
 
                   fontSize:
-                      10,
+                      9,
+
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
-
-              const Spacer(),
-
-              Row(
-                children: [
-                  _MiniInfo(
-                    icon:
-                        Icons.people_outline_rounded,
-
-                    text:
-                        '${group.memberCount}',
-                  ),
-
-                  const SizedBox(
-                    width:
-                        12,
-                  ),
-
-                  _MiniInfo(
-                    icon:
-                        Icons.folder_outlined,
-
-                    text:
-                        '${group.materialCount}',
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -3404,17 +3553,18 @@ class _MiniGroupCard
 }
 
 
-class _MiniInfo
+class _EmptyGroupHubCard
     extends StatelessWidget {
 
-  final IconData icon;
+  final bool filtered;
+  final Future<void> Function() onCreate;
+  final Future<void> Function() onExplore;
 
-  final String text;
 
-
-  const _MiniInfo({
-    required this.icon,
-    required this.text,
+  const _EmptyGroupHubCard({
+    required this.filtered,
+    required this.onCreate,
+    required this.onExplore,
   });
 
 
@@ -3422,39 +3572,193 @@ class _MiniInfo
   Widget build(
     BuildContext context,
   ) {
-    return Row(
-      mainAxisSize:
-          MainAxisSize.min,
+    return Container(
+      width:
+          double.infinity,
 
-      children: [
-        Icon(
-          icon,
+      padding:
+          const EdgeInsets.all(
+        24,
+      ),
 
-          size:
-              13,
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.eleganceMidnight,
 
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
+
+        border:
+            Border.all(
           color:
-              Colors.white38,
-        ),
-
-        const SizedBox(
-          width:
-              4,
-        ),
-
-        Text(
-          text,
-
-          style:
-              const TextStyle(
-            color:
-                Colors.white54,
-
-            fontSize:
-                9,
+              AppColors.skyBlue
+                  .withValues(
+            alpha:
+                0.10,
           ),
         ),
-      ],
+      ),
+
+      child:
+          Column(
+        children: [
+          Container(
+            width:
+                58,
+
+            height:
+                58,
+
+            decoration:
+                BoxDecoration(
+              color:
+                  AppColors.brandNightBlue,
+
+              borderRadius:
+                  BorderRadius.circular(
+                16,
+              ),
+            ),
+
+            child:
+                const Icon(
+              Icons.groups_outlined,
+
+              color:
+                  AppColors.skyBlue,
+
+              size:
+                  30,
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                14,
+          ),
+
+          Text(
+            filtered
+                ? 'Nessun gruppo in questa sezione'
+                : 'Non partecipi ancora a gruppi',
+
+            textAlign:
+                TextAlign.center,
+
+            style:
+                const TextStyle(
+              color:
+                  AppColors.pureWhite,
+
+              fontSize:
+                  15,
+
+              fontWeight:
+                  FontWeight.w600,
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                6,
+          ),
+
+          Text(
+            filtered
+                ? 'Prova un altro filtro per visualizzare i tuoi gruppi.'
+                : 'Crea un nuovo gruppo di studio oppure esplora quelli disponibili su StudentLab.',
+
+            textAlign:
+                TextAlign.center,
+
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite
+                      .withValues(
+                alpha:
+                    0.50,
+              ),
+
+              fontSize:
+                  11,
+
+              height:
+                  1.4,
+            ),
+          ),
+
+          if (!filtered) ...[
+            const SizedBox(
+              height:
+                  16,
+            ),
+
+            Wrap(
+              spacing:
+                  10,
+
+              runSpacing:
+                  10,
+
+              alignment:
+                  WrapAlignment.center,
+
+              children: [
+                OutlinedButton.icon(
+                  onPressed:
+                      () {
+                    onCreate();
+                  },
+
+                  icon:
+                      const Icon(
+                    Icons
+                        .add_circle_outline_rounded,
+                  ),
+
+                  label:
+                      const Text(
+                    'Crea gruppo',
+                  ),
+                ),
+
+                ElevatedButton.icon(
+                  onPressed:
+                      () {
+                    onExplore();
+                  },
+
+                  icon:
+                      const Icon(
+                    Icons.search_rounded,
+                  ),
+
+                  label:
+                      const Text(
+                    'Esplora',
+                  ),
+
+                  style:
+                      ElevatedButton.styleFrom(
+                    backgroundColor:
+                        AppColors.socialBlue,
+
+                    foregroundColor:
+                        AppColors.pureWhite,
+
+                    elevation:
+                        0,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -3709,7 +4013,7 @@ class _ProfileCapabilityChip
           BoxDecoration(
         color:
             AppColors.skyBlue
-                .withOpacity(
+                .withValues(alpha: 
           0.08,
         ),
 
@@ -3722,7 +4026,7 @@ class _ProfileCapabilityChip
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.15,
           ),
         ),
@@ -3813,7 +4117,7 @@ class _ProfileAcademicTitleCard
             Border.all(
           color:
               Colors.amber
-                  .withOpacity(
+                  .withValues(alpha: 
             0.18,
           ),
         ),
@@ -3841,7 +4145,7 @@ class _ProfileAcademicTitleCard
                     BoxDecoration(
                   color:
                       Colors.amber
-                          .withOpacity(
+                          .withValues(alpha: 
                     0.10,
                   ),
 
@@ -3908,7 +4212,7 @@ class _ProfileAcademicTitleCard
                             TextStyle(
                           color:
                               AppColors.pureWhite
-                                  .withOpacity(
+                                  .withValues(alpha: 
                             0.62,
                           ),
 
@@ -3972,7 +4276,7 @@ class _ProfileAcademicTitleCard
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
+                        .withValues(alpha: 
                   0.42,
                 ),
 
@@ -4058,7 +4362,7 @@ class _ProfileAcademicPathCard
             Border.all(
           color:
               AppColors.skyBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.12,
           ),
         ),
@@ -4236,7 +4540,7 @@ class _ProfileAcademicInfoRow
                 TextStyle(
               color:
                   AppColors.pureWhite
-                      .withOpacity(
+                      .withValues(alpha: 
                 0.38,
               ),
 
@@ -4260,7 +4564,7 @@ class _ProfileAcademicInfoRow
                 TextStyle(
               color:
                   AppColors.pureWhite
-                      .withOpacity(
+                      .withValues(alpha: 
                 0.72,
               ),
 
@@ -4339,7 +4643,7 @@ class _ProfileAcademicStatusBadge
           BoxDecoration(
         color:
             AppColors.skyBlue
-                .withOpacity(
+                .withValues(alpha: 
           0.10,
         ),
 
@@ -4418,7 +4722,7 @@ class _ProfileSmallBadge
           BoxDecoration(
         color:
             AppColors.pureWhite
-                .withOpacity(
+                .withValues(alpha: 
           0.05,
         ),
 
@@ -4436,7 +4740,7 @@ class _ProfileSmallBadge
             TextStyle(
           color:
               AppColors.pureWhite
-                  .withOpacity(
+                  .withValues(alpha: 
             0.60,
           ),
 
@@ -4517,7 +4821,7 @@ class _ProfileVerificationBadge
       decoration:
           BoxDecoration(
         color:
-            color.withOpacity(
+            color.withValues(alpha: 
           0.10,
         ),
 
@@ -4601,7 +4905,7 @@ class _ProfileSubjectCard
           BoxDecoration(
         color:
             AppColors.socialBlue
-                .withOpacity(
+                .withValues(alpha: 
           0.08,
         ),
 
@@ -4614,7 +4918,7 @@ class _ProfileSubjectCard
             Border.all(
           color:
               AppColors.socialBlue
-                  .withOpacity(
+                  .withValues(alpha: 
             0.18,
           ),
         ),
@@ -4733,7 +5037,7 @@ class _ProfileSubjectCard
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
+                        .withValues(alpha: 
                   0.55,
                 ),
 
@@ -4822,7 +5126,7 @@ class _ProfileTeacherAssignmentCard
           BoxDecoration(
         color:
             AppColors.teacherIndigo
-                .withOpacity(
+                .withValues(alpha: 
           0.08,
         ),
 
@@ -4835,7 +5139,7 @@ class _ProfileTeacherAssignmentCard
             Border.all(
           color:
               AppColors.teacherIndigo
-                  .withOpacity(
+                  .withValues(alpha: 
             0.18,
           ),
         ),
@@ -4965,7 +5269,7 @@ class _ProfileSubjectBadge
           BoxDecoration(
         color:
             AppColors.skyBlue
-                .withOpacity(
+                .withValues(alpha: 
           0.10,
         ),
 
@@ -5111,7 +5415,7 @@ class _ProfileReviewSummary
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
+                        .withValues(alpha: 
                   0.50,
                 ),
 
@@ -5436,13 +5740,17 @@ Future<List<StudyGroup>>
           : await apiService
               .getGroups();
 
-  final List<StudyGroup> result =
-      [];
+  final Map<int, StudyGroup>
+      groupsById =
+      {};
 
-  for (final Map<String, dynamic>
-      rawGroup in rawGroups) {
-
-    final Map<String, dynamic> merged =
+  for (
+    final Map<String, dynamic>
+        rawGroup
+    in rawGroups
+  ) {
+    final Map<String, dynamic>
+        merged =
         Map<String, dynamic>.from(
       rawGroup,
     );
@@ -5452,42 +5760,78 @@ Future<List<StudyGroup>>
       rawGroup['id'],
     );
 
-    if (groupId != null) {
-      try {
-        final Map<String, dynamic>
-            detail =
-            await apiService
-                .getGroup(
-          groupId,
-        );
-
-        merged.addAll(
-          detail,
-        );
-      } catch (_) {}
-
-      try {
-        final List<Map<String, dynamic>>
-            materials =
-            await apiService
-                .getGroupMaterials(
-          groupId,
-        );
-
-        merged['material_count'] =
-            materials.length;
-      } catch (_) {}
+    if (
+      groupId == null ||
+      groupId <= 0
+    ) {
+      continue;
     }
 
-    result.add(
-      StudyGroup.fromJson(
-        merged,
+    try {
+      final Map<String, dynamic>
+          detail =
+          await apiService
+              .getGroup(
+        groupId,
+      );
 
-        currentUserId:
-            currentUserId,
-      ),
+      merged.addAll(
+        detail,
+      );
+    } catch (_) {}
+
+    try {
+      final List<Map<String, dynamic>>
+          materials =
+          await apiService
+              .getGroupMaterials(
+        groupId,
+      );
+
+      merged['material_count'] =
+          materials.length;
+    } catch (_) {}
+
+    groupsById[groupId] =
+        StudyGroup.fromJson(
+      merged,
+
+      currentUserId:
+          currentUserId,
     );
   }
+
+  final List<StudyGroup> result =
+      groupsById.values
+          .toList();
+
+  result.sort(
+    (
+      StudyGroup a,
+      StudyGroup b,
+    ) {
+      if (
+        a.isOwner &&
+        !b.isOwner
+      ) {
+        return -1;
+      }
+
+      if (
+        !a.isOwner &&
+        b.isOwner
+      ) {
+        return 1;
+      }
+
+      return a.name
+          .toLowerCase()
+          .compareTo(
+        b.name
+            .toLowerCase(),
+      );
+    },
+  );
 
   return result;
 }

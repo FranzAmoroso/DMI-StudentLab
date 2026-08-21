@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../models/quiz_model.dart';
 import '../social/social_models.dart';
 import '../social/notifications/models/notification_model.dart';
+import '../social/news/models/group_news.dart';
 
 import 'auth_session.dart';
 
@@ -1192,7 +1193,7 @@ class ApiService {
   Future<Map<String, dynamic>> createGroup({
     required String name,
     required String description,
-    required int subjectId,
+    required int? subjectId,
     required String university,
     required String department,
     required String course,
@@ -1210,25 +1211,10 @@ class ApiService {
       'is_private': isPrivate,
     };
 
-    print(
-      'CREATE GROUP REQUEST: '
-      '${jsonEncode(body)}',
-    );
-
     final http.Response response = await http.post(
       url,
       headers: _jsonHeaders,
       body: jsonEncode(body),
-    );
-
-    print(
-      'CREATE GROUP STATUS: '
-      '${response.statusCode}',
-    );
-
-    print(
-      'CREATE GROUP RESPONSE: '
-      '${response.body}',
     );
 
     return _decodeMapResponse(response, 'Errore creazione gruppo');
@@ -1426,6 +1412,219 @@ class ApiService {
     final http.Response response = await http.post(url, headers: _jsonHeaders);
 
     return _decodeMapResponse(response, 'Errore rifiuto richiesta');
+  }
+
+  Future<Map<String, dynamic>> createGroupNewsReport({
+    required int newsId,
+    required String reason,
+    String description = '',
+  }) async {
+    if (newsId <= 0) {
+      throw ArgumentError('Identificativo comunicazione non valido.');
+    }
+
+    final String normalizedReason = reason.trim().toLowerCase();
+    final String normalizedDescription = description.trim();
+
+    if (normalizedReason.isEmpty) {
+      throw ArgumentError('Seleziona il motivo della segnalazione.');
+    }
+
+    final Uri url = _apiUri('/group-news-reports/news/$newsId');
+
+    final http.Response response = await http.post(
+      url,
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'reason': normalizedReason,
+        'description': normalizedDescription,
+      }),
+    );
+
+    return _decodeMapResponse(
+      response,
+      'Errore invio segnalazione comunicazione',
+    );
+  }
+
+  Future<GroupNewsPrivateInboxResult> getPrivateGroupNews({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final Uri url = _apiUri(
+      '/group-news/private',
+      queryParameters: {
+        'limit': limit.clamp(1, 100),
+        'offset': offset < 0 ? 0 : offset,
+      },
+    );
+
+    final http.Response response =
+        await http.get(url, headers: _jsonHeaders);
+
+    final Map<String, dynamic> data = _decodeMapResponse(
+      response,
+      'Errore caricamento comunicazioni private',
+    );
+
+    return GroupNewsPrivateInboxResult.fromJson(data);
+  }
+
+  Future<GroupNewsFeedResult> getGroupNews({
+    required int groupId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    if (groupId <= 0) {
+      throw ArgumentError('Identificativo gruppo non valido.');
+    }
+
+    final Uri url = _apiUri(
+      '/group-news/groups/$groupId',
+      queryParameters: {
+        'limit': limit.clamp(1, 100),
+        'offset': offset < 0 ? 0 : offset,
+      },
+    );
+
+    final http.Response response =
+        await http.get(url, headers: _jsonHeaders);
+
+    final Map<String, dynamic> data = _decodeMapResponse(
+      response,
+      'Errore caricamento news del gruppo',
+    );
+
+    return GroupNewsFeedResult.fromJson(data);
+  }
+
+  Future<GroupNews> createGroupNews({
+    required int groupId,
+    required String content,
+    String visibility = 'group',
+    int? recipientUserId,
+    int? parentNewsId,
+  }) async {
+    if (groupId <= 0) {
+      throw ArgumentError('Identificativo gruppo non valido.');
+    }
+
+    final String normalizedContent = content.trim();
+
+    if (normalizedContent.isEmpty) {
+      throw ArgumentError('Inserisci il contenuto della comunicazione.');
+    }
+
+    final String normalizedVisibility =
+        visibility.trim().toLowerCase();
+
+    if (normalizedVisibility != 'group' &&
+        normalizedVisibility != 'private') {
+      throw ArgumentError('Visibilità della comunicazione non valida.');
+    }
+
+    if (normalizedVisibility == 'private' &&
+        (recipientUserId == null || recipientUserId <= 0)) {
+      throw ArgumentError('Seleziona un destinatario valido.');
+    }
+
+    final Uri url = _apiUri('/group-news/groups/$groupId');
+
+    final http.Response response = await http.post(
+      url,
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'visibility': normalizedVisibility,
+        'recipient_user_id': recipientUserId,
+        'parent_news_id': parentNewsId,
+        'content': normalizedContent,
+      }),
+    );
+
+    final Map<String, dynamic> data = _decodeMapResponse(
+      response,
+      'Errore pubblicazione comunicazione',
+    );
+
+    final Map<String, dynamic> normalized = {
+      ...data,
+      'is_private': data['visibility'] == 'private',
+      'can_reply': true,
+      'can_delete': true,
+      'can_moderate': false,
+      'can_report': false,
+      'can_block_author': false,
+      'group_name': data['group_name'] ?? '',
+      'subject_name': data['subject_name'] ?? '',
+    };
+
+    return GroupNews.fromJson(normalized);
+  }
+
+  Future<void> deleteGroupNews(int newsId) async {
+    if (newsId <= 0) {
+      throw ArgumentError('Identificativo comunicazione non valido.');
+    }
+
+    final Uri url = _apiUri('/group-news/$newsId');
+
+    final http.Response response =
+        await http.delete(url, headers: _jsonHeaders);
+
+    _checkSuccess(
+      response,
+      'Errore eliminazione comunicazione',
+    );
+  }
+
+  Future<GroupNews> moderateGroupNews({
+    required int newsId,
+    required String reason,
+    bool platformModeration = false,
+  }) async {
+    if (newsId <= 0) {
+      throw ArgumentError('Identificativo comunicazione non valido.');
+    }
+
+    final String normalizedReason = reason.trim();
+
+    if (normalizedReason.isEmpty) {
+      throw ArgumentError('Inserisci il motivo della moderazione.');
+    }
+
+    final Uri url = _apiUri(
+      platformModeration
+          ? '/group-news/$newsId/platform-moderate'
+          : '/group-news/$newsId/moderate',
+    );
+
+    final http.Response response = await http.post(
+      url,
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'action': 'remove_news',
+        'reason': normalizedReason,
+      }),
+    );
+
+    final Map<String, dynamic> data = _decodeMapResponse(
+      response,
+      'Errore moderazione comunicazione',
+    );
+
+    final Map<String, dynamic> normalized = {
+      ...data,
+      'is_private': data['visibility'] == 'private',
+      'can_reply': false,
+      'can_delete': false,
+      'can_moderate': false,
+      'can_report': false,
+      'can_block_author': false,
+      'group_name': data['group_name'] ?? '',
+      'subject_name': data['subject_name'] ?? '',
+    };
+
+    return GroupNews.fromJson(normalized);
   }
 
   Future<Map<String, dynamic>> getMaterialSyncManifest({
@@ -2114,6 +2313,91 @@ class ApiService {
     );
 
     return SocialUser.fromJson(data);
+  }
+
+  Future<Map<String, dynamic>> getUserBlockStatus(int userId) async {
+    if (userId <= 0) {
+      throw ArgumentError('Identificativo utente non valido.');
+    }
+
+    final Uri url = _apiUri('/user-blocks/$userId/status');
+
+    final http.Response response = await http.get(
+      url,
+      headers: _jsonHeaders,
+    );
+
+    return _decodeMapResponse(
+      response,
+      'Errore caricamento stato blocco utente',
+    );
+  }
+
+  Future<Map<String, dynamic>> blockUser(int userId) async {
+    if (userId <= 0) {
+      throw ArgumentError('Identificativo utente non valido.');
+    }
+
+    final Uri url = _apiUri('/user-blocks');
+
+    final http.Response response = await http.post(
+      url,
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'blocked_user_id': userId,
+      }),
+    );
+
+    return _decodeMapResponse(
+      response,
+      'Errore blocco utente',
+    );
+  }
+
+  Future<Map<String, dynamic>> unblockUser(int userId) async {
+    if (userId <= 0) {
+      throw ArgumentError('Identificativo utente non valido.');
+    }
+
+    final Uri url = _apiUri('/user-blocks/$userId');
+
+    final http.Response response = await http.delete(
+      url,
+      headers: _jsonHeaders,
+    );
+
+    return _decodeMapResponse(
+      response,
+      'Errore sblocco utente',
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getBlockedUsers() async {
+    final Uri url = _apiUri('/user-blocks');
+
+    final http.Response response = await http.get(
+      url,
+      headers: _jsonHeaders,
+    );
+
+    final Map<String, dynamic> data = _decodeMapResponse(
+      response,
+      'Errore caricamento utenti bloccati',
+    );
+
+    final dynamic items = data['items'];
+
+    if (items is! List) {
+      return [];
+    }
+
+    return items
+        .whereType<Map>()
+        .map(
+          (Map<dynamic, dynamic> item) =>
+              Map<String, dynamic>.from(item),
+        )
+        .toList();
   }
 
   Future<Map<String, dynamic>> createUserReport({
@@ -3105,6 +3389,152 @@ class ApiService {
     );
   }
 
+  Future<List<Map<String, dynamic>>> getTeacherMaterialAssignments({
+    required int materialId,
+    bool includeRevoked = false,
+  }) async {
+    if (materialId <= 0) {
+      throw ArgumentError('Identificativo materiale non valido.');
+    }
+
+    final Uri url = _apiUri(
+      '/teacher/materials/$materialId/assignments',
+      queryParameters: {'include_revoked': includeRevoked},
+    );
+
+    final http.Response response = await http.get(url, headers: _jsonHeaders);
+
+    return _decodeListResponse(
+      response,
+      'Errore caricamento assegnazioni materiale',
+    );
+  }
+
+  Future<Map<String, dynamic>> createTeacherMaterialAssignment({
+    required int materialId,
+    int? userId,
+    int? groupId,
+  }) async {
+    if (materialId <= 0) {
+      throw ArgumentError('Identificativo materiale non valido.');
+    }
+
+    final bool hasUser = userId != null;
+    final bool hasGroup = groupId != null;
+
+    if (hasUser == hasGroup) {
+      throw ArgumentError(
+        'Seleziona un solo destinatario tra studente e gruppo.',
+      );
+    }
+
+    if (userId != null && userId <= 0) {
+      throw ArgumentError('Identificativo studente non valido.');
+    }
+
+    if (groupId != null && groupId <= 0) {
+      throw ArgumentError('Identificativo gruppo non valido.');
+    }
+
+    final Uri url = _apiUri(
+      '/teacher/materials/$materialId/assignments',
+    );
+
+    final http.Response response = await http.post(
+      url,
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'user_id': userId,
+        'group_id': groupId,
+      }),
+    );
+
+    return _decodeMapResponse(
+      response,
+      'Errore assegnazione materiale',
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> createTeacherMaterialAssignmentsBulk({
+    required int materialId,
+    List<int> userIds = const [],
+    List<int> groupIds = const [],
+  }) async {
+    if (materialId <= 0) {
+      throw ArgumentError('Identificativo materiale non valido.');
+    }
+
+    final List<int> normalizedUserIds =
+        userIds.where((int id) => id > 0).toSet().toList();
+    final List<int> normalizedGroupIds =
+        groupIds.where((int id) => id > 0).toSet().toList();
+
+    if (normalizedUserIds.isEmpty && normalizedGroupIds.isEmpty) {
+      throw ArgumentError(
+        'Seleziona almeno uno studente o un gruppo.',
+      );
+    }
+
+    final Uri url = _apiUri(
+      '/teacher/materials/$materialId/assignments/bulk',
+    );
+
+    final http.Response response = await http.post(
+      url,
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'user_ids': normalizedUserIds,
+        'group_ids': normalizedGroupIds,
+      }),
+    );
+
+    return _decodeListResponse(
+      response,
+      'Errore assegnazione multipla materiale',
+    );
+  }
+
+  Future<Map<String, dynamic>> getTeacherMaterialAssignment(
+    int assignmentId,
+  ) async {
+    if (assignmentId <= 0) {
+      throw ArgumentError('Identificativo assegnazione non valido.');
+    }
+
+    final Uri url = _apiUri(
+      '/teacher-material-assignments/$assignmentId',
+    );
+
+    final http.Response response = await http.get(url, headers: _jsonHeaders);
+
+    return _decodeMapResponse(
+      response,
+      'Errore caricamento assegnazione materiale',
+    );
+  }
+
+  Future<Map<String, dynamic>> revokeTeacherMaterialAssignment(
+    int assignmentId,
+  ) async {
+    if (assignmentId <= 0) {
+      throw ArgumentError('Identificativo assegnazione non valido.');
+    }
+
+    final Uri url = _apiUri(
+      '/teacher-material-assignments/$assignmentId/revoke',
+    );
+
+    final http.Response response = await http.patch(
+      url,
+      headers: _jsonHeaders,
+    );
+
+    return _decodeMapResponse(
+      response,
+      'Errore revoca assegnazione materiale',
+    );
+  }
+
   Future<Map<String, dynamic>> getTeacherMaterial(int materialId) async {
     final Uri url = _apiUri('/teacher/materials/$materialId');
 
@@ -3886,4 +4316,96 @@ class ApiService {
   Future<Uint8List> downloadTeacherMaterial(int materialId) {
     return downloadMaterial(source: 'teacher', materialId: materialId);
   }
+
+  Future<Map<String, dynamic>> deleteAdminUser(
+  int userId,
+) async {
+  if (userId <= 0) {
+    throw ArgumentError(
+      'Identificativo utente non valido.',
+    );
+  }
+
+  final Uri url = _apiUri(
+    '/admin/users/$userId',
+  );
+
+  final http.Response response = await http.delete(
+    url,
+    headers: _jsonHeaders,
+  );
+
+  return _decodeMapResponse(
+    response,
+    'Errore eliminazione account utente',
+  );
+}
+
+Future<Map<String, dynamic>> contactUser({
+  required int userId,
+  required String requestType,
+  int? subjectId,
+  required String subject,
+  required String message,
+}) async {
+  if (userId <= 0) {
+    throw ArgumentError('Destinatario non valido.');
+  }
+
+  final String normalizedType = requestType.trim().toLowerCase();
+
+  if (!{
+    'general',
+    'help',
+    'private_lesson',
+  }.contains(normalizedType)) {
+    throw ArgumentError('Tipo di richiesta non valido.');
+  }
+
+  if ((normalizedType == 'help' ||
+          normalizedType == 'private_lesson') &&
+      (subjectId == null || subjectId <= 0)) {
+    throw ArgumentError('Seleziona una materia valida.');
+  }
+
+  final String normalizedSubject =
+      subject.trim().split(RegExp(r'\s+')).join(' ');
+  final String normalizedMessage = message.trim();
+
+  if (normalizedSubject.isEmpty) {
+    throw ArgumentError('Inserisci l’oggetto della richiesta.');
+  }
+
+  if (normalizedSubject.length > 160 ||
+      normalizedSubject.contains('\n') ||
+      normalizedSubject.contains('\r')) {
+    throw ArgumentError('Oggetto della richiesta non valido.');
+  }
+
+  if (normalizedMessage.isEmpty) {
+    throw ArgumentError('Inserisci il messaggio.');
+  }
+
+  if (normalizedMessage.length > 5000) {
+    throw ArgumentError('Il messaggio è troppo lungo.');
+  }
+
+  final Uri url = _apiUri('/contact/users/$userId');
+
+  final http.Response response = await http.post(
+    url,
+    headers: _jsonHeaders,
+    body: jsonEncode({
+      'request_type': normalizedType,
+      'subject_id': subjectId,
+      'subject': normalizedSubject,
+      'message': normalizedMessage,
+    }),
+  );
+
+  return _decodeMapResponse(
+    response,
+    'Errore invio richiesta',
+  );
+}
 }

@@ -7,13 +7,11 @@ import 'package:open_filex/open_filex.dart';
 import '../../services/api_service.dart';
 import '../../theme/nightTheme.dart';
 
-
 class AdminMaterialPublicationsPage
     extends StatefulWidget {
   const AdminMaterialPublicationsPage({
     super.key,
   });
-
 
   @override
   State<AdminMaterialPublicationsPage>
@@ -21,18 +19,15 @@ class AdminMaterialPublicationsPage
           _AdminMaterialPublicationsPageState();
 }
 
-
 class _AdminMaterialPublicationsPageState
     extends State<AdminMaterialPublicationsPage> {
 
   final ApiService _apiService =
       ApiService();
 
-
   List<Map<String, dynamic>>
       _requests =
       [];
-
 
   bool _loading =
       true;
@@ -45,14 +40,12 @@ class _AdminMaterialPublicationsPageState
   String _statusFilter =
       'pending';
 
-
   @override
   void initState() {
     super.initState();
 
     _loadRequests();
   }
-
 
   Future<void> _loadRequests() async {
     if (!mounted) {
@@ -113,7 +106,6 @@ class _AdminMaterialPublicationsPageState
     }
   }
 
-
   Future<void> _changeFilter(
     String value,
   ) async {
@@ -133,7 +125,6 @@ class _AdminMaterialPublicationsPageState
 
     await _loadRequests();
   }
-
 
   Future<void> _openRequest(
     Map<String, dynamic> request,
@@ -195,7 +186,6 @@ class _AdminMaterialPublicationsPageState
     }
   }
 
-
   @override
   Widget build(
     BuildContext context,
@@ -252,7 +242,6 @@ class _AdminMaterialPublicationsPageState
       ),
     );
   }
-
 
   Widget _buildFilters() {
     return Container(
@@ -361,7 +350,6 @@ class _AdminMaterialPublicationsPageState
       ),
     );
   }
-
 
   Widget _buildBody() {
     if (_loading) {
@@ -520,7 +508,6 @@ class _AdminMaterialPublicationsPageState
     );
   }
 
-
   Widget _buildErrorState() {
     return Center(
       child:
@@ -659,7 +646,6 @@ class _AdminMaterialPublicationsPageState
     );
   }
 
-
   String _emptyMessage() {
     switch (_statusFilter) {
       case 'pending':
@@ -675,7 +661,6 @@ class _AdminMaterialPublicationsPageState
         return 'Non sono presenti richieste di pubblicazione.';
     }
   }
-
 
   String _friendlyError(
     Object error,
@@ -744,7 +729,6 @@ class _AdminMaterialPublicationsPageState
     return 'Non è stato possibile caricare le richieste dei materiali.';
   }
 
-
   int? _toInt(
     dynamic value,
   ) {
@@ -761,7 +745,6 @@ class _AdminMaterialPublicationsPageState
           '',
     );
   }
-
 
   void _showMessage(
     String message,
@@ -783,7 +766,6 @@ class _AdminMaterialPublicationsPageState
   }
 }
 
-
 class _AdminMaterialPublicationDetailPage
     extends StatefulWidget {
 
@@ -792,12 +774,10 @@ class _AdminMaterialPublicationDetailPage
 
   final ApiService apiService;
 
-
   const _AdminMaterialPublicationDetailPage({
     required this.request,
     required this.apiService,
   });
-
 
   @override
   State<_AdminMaterialPublicationDetailPage>
@@ -805,13 +785,11 @@ class _AdminMaterialPublicationDetailPage
           _AdminMaterialPublicationDetailPageState();
 }
 
-
 class _AdminMaterialPublicationDetailPageState
     extends State<_AdminMaterialPublicationDetailPage> {
 
   late Map<String, dynamic>
       _request;
-
 
   bool _processing =
       false;
@@ -824,7 +802,6 @@ class _AdminMaterialPublicationDetailPageState
 
   String? _error;
 
-
   @override
   void initState() {
     super.initState();
@@ -835,12 +812,10 @@ class _AdminMaterialPublicationDetailPageState
     );
   }
 
-
   int? get _requestId =>
       _toInt(
         _request['id'],
       );
-
 
   String get _status =>
       (
@@ -851,7 +826,6 @@ class _AdminMaterialPublicationDetailPageState
       ) ??
       'pending';
 
-
   String get _duplicateStatus =>
       (
         _request['duplicate_status']
@@ -861,11 +835,9 @@ class _AdminMaterialPublicationDetailPageState
       ) ??
       'none';
 
-
   bool get _isPending =>
       _status ==
       'pending';
-
 
   bool get _hasPossibleDuplicate =>
       _toInt(
@@ -874,7 +846,6 @@ class _AdminMaterialPublicationDetailPageState
         ],
       ) !=
       null;
-
 
   Future<void> _refreshDetail() async {
     final int? id =
@@ -916,7 +887,6 @@ class _AdminMaterialPublicationDetailPageState
       });
     }
   }
-
 
   Future<void> _openSubmittedFile() async {
     final int? id =
@@ -996,7 +966,6 @@ class _AdminMaterialPublicationDetailPageState
       }
     }
   }
-
 
   Future<void> _openPossibleDuplicate() async {
     final int? id =
@@ -1084,7 +1053,6 @@ class _AdminMaterialPublicationDetailPageState
       }
     }
   }
-
 
   Future<void> _reviewDuplicate(
     String duplicateStatus,
@@ -1181,7 +1149,6 @@ class _AdminMaterialPublicationDetailPageState
       }
     }
   }
-
 
   Future<void> _approve() async {
     final int? id =
@@ -1285,7 +1252,6 @@ class _AdminMaterialPublicationDetailPageState
     }
   }
 
-
   Future<void> _reject() async {
     final int? id =
         _requestId;
@@ -1363,7 +1329,6 @@ class _AdminMaterialPublicationDetailPageState
       }
     }
   }
-
 
   Future<String?> _askOptionalNote({
     required String title,
@@ -1493,7 +1458,6 @@ class _AdminMaterialPublicationDetailPageState
 
     return result;
   }
-
 
   Future<_RejectResult?> _askRejection() async {
     final TextEditingController
@@ -1672,7 +1636,6 @@ class _AdminMaterialPublicationDetailPageState
     return result;
   }
 
-
   @override
   Widget build(
     BuildContext context,
@@ -1803,7 +1766,6 @@ class _AdminMaterialPublicationDetailPageState
       ),
     );
   }
-
 
   Widget _buildHeader() {
     return Container(
@@ -1949,7 +1911,6 @@ class _AdminMaterialPublicationDetailPageState
     );
   }
 
-
   Widget _buildAcademicData() {
     return _Section(
       title:
@@ -2012,7 +1973,6 @@ class _AdminMaterialPublicationDetailPageState
       ),
     );
   }
-
 
   Widget _buildFileSection() {
     return _Section(
@@ -2108,7 +2068,6 @@ class _AdminMaterialPublicationDetailPageState
       ),
     );
   }
-
 
   Widget _buildDuplicateSection() {
     return _Section(
@@ -2270,7 +2229,6 @@ class _AdminMaterialPublicationDetailPageState
     );
   }
 
-
   Widget _buildModerationInfo() {
     return _Section(
       title:
@@ -2326,7 +2284,6 @@ class _AdminMaterialPublicationDetailPageState
       ),
     );
   }
-
 
   Widget _buildActions() {
     return Column(
@@ -2431,7 +2388,6 @@ class _AdminMaterialPublicationDetailPageState
     );
   }
 
-
   Widget _buildError() {
     return Container(
       padding:
@@ -2506,7 +2462,6 @@ class _AdminMaterialPublicationDetailPageState
     );
   }
 
-
   Future<File> _writeTemporaryFile({
     required Uint8List bytes,
     required String fileName,
@@ -2541,7 +2496,6 @@ class _AdminMaterialPublicationDetailPageState
     return file;
   }
 
-
   String _safeFileName(
     String value,
   ) {
@@ -2557,7 +2511,6 @@ class _AdminMaterialPublicationDetailPageState
         ? 'materiale'
         : cleaned;
   }
-
 
   String _value(
     String key, {
@@ -2578,7 +2531,6 @@ class _AdminMaterialPublicationDetailPageState
         : text;
   }
 
-
   int? _toInt(
     dynamic value,
   ) {
@@ -2595,7 +2547,6 @@ class _AdminMaterialPublicationDetailPageState
           '',
     );
   }
-
 
   String _formatSize(
     int? size,
@@ -2620,7 +2571,6 @@ class _AdminMaterialPublicationDetailPageState
 
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
-
 
   String _formatDate(
     String raw,
@@ -2648,7 +2598,6 @@ class _AdminMaterialPublicationDetailPageState
         '${local.minute.toString().padLeft(2, '0')}';
   }
 
-
   String _duplicateLabel() {
     switch (_duplicateStatus) {
       case 'suspected':
@@ -2664,7 +2613,6 @@ class _AdminMaterialPublicationDetailPageState
         return 'Nessun duplicato';
     }
   }
-
 
   String _duplicateDescription() {
     switch (_duplicateStatus) {
@@ -2682,7 +2630,6 @@ class _AdminMaterialPublicationDetailPageState
     }
   }
 
-
   Color _statusColor() {
     switch (_status) {
       case 'approved':
@@ -2695,7 +2642,6 @@ class _AdminMaterialPublicationDetailPageState
         return Colors.amber;
     }
   }
-
 
   String _friendlyError(
     Object error,
@@ -2789,7 +2735,6 @@ class _AdminMaterialPublicationDetailPageState
     return 'Non è stato possibile completare l’operazione. Riprova.';
   }
 
-
   void _showMessage(
     String message,
   ) {
@@ -2810,7 +2755,6 @@ class _AdminMaterialPublicationDetailPageState
   }
 }
 
-
 class _PublicationRequestCard
     extends StatelessWidget {
 
@@ -2819,12 +2763,10 @@ class _PublicationRequestCard
 
   final VoidCallback onTap;
 
-
   const _PublicationRequestCard({
     required this.request,
     required this.onTap,
   });
-
 
   @override
   Widget build(
@@ -3096,7 +3038,6 @@ class _PublicationRequestCard
     );
   }
 
-
   Color _statusColor(
     String status,
   ) {
@@ -3113,17 +3054,14 @@ class _PublicationRequestCard
   }
 }
 
-
 class _StatusBadge
     extends StatelessWidget {
 
   final String status;
 
-
   const _StatusBadge({
     required this.status,
   });
-
 
   @override
   Widget build(
@@ -3209,7 +3147,6 @@ class _StatusBadge
   }
 }
 
-
 class _FilterChip
     extends StatelessWidget {
 
@@ -3219,13 +3156,11 @@ class _FilterChip
 
   final VoidCallback onTap;
 
-
   const _FilterChip({
     required this.label,
     required this.selected,
     required this.onTap,
   });
-
 
   @override
   Widget build(
@@ -3306,7 +3241,6 @@ class _FilterChip
   }
 }
 
-
 class _Section
     extends StatelessWidget {
 
@@ -3316,13 +3250,11 @@ class _Section
 
   final Widget child;
 
-
   const _Section({
     required this.title,
     required this.icon,
     required this.child,
   });
-
 
   @override
   Widget build(
@@ -3407,7 +3339,6 @@ class _Section
   }
 }
 
-
 class _InfoRow
     extends StatelessWidget {
 
@@ -3415,12 +3346,10 @@ class _InfoRow
 
   final String value;
 
-
   const _InfoRow({
     required this.label,
     required this.value,
   });
-
 
   @override
   Widget build(
@@ -3494,7 +3423,6 @@ class _InfoRow
   }
 }
 
-
 class _SmallBadge
     extends StatelessWidget {
 
@@ -3502,12 +3430,10 @@ class _SmallBadge
 
   final String label;
 
-
   const _SmallBadge({
     required this.icon,
     required this.label,
   });
-
 
   @override
   Widget build(
@@ -3576,13 +3502,11 @@ class _SmallBadge
   }
 }
 
-
 class _RejectResult {
 
   final String reason;
 
   final String note;
-
 
   const _RejectResult({
     required this.reason,

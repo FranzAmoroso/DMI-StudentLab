@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+
 import 'quiz.dart';
+import 'assigned_quizzes_page.dart';
+
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
 
 class SubjectSelection extends StatefulWidget {
   final String department;
@@ -13,46 +17,44 @@ class SubjectSelection extends StatefulWidget {
   });
 
   @override
-  State<SubjectSelection> createState() =>
-      _SubjectSelectionState();
+  State<SubjectSelection> createState() => _SubjectSelectionState();
 }
 
-class _SubjectSelectionState
-    extends State<SubjectSelection> {
+class _SubjectSelectionState extends State<SubjectSelection> {
+  final AuthSession _authSession = AuthSession.instance;
 
   String? selectedSub;
-
   final List<String> selectedArguments = [];
-
   List<String> subjects = [];
-
   List<String> availableArguments = [];
-
   int selectedQuiz = 10;
-
   int availableQuestions = 0;
-
   bool loadingSubjects = false;
-
   bool isLoadingArguments = false;
-
   bool isLoadingQuestions = false;
 
   final TextEditingController _questionController =
       TextEditingController(text: '10');
 
+  bool get _isAuthenticated => _authSession.isAuthenticated;
+
   @override
   void initState() {
     super.initState();
-
+    _authSession.addListener(_onAuthChanged);
     _loadSubjects();
   }
 
   @override
   void dispose() {
+    _authSession.removeListener(_onAuthChanged);
     _questionController.dispose();
-
     super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _loadSubjects() async {
@@ -85,6 +87,16 @@ class _SubjectSelectionState
     }
   }
 
+  Future<void> _openAssignedQuizzes() async {
+    if (!_isAuthenticated) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const AssignedQuizzesPage(),
+      ),
+    );
+  }
+
   Future<void> _selectSubject() async {
     if (loadingSubjects) return;
 
@@ -109,20 +121,15 @@ class _SubjectSelectionState
             ),
             child: Column(
               children: [
-                // Indicatore
                 Container(
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color:
-                        Colors.grey.withOpacity(0.4),
-                    borderRadius:
-                        BorderRadius.circular(10),
+                    color: Colors.grey.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -133,9 +140,7 @@ class _SubjectSelectionState
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 Expanded(
                   child: subjects.isEmpty
                       ? const Center(
@@ -144,22 +149,15 @@ class _SubjectSelectionState
                           ),
                         )
                       : ListView.builder(
-                          itemCount:
-                              subjects.length,
-                          itemBuilder:
-                              (context, index) {
-                            final subject =
-                                subjects[index];
-
+                          itemCount: subjects.length,
+                          itemBuilder: (context, index) {
+                            final subject = subjects[index];
                             final bool isSelected =
-                                selectedSub ==
-                                    subject;
+                                selectedSub == subject;
 
                             return ListTile(
-                              title:
-                                  Text(subject),
-                              selected:
-                                  isSelected,
+                              title: Text(subject),
+                              selected: isSelected,
                               onTap: () {
                                 Navigator.pop(
                                   context,
@@ -181,23 +179,16 @@ class _SubjectSelectionState
 
     setState(() {
       selectedSub = result;
-
       selectedArguments.clear();
-
       availableArguments.clear();
-
       availableQuestions = 0;
-
       selectedQuiz = 10;
-
       _questionController.text = '10';
-
       isLoadingArguments = true;
     });
 
     try {
-      final arguments =
-          await ApiService().getArguments(
+      final arguments = await ApiService().getArguments(
         widget.department,
         widget.course,
         selectedSub!,
@@ -207,7 +198,6 @@ class _SubjectSelectionState
 
       setState(() {
         availableArguments = arguments;
-
         isLoadingArguments = false;
       });
     } catch (e) {
@@ -215,7 +205,6 @@ class _SubjectSelectionState
 
       setState(() {
         isLoadingArguments = false;
-
         availableArguments.clear();
       });
 
@@ -232,8 +221,7 @@ class _SubjectSelectionState
         List<String>.from(selectedArguments);
 
     final List<String>? result =
-        await showModalBottomSheet<
-            List<String>>(
+        await showModalBottomSheet<List<String>>(
       context: context,
       isScrollControlled: true,
       backgroundColor:
@@ -251,48 +239,32 @@ class _SubjectSelectionState
           ) {
             return SafeArea(
               child: Padding(
-                padding:
-                    const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Column(
-                  mainAxisSize:
-                      MainAxisSize.min,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Indicatore
                     Container(
                       width: 40,
                       height: 4,
-                      decoration:
-                          BoxDecoration(
-                        color: Colors.grey
-                            .withOpacity(0.4),
-                        borderRadius:
-                            BorderRadius.circular(
-                          10,
-                        ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
-                    // Titolo
                     const Align(
-                      alignment:
-                          Alignment.centerLeft,
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         'Seleziona argomenti',
                         style: TextStyle(
                           fontSize: 20,
-                          fontWeight:
-                              FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 12),
-
                     const Align(
-                      alignment:
-                          Alignment.centerLeft,
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         'Puoi selezionare più argomenti.',
                         style: TextStyle(
@@ -301,13 +273,9 @@ class _SubjectSelectionState
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 12),
-
-                    // Lista argomenti
                     Flexible(
-                      child: availableArguments
-                              .isEmpty
+                      child: availableArguments.isEmpty
                           ? const Center(
                               child: Text(
                                 'Nessun argomento disponibile.',
@@ -315,50 +283,33 @@ class _SubjectSelectionState
                             )
                           : ListView.builder(
                               shrinkWrap: true,
-                              itemCount:
-                                  availableArguments
-                                      .length,
-                              itemBuilder:
-                                  (
+                              itemCount: availableArguments.length,
+                              itemBuilder: (
                                 context,
                                 index,
                               ) {
                                 final argument =
-                                    availableArguments[
-                                        index];
-
-                                final bool
-                                    selected =
-                                    temporarySelection
-                                        .contains(
+                                    availableArguments[index];
+                                final bool selected =
+                                    temporarySelection.contains(
                                   argument,
                                 );
 
                                 return CheckboxListTile(
-                                  value:
-                                      selected,
-                                  title:
-                                      Text(
-                                    argument,
-                                  ),
-                                  onChanged:
-                                      (value) {
+                                  value: selected,
+                                  title: Text(argument),
+                                  onChanged: (value) {
                                     setModalState(
                                       () {
-                                        if (value ==
-                                            true) {
+                                        if (value == true) {
                                           if (!temporarySelection
-                                              .contains(
-                                            argument,
-                                          )) {
-                                            temporarySelection
-                                                .add(
+                                              .contains(argument)) {
+                                            temporarySelection.add(
                                               argument,
                                             );
                                           }
                                         } else {
-                                          temporarySelection
-                                              .remove(
+                                          temporarySelection.remove(
                                             argument,
                                           );
                                         }
@@ -369,10 +320,7 @@ class _SubjectSelectionState
                               },
                             ),
                     ),
-
                     const SizedBox(height: 12),
-
-                    // Conferma
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -405,8 +353,6 @@ class _SubjectSelectionState
         ..addAll(result);
     });
 
-    // Chiediamo al server il numero
-    // di domande disponibili.
     await _updateQuestionCount();
   }
 
@@ -415,12 +361,9 @@ class _SubjectSelectionState
         selectedArguments.isEmpty) {
       setState(() {
         availableQuestions = 0;
-
         selectedQuiz = 10;
-
         _questionController.text = '10';
       });
-
       return;
     }
 
@@ -429,8 +372,7 @@ class _SubjectSelectionState
     });
 
     try {
-      final count =
-          await ApiService().getQuestionCount(
+      final count = await ApiService().getQuestionCount(
         widget.department,
         widget.course,
         selectedSub!,
@@ -447,8 +389,7 @@ class _SubjectSelectionState
         } else if (selectedQuiz > count) {
           selectedQuiz = count;
         } else if (selectedQuiz == 0) {
-          selectedQuiz =
-              count >= 10 ? 10 : count;
+          selectedQuiz = count >= 10 ? 10 : count;
         }
 
         _questionController.text =
@@ -461,11 +402,8 @@ class _SubjectSelectionState
 
       setState(() {
         isLoadingQuestions = false;
-
         availableQuestions = 0;
-
         selectedQuiz = 0;
-
         _questionController.clear();
       });
 
@@ -478,8 +416,7 @@ class _SubjectSelectionState
   void _changeQuestionNumber(int value) {
     if (availableQuestions == 0) return;
 
-    int newValue =
-        selectedQuiz + value;
+    int newValue = selectedQuiz + value;
 
     if (newValue < 1) {
       newValue = 1;
@@ -491,15 +428,12 @@ class _SubjectSelectionState
 
     setState(() {
       selectedQuiz = newValue;
-
       _questionController.text =
           newValue.toString();
-
       _questionController.selection =
           TextSelection.fromPosition(
         TextPosition(
-          offset:
-              _questionController.text.length,
+          offset: _questionController.text.length,
         ),
       );
     });
@@ -511,8 +445,6 @@ class _SubjectSelectionState
     final int? number =
         int.tryParse(value);
 
-    // L'utente può temporaneamente
-    // lasciare il campo vuoto.
     if (number == null) {
       return;
     }
@@ -520,18 +452,15 @@ class _SubjectSelectionState
     if (number > availableQuestions) {
       _questionController.text =
           availableQuestions.toString();
-
       _questionController.selection =
           TextSelection.fromPosition(
         TextPosition(
-          offset:
-              _questionController.text.length,
+          offset: _questionController.text.length,
         ),
       );
 
       setState(() {
-        selectedQuiz =
-            availableQuestions;
+        selectedQuiz = availableQuestions;
       });
 
       return;
@@ -551,7 +480,6 @@ class _SubjectSelectionState
       _showMessage(
         'Seleziona almeno un argomento.',
       );
-
       return;
     }
 
@@ -559,7 +487,6 @@ class _SubjectSelectionState
       _showMessage(
         'Non ci sono domande disponibili.',
       );
-
       return;
     }
 
@@ -568,7 +495,6 @@ class _SubjectSelectionState
       _showMessage(
         'Numero di domande non valido.',
       );
-
       return;
     }
 
@@ -576,13 +502,11 @@ class _SubjectSelectionState
       context,
       MaterialPageRoute(
         builder: (context) => QuizPage(
-          department:
-              widget.department,
+          department: widget.department,
           course: widget.course,
           sub: selectedSub!,
           arguments: selectedArguments,
-          numberOfQuestions:
-              selectedQuiz,
+          numberOfQuestions: selectedQuiz,
         ),
       ),
     );
@@ -605,11 +529,9 @@ class _SubjectSelectionState
       body: SafeArea(
         child: Center(
           child: LayoutBuilder(
-            builder:
-                (context, constraints) {
+            builder: (context, constraints) {
               final bool isDesktop =
                   constraints.maxWidth > 600;
-
               final double contentWidth =
                   isDesktop
                       ? 500.0
@@ -618,13 +540,11 @@ class _SubjectSelectionState
               return SizedBox(
                 width: contentWidth,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.all(
+                  padding: const EdgeInsets.all(
                     20.0,
                   ),
                   child: ListView(
                     children: [
-
                       Row(
                         children: [
                           IconButton(
@@ -640,150 +560,117 @@ class _SubjectSelectionState
                           ),
                         ],
                       ),
-
                       const SizedBox(
                         height: 10,
                       ),
-
+                      if (_isAuthenticated) ...[
+                        _AssignedQuizEntryCard(
+                          onTap: _openAssignedQuizzes,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                       _InfoField(
-                        label:
-                            'Dipartimento',
-                        value:
-                            widget.department,
+                        label: 'Dipartimento',
+                        value: widget.department,
                       ),
-
                       const SizedBox(
                         height: 20,
                       ),
-
                       _InfoField(
                         label: 'Corso',
-                        value:
-                            widget.course,
+                        value: widget.course,
                       ),
-
                       const SizedBox(
                         height: 20,
                       ),
                       GestureDetector(
-                        onTap:
-                            loadingSubjects
-                                ? null
-                                : _selectSubject,
-                        child:
-                            InputDecorator(
-                          decoration:
-                              InputDecoration(
-                            labelText:
-                                'Materia',
+                        onTap: loadingSubjects
+                            ? null
+                            : _selectSubject,
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Materia',
                             border:
                                 const OutlineInputBorder(),
-                            suffixIcon:
-                                loadingSubjects
-                                    ? const Padding(
-                                        padding:
-                                            EdgeInsets.all(
-                                          12,
-                                        ),
-                                        child:
-                                            SizedBox(
-                                          width:
-                                              18,
-                                          height:
-                                              18,
-                                          child:
-                                              CircularProgressIndicator(
-                                            strokeWidth:
-                                                2,
-                                          ),
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons
-                                            .keyboard_arrow_down,
+                            suffixIcon: loadingSubjects
+                                ? const Padding(
+                                    padding:
+                                        EdgeInsets.all(
+                                      12,
+                                    ),
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth: 2,
                                       ),
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons
+                                        .keyboard_arrow_down,
+                                  ),
                           ),
                           child: Text(
                             loadingSubjects
                                 ? 'Caricamento...'
                                 : selectedSub ??
                                     'Seleziona una materia',
-                            style:
-                                TextStyle(
-                              color:
-                                  selectedSub ==
-                                          null
-                                      ? Colors
-                                          .grey
-                                      : null,
+                            style: TextStyle(
+                              color: selectedSub == null
+                                  ? Colors.grey
+                                  : null,
                             ),
                           ),
                         ),
                       ),
-
                       const SizedBox(
                         height: 25,
                       ),
-
                       GestureDetector(
-                        onTap:
-                            selectedSub ==
-                                        null ||
-                                    isLoadingArguments
-                                ? null
-                                : _selectArguments,
-                        child:
-                            InputDecorator(
-                          decoration:
-                              InputDecoration(
-                            labelText:
-                                'Argomenti',
+                        onTap: selectedSub == null ||
+                                isLoadingArguments
+                            ? null
+                            : _selectArguments,
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Argomenti',
                             border:
                                 const OutlineInputBorder(),
-                            suffixIcon:
-                                isLoadingArguments
-                                    ? const Padding(
-                                        padding:
-                                            EdgeInsets.all(
-                                          12,
-                                        ),
-                                        child:
-                                            SizedBox(
-                                          width:
-                                              18,
-                                          height:
-                                              18,
-                                          child:
-                                              CircularProgressIndicator(
-                                            strokeWidth:
-                                                2,
-                                          ),
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons
-                                            .keyboard_arrow_down,
+                            suffixIcon: isLoadingArguments
+                                ? const Padding(
+                                    padding:
+                                        EdgeInsets.all(
+                                      12,
+                                    ),
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth: 2,
                                       ),
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons
+                                        .keyboard_arrow_down,
+                                  ),
                           ),
                           child: Text(
-                            selectedSub ==
-                                    null
+                            selectedSub == null
                                 ? 'Seleziona prima una materia'
-                                : selectedArguments
-                                        .isEmpty
+                                : selectedArguments.isEmpty
                                     ? 'Seleziona gli argomenti'
-                                    : selectedArguments
-                                        .join(
+                                    : selectedArguments.join(
                                         ', ',
                                       ),
                             maxLines: 2,
                             overflow:
-                                TextOverflow
-                                    .ellipsis,
-                            style:
-                                TextStyle(
-                              color: selectedSub ==
-                                          null ||
+                                TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: selectedSub == null ||
                                       selectedArguments
                                           .isEmpty
                                   ? Colors.grey
@@ -792,18 +679,14 @@ class _SubjectSelectionState
                           ),
                         ),
                       ),
-
                       const SizedBox(
                         height: 20,
                       ),
-
                       Container(
-                        padding:
-                            const EdgeInsets.all(
+                        padding: const EdgeInsets.all(
                           16,
                         ),
-                        decoration:
-                            BoxDecoration(
+                        decoration: BoxDecoration(
                           color: Theme.of(
                             context,
                           )
@@ -813,52 +696,41 @@ class _SubjectSelectionState
                                 0.35,
                               ),
                           borderRadius:
-                              BorderRadius
-                                  .circular(
+                              BorderRadius.circular(
                             12,
                           ),
                         ),
                         child: Row(
                           children: [
                             const Icon(
-                              Icons
-                                  .quiz_outlined,
+                              Icons.quiz_outlined,
                             ),
-
                             const SizedBox(
                               width: 12,
                             ),
-
                             Expanded(
-                              child:
-                                  Column(
+                              child: Column(
                                 crossAxisAlignment:
                                     CrossAxisAlignment
                                         .start,
                                 children: [
                                   const Text(
                                     'Domande disponibili',
-                                    style:
-                                        TextStyle(
+                                    style: TextStyle(
                                       fontWeight:
-                                          FontWeight
-                                              .w600,
+                                          FontWeight.w600,
                                     ),
                                   ),
-
                                   const SizedBox(
                                     height: 4,
                                   ),
-
                                   if (isLoadingQuestions)
                                     const Text(
                                       'Calcolo in corso...',
-                                      style:
-                                          TextStyle(
+                                      style: TextStyle(
                                         color:
                                             Colors.grey,
-                                        fontSize:
-                                            12,
+                                        fontSize: 12,
                                       ),
                                     )
                                   else
@@ -871,8 +743,7 @@ class _SubjectSelectionState
                                           const TextStyle(
                                         color:
                                             Colors.grey,
-                                        fontSize:
-                                            12,
+                                        fontSize: 12,
                                       ),
                                     ),
                                 ],
@@ -881,46 +752,36 @@ class _SubjectSelectionState
                           ],
                         ),
                       ),
-
                       const SizedBox(
                         height: 20,
                       ),
-
-                      if (availableQuestions >
-                          0) ...[
+                      if (availableQuestions > 0) ...[
                         const Text(
                           'Numero di domande',
-                          style:
-                              TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight:
                                 FontWeight.w600,
                           ),
                         ),
-
                         const SizedBox(
                           height: 8,
                         ),
-
                         Container(
                           padding:
-                              const EdgeInsets
-                                  .symmetric(
+                              const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 8,
                           ),
-                          decoration:
-                              BoxDecoration(
+                          decoration: BoxDecoration(
                             border: Border.all(
-                              color: Colors
-                                  .grey
+                              color: Colors.grey
                                   .withOpacity(
                                 0.3,
                               ),
                             ),
                             borderRadius:
-                                BorderRadius
-                                    .circular(
+                                BorderRadius.circular(
                               12,
                             ),
                           ),
@@ -929,15 +790,12 @@ class _SubjectSelectionState
                                 MainAxisAlignment
                                     .center,
                             children: [
-                              // MINUS
                               IconButton(
-                                icon:
-                                    const Icon(
+                                icon: const Icon(
                                   Icons.remove,
                                 ),
                                 onPressed:
-                                    selectedQuiz <=
-                                            1
+                                    selectedQuiz <= 1
                                         ? null
                                         : () {
                                             _changeQuestionNumber(
@@ -945,21 +803,16 @@ class _SubjectSelectionState
                                             );
                                           },
                               ),
-
                               const SizedBox(
                                 width: 10,
                               ),
-
-                              // INPUT MANUALE
                               SizedBox(
                                 width: 75,
-                                child:
-                                    TextField(
+                                child: TextField(
                                   controller:
                                       _questionController,
                                   textAlign:
-                                      TextAlign
-                                          .center,
+                                      TextAlign.center,
                                   keyboardType:
                                       TextInputType
                                           .number,
@@ -967,100 +820,80 @@ class _SubjectSelectionState
                                       const InputDecoration(
                                     border:
                                         OutlineInputBorder(),
-                                    isDense:
-                                        true,
+                                    isDense: true,
                                     contentPadding:
                                         EdgeInsets
                                             .symmetric(
-                                      vertical:
-                                          10,
+                                      vertical: 10,
                                     ),
                                   ),
                                   onChanged:
                                       _onQuestionNumberChanged,
                                 ),
                               ),
-
                               const SizedBox(
                                 width: 10,
                               ),
-
-                              // PLUS
                               IconButton(
-                                icon:
-                                    const Icon(
+                                icon: const Icon(
                                   Icons.add,
                                 ),
-                                onPressed:
-                                    selectedQuiz >=
-                                            availableQuestions
-                                        ? null
-                                        : () {
-                                            _changeQuestionNumber(
-                                              1,
-                                            );
-                                          },
+                                onPressed: selectedQuiz >=
+                                        availableQuestions
+                                    ? null
+                                    : () {
+                                        _changeQuestionNumber(
+                                          1,
+                                        );
+                                      },
                               ),
                             ],
                           ),
                         ),
-
                         const SizedBox(
                           height: 6,
                         ),
-
                         Center(
                           child: Text(
                             'Massimo: $availableQuestions',
                             style:
                                 const TextStyle(
-                              color:
-                                  Colors.grey,
+                              color: Colors.grey,
                               fontSize: 12,
                             ),
                           ),
                         ),
                       ],
-
                       const SizedBox(
                         height: 30,
                       ),
-
                       SizedBox(
                         height: 50,
-                        child:
-                            ElevatedButton(
+                        child: ElevatedButton(
                           style:
-                              ElevatedButton
-                                  .styleFrom(
+                              ElevatedButton.styleFrom(
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius
-                                      .circular(
+                                  BorderRadius.circular(
                                 8,
                               ),
                             ),
                           ),
-                          onPressed:
-                              selectedSub ==
-                                          null ||
-                                      selectedArguments
-                                          .isEmpty ||
-                                      availableQuestions ==
-                                          0 ||
-                                      isLoadingQuestions
-                                  ? null
-                                  : _startQuiz,
-                          child:
-                              const Text(
+                          onPressed: selectedSub ==
+                                      null ||
+                                  selectedArguments
+                                      .isEmpty ||
+                                  availableQuestions == 0 ||
+                                  isLoadingQuestions
+                              ? null
+                              : _startQuiz,
+                          child: const Text(
                             'Avvia Quiz',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight:
-                                  FontWeight
-                                      .bold,
+                                  FontWeight.bold,
                             ),
                           ),
                         ),
@@ -1070,6 +903,80 @@ class _SubjectSelectionState
                 ),
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AssignedQuizEntryCard
+    extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AssignedQuizEntryCard({
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme =
+        Theme.of(context).colorScheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+            BorderRadius.circular(14),
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer
+                .withOpacity(0.35),
+            borderRadius:
+                BorderRadius.circular(14),
+            border: Border.all(
+              color: colorScheme.primary
+                  .withOpacity(0.18),
+            ),
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.assignment_outlined,
+                size: 28,
+              ),
+              SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quiz assegnati',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Visualizza i quiz ricevuti dai docenti.',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 15,
+              ),
+            ],
           ),
         ),
       ),
@@ -1092,16 +999,14 @@ class _InfoField
     BuildContext context,
   ) {
     return InputDecorator(
-      decoration:
-          InputDecoration(
+      decoration: InputDecoration(
         labelText: label,
         border:
             const OutlineInputBorder(),
       ),
       child: Text(
         value,
-        style:
-            const TextStyle(
+        style: const TextStyle(
           color: Colors.grey,
         ),
       ),

@@ -317,7 +317,6 @@ class _HomePageState
 
 appBar: AppBar(
   backgroundColor: AppColors.eleganceMidnight,
-  foregroundColor: AppColors.pearlWhite,
   elevation: AppColors.nightAppBarTheme.elevation,
   centerTitle: false,
   leading: Padding(
@@ -325,7 +324,7 @@ appBar: AppBar(
     child: ClipRRect(
       borderRadius: BorderRadius.circular(11),
       child: Image.asset(
-        'assets/icons/app_icon.png',
+        'assets/icons/favicon.png',
         width: 44,
         height: 44,
         fit: BoxFit.cover,
