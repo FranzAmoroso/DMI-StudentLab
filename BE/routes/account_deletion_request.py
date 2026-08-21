@@ -21,6 +21,7 @@ from schemas.account_deletion_request import (
 )
 
 from services.account_deletion_request import (
+    admin_delete_user_account,
     cancel_account_deletion_request,
     complete_account_deletion,
     create_account_deletion_request,
@@ -196,3 +197,27 @@ def api_admin_account_deletion_detail(
         request_id=deletion_request.id,
         current_user=current_user,
     )
+
+
+@router.delete(
+    "/admin/users/{user_id}",
+)
+def api_admin_delete_user_account(
+    user_id: int,
+    current_user: User = Depends(
+        get_admin_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    deleted_user = admin_delete_user_account(
+        db,
+        current_user=current_user,
+        user_id=user_id,
+    )
+
+    return {
+        "deleted": True,
+        "user_id": deleted_user.id,
+    }

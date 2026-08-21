@@ -32,6 +32,8 @@ from schemas.group_news import (
     GroupNewsFeedItemResponse,
     GroupNewsFeedResponse,
     GroupNewsModerationRequest,
+    GroupNewsPrivateInboxItemResponse,
+    GroupNewsPrivateInboxResponse,
     GroupNewsResponse,
 )
 
@@ -43,6 +45,7 @@ from services.group_news import (
     delete_group_news,
     get_group_news_by_id,
     get_group_news_feed,
+    get_private_group_news_inbox,
     moderate_group_news,
     platform_moderate_group_news,
 )
@@ -59,6 +62,46 @@ router = APIRouter(
         "Group News",
     ],
 )
+
+
+def _subject_name(
+    news: GroupNews,
+) -> str:
+    group = news.group
+
+    if group is None:
+        return ""
+
+    subject = getattr(
+        group,
+        "subject",
+        None,
+    )
+
+    if subject is not None:
+        name = getattr(
+            subject,
+            "name",
+            None,
+        )
+
+        if name:
+            return str(
+                name,
+            ).strip()
+
+    value = getattr(
+        group,
+        "subject_name",
+        None,
+    )
+
+    if value:
+        return str(
+            value,
+        ).strip()
+
+    return ""
 
 
 def _build_feed_item(
@@ -195,6 +238,44 @@ def _build_feed_item(
     )
 
 
+def _build_private_inbox_item(
+    db: Session,
+    news: GroupNews,
+    current_user: User,
+):
+    item = _build_feed_item(
+        db,
+        news,
+        current_user,
+    )
+
+    group = news.group
+
+    return GroupNewsPrivateInboxItemResponse(
+        **item.model_dump(),
+        group_name=(
+            getattr(
+                group,
+                "name",
+                "",
+            )
+            or ""
+        ),
+        subject_id=(
+            getattr(
+                group,
+                "subject_id",
+                None,
+            )
+        ),
+        subject_name=(
+            _subject_name(
+                news,
+            )
+        ),
+    )
+
+
 @router.post(
     "/groups/{group_id}",
     response_model=GroupNewsResponse,
@@ -271,6 +352,81 @@ def api_create_group_news(
             ),
             detail=(
                 "Impossibile pubblicare la news."
+            ),
+        )
+
+
+@router.get(
+    "/private",
+    response_model=GroupNewsPrivateInboxResponse,
+)
+def api_get_private_group_news_inbox(
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=100,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+    current_user: User = Depends(
+        get_current_user,
+    ),
+):
+    try:
+        (
+            items,
+            total,
+            safe_limit,
+            safe_offset,
+        ) = get_private_group_news_inbox(
+            db,
+            current_user.id,
+            limit,
+            offset,
+        )
+
+        return GroupNewsPrivateInboxResponse(
+            items=[
+                _build_private_inbox_item(
+                    db,
+                    news,
+                    current_user,
+                )
+                for news in items
+            ],
+            total=(
+                total
+            ),
+            limit=(
+                safe_limit
+            ),
+            offset=(
+                safe_offset
+            ),
+        )
+
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(
+                exception,
+            ),
+        )
+
+    except Exception:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "Impossibile recuperare le comunicazioni private."
             ),
         )
 

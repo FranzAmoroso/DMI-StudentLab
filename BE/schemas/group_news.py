@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from typing import Literal
 
 from pydantic import (
@@ -187,7 +188,6 @@ class GroupNewsResponse(
 
     moderated_by_user_id: int | None
     moderated_at: datetime | None
-
     moderation_reason: str | None
 
     created_at: datetime
@@ -221,9 +221,7 @@ class GroupNewsFeedItemResponse(
     ]
 
     is_private: bool
-
     content: str
-
     created_at: datetime
     expires_at: datetime
 
@@ -248,6 +246,26 @@ class GroupNewsFeedResponse(
 
     items: list[
         GroupNewsFeedItemResponse
+    ]
+
+    total: int
+    limit: int
+    offset: int
+
+
+class GroupNewsPrivateInboxItemResponse(
+    GroupNewsFeedItemResponse,
+):
+    group_name: str
+    subject_id: int | None = None
+    subject_name: str = ""
+
+
+class GroupNewsPrivateInboxResponse(
+    BaseModel,
+):
+    items: list[
+        GroupNewsPrivateInboxItemResponse
     ]
 
     total: int

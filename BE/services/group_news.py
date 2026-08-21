@@ -64,6 +64,9 @@ def get_group_news_by_id(
             joinedload(
                 GroupNews.recipient,
             ),
+            joinedload(
+                GroupNews.group,
+            ),
         )
         .filter(
             GroupNews.id
@@ -469,6 +472,9 @@ def get_group_news_feed(
             joinedload(
                 GroupNews.recipient,
             ),
+            joinedload(
+                GroupNews.group,
+            ),
         )
         .filter(
             GroupNews.group_id
@@ -481,6 +487,120 @@ def get_group_news_feed(
             >
             now,
             visibility_filter,
+        )
+    )
+
+    if blocked_user_ids:
+        query = query.filter(
+            or_(
+                GroupNews.author_user_id
+                ==
+                viewer_user_id,
+                GroupNews.author_user_id.notin_(
+                    blocked_user_ids,
+                ),
+            )
+        )
+
+    total = query.count()
+
+    items = (
+        query
+        .order_by(
+            GroupNews.created_at.desc(),
+        )
+        .offset(
+            safe_offset,
+        )
+        .limit(
+            safe_limit,
+        )
+        .all()
+    )
+
+    return (
+        items,
+        total,
+        safe_limit,
+        safe_offset,
+    )
+
+
+def get_private_group_news_inbox(
+    db: Session,
+    viewer_user_id: int,
+    limit: int = 50,
+    offset: int = 0,
+):
+    if viewer_user_id <= 0:
+        raise ValueError(
+            "Utente non valido.",
+        )
+
+    safe_limit = max(
+        1,
+        min(
+            limit,
+            100,
+        ),
+    )
+
+    safe_offset = max(
+        0,
+        offset,
+    )
+
+    blocked_user_ids = set(
+        get_blocked_user_ids(
+            db,
+            viewer_user_id,
+        )
+    )
+
+    now = utc_now()
+
+    query = (
+        db.query(
+            GroupNews,
+        )
+        .join(
+            StudyGroup,
+            StudyGroup.id
+            ==
+            GroupNews.group_id,
+        )
+        .options(
+            joinedload(
+                GroupNews.author,
+            ),
+            joinedload(
+                GroupNews.recipient,
+            ),
+            joinedload(
+                GroupNews.group,
+            ),
+        )
+        .filter(
+            GroupNews.visibility
+            ==
+            "private",
+            GroupNews.status
+            ==
+            "active",
+            GroupNews.expires_at
+            >
+            now,
+            StudyGroup.status
+            ==
+            "active",
+            or_(
+                GroupNews.author_user_id
+                ==
+                viewer_user_id,
+                GroupNews.recipient_user_id
+                ==
+                viewer_user_id,
+            ),
         )
     )
 

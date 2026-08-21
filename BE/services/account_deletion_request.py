@@ -18,7 +18,6 @@ from services.account_anonymization import (
     anonymize_and_delete_user_personal_data,
 )
 
-
 ACTIVE_DELETION_STATUSES = {
     "pending",
     "waiting_group_transfer",
@@ -26,7 +25,6 @@ ACTIVE_DELETION_STATUSES = {
 }
 
 OWNERSHIP_TRANSFER_EXPIRATION_DAYS = 30
-
 
 def _get_owned_groups(
     db: Session,
@@ -49,7 +47,6 @@ def _get_owned_groups(
         .all()
     )
 
-
 def _get_deletion_transfers(
     db: Session,
     deletion_request_id: int,
@@ -65,7 +62,6 @@ def _get_deletion_transfers(
         )
         .all()
     )
-
 
 def _get_active_deletion_request(
     db: Session,
@@ -84,7 +80,6 @@ def _get_active_deletion_request(
         )
         .first()
     )
-
 
 def create_account_deletion_request(
     db: Session,
@@ -151,7 +146,6 @@ def create_account_deletion_request(
 
     return deletion_request
 
-
 def get_my_account_deletion_request(
     db: Session,
     current_user: User,
@@ -174,7 +168,6 @@ def get_my_account_deletion_request(
         )
 
     return deletion_request
-
 
 def get_account_deletion_request_by_id(
     db: Session,
@@ -208,7 +201,6 @@ def get_account_deletion_request_by_id(
         )
 
     return deletion_request
-
 
 def get_account_deletion_request_detail(
     db: Session,
@@ -262,7 +254,6 @@ def get_account_deletion_request_detail(
         ),
     )
 
-
 def get_pending_account_deletion_requests(
     db: Session,
 ) -> list[AccountDeletionRequest]:
@@ -282,7 +273,6 @@ def get_pending_account_deletion_requests(
         )
         .all()
     )
-
 
 def cancel_account_deletion_request(
     db: Session,
@@ -347,7 +337,6 @@ def cancel_account_deletion_request(
 
     return deletion_request
 
-
 def refresh_account_deletion_request_status(
     db: Session,
     deletion_request: AccountDeletionRequest,
@@ -395,6 +384,93 @@ def refresh_account_deletion_request_status(
 
     return deletion_request
 
+def admin_delete_user_account(
+    db: Session,
+    current_user: User,
+    user_id: int,
+) -> User:
+    if user_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Identificativo utente non valido.",
+        )
+
+    if current_user.id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Non puoi eliminare il tuo account dalla gestione utenti. "
+                "Usa il flusso di eliminazione del profilo personale."
+            ),
+        )
+
+    target_user = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+        )
+        .first()
+    )
+
+    if target_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utente non trovato.",
+        )
+
+    owned_groups = _get_owned_groups(
+        db,
+        target_user.id,
+    )
+
+    if owned_groups:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "L'account non può essere eliminato finché l'utente "
+                "possiede gruppi attivi o in attesa di eliminazione."
+            ),
+        )
+
+    active_request = _get_active_deletion_request(
+        db,
+        target_user.id,
+    )
+
+    now = datetime.now(
+        timezone.utc,
+    )
+
+    try:
+        anonymize_and_delete_user_personal_data(
+            db,
+            target_user,
+        )
+
+        if active_request is not None:
+            active_request.status = "completed"
+            active_request.completed_at = now
+            active_request.ownership_resolution_deadline = None
+            active_request.updated_at = now
+
+        db.commit()
+        db.refresh(
+            target_user,
+        )
+
+        return target_user
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Impossibile eliminare l'account utente.",
+        ) from exc
 
 def complete_account_deletion(
     db: Session,
