@@ -422,9 +422,17 @@ from routes.user_block import (
     router as user_block_router,
 )
 
+from routes.public_news import router as public_news_router
+from routes.public_news_report import router as public_news_report_router
+
+
+
 
 app = FastAPI()
 
+
+app.include_router(public_news_router)
+app.include_router(public_news_report_router)
 
 app.include_router(
     teacher_assignment_router,
