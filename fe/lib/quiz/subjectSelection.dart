@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 
-import 'quiz.dart';
-import 'assigned_quizzes_page.dart';
-
 import '../services/api_service.dart';
 import '../services/auth_session.dart';
+import '../social/social_models.dart';
+import 'assigned_quizzes_page.dart';
+import 'quiz.dart';
+import 'services/free_quiz_api_service.dart';
 
 class SubjectSelection extends StatefulWidget {
-  final String department;
-  final String course;
-
   const SubjectSelection({
     super.key,
-    required this.department,
-    required this.course,
   });
 
   @override
@@ -21,28 +17,65 @@ class SubjectSelection extends StatefulWidget {
 }
 
 class _SubjectSelectionState extends State<SubjectSelection> {
+  final ApiService _apiService = ApiService();
+  final FreeQuizApiService _quizApiService = FreeQuizApiService();
   final AuthSession _authSession = AuthSession.instance;
-
-  String? selectedSub;
-  final List<String> selectedArguments = [];
-  List<String> subjects = [];
-  List<String> availableArguments = [];
-  int selectedQuiz = 10;
-  int availableQuestions = 0;
-  bool loadingSubjects = false;
-  bool isLoadingArguments = false;
-  bool isLoadingQuestions = false;
-
   final TextEditingController _questionController =
       TextEditingController(text: '10');
 
+  List<AcademicUniversity> _universities = [];
+  List<AcademicDepartment> _departments = [];
+  List<AcademicCourse> _courses = [];
+  List<SocialSubject> _subjects = [];
+  List<String> _availableArguments = [];
+  final List<String> _selectedArguments = [];
+
+  AcademicUniversity? _selectedUniversity;
+  AcademicDepartment? _selectedDepartment;
+  AcademicCourse? _selectedCourse;
+  SocialSubject? _selectedSubject;
+
+  bool _loadingUniversities = false;
+  bool _loadingDepartments = false;
+  bool _loadingCourses = false;
+  bool _loadingSubjects = false;
+  bool _loadingArguments = false;
+  bool _loadingQuestions = false;
+
+  int _selectedQuiz = 10;
+  int _availableQuestions = 0;
+
   bool get _isAuthenticated => _authSession.isAuthenticated;
+
+  bool get _canSelectDepartment =>
+      _selectedUniversity != null && !_loadingDepartments;
+
+  bool get _canSelectCourse =>
+      _selectedDepartment != null && !_loadingCourses;
+
+  bool get _canSelectSubject =>
+      _selectedCourse != null && !_loadingSubjects;
+
+  bool get _canSelectArguments =>
+      _selectedSubject != null &&
+      !_loadingArguments &&
+      _availableArguments.isNotEmpty;
+
+  bool get _canStart =>
+      _selectedDepartment != null &&
+      _selectedCourse != null &&
+      _selectedSubject != null &&
+      _selectedArguments.isNotEmpty &&
+      _availableQuestions > 0 &&
+      _selectedQuiz >= 1 &&
+      _selectedQuiz <= _availableQuestions &&
+      !_loadingQuestions;
 
   @override
   void initState() {
     super.initState();
     _authSession.addListener(_onAuthChanged);
-    _loadSubjects();
+    _loadUniversities();
   }
 
   @override
@@ -53,286 +86,381 @@ class _SubjectSelectionState extends State<SubjectSelection> {
   }
 
   void _onAuthChanged() {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() {});
   }
 
-  Future<void> _loadSubjects() async {
+  Future<void> _loadUniversities() async {
     setState(() {
-      loadingSubjects = true;
+      _loadingUniversities = true;
     });
 
     try {
-      final result = await ApiService().getSubjects(
-        widget.department,
-        widget.course,
-      );
+      final List<AcademicUniversity> values =
+          await _apiService.getUniversities();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        subjects = result;
-        loadingSubjects = false;
+        _universities = values;
+        _loadingUniversities = false;
       });
-    } catch (e) {
-      if (!mounted) return;
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        loadingSubjects = false;
+        _universities = [];
+        _loadingUniversities = false;
       });
 
       _showMessage(
-        'Impossibile caricare le materie.',
+        'Non è stato possibile caricare gli atenei disponibili.',
       );
     }
   }
 
-  Future<void> _openAssignedQuizzes() async {
-    if (!_isAuthenticated) return;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const AssignedQuizzesPage(),
-      ),
-    );
-  }
-
-  Future<void> _selectSubject() async {
-    if (loadingSubjects) return;
-
-    final String? result =
-        await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor:
-          Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              20,
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Seleziona materia',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: subjects.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Nessuna materia disponibile.',
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: subjects.length,
-                          itemBuilder: (context, index) {
-                            final subject = subjects[index];
-                            final bool isSelected =
-                                selectedSub == subject;
-
-                            return ListTile(
-                              title: Text(subject),
-                              selected: isSelected,
-                              onTap: () {
-                                Navigator.pop(
-                                  context,
-                                  subject,
-                                );
-                              },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (result == null) return;
+  Future<void> _onUniversityChanged(
+    AcademicUniversity? university,
+  ) async {
+    if (university == null) {
+      return;
+    }
 
     setState(() {
-      selectedSub = result;
-      selectedArguments.clear();
-      availableArguments.clear();
-      availableQuestions = 0;
-      selectedQuiz = 10;
-      _questionController.text = '10';
-      isLoadingArguments = true;
+      _selectedUniversity = university;
+      _departments = [];
+      _courses = [];
+      _subjects = [];
+      _availableArguments = [];
+      _selectedDepartment = null;
+      _selectedCourse = null;
+      _selectedSubject = null;
+      _selectedArguments.clear();
+      _resetQuestions();
+      _loadingDepartments = true;
     });
 
     try {
-      final arguments = await ApiService().getArguments(
-        widget.department,
-        widget.course,
-        selectedSub!,
-      );
+      final List<AcademicDepartment> values =
+          await _apiService.getDepartments(university.code);
 
-      if (!mounted) return;
+      if (!mounted || _selectedUniversity?.code != university.code) {
+        return;
+      }
 
       setState(() {
-        availableArguments = arguments;
-        isLoadingArguments = false;
+        _departments = values;
+        _loadingDepartments = false;
       });
-    } catch (e) {
-      if (!mounted) return;
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        isLoadingArguments = false;
-        availableArguments.clear();
+        _departments = [];
+        _loadingDepartments = false;
       });
 
       _showMessage(
-        'Errore caricamento argomenti.',
+        'Non è stato possibile caricare i dipartimenti.',
+      );
+    }
+  }
+
+  Future<void> _onDepartmentChanged(
+    AcademicDepartment? department,
+  ) async {
+    final AcademicUniversity? university = _selectedUniversity;
+
+    if (department == null || university == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedDepartment = department;
+      _courses = [];
+      _subjects = [];
+      _availableArguments = [];
+      _selectedCourse = null;
+      _selectedSubject = null;
+      _selectedArguments.clear();
+      _resetQuestions();
+      _loadingCourses = true;
+    });
+
+    try {
+      final List<AcademicCourse> values = await _apiService.getCourses(
+        universityCode: university.code,
+        departmentCode: department.code,
+      );
+
+      if (!mounted || _selectedDepartment?.code != department.code) {
+        return;
+      }
+
+      setState(() {
+        _courses = values;
+        _loadingCourses = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _courses = [];
+        _loadingCourses = false;
+      });
+
+      _showMessage(
+        'Non è stato possibile caricare i corsi.',
+      );
+    }
+  }
+
+  Future<void> _onCourseChanged(
+    AcademicCourse? course,
+  ) async {
+    final AcademicUniversity? university = _selectedUniversity;
+    final AcademicDepartment? department = _selectedDepartment;
+
+    if (course == null || university == null || department == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedCourse = course;
+      _subjects = [];
+      _availableArguments = [];
+      _selectedSubject = null;
+      _selectedArguments.clear();
+      _resetQuestions();
+      _loadingSubjects = true;
+    });
+
+    try {
+      final List<SocialSubject> catalogSubjects =
+          await _apiService.getCatalogSubjects(
+        universityCode: university.code,
+        departmentCode: department.code,
+        courseCode: course.code,
+      );
+
+      final List<String> quizSubjects =
+          await _quizApiService.getAvailableSubjects(
+        department: department.code,
+        course: course.code,
+      );
+
+      if (!mounted || _selectedCourse?.code != course.code) {
+        return;
+      }
+
+      final Set<String> availableSlugs = quizSubjects
+          .map(_normalizeSubject)
+          .toSet();
+
+      final List<SocialSubject> activeSubjects = catalogSubjects
+          .where(
+            (SocialSubject subject) =>
+                subject.isActive &&
+                availableSlugs.contains(
+                  _normalizeSubject(subject.name),
+                ),
+          )
+          .toList()
+        ..sort(
+          (SocialSubject a, SocialSubject b) =>
+              a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+
+      setState(() {
+        _subjects = activeSubjects;
+        _loadingSubjects = false;
+      });
+
+      if (activeSubjects.isEmpty) {
+        _showMessage(
+          'Non ci sono ancora quiz disponibili per le materie di questo corso.',
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _subjects = [];
+        _loadingSubjects = false;
+      });
+
+      _showMessage(
+        'Non è stato possibile caricare le materie.',
+      );
+    }
+  }
+
+  Future<void> _onSubjectChanged(
+    SocialSubject? subject,
+  ) async {
+    final AcademicDepartment? department = _selectedDepartment;
+    final AcademicCourse? course = _selectedCourse;
+
+    if (subject == null || department == null || course == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedSubject = subject;
+      _availableArguments = [];
+      _selectedArguments.clear();
+      _resetQuestions();
+      _loadingArguments = true;
+    });
+
+    try {
+      final List<String> values = await _quizApiService.getArguments(
+        department: department.code,
+        course: course.code,
+        subject: subject.name,
+      );
+
+      if (!mounted || _selectedSubject?.id != subject.id) {
+        return;
+      }
+
+      setState(() {
+        _availableArguments = values;
+        _loadingArguments = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _availableArguments = [];
+        _loadingArguments = false;
+      });
+
+      _showMessage(
+        'Non è stato possibile caricare gli argomenti di questa materia.',
       );
     }
   }
 
   Future<void> _selectArguments() async {
-    if (selectedSub == null) return;
+    if (!_canSelectArguments) {
+      return;
+    }
 
-    final List<String> temporarySelection =
-        List<String>.from(selectedArguments);
+    final List<String> temporary =
+        List<String>.from(_selectedArguments);
 
     final List<String>? result =
         await showModalBottomSheet<List<String>>(
       context: context,
       isScrollControlled: true,
-      backgroundColor:
-          Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
-      ),
-      builder: (context) {
+      builder: (BuildContext modalContext) {
         return StatefulBuilder(
           builder: (
-            context,
-            setModalState,
+            BuildContext context,
+            StateSetter setModalState,
           ) {
+            final bool allSelected =
+                temporary.length == _availableArguments.length &&
+                _availableArguments.isNotEmpty;
+
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
+              child: FractionallySizedBox(
+                heightFactor: 0.78,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    const SizedBox(height: 10),
                     Container(
-                      width: 40,
+                      width: 42,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.grey.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Seleziona argomenti',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Argomenti',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Puoi selezionare più argomenti.',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
-                        ),
-                      ),
+                    CheckboxListTile(
+                      value: allSelected,
+                      title: const Text('Tutti gli argomenti'),
+                      onChanged: (bool? value) {
+                        setModalState(() {
+                          temporary.clear();
+                          if (value == true) {
+                            temporary.addAll(_availableArguments);
+                          }
+                        });
+                      },
                     ),
-                    const SizedBox(height: 12),
-                    Flexible(
-                      child: availableArguments.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'Nessun argomento disponibile.',
-                              ),
-                            )
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              itemCount: availableArguments.length,
-                              itemBuilder: (
-                                context,
-                                index,
-                              ) {
-                                final argument =
-                                    availableArguments[index];
-                                final bool selected =
-                                    temporarySelection.contains(
-                                  argument,
-                                );
+                    const Divider(height: 1),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: _availableArguments.length,
+                        itemBuilder: (
+                          BuildContext context,
+                          int index,
+                        ) {
+                          final String argument =
+                              _availableArguments[index];
 
-                                return CheckboxListTile(
-                                  value: selected,
-                                  title: Text(argument),
-                                  onChanged: (value) {
-                                    setModalState(
-                                      () {
-                                        if (value == true) {
-                                          if (!temporarySelection
-                                              .contains(argument)) {
-                                            temporarySelection.add(
-                                              argument,
-                                            );
-                                          }
-                                        } else {
-                                          temporarySelection.remove(
-                                            argument,
-                                          );
-                                        }
-                                      },
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(
-                            context,
-                            temporarySelection,
+                          return CheckboxListTile(
+                            value: temporary.contains(argument),
+                            title: Text(argument),
+                            onChanged: (bool? value) {
+                              setModalState(() {
+                                if (value == true) {
+                                  if (!temporary.contains(argument)) {
+                                    temporary.add(argument);
+                                  }
+                                } else {
+                                  temporary.remove(argument);
+                                }
+                              });
+                            },
                           );
                         },
-                        child: const Text(
-                          'Conferma',
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: temporary.isEmpty
+                              ? null
+                              : () {
+                                  Navigator.pop(
+                                    modalContext,
+                                    List<String>.from(temporary),
+                                  );
+                                },
+                          child: const Text('Conferma'),
                         ),
                       ),
                     ),
@@ -345,178 +473,198 @@ class _SubjectSelectionState extends State<SubjectSelection> {
       },
     );
 
-    if (result == null) return;
+    if (result == null) {
+      return;
+    }
 
     setState(() {
-      selectedArguments
+      _selectedArguments
         ..clear()
         ..addAll(result);
+      _resetQuestions();
     });
 
     await _updateQuestionCount();
   }
 
   Future<void> _updateQuestionCount() async {
-    if (selectedSub == null ||
-        selectedArguments.isEmpty) {
-      setState(() {
-        availableQuestions = 0;
-        selectedQuiz = 10;
-        _questionController.text = '10';
-      });
+    final AcademicDepartment? department = _selectedDepartment;
+    final AcademicCourse? course = _selectedCourse;
+    final SocialSubject? subject = _selectedSubject;
+
+    if (department == null ||
+        course == null ||
+        subject == null ||
+        _selectedArguments.isEmpty) {
       return;
     }
 
     setState(() {
-      isLoadingQuestions = true;
+      _loadingQuestions = true;
     });
 
     try {
-      final count = await ApiService().getQuestionCount(
-        widget.department,
-        widget.course,
-        selectedSub!,
-        selectedArguments,
+      final int count = await _quizApiService.getQuestionCount(
+        department: department.code,
+        course: course.code,
+        subject: subject.name,
+        arguments: _selectedArguments,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        availableQuestions = count;
-
-        if (count == 0) {
-          selectedQuiz = 0;
-        } else if (selectedQuiz > count) {
-          selectedQuiz = count;
-        } else if (selectedQuiz == 0) {
-          selectedQuiz = count >= 10 ? 10 : count;
-        }
-
+        _availableQuestions = count;
+        _selectedQuiz = count == 0 ? 0 : (count >= 10 ? 10 : count);
         _questionController.text =
-            selectedQuiz.toString();
-
-        isLoadingQuestions = false;
+            _selectedQuiz == 0 ? '' : _selectedQuiz.toString();
+        _loadingQuestions = false;
       });
-    } catch (e) {
-      if (!mounted) return;
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        isLoadingQuestions = false;
-        availableQuestions = 0;
-        selectedQuiz = 0;
+        _loadingQuestions = false;
+        _availableQuestions = 0;
+        _selectedQuiz = 0;
         _questionController.clear();
       });
 
       _showMessage(
-        'Impossibile calcolare le domande disponibili.',
+        'Non è stato possibile calcolare le domande disponibili.',
       );
     }
   }
 
-  void _changeQuestionNumber(int value) {
-    if (availableQuestions == 0) return;
+  void _resetQuestions() {
+    _availableQuestions = 0;
+    _selectedQuiz = 10;
+    _questionController.text = '10';
+    _loadingQuestions = false;
+  }
 
-    int newValue = selectedQuiz + value;
-
-    if (newValue < 1) {
-      newValue = 1;
+  void _changeQuestionNumber(int delta) {
+    if (_availableQuestions <= 0) {
+      return;
     }
 
-    if (newValue > availableQuestions) {
-      newValue = availableQuestions;
-    }
+    final int value =
+        (_selectedQuiz + delta).clamp(1, _availableQuestions);
 
     setState(() {
-      selectedQuiz = newValue;
-      _questionController.text =
-          newValue.toString();
-      _questionController.selection =
-          TextSelection.fromPosition(
-        TextPosition(
-          offset: _questionController.text.length,
-        ),
+      _selectedQuiz = value;
+      _questionController.text = value.toString();
+      _questionController.selection = TextSelection.collapsed(
+        offset: _questionController.text.length,
       );
     });
   }
 
-  void _onQuestionNumberChanged(
-    String value,
-  ) {
-    final int? number =
-        int.tryParse(value);
-
-    if (number == null) {
+  void _onQuestionNumberChanged(String value) {
+    if (_availableQuestions <= 0) {
       return;
     }
 
-    if (number > availableQuestions) {
-      _questionController.text =
-          availableQuestions.toString();
-      _questionController.selection =
-          TextSelection.fromPosition(
-        TextPosition(
-          offset: _questionController.text.length,
-        ),
+    final int? parsed = int.tryParse(value);
+
+    if (parsed == null) {
+      return;
+    }
+
+    final int normalized = parsed.clamp(1, _availableQuestions);
+
+    if (normalized != parsed) {
+      _questionController.text = normalized.toString();
+      _questionController.selection = TextSelection.collapsed(
+        offset: _questionController.text.length,
       );
+    }
 
-      setState(() {
-        selectedQuiz = availableQuestions;
-      });
+    setState(() {
+      _selectedQuiz = normalized;
+    });
+  }
 
+  Future<void> _openAssignedQuizzes() async {
+    if (!_isAuthenticated) {
       return;
     }
 
-    if (number >= 1) {
-      setState(() {
-        selectedQuiz = number;
-      });
-    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const AssignedQuizzesPage(),
+      ),
+    );
   }
 
   void _startQuiz() {
-    if (selectedSub == null) return;
+    final AcademicDepartment? department = _selectedDepartment;
+    final AcademicCourse? course = _selectedCourse;
+    final SocialSubject? subject = _selectedSubject;
 
-    if (selectedArguments.isEmpty) {
-      _showMessage(
-        'Seleziona almeno un argomento.',
-      );
+    if (!_canStart ||
+        department == null ||
+        course == null ||
+        subject == null) {
       return;
     }
 
-    if (availableQuestions == 0) {
-      _showMessage(
-        'Non ci sono domande disponibili.',
-      );
-      return;
-    }
-
-    if (selectedQuiz < 1 ||
-        selectedQuiz > availableQuestions) {
-      _showMessage(
-        'Numero di domande non valido.',
-      );
-      return;
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => QuizPage(
-          department: widget.department,
-          course: widget.course,
-          sub: selectedSub!,
-          arguments: selectedArguments,
-          numberOfQuestions: selectedQuiz,
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => QuizPage(
+          department: department.code,
+          course: course.code,
+          sub: subject.name,
+          arguments: List<String>.unmodifiable(_selectedArguments),
+          numberOfQuestions: _selectedQuiz,
         ),
       ),
     );
   }
 
-  void _showMessage(
-    String message,
-  ) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+  String _argumentsLabel() {
+    if (_selectedSubject == null) {
+      return 'Seleziona prima una materia';
+    }
+
+    if (_loadingArguments) {
+      return 'Caricamento argomenti...';
+    }
+
+    if (_availableArguments.isEmpty) {
+      return 'Nessun argomento disponibile';
+    }
+
+    if (_selectedArguments.isEmpty) {
+      return 'Seleziona uno o più argomenti';
+    }
+
+    if (_selectedArguments.length == _availableArguments.length) {
+      return 'Tutti gli argomenti';
+    }
+
+    return _selectedArguments.join(', ');
+  }
+
+  String _normalizeSubject(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s\-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
       ),
@@ -526,383 +674,183 @@ class _SubjectSelectionState extends State<SubjectSelection> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Quiz libero'),
+      ),
       body: SafeArea(
         child: Center(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final bool isDesktop =
-                  constraints.maxWidth > 600;
-              final double contentWidth =
-                  isDesktop
-                      ? 500.0
-                      : constraints.maxWidth;
-
-              return SizedBox(
-                width: contentWidth,
-                child: Padding(
-                  padding: const EdgeInsets.all(
-                    20.0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                if (_isAuthenticated) ...[
+                  _AssignedQuizEntryCard(
+                    onTap: _openAssignedQuizzes,
                   ),
-                  child: ListView(
+                  const SizedBox(height: 22),
+                ],
+                const Text(
+                  'Configura il quiz',
+                  style: TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Le scelte disponibili vengono caricate dal catalogo StudentLab.',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _CatalogDropdown<AcademicUniversity>(
+                  label: 'Ateneo',
+                  value: _selectedUniversity,
+                  items: _universities,
+                  itemLabel: (AcademicUniversity value) => value.name,
+                  loading: _loadingUniversities,
+                  enabled: !_loadingUniversities,
+                  onChanged: _onUniversityChanged,
+                ),
+                const SizedBox(height: 16),
+                _CatalogDropdown<AcademicDepartment>(
+                  label: 'Dipartimento',
+                  value: _selectedDepartment,
+                  items: _departments,
+                  itemLabel: (AcademicDepartment value) => value.name,
+                  loading: _loadingDepartments,
+                  enabled: _canSelectDepartment,
+                  onChanged: _onDepartmentChanged,
+                ),
+                const SizedBox(height: 16),
+                _CatalogDropdown<AcademicCourse>(
+                  label: 'Corso',
+                  value: _selectedCourse,
+                  items: _courses,
+                  itemLabel: (AcademicCourse value) => value.name,
+                  loading: _loadingCourses,
+                  enabled: _canSelectCourse,
+                  onChanged: _onCourseChanged,
+                ),
+                const SizedBox(height: 16),
+                _CatalogDropdown<SocialSubject>(
+                  label: 'Materia',
+                  value: _selectedSubject,
+                  items: _subjects,
+                  itemLabel: (SocialSubject value) => value.name,
+                  loading: _loadingSubjects,
+                  enabled: _canSelectSubject,
+                  onChanged: _onSubjectChanged,
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: _canSelectArguments ? _selectArguments : null,
+                  borderRadius: BorderRadius.circular(4),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Argomenti',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: _loadingArguments
+                          ? const Padding(
+                              padding: EdgeInsets.all(13),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.keyboard_arrow_down_rounded),
+                    ),
+                    child: Text(
+                      _argumentsLabel(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _selectedArguments.isEmpty
+                            ? Colors.grey
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _QuestionAvailabilityCard(
+                  loading: _loadingQuestions,
+                  count: _availableQuestions,
+                  hasArguments: _selectedArguments.isNotEmpty,
+                ),
+                if (_availableQuestions > 0) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Numero di domande',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              size: 22,
-                            ),
-                            onPressed: () {
-                              Navigator.of(
-                                context,
-                              ).pop();
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(
-                        height: 10,
-                      ),
-                      if (_isAuthenticated) ...[
-                        _AssignedQuizEntryCard(
-                          onTap: _openAssignedQuizzes,
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      _InfoField(
-                        label: 'Dipartimento',
-                        value: widget.department,
-                      ),
-                      const SizedBox(
-                        height: 20,
-                      ),
-                      _InfoField(
-                        label: 'Corso',
-                        value: widget.course,
-                      ),
-                      const SizedBox(
-                        height: 20,
-                      ),
-                      GestureDetector(
-                        onTap: loadingSubjects
+                      IconButton(
+                        onPressed: _selectedQuiz <= 1
                             ? null
-                            : _selectSubject,
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'Materia',
-                            border:
-                                const OutlineInputBorder(),
-                            suffixIcon: loadingSubjects
-                                ? const Padding(
-                                    padding:
-                                        EdgeInsets.all(
-                                      12,
-                                    ),
-                                    child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child:
-                                          CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons
-                                        .keyboard_arrow_down,
-                                  ),
-                          ),
-                          child: Text(
-                            loadingSubjects
-                                ? 'Caricamento...'
-                                : selectedSub ??
-                                    'Seleziona una materia',
-                            style: TextStyle(
-                              color: selectedSub == null
-                                  ? Colors.grey
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 25,
-                      ),
-                      GestureDetector(
-                        onTap: selectedSub == null ||
-                                isLoadingArguments
-                            ? null
-                            : _selectArguments,
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'Argomenti',
-                            border:
-                                const OutlineInputBorder(),
-                            suffixIcon: isLoadingArguments
-                                ? const Padding(
-                                    padding:
-                                        EdgeInsets.all(
-                                      12,
-                                    ),
-                                    child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child:
-                                          CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons
-                                        .keyboard_arrow_down,
-                                  ),
-                          ),
-                          child: Text(
-                            selectedSub == null
-                                ? 'Seleziona prima una materia'
-                                : selectedArguments.isEmpty
-                                    ? 'Seleziona gli argomenti'
-                                    : selectedArguments.join(
-                                        ', ',
-                                      ),
-                            maxLines: 2,
-                            overflow:
-                                TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: selectedSub == null ||
-                                      selectedArguments
-                                          .isEmpty
-                                  ? Colors.grey
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 20,
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(
-                          16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          )
-                              .colorScheme
-                              .surfaceContainerHighest
-                              .withOpacity(
-                                0.35,
-                              ),
-                          borderRadius:
-                              BorderRadius.circular(
-                            12,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.quiz_outlined,
-                            ),
-                            const SizedBox(
-                              width: 12,
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
-                                children: [
-                                  const Text(
-                                    'Domande disponibili',
-                                    style: TextStyle(
-                                      fontWeight:
-                                          FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(
-                                    height: 4,
-                                  ),
-                                  if (isLoadingQuestions)
-                                    const Text(
-                                      'Calcolo in corso...',
-                                      style: TextStyle(
-                                        color:
-                                            Colors.grey,
-                                        fontSize: 12,
-                                      ),
-                                    )
-                                  else
-                                    Text(
-                                      selectedArguments
-                                              .isEmpty
-                                          ? 'Seleziona almeno un argomento'
-                                          : '$availableQuestions domande',
-                                      style:
-                                          const TextStyle(
-                                        color:
-                                            Colors.grey,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 20,
-                      ),
-                      if (availableQuestions > 0) ...[
-                        const Text(
-                          'Numero di domande',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight:
-                                FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 8,
-                        ),
-                        Container(
-                          padding:
-                              const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.grey
-                                  .withOpacity(
-                                0.3,
-                              ),
-                            ),
-                            borderRadius:
-                                BorderRadius.circular(
-                              12,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment
-                                    .center,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.remove,
-                                ),
-                                onPressed:
-                                    selectedQuiz <= 1
-                                        ? null
-                                        : () {
-                                            _changeQuestionNumber(
-                                              -1,
-                                            );
-                                          },
-                              ),
-                              const SizedBox(
-                                width: 10,
-                              ),
-                              SizedBox(
-                                width: 75,
-                                child: TextField(
-                                  controller:
-                                      _questionController,
-                                  textAlign:
-                                      TextAlign.center,
-                                  keyboardType:
-                                      TextInputType
-                                          .number,
-                                  decoration:
-                                      const InputDecoration(
-                                    border:
-                                        OutlineInputBorder(),
-                                    isDense: true,
-                                    contentPadding:
-                                        EdgeInsets
-                                            .symmetric(
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                  onChanged:
-                                      _onQuestionNumberChanged,
-                                ),
-                              ),
-                              const SizedBox(
-                                width: 10,
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.add,
-                                ),
-                                onPressed: selectedQuiz >=
-                                        availableQuestions
-                                    ? null
-                                    : () {
-                                        _changeQuestionNumber(
-                                          1,
-                                        );
-                                      },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 6,
-                        ),
-                        Center(
-                          child: Text(
-                            'Massimo: $availableQuestions',
-                            style:
-                                const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(
-                        height: 30,
+                            : () => _changeQuestionNumber(-1),
+                        icon: const Icon(Icons.remove_rounded),
                       ),
                       SizedBox(
-                        height: 50,
-                        child: ElevatedButton(
-                          style:
-                              ElevatedButton.styleFrom(
-                            shape:
-                                RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                8,
-                              ),
-                            ),
-                          ),
-                          onPressed: selectedSub ==
-                                      null ||
-                                  selectedArguments
-                                      .isEmpty ||
-                                  availableQuestions == 0 ||
-                                  isLoadingQuestions
-                              ? null
-                              : _startQuiz,
-                          child: const Text(
-                            'Avvia Quiz',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight:
-                                  FontWeight.bold,
-                            ),
+                        width: 90,
+                        child: TextField(
+                          controller: _questionController,
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          onChanged: _onQuestionNumberChanged,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            isDense: true,
                           ),
                         ),
+                      ),
+                      IconButton(
+                        onPressed: _selectedQuiz >= _availableQuestions
+                            ? null
+                            : () => _changeQuestionNumber(1),
+                        icon: const Icon(Icons.add_rounded),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  Center(
+                    child: Text(
+                      'Massimo: $_availableQuestions',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 28),
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _canStart ? _startQuiz : null,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text(
+                      'Avvia Quiz',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
         ),
       ),
@@ -910,8 +858,112 @@ class _SubjectSelectionState extends State<SubjectSelection> {
   }
 }
 
-class _AssignedQuizEntryCard
-    extends StatelessWidget {
+class _CatalogDropdown<T> extends StatelessWidget {
+  final String label;
+  final T? value;
+  final List<T> items;
+  final String Function(T value) itemLabel;
+  final bool loading;
+  final bool enabled;
+  final ValueChanged<T?> onChanged;
+
+  const _CatalogDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.itemLabel,
+    required this.loading,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        suffixIcon: loading
+            ? const Padding(
+                padding: EdgeInsets.all(13),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                  ),
+                ),
+              )
+            : null,
+      ),
+      hint: Text(
+        loading ? 'Caricamento...' : 'Seleziona $label',
+      ),
+      items: items
+          .map(
+            (T item) => DropdownMenuItem<T>(
+              value: item,
+              child: Text(
+                itemLabel(item),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: enabled ? onChanged : null,
+    );
+  }
+}
+
+class _QuestionAvailabilityCard extends StatelessWidget {
+  final bool loading;
+  final int count;
+  final bool hasArguments;
+
+  const _QuestionAvailabilityCard({
+    required this.loading,
+    required this.count,
+    required this.hasArguments,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String value;
+
+    if (loading) {
+      value = 'Calcolo in corso...';
+    } else if (!hasArguments) {
+      value = 'Seleziona gli argomenti';
+    } else {
+      value = '$count domande disponibili';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.quiz_outlined),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssignedQuizEntryCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _AssignedQuizEntryCard({
@@ -920,25 +972,20 @@ class _AssignedQuizEntryCard
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme =
-        Theme.of(context).colorScheme;
+    final ColorScheme colors = Theme.of(context).colorScheme;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: colorScheme.primaryContainer
-                .withOpacity(0.35),
-            borderRadius:
-                BorderRadius.circular(14),
+            color: colors.primaryContainer.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: colorScheme.primary
-                  .withOpacity(0.18),
+              color: colors.primary.withValues(alpha: 0.18),
             ),
           ),
           child: const Row(
@@ -950,15 +997,13 @@ class _AssignedQuizEntryCard
               SizedBox(width: 13),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Quiz assegnati',
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 4),
@@ -978,36 +1023,6 @@ class _AssignedQuizEntryCard
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoField
-    extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoField({
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        border:
-            const OutlineInputBorder(),
-      ),
-      child: Text(
-        value,
-        style: const TextStyle(
-          color: Colors.grey,
         ),
       ),
     );

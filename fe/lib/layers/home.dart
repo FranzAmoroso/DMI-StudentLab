@@ -19,7 +19,7 @@ import 'package:fe/social/notifications/notifications_page.dart';
 
 import 'package:fe/social/admin/admin_panel_page.dart';
 
-import 'package:fe/social/teacher/techear_area_page.dart';
+import 'package:fe/social/teacher/teachear_area_page.dart';
 
 
 class HomePage extends StatefulWidget {

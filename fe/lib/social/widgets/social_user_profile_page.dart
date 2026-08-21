@@ -16,6 +16,8 @@ import 'academic_paths_page.dart';
 
 import 'teacher_assignment_page.dart';
 import 'user_block_action.dart';
+import '../auth/account_security_page.dart';
+import '../widgets/studentlab_user_avatar.dart';
 
 class SocialUserProfilePage extends StatefulWidget {
   final SocialUser user;
@@ -207,6 +209,23 @@ class _SocialUserProfilePageState
                 BuildContext context,
               ) =>
                       const [
+                PopupMenuItem<String>(
+                  value:
+                      'account_security',
+
+                  child:
+                      _ProfileMenuItem(
+                    icon:
+                        Icons
+                            .manage_accounts_outlined,
+
+                    label:
+                        'Account e sicurezza',
+                  ),
+                ),
+
+                PopupMenuDivider(),
+
                 PopupMenuItem<String>(
                   value:
                       'report_error',
@@ -855,48 +874,12 @@ class _SocialUserProfilePageState
                 CrossAxisAlignment.start,
 
             children: [
-              Container(
-                width:
-                    72,
+              StudentLabUserAvatar(
+                type:
+                    _user.type,
 
-                height:
-                    72,
-
-                alignment:
-                    Alignment.center,
-
-                decoration:
-                    BoxDecoration(
-                  color:
-                      _isTeacher
-                          ? AppColors.teacherIndigo
-                          : AppColors.studentBlue,
-
-                  borderRadius:
-                      BorderRadius.circular(
-                    22,
-                  ),
-                ),
-
-                child:
-                    Text(
-                  _user.name.isNotEmpty
-                      ? _user.name[0]
-                          .toUpperCase()
-                      : '?',
-
-                  style:
-                      const TextStyle(
-                    color:
-                        AppColors.pureWhite,
-
-                    fontSize:
-                        27,
-
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
+                radius:
+                    36,
               ),
 
               const SizedBox(
@@ -2790,6 +2773,11 @@ class _SocialUserProfilePageState
     String value,
   ) {
     switch (value) {
+      case 'account_security':
+        _openAccountSecurity();
+
+        return;
+
       case 'report_error':
         _reportError();
 
@@ -2806,6 +2794,27 @@ class _SocialUserProfilePageState
         return;
     }
   }
+
+  Future<void> _openAccountSecurity() async {
+    if (!_isOwnProfile ||
+        !_isAuthenticated) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            const AccountSecurityPage(),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _refreshProfile();
+  }
+
 
   Future<void> _reportProfile() async {
     if (!_isAuthenticated) {

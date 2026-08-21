@@ -14,6 +14,7 @@ import '../../services/auth_session.dart';
 import '../social_models.dart';
 
 import '../policy/studentlab_policy_page.dart';
+import '../widgets/studentlab_user_avatar.dart';
 
 class SocialProfilePreview extends StatefulWidget {
 
@@ -2139,57 +2140,15 @@ class _ProfileCard
 
             children: [
 
-              CircleAvatar(
+              StudentLabUserAvatar(
+
+                type:
+
+                    draft.type,
 
                 radius:
 
                     25,
-
-                backgroundColor:
-
-                    isTeacher
-
-                        ? AppColors
-
-                            .teacherIndigo
-
-                        : AppColors
-
-                            .studentBlue,
-
-                child:
-
-                    Text(
-
-                  draft.name.isNotEmpty
-
-                      ? draft.name[0]
-
-                          .toUpperCase()
-
-                      : '?',
-
-                  style:
-
-                      const TextStyle(
-
-                    color:
-
-                        AppColors
-
-                            .pureWhite,
-
-                    fontWeight:
-
-                        FontWeight.bold,
-
-                    fontSize:
-
-                        18,
-
-                  ),
-
-                ),
 
               ),
 

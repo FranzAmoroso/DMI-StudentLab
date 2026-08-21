@@ -623,13 +623,7 @@ class HomeLayer extends StatelessWidget {
           MaterialPageRoute(
             builder:
                 (_) =>
-                    const SubjectSelection(
-              department:
-                  'DMI',
-
-              course:
-                  'L-31',
-            ),
+                    const SubjectSelection()
           ),
         );
 
