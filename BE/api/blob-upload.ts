@@ -64,7 +64,8 @@ const TEACHER_ALLOWED_CONTENT_TYPES = [
 type UploadKind =
   | 'group_material'
   | 'question_attachment'
-  | 'teacher_material';
+  | 'teacher_material'
+  | 'material_publication';
 
 
 type UploadRequestBody = {
@@ -379,7 +380,11 @@ export default async function handler(
               'teacher-materials/',
             )
             ? 'teacher_material'
-            : 'group_material'
+            : pathname.startsWith(
+                'material-publication/',
+              )
+              ? 'material_publication'
+              : 'group_material'
       );
 
     if (
@@ -603,7 +608,138 @@ export default async function handler(
                 : 'Caricamento non autorizzato.',
           });
       }
+    } else if (
+      uploadKind ===
+      'material_publication'
+    ) {
+      if (
+        !pathname.startsWith(
+          'material-publication/',
+        )
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Percorso pubblicazione materiale non valido.',
+          });
+      }
+
+      if (
+        body.size >
+        GROUP_MAX_FILE_SIZE
+      ) {
+        return response
+          .status(413)
+          .json({
+            error:
+              'Il file supera la dimensione massima consentita di 250 MB.',
+          });
+      }
+
+      if (
+        !GROUP_ALLOWED_CONTENT_TYPES.includes(
+          contentType,
+        )
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Tipo di file non supportato.',
+          });
+      }
+
+      if (
+        !Number.isInteger(
+          body.subject_id,
+        ) ||
+        !body.subject_id ||
+        body.subject_id <=
+        0 ||
+        typeof body.upload_token !==
+        'string'
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Autorizzazione upload non valida.',
+          });
+      }
+
+      const verifyResponse =
+        await fetch(
+          `${backendUrl}/material_publication/verify-upload`,
+          {
+            method:
+              'POST',
+            headers: {
+              Authorization:
+                authorization,
+              'Content-Type':
+                'application/json',
+            },
+            body:
+              JSON.stringify({
+                subject_id:
+                  body.subject_id,
+                pathname,
+                mime_type:
+                  contentType,
+                size:
+                  body.size,
+                file_hash:
+                  fileHash,
+                upload_token:
+                  body.upload_token,
+              }),
+          },
+        );
+
+      const verified =
+        await parseJson(
+          verifyResponse,
+        );
+
+      if (
+        !verifyResponse.ok ||
+        verified.allowed !==
+        true ||
+        verified.pathname !==
+        pathname ||
+        verified.subject_id !==
+        body.subject_id
+      ) {
+        return response
+          .status(
+            verifyResponse.status >= 400 &&
+            verifyResponse.status < 500
+              ? verifyResponse.status
+              : 403,
+          )
+          .json({
+            error:
+              typeof verified.detail ===
+              'string'
+                ? verified.detail
+                : 'Caricamento non autorizzato.',
+          });
+      }
     } else {
+      if (
+        !pathname.startsWith(
+          'groups/group_',
+        )
+      ) {
+        return response
+          .status(400)
+          .json({
+            error:
+              'Percorso materiale gruppo non valido.',
+          });
+      }
+
       if (
         body.size >
         GROUP_MAX_FILE_SIZE
@@ -634,28 +770,24 @@ export default async function handler(
           body.group_id,
         ) ||
         !body.group_id ||
-        body.group_id <=
-        0 ||
-        !Number.isInteger(
-          body.uploaded_by,
-        ) ||
-        !body.uploaded_by ||
-        body.uploaded_by <=
-        0 ||
-        typeof body.original_name !==
-        'string'
+        body.group_id <= 0 ||
+        typeof body.upload_token !==
+          'string' ||
+        body.upload_token
+          .trim()
+          .length === 0
       ) {
         return response
           .status(400)
           .json({
             error:
-              'Dati caricamento gruppo non validi.',
+              'Autorizzazione upload gruppo non valida.',
           });
       }
 
-      const authResponse =
+      const verifyResponse =
         await fetch(
-          `${backendUrl}/group_material_upload_request/${body.group_id}`,
+          `${backendUrl}/group_material_verify_upload/${body.group_id}`,
           {
             method:
               'POST',
@@ -667,46 +799,49 @@ export default async function handler(
             },
             body:
               JSON.stringify({
-                uploaded_by:
-                  body.uploaded_by,
-                original_name:
-                  body.original_name,
+                group_id:
+                  body.group_id,
+                pathname,
                 mime_type:
                   contentType,
                 size:
                   body.size,
                 file_hash:
                   fileHash,
+                upload_token:
+                  body.upload_token,
               }),
           },
         );
 
-      const authorized =
+      const verified =
         await parseJson(
-          authResponse,
+          verifyResponse,
         );
 
       if (
-        !authResponse.ok ||
-        authorized.allowed !==
-        true ||
-        authorized.pathname !==
-        pathname
+        !verifyResponse.ok ||
+        verified.allowed !==
+          true ||
+        verified.pathname !==
+          pathname ||
+        verified.group_id !==
+          body.group_id
       ) {
         return response
           .status(
-            authResponse.status >=
-            400 &&
-            authResponse.status <
-            500
-              ? authResponse.status
+            verifyResponse.status >=
+              400 &&
+            verifyResponse.status <
+              500
+              ? verifyResponse.status
               : 403,
           )
           .json({
             error:
-              typeof authorized.detail ===
-              'string'
-                ? authorized.detail
+              typeof verified.detail ===
+                'string'
+                ? verified.detail
                 : 'Caricamento non autorizzato.',
           });
       }
@@ -782,7 +917,9 @@ export default async function handler(
           ?? null,
         subject_id:
           uploadKind ===
-          'teacher_material'
+            'teacher_material' ||
+          uploadKind ===
+            'material_publication'
             ? body.subject_id
               ?? null
             : null,
