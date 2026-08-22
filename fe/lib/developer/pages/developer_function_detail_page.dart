@@ -704,7 +704,6 @@ class _ImpactTabState
   @override
   void initState() {
     super.initState();
-
     _futureImpact = _load();
   }
 
@@ -776,6 +775,18 @@ class _ImpactTabState
           children: [
             _DetailSection(
               icon:
+                  Icons.auto_awesome_outlined,
+              title:
+                  'What should change together?',
+              accent: riskColor,
+              child: Text(
+                impact.semanticAnswer,
+                style:
+                    DeveloperUiStyle.bodyMuted,
+              ),
+            ),
+            _DetailSection(
+              icon:
                   Icons.speed_outlined,
               title: 'Impact summary',
               accent: riskColor,
@@ -786,12 +797,9 @@ class _ImpactTabState
                   Text(
                     impact.summary,
                     style:
-                        DeveloperUiStyle
-                            .bodyMuted,
+                        DeveloperUiStyle.bodyMuted,
                   ),
-                  const SizedBox(
-                    height: 12,
-                  ),
+                  const SizedBox(height: 12),
                   LayoutBuilder(
                     builder: (
                       BuildContext context,
@@ -808,7 +816,7 @@ class _ImpactTabState
                           metrics = [
                         _ImpactMetricData(
                           label:
-                              'Direct callers',
+                              'Callers',
                           value:
                               '${impact.directCallers.length}',
                           icon: Icons
@@ -816,27 +824,27 @@ class _ImpactTabState
                         ),
                         _ImpactMetricData(
                           label:
-                              'Calls',
-                          value:
-                              '${impact.directCallees.length}',
-                          icon: Icons
-                              .call_made_rounded,
-                        ),
-                        _ImpactMetricData(
-                          label:
                               'Flows',
                           value:
                               '${impact.flows.length}',
-                          icon: Icons
-                              .route_outlined,
+                          icon:
+                              Icons.route_outlined,
                         ),
                         _ImpactMetricData(
                           label:
-                              'Files',
+                              'Endpoints',
                           value:
-                              '${impact.relatedFiles.length}',
+                              '${impact.endpoints.length}',
+                          icon:
+                              Icons.api_outlined,
+                        ),
+                        _ImpactMetricData(
+                          label:
+                              'Tests',
+                          value:
+                              '${impact.tests.length}',
                           icon: Icons
-                              .description_outlined,
+                              .science_outlined,
                         ),
                       ];
 
@@ -874,34 +882,110 @@ class _ImpactTabState
                 ],
               ),
             ),
-            _DetailSection(
-              icon: Icons
-                  .warning_amber_rounded,
-              title: 'Risk',
-              accent: riskColor,
-              child: Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [
-                  _InfoBadge(
-                    icon: Icons
-                        .warning_amber_rounded,
-                    label: impact.risk.name
-                        .toUpperCase(),
-                    color: riskColor,
-                  ),
-                  if (impact.securityCritical)
-                    const _InfoBadge(
-                      icon: Icons
-                          .lock_outline_rounded,
-                      label:
-                          'SECURITY CRITICAL',
-                      color:
-                          Colors.redAccent,
-                    ),
-                ],
+            if (impact.recommendations
+                .isNotEmpty)
+              _DetailSection(
+                icon:
+                    Icons.rule_folder_outlined,
+                title: 'Modify together',
+                accent:
+                    AppColors.skyBlue,
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: impact
+                      .recommendations
+                      .map(
+                        (String item) =>
+                            _ImpactRecommendation(
+                          text: item,
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
-            ),
+            if (impact.endpoints.isNotEmpty)
+              _DetailSection(
+                icon: Icons.api_outlined,
+                title:
+                    'Affected endpoints',
+                accent:
+                    AppColors.materialSky,
+                child: Column(
+                  children: impact.endpoints
+                      .map(
+                        (
+                          DeveloperImpactEndpoint
+                              endpoint,
+                        ) =>
+                            _RelationRow(
+                          icon:
+                              Icons.api_outlined,
+                          title:
+                              '${endpoint.function}()',
+                          subtitle:
+                              '${endpoint.file} · ${endpoint.confidence}',
+                          color: AppColors
+                              .materialSky,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            if (impact.models.isNotEmpty)
+              _DetailSection(
+                icon:
+                    Icons.storage_outlined,
+                title: 'DB models',
+                accent:
+                    AppColors.lavenderBlue,
+                child: Column(
+                  children: impact.models
+                      .map(
+                        (
+                          DeveloperImpactModelRef
+                              model,
+                        ) =>
+                            _RelationRow(
+                          icon: Icons
+                              .storage_outlined,
+                          title: model.name,
+                          subtitle:
+                              '${model.file} · ${model.confidence}',
+                          color: AppColors
+                              .lavenderBlue,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            if (impact.tests.isNotEmpty)
+              _DetailSection(
+                icon:
+                    Icons.science_outlined,
+                title: 'Related tests',
+                accent:
+                    Colors.greenAccent,
+                child: Column(
+                  children: impact.tests
+                      .map(
+                        (
+                          DeveloperImpactTestRef
+                              test,
+                        ) =>
+                            _RelationRow(
+                          icon: Icons
+                              .science_outlined,
+                          title: test.file,
+                          subtitle:
+                              '${test.confidence} · ${test.reason}',
+                          color: Colors
+                              .greenAccent,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
             if (impact.flows.isNotEmpty)
               _DetailSection(
                 icon:
@@ -919,8 +1003,7 @@ class _ImpactTabState
                             _RelationRow(
                           icon: Icons
                               .account_tree_outlined,
-                          title:
-                              flow.name,
+                          title: flow.name,
                           subtitle:
                               '${flow.risk.name.toUpperCase()} · '
                               'step ${flow.matchedSteps.join(', ')}',
@@ -1005,8 +1088,7 @@ class _ImpactTabState
                 .transitiveCallers
                 .isNotEmpty)
               _DetailSection(
-                icon: Icons
-                    .hub_outlined,
+                icon: Icons.hub_outlined,
                 title:
                     'Transitive callers',
                 accent:
@@ -1096,13 +1178,59 @@ class _ImpactTabState
                   size: 16,
                 ),
                 label: const Text(
-                  'Ricalcola impact',
+                  'Recalculate impact',
                 ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _ImpactRecommendation
+    extends StatelessWidget {
+  final String text;
+
+  const _ImpactRecommendation({
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          const EdgeInsets.only(
+        bottom: 8,
+      ),
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding:
+                EdgeInsets.only(
+              top: 3,
+            ),
+            child: Icon(
+              Icons
+                  .check_circle_outline_rounded,
+              color:
+                  AppColors.skyBlue,
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style:
+                  DeveloperUiStyle.bodyMuted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1150,7 +1278,7 @@ class _ImpactError extends StatelessWidget {
                 height: 10,
               ),
               Text(
-                'Impact analysis non disponibile',
+                'Impact analysis unavailable',
                 style:
                     DeveloperUiStyle
                         .bodyStrong,
@@ -1177,7 +1305,7 @@ class _ImpactError extends StatelessWidget {
                   Icons.refresh_rounded,
                 ),
                 label:
-                    const Text('Riprova'),
+                    const Text('Retry'),
               ),
             ],
           ),

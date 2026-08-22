@@ -334,6 +334,57 @@ class DeveloperApiMapper {
     );
   }
 
+  static DeveloperImpactEndpoint
+      impactEndpoint(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperImpactEndpoint(
+      file:
+          json['file']?.toString() ?? '',
+      function:
+          json['function']?.toString() ?? '',
+      method:
+          json['method']?.toString(),
+      path:
+          json['path']?.toString(),
+      confidence:
+          json['confidence']?.toString() ??
+              'inferred',
+    );
+  }
+
+  static DeveloperImpactModelRef
+      impactModel(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperImpactModelRef(
+      file:
+          json['file']?.toString() ?? '',
+      name:
+          json['name']?.toString() ?? '',
+      layer:
+          json['layer']?.toString() ?? '',
+      confidence:
+          json['confidence']?.toString() ??
+              'observed',
+    );
+  }
+
+  static DeveloperImpactTestRef
+      impactTest(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperImpactTestRef(
+      file:
+          json['file']?.toString() ?? '',
+      confidence:
+          json['confidence']?.toString() ??
+              'inferred',
+      reason:
+          json['reason']?.toString() ?? '',
+    );
+  }
+
   static DeveloperImpactAnalysis impact(
     Map<String, dynamic> json,
   ) {
@@ -360,6 +411,10 @@ class DeveloperApiMapper {
       risk: risk(json['risk']),
       summary:
           json['summary']?.toString() ?? '',
+      semanticAnswer:
+          json['semantic_answer']
+                  ?.toString() ??
+              '',
       directCallers:
           functionRefs('direct_callers'),
       directCallees:
@@ -385,6 +440,49 @@ class DeveloperApiMapper {
                     item,
                   ),
                 ),
+              )
+              .toList(),
+      endpoints:
+          (json['endpoints'] as List? ??
+                  const [])
+              .whereType<Map>()
+              .map(
+                (Map item) =>
+                    impactEndpoint(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
+      models:
+          (json['models'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => impactModel(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
+      tests:
+          (json['tests'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => impactTest(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
+      recommendations:
+          (json['recommendations'] as List? ??
+                  const [])
+              .map(
+                (dynamic value) =>
+                    value.toString(),
               )
               .toList(),
       securityFlags:

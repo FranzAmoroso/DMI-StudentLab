@@ -345,11 +345,54 @@ class DeveloperImpactFlow {
   });
 }
 
+class DeveloperImpactEndpoint {
+  final String file;
+  final String function;
+  final String? method;
+  final String? path;
+  final String confidence;
+
+  const DeveloperImpactEndpoint({
+    required this.file,
+    required this.function,
+    required this.method,
+    required this.path,
+    required this.confidence,
+  });
+}
+
+class DeveloperImpactModelRef {
+  final String file;
+  final String name;
+  final String layer;
+  final String confidence;
+
+  const DeveloperImpactModelRef({
+    required this.file,
+    required this.name,
+    required this.layer,
+    required this.confidence,
+  });
+}
+
+class DeveloperImpactTestRef {
+  final String file;
+  final String confidence;
+  final String reason;
+
+  const DeveloperImpactTestRef({
+    required this.file,
+    required this.confidence,
+    required this.reason,
+  });
+}
+
 class DeveloperImpactAnalysis {
   final String path;
   final String? function;
   final DeveloperRiskLevel risk;
   final String summary;
+  final String semanticAnswer;
   final List<DeveloperImpactFunctionRef>
       directCallers;
   final List<DeveloperImpactFunctionRef>
@@ -358,6 +401,13 @@ class DeveloperImpactAnalysis {
       transitiveCallers;
   final List<String> relatedFiles;
   final List<DeveloperImpactFlow> flows;
+  final List<DeveloperImpactEndpoint>
+      endpoints;
+  final List<DeveloperImpactModelRef>
+      models;
+  final List<DeveloperImpactTestRef>
+      tests;
+  final List<String> recommendations;
   final List<String> securityFlags;
   final bool securityCritical;
 
@@ -366,11 +416,16 @@ class DeveloperImpactAnalysis {
     required this.function,
     required this.risk,
     required this.summary,
+    required this.semanticAnswer,
     required this.directCallers,
     required this.directCallees,
     required this.transitiveCallers,
     required this.relatedFiles,
     required this.flows,
+    required this.endpoints,
+    required this.models,
+    required this.tests,
+    required this.recommendations,
     required this.securityFlags,
     required this.securityCritical,
   });
