@@ -62,8 +62,7 @@ class DeveloperApiRepository {
 
     if (response.body.trim().isNotEmpty) {
       try {
-        decoded =
-            jsonDecode(response.body);
+        decoded = jsonDecode(response.body);
       } catch (_) {
         decoded = null;
       }
@@ -119,7 +118,7 @@ class DeveloperApiRepository {
 
       return result.authorized;
     } on DeveloperApiException catch (
-      error,
+      error
     ) {
       if (error.statusCode == 401 ||
           error.statusCode == 403) {
@@ -216,16 +215,15 @@ class DeveloperApiRepository {
 
     return data
         .map(
-          DeveloperApiMapper
-              .searchResult,
+          DeveloperApiMapper.searchResult,
         )
         .toList();
   }
 
   Future<List<DeveloperFlowDoc>>
       getFlows() async {
-    final List<Map<String, dynamic>> data =
-        _asMapList(
+    final List<Map<String, dynamic>>
+        data = _asMapList(
       await _get('/developer/flows'),
       'Elenco flow Developer non valido.',
     );
@@ -263,6 +261,49 @@ class DeveloperApiRepository {
     );
   }
 
+  Future<DeveloperImpactAnalysis>
+      getImpact({
+    required String path,
+    String? functionName,
+  }) async {
+    final String normalizedPath =
+        path.trim();
+
+    if (normalizedPath.isEmpty) {
+      throw Exception(
+        'Percorso file non valido.',
+      );
+    }
+
+    final Map<String, String>
+        queryParameters = {
+      'path': normalizedPath,
+    };
+
+    final String? normalizedFunction =
+        functionName?.trim();
+
+    if (normalizedFunction != null &&
+        normalizedFunction.isNotEmpty) {
+      queryParameters['function'] =
+          normalizedFunction;
+    }
+
+    final Map<String, dynamic> data =
+        _asMap(
+      await _get(
+        '/developer/impact',
+        queryParameters:
+            queryParameters,
+      ),
+      'Impact analysis non valida.',
+    );
+
+    return DeveloperApiMapper.impact(
+      data,
+    );
+  }
+
   Future<DeveloperGraphData>
       getGraph() async {
     final Map<String, dynamic> data =
@@ -280,7 +321,8 @@ class DeveloperApiRepository {
     dynamic value,
     String message,
   ) {
-    if (value is Map<String, dynamic>) {
+    if (value
+        is Map<String, dynamic>) {
       return value;
     }
 
@@ -293,7 +335,8 @@ class DeveloperApiRepository {
     throw Exception(message);
   }
 
-  List<Map<String, dynamic>> _asMapList(
+  List<Map<String, dynamic>>
+      _asMapList(
     dynamic value,
     String message,
   ) {

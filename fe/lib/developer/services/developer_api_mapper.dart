@@ -295,6 +295,111 @@ class DeveloperApiMapper {
     );
   }
 
+  static DeveloperImpactFunctionRef
+      impactFunctionRef(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperImpactFunctionRef(
+      file:
+          json['file']?.toString() ?? '',
+      function:
+          json['function']?.toString() ?? '',
+      layer:
+          json['layer']?.toString() ?? '',
+      securityCritical:
+          json['security_critical'] == true,
+      risk: risk(json['risk']),
+      depth:
+          (json['depth'] as num?)?.toInt(),
+    );
+  }
+
+  static DeveloperImpactFlow impactFlow(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperImpactFlow(
+      id: json['id']?.toString() ?? '',
+      name:
+          json['name']?.toString() ?? '',
+      risk: risk(json['risk']),
+      matchedSteps:
+          (json['matched_steps'] as List? ??
+                  const [])
+              .whereType<num>()
+              .map(
+                (num value) =>
+                    value.toInt(),
+              )
+              .toList(),
+    );
+  }
+
+  static DeveloperImpactAnalysis impact(
+    Map<String, dynamic> json,
+  ) {
+    List<DeveloperImpactFunctionRef>
+        functionRefs(String key) {
+      return (json[key] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (Map item) =>
+                impactFunctionRef(
+              Map<String, dynamic>.from(
+                item,
+              ),
+            ),
+          )
+          .toList();
+    }
+
+    return DeveloperImpactAnalysis(
+      path:
+          json['path']?.toString() ?? '',
+      function:
+          json['function']?.toString(),
+      risk: risk(json['risk']),
+      summary:
+          json['summary']?.toString() ?? '',
+      directCallers:
+          functionRefs('direct_callers'),
+      directCallees:
+          functionRefs('direct_callees'),
+      transitiveCallers:
+          functionRefs(
+        'transitive_callers',
+      ),
+      relatedFiles:
+          (json['related_files'] as List? ??
+                  const [])
+              .map(
+                (dynamic value) =>
+                    value.toString(),
+              )
+              .toList(),
+      flows:
+          (json['flows'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => impactFlow(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
+      securityFlags:
+          (json['security_flags'] as List? ??
+                  const [])
+              .map(
+                (dynamic value) =>
+                    value.toString(),
+              )
+              .toList(),
+      securityCritical:
+          json['security_critical'] == true,
+    );
+  }
+
   static DeveloperGraphData graph(
     Map<String, dynamic> json,
   ) {

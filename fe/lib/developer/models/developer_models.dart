@@ -312,3 +312,66 @@ class DeveloperGraphData {
     required this.edges,
   });
 }
+
+class DeveloperImpactFunctionRef {
+  final String file;
+  final String function;
+  final String layer;
+  final bool securityCritical;
+  final DeveloperRiskLevel risk;
+  final int? depth;
+
+  const DeveloperImpactFunctionRef({
+    required this.file,
+    required this.function,
+    required this.layer,
+    required this.securityCritical,
+    required this.risk,
+    this.depth,
+  });
+}
+
+class DeveloperImpactFlow {
+  final String id;
+  final String name;
+  final DeveloperRiskLevel risk;
+  final List<int> matchedSteps;
+
+  const DeveloperImpactFlow({
+    required this.id,
+    required this.name,
+    required this.risk,
+    required this.matchedSteps,
+  });
+}
+
+class DeveloperImpactAnalysis {
+  final String path;
+  final String? function;
+  final DeveloperRiskLevel risk;
+  final String summary;
+  final List<DeveloperImpactFunctionRef>
+      directCallers;
+  final List<DeveloperImpactFunctionRef>
+      directCallees;
+  final List<DeveloperImpactFunctionRef>
+      transitiveCallers;
+  final List<String> relatedFiles;
+  final List<DeveloperImpactFlow> flows;
+  final List<String> securityFlags;
+  final bool securityCritical;
+
+  const DeveloperImpactAnalysis({
+    required this.path,
+    required this.function,
+    required this.risk,
+    required this.summary,
+    required this.directCallers,
+    required this.directCallees,
+    required this.transitiveCallers,
+    required this.relatedFiles,
+    required this.flows,
+    required this.securityFlags,
+    required this.securityCritical,
+  });
+}
