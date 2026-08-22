@@ -3,6 +3,10 @@ from datetime import (
     timezone,
 )
 
+from routes.developer_architecture import (
+    router as developer_architecture_router,
+)
+
 from fastapi import (
     Depends,
     FastAPI,
@@ -512,6 +516,10 @@ app.include_router(
 
 app.include_router(
     user_block_router,
+)
+
+app.include_router(
+    developer_architecture_router,
 )
 
 app.add_middleware(
