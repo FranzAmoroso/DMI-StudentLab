@@ -248,6 +248,42 @@ class DeveloperImpactFlowResponse(
     )
 
 
+class DeveloperImpactEndpointResponse(
+    BaseModel,
+):
+    file: str
+    function: str
+    method: str | None = None
+    path: str | None = None
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ] = "inferred"
+
+
+class DeveloperImpactModelResponse(
+    BaseModel,
+):
+    file: str
+    name: str
+    layer: str
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ] = "observed"
+
+
+class DeveloperImpactTestResponse(
+    BaseModel,
+):
+    file: str
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ]
+    reason: str
+
+
 class DeveloperImpactResponse(
     BaseModel,
 ):
@@ -255,6 +291,7 @@ class DeveloperImpactResponse(
     function: str | None = None
     risk: DeveloperRiskLevel
     summary: str
+    semantic_answer: str
     direct_callers: list[
         DeveloperImpactFunctionRefResponse
     ] = Field(
@@ -276,6 +313,24 @@ class DeveloperImpactResponse(
     flows: list[
         DeveloperImpactFlowResponse
     ] = Field(
+        default_factory=list,
+    )
+    endpoints: list[
+        DeveloperImpactEndpointResponse
+    ] = Field(
+        default_factory=list,
+    )
+    models: list[
+        DeveloperImpactModelResponse
+    ] = Field(
+        default_factory=list,
+    )
+    tests: list[
+        DeveloperImpactTestResponse
+    ] = Field(
+        default_factory=list,
+    )
+    recommendations: list[str] = Field(
         default_factory=list,
     )
     security_flags: list[str] = Field(
