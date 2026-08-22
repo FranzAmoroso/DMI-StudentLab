@@ -17,6 +17,7 @@ from schemas.developer_architecture import (
     DeveloperFileResponse,
     DeveloperFlowResponse,
     DeveloperGraphResponse,
+    DeveloperImpactResponse,
     DeveloperRepositoryStatusResponse,
     DeveloperSearchResultResponse,
     DeveloperTreeNodeResponse,
@@ -30,6 +31,10 @@ from services.developer_flows import (
 
 from services.developer_graph import (
     build_graph,
+)
+
+from services.developer_impact import (
+    build_impact_analysis,
 )
 
 from services.developer_indexer import (
@@ -598,3 +603,43 @@ def developer_flow(
         )
 
     return flow
+
+@router.get(
+    "/impact",
+    response_model=(
+        DeveloperImpactResponse
+    ),
+)
+def developer_impact(
+    path: str = Query(
+        ...,
+        min_length=1,
+        max_length=600,
+    ),
+    function: str | None = Query(
+        None,
+        min_length=1,
+        max_length=200,
+    ),
+    current_user: User = Depends(
+        get_developer_system_user,
+    ),
+):
+    index = _index()
+
+    impact = build_impact_analysis(
+        index,
+        path=path,
+        function_name=function,
+    )
+
+    if impact is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "File o funzione non presente "
+                "nell'indice Developer."
+            ),
+        )
+
+    return impact

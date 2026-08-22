@@ -225,3 +225,60 @@ class DeveloperGraphResponse(
     ] = Field(
         default_factory=list,
     )
+
+class DeveloperImpactFunctionRefResponse(
+    BaseModel,
+):
+    file: str
+    function: str
+    layer: str
+    security_critical: bool = False
+    risk: DeveloperRiskLevel = "medium"
+    depth: int | None = None
+
+
+class DeveloperImpactFlowResponse(
+    BaseModel,
+):
+    id: str
+    name: str
+    risk: DeveloperRiskLevel
+    matched_steps: list[int] = Field(
+        default_factory=list,
+    )
+
+
+class DeveloperImpactResponse(
+    BaseModel,
+):
+    path: str
+    function: str | None = None
+    risk: DeveloperRiskLevel
+    summary: str
+    direct_callers: list[
+        DeveloperImpactFunctionRefResponse
+    ] = Field(
+        default_factory=list,
+    )
+    direct_callees: list[
+        DeveloperImpactFunctionRefResponse
+    ] = Field(
+        default_factory=list,
+    )
+    transitive_callers: list[
+        DeveloperImpactFunctionRefResponse
+    ] = Field(
+        default_factory=list,
+    )
+    related_files: list[str] = Field(
+        default_factory=list,
+    )
+    flows: list[
+        DeveloperImpactFlowResponse
+    ] = Field(
+        default_factory=list,
+    )
+    security_flags: list[str] = Field(
+        default_factory=list,
+    )
+    security_critical: bool = False
