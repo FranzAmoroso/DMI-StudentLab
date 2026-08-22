@@ -15,10 +15,17 @@ from core.developer_security import (
 
 from schemas.developer_architecture import (
     DeveloperFileResponse,
+    DeveloperFlowResponse,
     DeveloperGraphResponse,
     DeveloperRepositoryStatusResponse,
     DeveloperSearchResultResponse,
     DeveloperTreeNodeResponse,
+)
+
+from services.developer_flows import (
+    apply_flow_metadata,
+    get_flow,
+    resolve_flows,
 )
 
 from services.developer_graph import (
@@ -32,9 +39,7 @@ from services.developer_indexer import (
 )
 
 from services.developer_repository import (
-    git_available,
-    git_branch,
-    git_head_commit,
+    repository_source_info,
 )
 
 from services.developer_search import (
@@ -52,7 +57,11 @@ router = APIRouter(
 
 def _index() -> ArchitectureIndex:
     try:
-        return build_architecture_index()
+        index = build_architecture_index()
+
+        return apply_flow_metadata(
+            index,
+        )
 
     except RuntimeError as exception:
         raise HTTPException(
@@ -213,10 +222,14 @@ def _build_tree(
             children=children,
         )
 
+    source = repository_source_info(
+        index.repository_root,
+    )
+
     return convert(
         root,
         "",
-        index.repository_root.name,
+        source.repository_label,
     )
 
 
@@ -257,6 +270,8 @@ def _serialize_function(
 
 def _serialize_file(
     file,
+    *,
+    source_type: str,
 ) -> dict:
     return {
         "id": file.id,
@@ -276,7 +291,9 @@ def _serialize_file(
         "importance": (
             file.importance
         ),
-        "source_type": "local",
+        "source_type": (
+            source_type
+        ),
         "documented": (
             file.documented
         ),
@@ -340,7 +357,9 @@ def developer_status(
 ):
     index = _index()
 
-    root = index.repository_root
+    source = repository_source_info(
+        index.repository_root,
+    )
 
     functions_indexed = sum(
         len(
@@ -351,24 +370,20 @@ def developer_status(
 
     return {
         "repository_name": (
-            root.name
+            source.repository_name
         ),
         "repository_root": (
-            str(root)
+            source.repository_label
         ),
-        "source_type": "local",
+        "source_type": (
+            source.source_type
+        ),
         "git_available": (
-            git_available(
-                root,
-            )
+            source.git_available
         ),
-        "branch": git_branch(
-            root,
-        ),
+        "branch": source.branch,
         "head_commit": (
-            git_head_commit(
-                root,
-            )
+            source.head_commit
         ),
         "files_indexed": len(
             index.files,
@@ -430,9 +445,16 @@ def developer_files(
 ):
     index = _index()
 
+    source = repository_source_info(
+        index.repository_root,
+    )
+
     return [
         _serialize_file(
             file,
+            source_type=(
+                source.source_type
+            ),
         )
         for file in index.files
     ]
@@ -470,8 +492,15 @@ def developer_file(
             ),
         )
 
+    source = repository_source_info(
+        index.repository_root,
+    )
+
     return _serialize_file(
         file,
+        source_type=(
+            source.source_type
+        ),
     )
 
 
@@ -521,3 +550,51 @@ def developer_graph(
     return build_graph(
         index,
     )
+
+@router.get(
+    "/flows",
+    response_model=list[
+        DeveloperFlowResponse
+    ],
+)
+def developer_flows(
+    current_user: User = Depends(
+        get_developer_system_user,
+    ),
+):
+    index = _index()
+
+    return resolve_flows(
+        index,
+    )
+
+
+@router.get(
+    "/flow/{flow_id}",
+    response_model=(
+        DeveloperFlowResponse
+    ),
+)
+def developer_flow(
+    flow_id: str,
+    current_user: User = Depends(
+        get_developer_system_user,
+    ),
+):
+    index = _index()
+
+    flow = get_flow(
+        index,
+        flow_id,
+    )
+
+    if flow is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Flow applicativo "
+                "non trovato."
+            ),
+        )
+
+    return flow

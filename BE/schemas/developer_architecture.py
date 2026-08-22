@@ -166,10 +166,14 @@ class DeveloperSearchResultResponse(
 class DeveloperFlowStepResponse(
     BaseModel,
 ):
+    order: int
     title: str
     file: str
     function: str | None = None
     layer: str
+    relation: str = "NEXT"
+    context: str = ""
+    security_critical: bool = False
 
 
 class DeveloperFlowResponse(
