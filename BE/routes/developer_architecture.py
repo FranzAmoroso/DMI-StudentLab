@@ -14,12 +14,17 @@ from core.developer_security import (
 )
 
 from schemas.developer_architecture import (
+    DeveloperApiContractResponse,
     DeveloperFileResponse,
     DeveloperFlowResponse,
     DeveloperGraphResponse,
     DeveloperImpactResponse,
     DeveloperRepositoryStatusResponse,
+    DeveloperRuntimeRiskResponse,
+    DeveloperStackTraceAnalysisResponse,
+    DeveloperStackTraceRequest,
     DeveloperSearchResultResponse,
+    DeveloperSourceResponse,
     DeveloperTreeNodeResponse,
 )
 
@@ -27,6 +32,10 @@ from services.developer_flows import (
     apply_flow_metadata,
     get_flow,
     resolve_flows,
+)
+
+from services.developer_api_contract import (
+    build_api_contract,
 )
 
 from services.developer_graph import (
@@ -49,6 +58,20 @@ from services.developer_repository import (
 
 from services.developer_search import (
     search_architecture,
+)
+
+from services.developer_stack_trace import (
+    analyze_stack_trace,
+)
+
+
+from services.developer_runtime_risk import (
+    build_runtime_risk,
+)
+
+
+from services.developer_source import (
+    read_indexed_source,
 )
 
 
@@ -332,6 +355,68 @@ def _serialize_file(
         "security_notes": (
             file.security_notes
         ),
+        "endpoints": [
+            {
+                "method":
+                    endpoint.method,
+                "path":
+                    endpoint.path,
+                "function_name":
+                    endpoint.function_name,
+                "line_start":
+                    endpoint.line_start,
+                "router_name":
+                    endpoint.router_name,
+                "dependencies":
+                    endpoint.dependencies,
+                "response_model":
+                    endpoint.response_model,
+                "security_critical":
+                    endpoint.security_critical,
+                "confidence":
+                    endpoint.confidence,
+            }
+            for endpoint
+            in file.endpoints
+        ],
+        "models": [
+            {
+                "name":
+                    model.name,
+                "table_name":
+                    model.table_name,
+                "bases":
+                    model.bases,
+                "columns":
+                    model.columns,
+                "relationships":
+                    model.relationships,
+                "line_start":
+                    model.line_start,
+                "confidence":
+                    model.confidence,
+            }
+            for model
+            in file.models
+        ],
+        "tests": [
+            {
+                "name":
+                    test.name,
+                "line_start":
+                    test.line_start,
+                "framework":
+                    test.framework,
+                "calls":
+                    test.calls,
+                "target_candidates":
+                    test.target_candidates,
+                "confidence":
+                    test.confidence,
+            }
+            for test
+            in file.tests
+        ],
     }
 
 
@@ -643,3 +728,152 @@ def developer_impact(
         )
 
     return impact
+
+@router.get(
+    "/source",
+    response_model=(
+        DeveloperSourceResponse
+    ),
+)
+def developer_source(
+    path: str = Query(
+        ...,
+        min_length=1,
+        max_length=600,
+    ),
+    function: str | None = Query(
+        None,
+        min_length=1,
+        max_length=200,
+    ),
+    current_user: User = Depends(
+        get_developer_system_user,
+    ),
+):
+    index = _index()
+
+    try:
+        source = read_indexed_source(
+            index,
+            path=path,
+            function_name=function,
+        )
+
+    except ValueError as exception:
+        raise HTTPException(
+            status_code=413,
+            detail=str(
+                exception,
+            ),
+        ) from exception
+
+    if source is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "File o funzione non presente "
+                "nell'indice Developer."
+            ),
+        )
+
+    return source
+
+@router.get(
+    "/api-contract",
+    response_model=(
+        DeveloperApiContractResponse
+    ),
+)
+def developer_api_contract(
+    path: str = Query(
+        ...,
+        min_length=1,
+        max_length=600,
+    ),
+    function: str = Query(
+        ...,
+        min_length=1,
+        max_length=200,
+    ),
+    current_user: User = Depends(
+        get_developer_system_user,
+    ),
+):
+    index = _index()
+
+    contract = build_api_contract(
+        index,
+        path=path,
+        function_name=function,
+    )
+
+    if contract is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "File o funzione non presente "
+                "nell'indice Developer."
+            ),
+        )
+
+    return contract
+
+@router.get(
+    "/runtime-risk",
+    response_model=(
+        DeveloperRuntimeRiskResponse
+    ),
+)
+def developer_runtime_risk(
+    path: str = Query(
+        ...,
+        min_length=1,
+        max_length=600,
+    ),
+    function: str = Query(
+        ...,
+        min_length=1,
+        max_length=200,
+    ),
+    current_user: User = Depends(
+        get_developer_system_user,
+    ),
+):
+    index = _index()
+
+    result = build_runtime_risk(
+        index,
+        path=path,
+        function_name=function,
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "File o funzione non presente "
+                "nell'indice Developer."
+            ),
+        )
+
+    return result
+
+@router.post(
+    "/stack-trace/analyze",
+    response_model=(
+        DeveloperStackTraceAnalysisResponse
+    ),
+)
+def developer_stack_trace_analyze(
+    payload: DeveloperStackTraceRequest,
+    current_user: User = Depends(
+        get_developer_system_user,
+    ),
+):
+    index = _index()
+
+    return analyze_stack_trace(
+        index,
+        payload.stack_trace,
+    )
+

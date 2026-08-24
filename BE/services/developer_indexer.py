@@ -56,6 +56,25 @@ SECURITY_SYMBOL_PATTERNS = (
     "verify",
 )
 
+HTTP_METHODS = {
+    "get",
+    "post",
+    "put",
+    "patch",
+    "delete",
+    "options",
+    "head",
+}
+
+SQLALCHEMY_COLUMN_CALLS = {
+    "Column",
+    "mapped_column",
+}
+
+SQLALCHEMY_RELATIONSHIP_CALLS = {
+    "relationship",
+}
+
 LAYER_RULES = (
     ("fe/lib", "Frontend"),
     ("BE/routes", "Backend API"),
@@ -64,6 +83,8 @@ LAYER_RULES = (
     ("BE/schemas", "API Schema"),
     ("BE/core", "Core / Infrastructure"),
     ("BE/tests", "Tests"),
+    ("test", "Tests"),
+    ("fe/test", "Tests"),
     ("BE", "Backend"),
 )
 
@@ -84,6 +105,52 @@ LANGUAGES = {
     ".jsx": "JavaScript",
     ".sh": "Shell",
 }
+
+
+@dataclass
+class IndexedEndpoint:
+    method: str
+    path: str
+    function_name: str
+    line_start: int | None = None
+    router_name: str | None = None
+    dependencies: list[str] = field(
+        default_factory=list,
+    )
+    response_model: str | None = None
+    security_critical: bool = False
+    confidence: str = "observed"
+
+
+@dataclass
+class IndexedModel:
+    name: str
+    table_name: str | None = None
+    bases: list[str] = field(
+        default_factory=list,
+    )
+    columns: list[str] = field(
+        default_factory=list,
+    )
+    relationships: list[str] = field(
+        default_factory=list,
+    )
+    line_start: int | None = None
+    confidence: str = "observed"
+
+
+@dataclass
+class IndexedTest:
+    name: str
+    line_start: int | None = None
+    framework: str = "unknown"
+    calls: list[str] = field(
+        default_factory=list,
+    )
+    target_candidates: list[str] = field(
+        default_factory=list,
+    )
+    confidence: str = "observed"
 
 
 @dataclass
@@ -154,6 +221,21 @@ class IndexedFile:
     security_notes: list[str] = field(
         default_factory=list,
     )
+    endpoints: list[
+        IndexedEndpoint
+    ] = field(
+        default_factory=list,
+    )
+    models: list[
+        IndexedModel
+    ] = field(
+        default_factory=list,
+    )
+    tests: list[
+        IndexedTest
+    ] = field(
+        default_factory=list,
+    )
 
 
 @dataclass
@@ -174,24 +256,7 @@ class ArchitectureIndex:
         }
 
 
-def _node_call_name(
-    node: ast.Call,
-) -> str | None:
-    try:
-        return ast.unparse(
-            node.func,
-        )
-    except Exception:
-        if isinstance(
-            node.func,
-            ast.Name,
-        ):
-            return node.func.id
-
-    return None
-
-
-def _annotation_text(
+def _safe_unparse(
     node: ast.AST | None,
 ) -> str:
     if node is None:
@@ -203,6 +268,48 @@ def _annotation_text(
         )
     except Exception:
         return ""
+
+
+def _node_call_name(
+    node: ast.Call,
+) -> str | None:
+    value = _safe_unparse(
+        node.func,
+    )
+
+    if value:
+        return value
+
+    if isinstance(
+        node.func,
+        ast.Name,
+    ):
+        return node.func.id
+
+    return None
+
+
+def _annotation_text(
+    node: ast.AST | None,
+) -> str:
+    return _safe_unparse(
+        node,
+    )
+
+
+def _literal_string(
+    node: ast.AST | None,
+) -> str | None:
+    if isinstance(
+        node,
+        ast.Constant,
+    ) and isinstance(
+        node.value,
+        str,
+    ):
+        return node.value
+
+    return None
 
 
 def _function_signature(
@@ -244,15 +351,13 @@ def _function_signature(
             )
 
         if default is not None:
-            try:
-                item += (
-                    " = "
-                    + ast.unparse(
-                        default,
-                    )
-                )
-            except Exception:
-                item += " = ..."
+            default_text = _safe_unparse(
+                default,
+            )
+
+            item += (
+                f" = {default_text or '...'}"
+            )
 
         arguments.append(
             item,
@@ -280,15 +385,13 @@ def _function_signature(
             )
 
         if default is not None:
-            try:
-                item += (
-                    " = "
-                    + ast.unparse(
-                        default,
-                    )
-                )
-            except Exception:
-                item += " = ..."
+            default_text = _safe_unparse(
+                default,
+            )
+
+            item += (
+                f" = {default_text or '...'}"
+            )
 
         arguments.append(
             item,
@@ -322,12 +425,530 @@ def _function_signature(
     return signature
 
 
+def _python_function_calls(
+    node: ast.AST,
+) -> list[str]:
+    calls: list[str] = []
+
+    for child in ast.walk(
+        node,
+    ):
+        if not isinstance(
+            child,
+            ast.Call,
+        ):
+            continue
+
+        name = _node_call_name(
+            child,
+        )
+
+        if (
+            name
+            and name not in calls
+        ):
+            calls.append(
+                name,
+            )
+
+    return calls
+
+
+def _depends_names(
+    node: (
+        ast.FunctionDef
+        | ast.AsyncFunctionDef
+    ),
+) -> list[str]:
+    dependencies: list[str] = []
+
+    defaults = list(
+        node.args.defaults,
+    ) + [
+        default
+        for default in node.args.kw_defaults
+        if default is not None
+    ]
+
+    for default in defaults:
+        if not isinstance(
+            default,
+            ast.Call,
+        ):
+            continue
+
+        call_name = (
+            _node_call_name(
+                default,
+            )
+            or ""
+        )
+
+        if (
+            call_name.split(
+                ".",
+            )[-1]
+            != "Depends"
+        ):
+            continue
+
+        if not default.args:
+            continue
+
+        dependency = _safe_unparse(
+            default.args[0],
+        )
+
+        if dependency:
+            dependencies.append(
+                dependency,
+            )
+
+    return sorted(
+        set(
+            dependencies,
+        ),
+    )
+
+
+def _fastapi_endpoint_from_decorator(
+    decorator: ast.AST,
+    function_node: (
+        ast.FunctionDef
+        | ast.AsyncFunctionDef
+    ),
+) -> IndexedEndpoint | None:
+    if not isinstance(
+        decorator,
+        ast.Call,
+    ):
+        return None
+
+    function = decorator.func
+
+    if not isinstance(
+        function,
+        ast.Attribute,
+    ):
+        return None
+
+    method = (
+        function.attr
+        .strip()
+        .lower()
+    )
+
+    if method not in HTTP_METHODS:
+        return None
+
+    router_name = _safe_unparse(
+        function.value,
+    )
+
+    if not router_name:
+        return None
+
+    endpoint_path = None
+
+    if decorator.args:
+        endpoint_path = _literal_string(
+            decorator.args[0],
+        )
+
+    if endpoint_path is None:
+        for keyword in decorator.keywords:
+            if keyword.arg == "path":
+                endpoint_path = (
+                    _literal_string(
+                        keyword.value,
+                    )
+                )
+                break
+
+    if endpoint_path is None:
+        return None
+
+    response_model = None
+
+    for keyword in decorator.keywords:
+        if keyword.arg == "response_model":
+            response_model = (
+                _safe_unparse(
+                    keyword.value,
+                )
+                or None
+            )
+            break
+
+    dependencies = (
+        _depends_names(
+            function_node,
+        )
+    )
+
+    security_critical = any(
+        keyword
+        in (
+            " ".join(
+                dependencies,
+            )
+            + " "
+            + function_node.name
+        ).lower()
+        for keyword in (
+            SECURITY_SYMBOL_PATTERNS
+        )
+    )
+
+    return IndexedEndpoint(
+        method=method.upper(),
+        path=endpoint_path,
+        function_name=(
+            function_node.name
+        ),
+        line_start=(
+            function_node.lineno
+        ),
+        router_name=router_name,
+        dependencies=dependencies,
+        response_model=(
+            response_model
+        ),
+        security_critical=(
+            security_critical
+        ),
+    )
+
+
+def _python_fastapi_endpoints(
+    tree: ast.Module,
+) -> list[
+    IndexedEndpoint
+]:
+    endpoints: list[
+        IndexedEndpoint
+    ] = []
+
+    for node in tree.body:
+        if not isinstance(
+            node,
+            (
+                ast.FunctionDef,
+                ast.AsyncFunctionDef,
+            ),
+        ):
+            continue
+
+        for decorator in (
+            node.decorator_list
+        ):
+            endpoint = (
+                _fastapi_endpoint_from_decorator(
+                    decorator,
+                    node,
+                )
+            )
+
+            if endpoint is not None:
+                endpoints.append(
+                    endpoint,
+                )
+
+    return endpoints
+
+
+def _sqlalchemy_assignment_name(
+    node: (
+        ast.Assign
+        | ast.AnnAssign
+    ),
+) -> str | None:
+    if isinstance(
+        node,
+        ast.AnnAssign,
+    ):
+        if isinstance(
+            node.target,
+            ast.Name,
+        ):
+            return node.target.id
+
+        return None
+
+    if len(node.targets) != 1:
+        return None
+
+    target = node.targets[0]
+
+    if isinstance(
+        target,
+        ast.Name,
+    ):
+        return target.id
+
+    return None
+
+
+def _assignment_value(
+    node: (
+        ast.Assign
+        | ast.AnnAssign
+    ),
+) -> ast.AST | None:
+    if isinstance(
+        node,
+        ast.AnnAssign,
+    ):
+        return node.value
+
+    return node.value
+
+
+def _python_sqlalchemy_models(
+    tree: ast.Module,
+) -> list[
+    IndexedModel
+]:
+    models: list[
+        IndexedModel
+    ] = []
+
+    for node in tree.body:
+        if not isinstance(
+            node,
+            ast.ClassDef,
+        ):
+            continue
+
+        bases = [
+            _safe_unparse(
+                base,
+            )
+            for base in node.bases
+        ]
+
+        bases = [
+            base
+            for base in bases
+            if base
+        ]
+
+        table_name = None
+        columns: list[str] = []
+        relationships: list[str] = []
+
+        for child in node.body:
+            if not isinstance(
+                child,
+                (
+                    ast.Assign,
+                    ast.AnnAssign,
+                ),
+            ):
+                continue
+
+            name = (
+                _sqlalchemy_assignment_name(
+                    child,
+                )
+            )
+
+            value = _assignment_value(
+                child,
+            )
+
+            if (
+                name == "__tablename__"
+            ):
+                table_name = (
+                    _literal_string(
+                        value,
+                    )
+                )
+                continue
+
+            if (
+                name is None
+                or not isinstance(
+                    value,
+                    ast.Call,
+                )
+            ):
+                continue
+
+            call_name = (
+                _node_call_name(
+                    value,
+                )
+                or ""
+            )
+
+            short_name = (
+                call_name
+                .split(".")[-1]
+            )
+
+            if (
+                short_name
+                in SQLALCHEMY_COLUMN_CALLS
+            ):
+                columns.append(
+                    name,
+                )
+
+            if (
+                short_name
+                in SQLALCHEMY_RELATIONSHIP_CALLS
+            ):
+                relationships.append(
+                    name,
+                )
+
+        base_haystack = (
+            " ".join(
+                bases,
+            )
+            .lower()
+        )
+
+        is_sqlalchemy = (
+            table_name is not None
+            or bool(
+                columns
+            )
+            or "base" in base_haystack
+            or "declarativebase"
+            in base_haystack
+        )
+
+        if not is_sqlalchemy:
+            continue
+
+        models.append(
+            IndexedModel(
+                name=node.name,
+                table_name=(
+                    table_name
+                ),
+                bases=bases,
+                columns=sorted(
+                    set(
+                        columns,
+                    ),
+                ),
+                relationships=sorted(
+                    set(
+                        relationships,
+                    ),
+                ),
+                line_start=node.lineno,
+            ),
+        )
+
+    return models
+
+
+def _test_target_candidates(
+    test_name: str,
+    calls: list[str],
+) -> list[str]:
+    candidates: set[str] = set()
+
+    normalized = test_name.lower()
+
+    if normalized.startswith(
+        "test_",
+    ):
+        remainder = normalized[5:]
+
+        if remainder:
+            candidates.add(
+                remainder,
+            )
+
+    for call in calls:
+        short = (
+            call
+            .split(".")[-1]
+            .strip()
+        )
+
+        if (
+            short
+            and short
+            not in {
+                "assert",
+                "print",
+            }
+        ):
+            candidates.add(
+                short,
+            )
+
+    return sorted(
+        candidates,
+    )
+
+
+def _python_tests(
+    tree: ast.Module,
+) -> list[
+    IndexedTest
+]:
+    tests: list[
+        IndexedTest
+    ] = []
+
+    for node in ast.walk(
+        tree,
+    ):
+        if not isinstance(
+            node,
+            (
+                ast.FunctionDef,
+                ast.AsyncFunctionDef,
+            ),
+        ):
+            continue
+
+        if not node.name.startswith(
+            "test_",
+        ):
+            continue
+
+        calls = (
+            _python_function_calls(
+                node,
+            )
+        )
+
+        tests.append(
+            IndexedTest(
+                name=node.name,
+                line_start=node.lineno,
+                framework="pytest",
+                calls=calls,
+                target_candidates=(
+                    _test_target_candidates(
+                        node.name,
+                        calls,
+                    )
+                ),
+            ),
+        )
+
+    return tests
+
+
 def _python_functions(
     path: str,
     text: str,
 ) -> tuple[
     list[IndexedFunction],
     list[str],
+    list[IndexedEndpoint],
+    list[IndexedModel],
+    list[IndexedTest],
 ]:
     try:
         tree = ast.parse(
@@ -335,6 +956,9 @@ def _python_functions(
         )
     except SyntaxError:
         return (
+            [],
+            [],
+            [],
             [],
             [],
         )
@@ -385,28 +1009,11 @@ def _python_functions(
         ):
             continue
 
-        calls: list[str] = []
-
-        for child in ast.walk(
-            node,
-        ):
-            if not isinstance(
-                child,
-                ast.Call,
-            ):
-                continue
-
-            name = _node_call_name(
-                child,
+        calls = (
+            _python_function_calls(
+                node,
             )
-
-            if (
-                name
-                and name not in calls
-            ):
-                calls.append(
-                    name,
-                )
+        )
 
         security: list[str] = []
 
@@ -416,12 +1023,22 @@ def _python_functions(
             + " ".join(
                 calls,
             )
+            + " "
+            + " ".join(
+                _depends_names(
+                    node,
+                ),
+            )
         ).lower()
 
         for keyword in (
             SECURITY_SYMBOL_PATTERNS
         ):
-            if keyword in haystack:
+            if (
+                keyword in haystack
+                and keyword
+                not in security
+            ):
                 security.append(
                     keyword,
                 )
@@ -515,6 +1132,15 @@ def _python_functions(
                 imports,
             ),
         ),
+        _python_fastapi_endpoints(
+            tree,
+        ),
+        _python_sqlalchemy_models(
+            tree,
+        ),
+        _python_tests(
+            tree,
+        ),
     )
 
 
@@ -529,6 +1155,76 @@ _DART_FUNCTION_PATTERN = re.compile(
     r"[ \t]*\(([^)]*)\)"
 )
 
+_DART_TEST_PATTERN = re.compile(
+    r"""(?m)\b(test|testWidgets)\s*\(\s*"""
+    r"""['"]([^'"]+)['"]"""
+)
+
+
+def _dart_tests(
+    text: str,
+) -> list[
+    IndexedTest
+]:
+    tests: list[
+        IndexedTest
+    ] = []
+
+    for match in (
+        _DART_TEST_PATTERN.finditer(
+            text,
+        )
+    ):
+        framework_call = match.group(
+            1,
+        )
+
+        name = match.group(
+            2,
+        )
+
+        line_start = (
+            text.count(
+                "\n",
+                0,
+                match.start(),
+            )
+            + 1
+        )
+
+        candidates = [
+            token
+            for token in re.findall(
+                r"[A-Za-z_][A-Za-z0-9_]+",
+                name,
+            )
+            if len(
+                token,
+            ) >= 3
+        ]
+
+        tests.append(
+            IndexedTest(
+                name=name,
+                line_start=line_start,
+                framework=(
+                    "flutter_test"
+                    if framework_call
+                    == "testWidgets"
+                    else "dart_test"
+                ),
+                target_candidates=(
+                    sorted(
+                        set(
+                            candidates,
+                        ),
+                    )
+                ),
+            ),
+        )
+
+    return tests
+
 
 def _dart_functions(
     path: str,
@@ -536,6 +1232,7 @@ def _dart_functions(
 ) -> tuple[
     list[IndexedFunction],
     list[str],
+    list[IndexedTest],
 ]:
     functions: list[
         IndexedFunction
@@ -607,6 +1304,9 @@ def _dart_functions(
             set(
                 imports,
             ),
+        ),
+        _dart_tests(
+            text,
         ),
     )
 
@@ -735,6 +1435,9 @@ def _security_critical(
     functions: list[
         IndexedFunction
     ],
+    endpoints: list[
+        IndexedEndpoint
+    ],
 ) -> bool:
     normalized = path.lower()
 
@@ -746,9 +1449,15 @@ def _security_critical(
     ):
         return True
 
-    return any(
+    if any(
         function.security
         for function in functions
+    ):
+        return True
+
+    return any(
+        endpoint.security_critical
+        for endpoint in endpoints
     )
 
 
@@ -756,11 +1465,39 @@ def _description_for(
     path: str,
     layer: str,
     function_count: int,
+    endpoint_count: int,
+    model_count: int,
+    test_count: int,
 ) -> str:
+    details = [
+        (
+            f"{function_count} "
+            "funzioni"
+        ),
+    ]
+
+    if endpoint_count:
+        details.append(
+            f"{endpoint_count} endpoint"
+        )
+
+    if model_count:
+        details.append(
+            f"{model_count} modelli"
+        )
+
+    if test_count:
+        details.append(
+            f"{test_count} test"
+        )
+
     return (
         f"{layer}: {path}. "
-        f"Contiene {function_count} "
-        "funzioni indicizzate."
+        "Contiene "
+        + ", ".join(
+            details,
+        )
+        + " indicizzati."
     )
 
 
@@ -790,6 +1527,12 @@ def _importance_for(
         return (
             "Nodo frontend: verificare "
             "navigazione, stato e contratti API."
+        )
+
+    if layer == "Tests":
+        return (
+            "Nodo di test: utile per la regressione "
+            "e la validazione delle modifiche."
         )
 
     return (
@@ -838,20 +1581,40 @@ def build_architecture_index(
             .lower()
         )
 
+        endpoints: list[
+            IndexedEndpoint
+        ] = []
+
+        models: list[
+            IndexedModel
+        ] = []
+
+        tests: list[
+            IndexedTest
+        ] = []
+
         if suffix == ".py":
-            functions, imports = (
-                _python_functions(
-                    repository_file.path,
-                    text,
-                )
+            (
+                functions,
+                imports,
+                endpoints,
+                models,
+                tests,
+            ) = _python_functions(
+                repository_file.path,
+                text,
             )
+
         elif suffix == ".dart":
-            functions, imports = (
-                _dart_functions(
-                    repository_file.path,
-                    text,
-                )
+            (
+                functions,
+                imports,
+                tests,
+            ) = _dart_functions(
+                repository_file.path,
+                text,
             )
+
         else:
             functions = []
             imports = []
@@ -871,6 +1634,7 @@ def build_architecture_index(
             _security_critical(
                 repository_file.path,
                 functions,
+                endpoints,
             )
         )
 
@@ -878,11 +1642,14 @@ def build_architecture_index(
             "critical"
             if security_critical
             else "high"
-            if layer
-            in {
-                "Backend API",
-                "Database Model",
-            }
+            if (
+                layer
+                in {
+                    "Backend API",
+                    "Database Model",
+                }
+                or endpoints
+            )
             else "medium"
         )
 
@@ -894,6 +1661,19 @@ def build_architecture_index(
                 "security-critical "
                 "dall'indicizzatore."
             )
+
+        for endpoint in endpoints:
+            if (
+                endpoint.security_critical
+            ):
+                security_notes.append(
+                    (
+                        f"{endpoint.method} "
+                        f"{endpoint.path} usa "
+                        "dipendenze o simboli "
+                        "security-sensitive."
+                    )
+                )
 
         indexed.append(
             IndexedFile(
@@ -921,6 +1701,15 @@ def build_architecture_index(
                         layer,
                         len(
                             functions,
+                        ),
+                        len(
+                            endpoints,
+                        ),
+                        len(
+                            models,
+                        ),
+                        len(
+                            tests,
                         ),
                     )
                 ),
@@ -955,8 +1744,15 @@ def build_architecture_index(
                 functions=functions,
                 imports=imports,
                 security_notes=(
-                    security_notes
+                    sorted(
+                        set(
+                            security_notes,
+                        ),
+                    )
                 ),
+                endpoints=endpoints,
+                models=models,
+                tests=tests,
             ),
         )
 
@@ -971,6 +1767,10 @@ def build_architecture_index(
     )
 
     _build_relations(
+        index,
+    )
+
+    _link_test_targets(
         index,
     )
 
@@ -1045,7 +1845,34 @@ def _module_to_path(
     if module.startswith(
         "package:",
     ):
-        return module
+        package_value = (
+            module.split(
+                ":",
+                1,
+            )[1]
+        )
+
+        package_parts = (
+            package_value.split(
+                "/",
+            )
+        )
+
+        if (
+            package_parts
+            and package_parts[0]
+            == "fe"
+        ):
+            package_parts = (
+                package_parts[1:]
+            )
+
+        return (
+            "fe/lib/"
+            + "/".join(
+                package_parts,
+            )
+        )
 
     normalized = (
         module.split(
@@ -1055,6 +1882,47 @@ def _module_to_path(
 
     return "/".join(
         normalized,
+    )
+
+
+def _resolve_import_path(
+    imported: str,
+    available: set[str],
+) -> str | None:
+    target = (
+        _module_to_path(
+            imported,
+        )
+    )
+
+    if target.startswith(
+        "fe/lib/"
+    ):
+        candidates = [
+            target,
+            (
+                target
+                if target.endswith(
+                    ".dart",
+                )
+                else target
+                + ".dart"
+            ),
+        ]
+    else:
+        candidates = [
+            f"BE/{target}.py",
+            f"{target}.py",
+            f"{target}.dart",
+        ]
+
+    return next(
+        (
+            candidate
+            for candidate in candidates
+            if candidate in available
+        ),
+        None,
     )
 
 
@@ -1071,46 +1939,190 @@ def _build_relations(
             dict[str, Any]
         ] = []
 
-        for imported in file.imports:
-            target = (
-                _module_to_path(
-                    imported,
-                )
+        seen: set[
+            tuple[str, str, str | None]
+        ] = set()
+
+        def add_relation(
+            relation_type: str,
+            label: str,
+            target_path: str,
+            target_function: str | None = None,
+        ) -> None:
+            key = (
+                relation_type,
+                target_path,
+                target_function,
             )
 
-            candidates = [
-                f"BE/{target}.py",
-                f"{target}.py",
-                f"{target}.dart",
-            ]
+            if key in seen:
+                return
 
-            if target.startswith(
-                "package:",
-            ):
-                continue
+            seen.add(
+                key,
+            )
 
-            resolved = next(
-                (
-                    candidate
-                    for candidate in candidates
-                    if candidate in available
-                ),
-                None,
+            relations.append(
+                {
+                    "type":
+                        relation_type,
+                    "label":
+                        label,
+                    "target_path":
+                        target_path,
+                    "target_function":
+                        target_function,
+                },
+            )
+
+        for imported in file.imports:
+            resolved = (
+                _resolve_import_path(
+                    imported,
+                    available,
+                )
             )
 
             if resolved is None:
                 continue
 
-            relations.append(
-                {
-                    "type": "imports",
-                    "label": imported,
-                    "target_path": resolved,
-                    "target_function": None,
-                },
+            add_relation(
+                "imports",
+                imported,
+                resolved,
+            )
+
+            target_file = (
+                index.by_path.get(
+                    resolved,
+                )
+            )
+
+            if (
+                target_file is not None
+                and target_file.models
+            ):
+                add_relation(
+                    "uses_model",
+                    (
+                        "Uses model file "
+                        + resolved
+                    ),
+                    resolved,
+                )
+
+        for endpoint in file.endpoints:
+            add_relation(
+                "endpoint",
+                (
+                    f"{endpoint.method} "
+                    f"{endpoint.path}"
+                ),
+                file.path,
+                endpoint.function_name,
             )
 
         file.relations = relations
+
+
+def _normalized_symbol(
+    value: str,
+) -> str:
+    return re.sub(
+        r"[^a-z0-9_]+",
+        "_",
+        value.lower(),
+    ).strip(
+        "_",
+    )
+
+
+def _link_test_targets(
+    index: ArchitectureIndex,
+) -> None:
+    function_targets: dict[
+        str,
+        list[
+            tuple[
+                IndexedFile,
+                IndexedFunction,
+            ]
+        ],
+    ] = {}
+
+    for file in index.files:
+        for function in file.functions:
+            key = (
+                _normalized_symbol(
+                    function.name,
+                )
+            )
+
+            function_targets.setdefault(
+                key,
+                [],
+            ).append(
+                (
+                    file,
+                    function,
+                ),
+            )
+
+    for test_file in index.files:
+        if not test_file.tests:
+            continue
+
+        for test in test_file.tests:
+            candidate_keys = {
+                _normalized_symbol(
+                    candidate,
+                )
+                for candidate
+                in test.target_candidates
+            }
+
+            for call in test.calls:
+                candidate_keys.add(
+                    _normalized_symbol(
+                        call.split(
+                            ".",
+                        )[-1],
+                    )
+                )
+
+            for key in candidate_keys:
+                if not key:
+                    continue
+
+                targets = (
+                    function_targets.get(
+                        key,
+                        [],
+                    )
+                )
+
+                for (
+                    target_file,
+                    target_function,
+                ) in targets:
+                    relation = {
+                        "type":
+                            "tests",
+                        "label":
+                            test.name,
+                        "target_path":
+                            target_file.path,
+                        "target_function":
+                            target_function.name,
+                    }
+
+                    if (
+                        relation
+                        not in test_file.relations
+                    ):
+                        test_file.relations.append(
+                            relation,
+                        )
 
 
 def get_indexed_file(

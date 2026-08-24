@@ -396,17 +396,7 @@ def _endpoint_refs(
         tuple[str, str]
     ] = set()
 
-    if (
-        function is not None
-        and (
-            function.name.startswith(
-                "api_",
-            )
-            or file_is_api(
-                path,
-            )
-        )
-    ):
+    if function is not None:
         candidates.add(
             (
                 path,
@@ -418,50 +408,109 @@ def _endpoint_refs(
         direct_callers
         + transitive_callers
     ):
-        caller_function = (
-            caller["function"]
+        candidates.add(
+            (
+                caller["file"],
+                caller["function"],
+            ),
         )
-        caller_file = (
-            caller["file"]
-        )
-
-        if (
-            caller_function.startswith(
-                "api_",
-            )
-            or file_is_api(
-                caller_file,
-            )
-        ):
-            candidates.add(
-                (
-                    caller_file,
-                    caller_function,
-                ),
-            )
 
     result: list[dict] = []
+    seen: set[
+        tuple[str, str, str]
+    ] = set()
 
     for file_path, function_name in sorted(
         candidates,
     ):
-        result.append(
-            {
-                "file":
-                    file_path,
-                "function":
-                    function_name,
-                "method":
-                    None,
-                "path":
-                    None,
-                "confidence":
-                    "inferred",
-            },
+        indexed_file = (
+            index.by_path.get(
+                file_path,
+            )
         )
 
-    return result
+        if indexed_file is None:
+            continue
 
+        observed = [
+            endpoint
+            for endpoint
+            in indexed_file.endpoints
+            if (
+                endpoint.function_name
+                == function_name
+            )
+        ]
+
+        for endpoint in observed:
+            key = (
+                endpoint.method,
+                endpoint.path,
+                endpoint.function_name,
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(
+                key,
+            )
+
+            result.append(
+                {
+                    "file":
+                        file_path,
+                    "function":
+                        endpoint.function_name,
+                    "method":
+                        endpoint.method,
+                    "path":
+                        endpoint.path,
+                    "confidence":
+                        endpoint.confidence,
+                },
+            )
+
+        if observed:
+            continue
+
+        if (
+            function_name.startswith(
+                "api_",
+            )
+            or file_is_api(
+                file_path,
+            )
+        ):
+            key = (
+                "",
+                "",
+                function_name,
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(
+                key,
+            )
+
+            result.append(
+                {
+                    "file":
+                        file_path,
+                    "function":
+                        function_name,
+                    "method":
+                        None,
+                    "path":
+                        None,
+                    "confidence":
+                        "inferred",
+                },
+            )
+
+    return result
 
 def file_is_api(
     path: str,
@@ -489,25 +538,39 @@ def _model_refs(
     direct_callees: list[dict],
 ) -> list[dict]:
     model_paths: set[str] = set()
+    observed_models: dict[
+        tuple[str, str],
+        dict,
+    ] = {}
 
-    def add_model_path(
-        value: str,
+    def add_models_from_file(
+        candidate_path: str,
     ) -> None:
-        normalized = (
-            value
-            .replace("\\", "/")
-            .strip()
+        candidate = (
+            index.by_path.get(
+                candidate_path,
+            )
         )
 
-        if (
-            normalized.startswith(
-                "BE/models/",
-            )
-            or "/models/" in normalized
-        ):
-            model_paths.add(
-                normalized,
-            )
+        if candidate is None:
+            return
+
+        for model in candidate.models:
+            observed_models[
+                (
+                    candidate.path,
+                    model.name,
+                )
+            ] = {
+                "file":
+                    candidate.path,
+                "name":
+                    model.name,
+                "layer":
+                    candidate.layer,
+                "confidence":
+                    model.confidence,
+            }
 
     for relation in file.relations:
         target = (
@@ -520,11 +583,28 @@ def _model_refs(
             or ""
         )
 
-        if isinstance(
+        if not isinstance(
             target,
             str,
         ):
-            add_model_path(
+            continue
+
+        relation_type = (
+            relation.get(
+                "type",
+            )
+            or ""
+        )
+
+        if (
+            relation_type
+            == "uses_model"
+            or target.startswith(
+                "BE/models/",
+            )
+            or "/models/" in target
+        ):
+            model_paths.add(
                 target,
             )
 
@@ -552,43 +632,42 @@ def _model_refs(
                 )
 
     for callee in direct_callees:
-        add_model_path(
-            callee["file"],
+        candidate_path = (
+            callee["file"]
         )
 
-    result: list[dict] = []
+        candidate_file = (
+            index.by_path.get(
+                candidate_path,
+            )
+        )
 
-    for path in sorted(
+        if (
+            candidate_file is not None
+            and candidate_file.models
+        ):
+            model_paths.add(
+                candidate_path,
+            )
+
+    for model_path in sorted(
         model_paths,
     ):
-        model_file = index.by_path.get(
-            path,
+        add_models_from_file(
+            model_path,
         )
 
-        result.append(
-            {
-                "file":
-                    path,
-                "name":
-                    (
-                        PurePosixPath(
-                            path,
-                        ).stem
-                    ),
-                "layer":
-                    (
-                        model_file.layer
-                        if model_file
-                        is not None
-                        else "Database Model"
-                    ),
-                "confidence":
-                    "observed",
-            },
+    if file.models:
+        add_models_from_file(
+            file.path,
         )
 
-    return result
-
+    return [
+        observed_models[key]
+        for key in sorted(
+            observed_models,
+        )
+    ]
 
 def _test_refs(
     index: ArchitectureIndex,
@@ -596,127 +675,146 @@ def _test_refs(
     target_file: IndexedFile,
     function: IndexedFunction | None,
 ) -> list[dict]:
-    file_stem = _normalize_name(
-        PurePosixPath(
-            target_file.path,
-        ).stem,
-    )
-
-    function_name = (
-        _normalize_name(
-            function.name,
-        )
-        if function is not None
-        else ""
-    )
-
     result: list[dict] = []
+    seen: set[str] = set()
 
-    for file in index.files:
-        normalized_path = (
-            file.path.lower()
-        )
+    target_function_name = (
+        function.name
+        if function is not None
+        else None
+    )
 
-        is_test = (
-            "/test" in normalized_path
-            or "/tests/" in normalized_path
-            or normalized_path.startswith(
-                "test/"
-            )
-            or normalized_path.startswith(
-                "be/tests/"
-            )
-            or normalized_path.endswith(
-                "_test.dart"
-            )
-            or PurePosixPath(
-                normalized_path,
-            ).name.startswith(
-                "test_",
-            )
-        )
-
-        if not is_test:
+    for test_file in index.files:
+        if not test_file.tests:
             continue
 
-        tokens = {
-            _normalize_name(
-                PurePosixPath(
-                    file.path,
-                ).stem,
-            ),
-        }
+        matched_reasons: list[str] = []
 
-        tokens.update(
-            _normalize_name(
-                function_item.name,
+        for relation in test_file.relations:
+            if (
+                relation.get(
+                    "type",
+                )
+                != "tests"
+            ):
+                continue
+
+            if (
+                relation.get(
+                    "target_path",
+                )
+                != target_file.path
+            ):
+                continue
+
+            if (
+                target_function_name
+                is not None
+                and relation.get(
+                    "target_function",
+                )
+                != target_function_name
+            ):
+                continue
+
+            matched_reasons.append(
+                (
+                    "Observed test relation: "
+                    + str(
+                        relation.get(
+                            "label",
+                            "test",
+                        )
+                    )
+                ),
             )
-            for function_item
-            in file.functions
+
+        if matched_reasons:
+            if (
+                test_file.path
+                not in seen
+            ):
+                seen.add(
+                    test_file.path,
+                )
+
+                result.append(
+                    {
+                        "file":
+                            test_file.path,
+                        "confidence":
+                            "observed",
+                        "reason":
+                            "; ".join(
+                                matched_reasons,
+                            ),
+                    },
+                )
+
+            continue
+
+        file_stem = _normalize_name(
+            PurePosixPath(
+                target_file.path,
+            ).stem,
         )
+
+        function_name = (
+            _normalize_name(
+                target_function_name,
+            )
+            if target_function_name
+            is not None
+            else ""
+        )
+
+        test_tokens = {
+            _normalize_name(
+                test.name,
+            )
+            for test in test_file.tests
+        }
 
         matches_file = any(
             file_stem
             and file_stem in token
-            for token in tokens
+            for token in test_tokens
         )
 
         matches_function = any(
             function_name
             and function_name in token
-            for token in tokens
+            for token in test_tokens
         )
-
-        calls_target = False
-
-        if function is not None:
-            for test_function in (
-                file.functions
-            ):
-                if any(
-                    _normalize_name(
-                        call.split(".")[-1],
-                    )
-                    == function_name
-                    for call
-                    in test_function.calls
-                ):
-                    calls_target = True
-                    break
 
         if not (
             matches_file
             or matches_function
-            or calls_target
         ):
             continue
 
-        confidence = (
-            "observed"
-            if calls_target
-            else "inferred"
+        if test_file.path in seen:
+            continue
+
+        seen.add(
+            test_file.path,
         )
 
         result.append(
             {
                 "file":
-                    file.path,
+                    test_file.path,
                 "confidence":
-                    confidence,
+                    "inferred",
                 "reason":
                     (
-                        "Calls target function."
-                        if calls_target
-                        else (
-                            "Test name matches "
-                            "the impacted file/function."
-                        )
+                        "Test name matches "
+                        "the impacted file/function."
                     ),
             },
         )
 
     return result
-
 
 def _recommendations(
     *,

@@ -86,6 +86,64 @@ class DeveloperRelationResponse(
     target_function: str | None = None
 
 
+class DeveloperEndpointResponse(
+    BaseModel,
+):
+    method: str
+    path: str
+    function_name: str
+    line_start: int | None = None
+    router_name: str | None = None
+    dependencies: list[str] = Field(
+        default_factory=list,
+    )
+    response_model: str | None = None
+    security_critical: bool = False
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ] = "observed"
+
+
+class DeveloperModelArtifactResponse(
+    BaseModel,
+):
+    name: str
+    table_name: str | None = None
+    bases: list[str] = Field(
+        default_factory=list,
+    )
+    columns: list[str] = Field(
+        default_factory=list,
+    )
+    relationships: list[str] = Field(
+        default_factory=list,
+    )
+    line_start: int | None = None
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ] = "observed"
+
+
+class DeveloperTestArtifactResponse(
+    BaseModel,
+):
+    name: str
+    line_start: int | None = None
+    framework: str
+    calls: list[str] = Field(
+        default_factory=list,
+    )
+    target_candidates: list[str] = Field(
+        default_factory=list,
+    )
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ] = "observed"
+
+
 class DeveloperFileResponse(
     BaseModel,
 ):
@@ -124,6 +182,21 @@ class DeveloperFileResponse(
         default_factory=list,
     )
     security_notes: list[str] = Field(
+        default_factory=list,
+    )
+    endpoints: list[
+        DeveloperEndpointResponse
+    ] = Field(
+        default_factory=list,
+    )
+    models: list[
+        DeveloperModelArtifactResponse
+    ] = Field(
+        default_factory=list,
+    )
+    tests: list[
+        DeveloperTestArtifactResponse
+    ] = Field(
         default_factory=list,
     )
 
@@ -337,3 +410,221 @@ class DeveloperImpactResponse(
         default_factory=list,
     )
     security_critical: bool = False
+
+class DeveloperSourceResponse(
+    BaseModel,
+):
+    path: str
+    language: str
+    symbol: str | None = None
+    source_kind: Literal[
+        "file",
+        "function",
+    ]
+    line_start: int
+    line_end: int
+    line_count: int
+    source: str
+    commit_sha: str | None = None
+    content_hash: str
+    repository: str
+    branch: str | None = None
+
+class DeveloperApiEndpointContractResponse(
+    BaseModel,
+):
+    file: str
+    function: str
+    method: str | None = None
+    path: str | None = None
+    auth_dependencies: list[str] = Field(
+        default_factory=list,
+    )
+    request_schema: str | None = None
+    response_schema: str | None = None
+    confidence: Literal[
+        "observed",
+        "inferred",
+        "mixed",
+        "unknown",
+    ] = "unknown"
+    security_critical: bool = False
+
+
+class DeveloperFrontendHttpHintResponse(
+    BaseModel,
+):
+    method: str
+    path: str | None = None
+    call: str
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ] = "inferred"
+
+
+class DeveloperApiContractResponse(
+    BaseModel,
+):
+    path: str
+    function: str
+    layer: str
+    summary: str
+    confidence: Literal[
+        "observed",
+        "inferred",
+        "mixed",
+        "unknown",
+    ]
+    auth_required: bool = False
+    auth_dependencies: list[str] = Field(
+        default_factory=list,
+    )
+    request_schemas: list[str] = Field(
+        default_factory=list,
+    )
+    response_schemas: list[str] = Field(
+        default_factory=list,
+    )
+    security_critical: bool = False
+    backend_endpoints: list[
+        DeveloperApiEndpointContractResponse
+    ] = Field(
+        default_factory=list,
+    )
+    frontend_http_hints: list[
+        DeveloperFrontendHttpHintResponse
+    ] = Field(
+        default_factory=list,
+    )
+
+class DeveloperRuntimeFindingResponse(
+    BaseModel,
+):
+    id: str
+    title: str
+    category: str
+    severity: Literal[
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical",
+    ]
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ]
+    message: str
+    evidence: str | None = None
+    recommendation: str | None = None
+
+
+class DeveloperSideEffectResponse(
+    BaseModel,
+):
+    category: str
+    label: str
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ]
+    evidence: str | None = None
+
+
+class DeveloperErrorPathResponse(
+    BaseModel,
+):
+    kind: str
+    code: str | None = None
+    label: str
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ]
+
+
+class DeveloperRuntimeRiskResponse(
+    BaseModel,
+):
+    path: str
+    function: str
+    language: str
+    risk: DeveloperRiskLevel
+    summary: str
+    security_critical: bool = False
+    findings: list[
+        DeveloperRuntimeFindingResponse
+    ] = Field(
+        default_factory=list,
+    )
+    side_effects: list[
+        DeveloperSideEffectResponse
+    ] = Field(
+        default_factory=list,
+    )
+    error_paths: list[
+        DeveloperErrorPathResponse
+    ] = Field(
+        default_factory=list,
+    )
+
+class DeveloperStackTraceRequest(
+    BaseModel,
+):
+    stack_trace: str = Field(
+        ...,
+        min_length=1,
+        max_length=100000,
+    )
+
+
+class DeveloperStackFrameResponse(
+    BaseModel,
+):
+    position: int
+    raw: str
+    path: str | None = None
+    line: int | None = None
+    column: int | None = None
+    symbol: str | None = None
+    resolved: bool = False
+    app_frame: bool = False
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ]
+
+
+class DeveloperStackPrimaryFrameResponse(
+    BaseModel,
+):
+    path: str | None = None
+    line: int | None = None
+    column: int | None = None
+    symbol: str | None = None
+    confidence: Literal[
+        "observed",
+        "inferred",
+    ]
+
+
+class DeveloperStackTraceAnalysisResponse(
+    BaseModel,
+):
+    diagnosis: str
+    risk: DeveloperRiskLevel
+    primary_frame: (
+        DeveloperStackPrimaryFrameResponse
+        | None
+    ) = None
+    frames: list[
+        DeveloperStackFrameResponse
+    ] = Field(
+        default_factory=list,
+    )
+    studentlab_frames: int = 0
+    unresolved_frames: int = 0
+    runtime: dict | None = None
+    impact: dict | None = None
+
