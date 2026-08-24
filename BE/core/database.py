@@ -1,18 +1,24 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from .config import settings
 
 
 DATABASE_URL = settings.database_url
 
+engine_kwargs = {
+    "pool_pre_ping": True,
+    "echo": False,
+}
+
+if settings.is_vercel:
+    engine_kwargs["poolclass"] = NullPool
 
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,
-    echo=True,
+    **engine_kwargs,
 )
-
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -20,13 +26,11 @@ SessionLocal = sessionmaker(
     bind=engine,
 )
 
-
 Base = declarative_base()
 
 
 def get_db():
     db = SessionLocal()
-
     try:
         yield db
     finally:
@@ -34,9 +38,4 @@ def get_db():
 
 
 def create_tables():
-    Base.metadata.create_all(
-        bind=engine,
-    )
-
-
-print("\n\033[34m\\_+_/\033[0m\n")
+    Base.metadata.create_all(bind=engine)

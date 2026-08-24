@@ -422,6 +422,10 @@ from routes.admin_material_storage import (
     router as admin_material_storage_router,
 )
 
+from routes.support_session import (
+    router as support_session_router,
+)
+
 from routes.group_news import (
     router as group_news_router,
 )
@@ -512,6 +516,10 @@ app.include_router(
 
 app.include_router(
     admin_material_storage_router,
+)
+
+app.include_router(
+    support_session_router,
 )
 
 app.include_router(
