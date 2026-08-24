@@ -19,6 +19,10 @@ from models.public_material import (
     PublicMaterial,
 )
 
+from models.material_storage_event import (
+    MaterialStorageEvent,
+)
+
 from models.subject import (
     Subject,
 )
@@ -40,6 +44,70 @@ from services.public_material import (
     normalize_public_material_hash,
     replace_public_material_file,
 )
+
+from services.private_blob import (
+    delete_private_blob_sync,
+)
+
+
+def _record_storage_event(
+    db: Session,
+    *,
+    publication_request: MaterialPublicationRequest,
+    action: str,
+    actor_id: int | None,
+    blob_path: str | None,
+    reason: str | None = None,
+):
+    event = MaterialStorageEvent(
+        source="publication_request",
+        material_id=publication_request.id,
+        action=action,
+        blob_path=blob_path,
+        original_name=publication_request.original_name,
+        size=publication_request.size,
+        actor_id=actor_id,
+        reason=reason,
+    )
+    db.add(event)
+
+
+def _delete_unused_publication_blob(
+    db: Session,
+    *,
+    publication_request: MaterialPublicationRequest,
+    actor_id: int | None,
+    action: str,
+    reason: str,
+):
+    stored_name = publication_request.stored_name
+    try:
+        deleted = delete_private_blob_sync(stored_name)
+        _record_storage_event(
+            db,
+            publication_request=publication_request,
+            action=action if deleted else "blob_already_missing",
+            actor_id=actor_id,
+            blob_path=stored_name,
+            reason=reason,
+        )
+        db.commit()
+        return deleted
+    except Exception as exception:
+        db.rollback()
+        try:
+            _record_storage_event(
+                db,
+                publication_request=publication_request,
+                action="blob_delete_failed",
+                actor_id=actor_id,
+                blob_path=stored_name,
+                reason=str(exception),
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+        return False
 
 
 MAX_PUBLIC_MATERIAL_SIZE = (
@@ -1348,6 +1416,14 @@ def approve_material_publication_request(
                 target_material,
             )
 
+            _delete_unused_publication_blob(
+                db,
+                publication_request=publication_request,
+                actor_id=current_admin.id,
+                action="duplicate_proposal_blob_deleted",
+                reason="File proposto non necessario: mantenuto il materiale esistente.",
+            )
+
             return target_material
 
         except Exception:
@@ -1396,6 +1472,10 @@ def approve_material_publication_request(
             if publication_request.proposed_description
             is not None
             else publication_request.description
+        )
+
+        previous_stored_name = (
+            target_material.stored_name
         )
 
         try:
@@ -1476,6 +1556,33 @@ def approve_material_publication_request(
                 updated_material,
             )
 
+            if (
+                previous_stored_name
+                and previous_stored_name != updated_material.stored_name
+            ):
+                try:
+                    deleted_old_blob = delete_private_blob_sync(
+                        previous_stored_name,
+                    )
+                    event = MaterialStorageEvent(
+                        source="public",
+                        material_id=updated_material.id,
+                        action=(
+                            "replaced_blob_deleted"
+                            if deleted_old_blob
+                            else "replaced_blob_already_missing"
+                        ),
+                        blob_path=previous_stored_name,
+                        original_name=updated_material.original_name,
+                        size=None,
+                        actor_id=current_admin.id,
+                        reason="Versione precedente sostituita.",
+                    )
+                    db.add(event)
+                    db.commit()
+                except Exception:
+                    db.rollback()
+
             return updated_material
 
         except Exception:
@@ -1545,6 +1652,18 @@ def reject_material_publication_request(
 
     try:
         db.commit()
+
+        db.refresh(
+            publication_request,
+        )
+
+        _delete_unused_publication_blob(
+            db,
+            publication_request=publication_request,
+            actor_id=current_admin.id,
+            action="rejected_blob_deleted",
+            reason=rejection_reason,
+        )
 
         db.refresh(
             publication_request,

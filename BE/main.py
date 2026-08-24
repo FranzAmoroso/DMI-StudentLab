@@ -418,6 +418,10 @@ from routes.material_sync import (
     router as material_sync_router,
 )
 
+from routes.admin_material_storage import (
+    router as admin_material_storage_router,
+)
+
 from routes.group_news import (
     router as group_news_router,
 )
@@ -504,6 +508,10 @@ app.include_router(
 
 app.include_router(
     material_sync_router,
+)
+
+app.include_router(
+    admin_material_storage_router,
 )
 
 app.include_router(
