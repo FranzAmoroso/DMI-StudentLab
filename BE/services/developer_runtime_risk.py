@@ -11,7 +11,7 @@ from services.developer_indexer import (
 )
 
 from services.developer_source import (
-    read_developer_source,
+    read_indexed_source,
 )
 
 
@@ -589,7 +589,7 @@ def build_runtime_risk(
         return None
 
     source_result = (
-        read_developer_source(
+        read_indexed_source(
             index,
             path=path,
             function_name=function.name,
