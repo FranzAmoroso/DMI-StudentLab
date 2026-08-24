@@ -155,6 +155,69 @@ class DeveloperRelation {
   });
 }
 
+
+class DeveloperEndpointArtifact {
+  final String method;
+  final String path;
+  final String functionName;
+  final int? lineStart;
+  final String? routerName;
+  final List<String> dependencies;
+  final String? responseModel;
+  final bool securityCritical;
+  final String confidence;
+
+  const DeveloperEndpointArtifact({
+    required this.method,
+    required this.path,
+    required this.functionName,
+    this.lineStart,
+    this.routerName,
+    this.dependencies = const [],
+    this.responseModel,
+    this.securityCritical = false,
+    this.confidence = 'observed',
+  });
+}
+
+class DeveloperModelArtifact {
+  final String name;
+  final String? tableName;
+  final List<String> bases;
+  final List<String> columns;
+  final List<String> relationships;
+  final int? lineStart;
+  final String confidence;
+
+  const DeveloperModelArtifact({
+    required this.name,
+    this.tableName,
+    this.bases = const [],
+    this.columns = const [],
+    this.relationships = const [],
+    this.lineStart,
+    this.confidence = 'observed',
+  });
+}
+
+class DeveloperTestArtifact {
+  final String name;
+  final int? lineStart;
+  final String framework;
+  final List<String> calls;
+  final List<String> targetCandidates;
+  final String confidence;
+
+  const DeveloperTestArtifact({
+    required this.name,
+    this.lineStart,
+    required this.framework,
+    this.calls = const [],
+    this.targetCandidates = const [],
+    this.confidence = 'observed',
+  });
+}
+
 class DeveloperFileDoc {
   final String id;
   final String path;
@@ -180,6 +243,9 @@ class DeveloperFileDoc {
   final List<DeveloperRelation> relations;
   final List<String> flows;
   final List<String> securityNotes;
+  final List<DeveloperEndpointArtifact> endpoints;
+  final List<DeveloperModelArtifact> models;
+  final List<DeveloperTestArtifact> tests;
 
   const DeveloperFileDoc({
     required this.id,
@@ -206,6 +272,9 @@ class DeveloperFileDoc {
     this.relations = const [],
     this.flows = const [],
     this.securityNotes = const [],
+    this.endpoints = const [],
+    this.models = const [],
+    this.tests = const [],
   });
 }
 
@@ -430,3 +499,178 @@ class DeveloperImpactAnalysis {
     required this.securityCritical,
   });
 }
+
+class DeveloperSourceCode {
+  final String path;
+  final String language;
+  final String? symbol;
+  final String sourceKind;
+  final int lineStart;
+  final int lineEnd;
+  final int lineCount;
+  final String source;
+  final String? commitSha;
+  final String contentHash;
+  final String repository;
+  final String? branch;
+
+  const DeveloperSourceCode({
+    required this.path,
+    required this.language,
+    required this.symbol,
+    required this.sourceKind,
+    required this.lineStart,
+    required this.lineEnd,
+    required this.lineCount,
+    required this.source,
+    required this.commitSha,
+    required this.contentHash,
+    required this.repository,
+    required this.branch,
+  });
+}
+
+class DeveloperApiEndpointContract {
+  final String file;
+  final String function;
+  final String? method;
+  final String? path;
+  final List<String> authDependencies;
+  final String? requestSchema;
+  final String? responseSchema;
+  final String confidence;
+  final bool securityCritical;
+
+  const DeveloperApiEndpointContract({
+    required this.file,
+    required this.function,
+    required this.method,
+    required this.path,
+    required this.authDependencies,
+    required this.requestSchema,
+    required this.responseSchema,
+    required this.confidence,
+    required this.securityCritical,
+  });
+}
+
+class DeveloperFrontendHttpHint {
+  final String method;
+  final String? path;
+  final String call;
+  final String confidence;
+
+  const DeveloperFrontendHttpHint({
+    required this.method,
+    required this.path,
+    required this.call,
+    required this.confidence,
+  });
+}
+
+class DeveloperApiContract {
+  final String path;
+  final String function;
+  final String layer;
+  final String summary;
+  final String confidence;
+  final bool authRequired;
+  final List<String> authDependencies;
+  final List<String> requestSchemas;
+  final List<String> responseSchemas;
+  final bool securityCritical;
+  final List<DeveloperApiEndpointContract>
+      backendEndpoints;
+  final List<DeveloperFrontendHttpHint>
+      frontendHttpHints;
+
+  const DeveloperApiContract({
+    required this.path,
+    required this.function,
+    required this.layer,
+    required this.summary,
+    required this.confidence,
+    required this.authRequired,
+    required this.authDependencies,
+    required this.requestSchemas,
+    required this.responseSchemas,
+    required this.securityCritical,
+    required this.backendEndpoints,
+    required this.frontendHttpHints,
+  });
+}
+
+class DeveloperRuntimeFinding {
+  final String id;
+  final String title;
+  final String category;
+  final String severity;
+  final String confidence;
+  final String message;
+  final String? evidence;
+  final String? recommendation;
+
+  const DeveloperRuntimeFinding({
+    required this.id,
+    required this.title,
+    required this.category,
+    required this.severity,
+    required this.confidence,
+    required this.message,
+    this.evidence,
+    this.recommendation,
+  });
+}
+
+class DeveloperSideEffect {
+  final String category;
+  final String label;
+  final String confidence;
+  final String? evidence;
+
+  const DeveloperSideEffect({
+    required this.category,
+    required this.label,
+    required this.confidence,
+    this.evidence,
+  });
+}
+
+class DeveloperErrorPath {
+  final String kind;
+  final String? code;
+  final String label;
+  final String confidence;
+
+  const DeveloperErrorPath({
+    required this.kind,
+    required this.code,
+    required this.label,
+    required this.confidence,
+  });
+}
+
+class DeveloperRuntimeRisk {
+  final String path;
+  final String function;
+  final String language;
+  final DeveloperRiskLevel risk;
+  final String summary;
+  final bool securityCritical;
+  final List<DeveloperRuntimeFinding> findings;
+  final List<DeveloperSideEffect> sideEffects;
+  final List<DeveloperErrorPath> errorPaths;
+
+  const DeveloperRuntimeRisk({
+    required this.path,
+    required this.function,
+    required this.language,
+    required this.risk,
+    required this.summary,
+    required this.securityCritical,
+    required this.findings,
+    required this.sideEffects,
+    required this.errorPaths,
+  });
+}
+

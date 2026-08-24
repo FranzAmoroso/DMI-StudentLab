@@ -304,6 +304,120 @@ class DeveloperApiRepository {
     );
   }
 
+  Future<DeveloperSourceCode> getSource({
+    required String path,
+    String? functionName,
+  }) async {
+    final String normalizedPath =
+        path.trim();
+
+    if (normalizedPath.isEmpty) {
+      throw Exception(
+        'Percorso sorgente non valido.',
+      );
+    }
+
+    final Map<String, String>
+        queryParameters = {
+      'path': normalizedPath,
+    };
+
+    final String? normalizedFunction =
+        functionName?.trim();
+
+    if (normalizedFunction != null &&
+        normalizedFunction.isNotEmpty) {
+      queryParameters['function'] =
+          normalizedFunction;
+    }
+
+    final Map<String, dynamic> data =
+        _asMap(
+      await _get(
+        '/developer/source',
+        queryParameters:
+            queryParameters,
+      ),
+      'Sorgente Developer non valido.',
+    );
+
+    return DeveloperApiMapper.source(
+      data,
+    );
+  }
+
+  Future<DeveloperApiContract>
+      getApiContract({
+    required String path,
+    required String functionName,
+  }) async {
+    final String normalizedPath =
+        path.trim();
+
+    final String normalizedFunction =
+        functionName.trim();
+
+    if (normalizedPath.isEmpty ||
+        normalizedFunction.isEmpty) {
+      throw Exception(
+        'File o funzione non validi.',
+      );
+    }
+
+    final Map<String, dynamic> data =
+        _asMap(
+      await _get(
+        '/developer/api-contract',
+        queryParameters: {
+          'path': normalizedPath,
+          'function':
+              normalizedFunction,
+        },
+      ),
+      'Contratto API Developer non valido.',
+    );
+
+    return DeveloperApiMapper.apiContract(
+      data,
+    );
+  }
+
+  Future<DeveloperRuntimeRisk>
+      getRuntimeRisk({
+    required String path,
+    required String functionName,
+  }) async {
+    final String normalizedPath =
+        path.trim();
+
+    final String normalizedFunction =
+        functionName.trim();
+
+    if (normalizedPath.isEmpty ||
+        normalizedFunction.isEmpty) {
+      throw Exception(
+        'File o funzione non validi.',
+      );
+    }
+
+    final Map<String, dynamic> data =
+        _asMap(
+      await _get(
+        '/developer/runtime-risk',
+        queryParameters: {
+          'path': normalizedPath,
+          'function':
+              normalizedFunction,
+        },
+      ),
+      'Runtime Risk Developer non valido.',
+    );
+
+    return DeveloperApiMapper.runtimeRisk(
+      data,
+    );
+  }
+
   Future<DeveloperGraphData>
       getGraph() async {
     final Map<String, dynamic> data =

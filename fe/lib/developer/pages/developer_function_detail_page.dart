@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../theme/nightTheme.dart';
 
@@ -31,6 +32,10 @@ class _DeveloperFunctionDetailPageState
     _FunctionTabData(
       label: 'Overview',
       icon: Icons.dashboard_outlined,
+    ),
+    _FunctionTabData(
+      label: 'Source',
+      icon: Icons.code_rounded,
     ),
     _FunctionTabData(
       label: 'Calls',
@@ -111,6 +116,10 @@ class _DeveloperFunctionDetailPageState
                     controller: _tabController,
                     children: [
                       _OverviewTab(
+                        file: widget.file,
+                        function: function,
+                      ),
+                      _SourceTab(
                         file: widget.file,
                         function: function,
                       ),
@@ -423,6 +432,438 @@ class _OverviewTab extends StatelessWidget {
   }
 }
 
+class _SourceTab extends StatefulWidget {
+  final DeveloperFileDoc file;
+  final DeveloperFunctionDoc function;
+
+  const _SourceTab({
+    required this.file,
+    required this.function,
+  });
+
+  @override
+  State<_SourceTab> createState() =>
+      _SourceTabState();
+}
+
+class _SourceTabState
+    extends State<_SourceTab> {
+  final DeveloperApiRepository _repository =
+      const DeveloperApiRepository();
+
+  late Future<DeveloperSourceCode>
+      _futureSource;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureSource = _load();
+  }
+
+  Future<DeveloperSourceCode> _load() {
+    return _repository.getSource(
+      path: widget.file.path,
+      functionName:
+          widget.function.name,
+    );
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _futureSource = _load();
+    });
+
+    await _futureSource;
+  }
+
+  Future<void> _copy(
+    DeveloperSourceCode source,
+  ) async {
+    await Clipboard.setData(
+      ClipboardData(
+        text: source.source,
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Codice sorgente copiato.',
+        ),
+      ),
+    );
+  }
+
+  String _numberedSource(
+    DeveloperSourceCode source,
+  ) {
+    final List<String> lines =
+        source.source.split('\n');
+
+    final int width =
+        source.lineEnd
+            .toString()
+            .length;
+
+    return List<String>.generate(
+      lines.length,
+      (int index) {
+        final int lineNumber =
+            source.lineStart +
+                index;
+
+        return '${lineNumber.toString().padLeft(width)} │ '
+            '${lines[index]}';
+      },
+    ).join('\n');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<
+        DeveloperSourceCode>(
+      future: _futureSource,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<
+                DeveloperSourceCode>
+            snapshot,
+      ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const Center(
+            child:
+                CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _SourceError(
+            message:
+                snapshot.error.toString(),
+            onRetry: _reload,
+          );
+        }
+
+        final DeveloperSourceCode?
+            source = snapshot.data;
+
+        if (source == null) {
+          return const _EmptyTab(
+            icon: Icons.code_off_rounded,
+            title:
+                'Sorgente non disponibile',
+            message:
+                'Il backend non ha restituito '
+                'il codice della funzione.',
+          );
+        }
+
+        return _TabScroll(
+          children: [
+            _DetailSection(
+              icon: Icons.code_rounded,
+              title: 'Source',
+              accent:
+                  AppColors.materialSky,
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      _InfoBadge(
+                        icon: Icons
+                            .description_outlined,
+                        label:
+                            source.path,
+                      ),
+                      _InfoBadge(
+                        icon: Icons
+                            .numbers_rounded,
+                        label:
+                            'L${source.lineStart}'
+                            '–${source.lineEnd}',
+                      ),
+                      _InfoBadge(
+                        icon:
+                            Icons.code_rounded,
+                        label:
+                            source.language,
+                        color:
+                            AppColors.materialSky,
+                      ),
+                      _InfoBadge(
+                        icon: Icons
+                            .commit_rounded,
+                        label:
+                            source.commitSha !=
+                                    null
+                                ? source
+                                    .commitSha!
+                                    .substring(
+                                      0,
+                                      source
+                                                  .commitSha!
+                                                  .length >
+                                              8
+                                          ? 8
+                                          : source
+                                              .commitSha!
+                                              .length,
+                                    )
+                                : 'NO SHA',
+                        color:
+                            AppColors.lavenderBlue,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(
+                    height: 12,
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          source.symbol ??
+                              widget
+                                  .function
+                                  .name,
+                          style:
+                              DeveloperUiStyle
+                                  .bodyStrong,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip:
+                            'Copia sorgente',
+                        onPressed: () {
+                          _copy(
+                            source,
+                          );
+                        },
+                        icon: const Icon(
+                          Icons
+                              .content_copy_rounded,
+                          size: 18,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip:
+                            'Ricarica sorgente',
+                        onPressed: () {
+                          _reload();
+                        },
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(
+                    height: 8,
+                  ),
+                  Container(
+                    width:
+                        double.infinity,
+                    constraints:
+                        const BoxConstraints(
+                      minHeight: 160,
+                    ),
+                    padding:
+                        const EdgeInsets.all(
+                      14,
+                    ),
+                    decoration:
+                        BoxDecoration(
+                      color: AppColors
+                          .eleganceDeepNavy,
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+                      border:
+                          Border.all(
+                        color: AppColors
+                            .skyBlue
+                            .withValues(
+                          alpha: 0.10,
+                        ),
+                      ),
+                    ),
+                    child:
+                        SingleChildScrollView(
+                      scrollDirection:
+                          Axis.horizontal,
+                      child:
+                          SelectableText(
+                        _numberedSource(
+                          source,
+                        ),
+                        style:
+                            TextStyle(
+                          color: AppColors
+                              .pureWhite
+                              .withValues(
+                            alpha: 0.88,
+                          ),
+                          fontSize: 11,
+                          height: 1.55,
+                          fontFamily:
+                              'monospace',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _DetailSection(
+              icon:
+                  Icons.fingerprint_rounded,
+              title:
+                  'Source identity',
+              accent:
+                  AppColors.lavenderBlue,
+              child: Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  _InfoBadge(
+                    icon: Icons
+                        .account_tree_outlined,
+                    label:
+                        source.repository,
+                  ),
+                  if (source.branch != null)
+                    _InfoBadge(
+                      icon: Icons
+                          .fork_right_rounded,
+                      label:
+                          source.branch!,
+                    ),
+                  _InfoBadge(
+                    icon: Icons
+                        .tag_rounded,
+                    label:
+                        source.contentHash
+                            .substring(
+                              0,
+                              source
+                                          .contentHash
+                                          .length >
+                                      12
+                                  ? 12
+                                  : source
+                                      .contentHash
+                                      .length,
+                            ),
+                    color:
+                        AppColors.lavenderBlue,
+                  ),
+                  _InfoBadge(
+                    icon: Icons
+                        .format_list_numbered_rounded,
+                    label:
+                        '${source.lineCount} lines',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SourceError extends StatelessWidget {
+  final String message;
+  final Future<void> Function()
+      onRetry;
+
+  const _SourceError({
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding:
+            const EdgeInsets.all(24),
+        child: Container(
+          constraints:
+              const BoxConstraints(
+            maxWidth: 520,
+          ),
+          padding:
+              const EdgeInsets.all(20),
+          decoration:
+              DeveloperUiStyle.panelDecoration(
+            borderColor:
+                Colors.redAccent,
+          ),
+          child: Column(
+            mainAxisSize:
+                MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.code_off_rounded,
+                color:
+                    Colors.redAccent,
+                size: 38,
+              ),
+              const SizedBox(
+                height: 10,
+              ),
+              Text(
+                'Source non disponibile',
+                style:
+                    DeveloperUiStyle
+                        .bodyStrong,
+              ),
+              const SizedBox(
+                height: 6,
+              ),
+              Text(
+                message,
+                textAlign:
+                    TextAlign.center,
+                style:
+                    DeveloperUiStyle
+                        .bodyMuted,
+              ),
+              const SizedBox(
+                height: 14,
+              ),
+              FilledButton.icon(
+                onPressed: () {
+                  onRetry();
+                },
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                ),
+                label:
+                    const Text('Riprova'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CallsTab extends StatelessWidget {
   final DeveloperFunctionDoc function;
 
@@ -520,6 +961,434 @@ class _CalledByTab extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ApiTab extends StatefulWidget {
+  final DeveloperFileDoc file;
+  final DeveloperFunctionDoc function;
+
+  const _ApiTab({
+    required this.file,
+    required this.function,
+  });
+
+  @override
+  State<_ApiTab> createState() =>
+      _ApiTabState();
+}
+
+class _ApiTabState extends State<_ApiTab> {
+  final DeveloperApiRepository _repository =
+      const DeveloperApiRepository();
+
+  late Future<DeveloperApiContract>
+      _futureContract;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureContract = _load();
+  }
+
+  Future<DeveloperApiContract> _load() {
+    return _repository.getApiContract(
+      path: widget.file.path,
+      functionName:
+          widget.function.name,
+    );
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _futureContract = _load();
+    });
+
+    await _futureContract;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<
+        DeveloperApiContract>(
+      future: _futureContract,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<
+                DeveloperApiContract>
+            snapshot,
+      ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const Center(
+            child:
+                CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _EmptyTab(
+            icon: Icons.api_outlined,
+            title:
+                'API contract unavailable',
+            message:
+                snapshot.error.toString(),
+          );
+        }
+
+        final DeveloperApiContract?
+            contract = snapshot.data;
+
+        if (contract == null) {
+          return const _EmptyTab(
+            icon: Icons.api_outlined,
+            title:
+                'No API contract',
+            message:
+                'No contract was resolved for '
+                'this function.',
+          );
+        }
+
+        return _TabScroll(
+          children: [
+            _DetailSection(
+              icon: Icons.api_outlined,
+              title: 'API contract',
+              accent:
+                  AppColors.materialSky,
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    contract.summary,
+                    style:
+                        DeveloperUiStyle
+                            .bodyMuted,
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      _InfoBadge(
+                        icon: Icons
+                            .verified_outlined,
+                        label: contract
+                            .confidence
+                            .toUpperCase(),
+                        color:
+                            AppColors.skyBlue,
+                      ),
+                      _InfoBadge(
+                        icon: contract
+                                .authRequired
+                            ? Icons
+                                .lock_outline_rounded
+                            : Icons
+                                .lock_open_outlined,
+                        label: contract
+                                .authRequired
+                            ? 'AUTH REQUIRED'
+                            : 'NO AUTH OBSERVED',
+                        color: contract
+                                .authRequired
+                            ? Colors.redAccent
+                            : Colors.greenAccent,
+                      ),
+                      if (contract
+                          .securityCritical)
+                        const _InfoBadge(
+                          icon: Icons
+                              .shield_outlined,
+                          label:
+                              'SECURITY CRITICAL',
+                          color:
+                              Colors.redAccent,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (contract
+                .backendEndpoints.isNotEmpty)
+              _DetailSection(
+                icon:
+                    Icons.route_outlined,
+                title:
+                    'Backend endpoints',
+                accent:
+                    AppColors.materialSky,
+                child: Column(
+                  children: contract
+                      .backendEndpoints
+                      .map(
+                        (
+                          DeveloperApiEndpointContract
+                              endpoint,
+                        ) =>
+                            _ApiEndpointCard(
+                          endpoint:
+                              endpoint,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            if (contract
+                .requestSchemas.isNotEmpty)
+              _DetailSection(
+                icon: Icons
+                    .input_outlined,
+                title: 'Request schemas',
+                accent:
+                    AppColors.skyBlue,
+                child: Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: contract
+                      .requestSchemas
+                      .map(
+                        (String value) =>
+                            _InfoBadge(
+                          icon: Icons
+                              .data_object_rounded,
+                          label: value,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            if (contract
+                .responseSchemas.isNotEmpty)
+              _DetailSection(
+                icon: Icons
+                    .output_outlined,
+                title: 'Response schemas',
+                accent:
+                    AppColors.lavenderBlue,
+                child: Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: contract
+                      .responseSchemas
+                      .map(
+                        (String value) =>
+                            _InfoBadge(
+                          icon: Icons
+                              .data_object_rounded,
+                          label: value,
+                          color: AppColors
+                              .lavenderBlue,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            if (contract
+                .authDependencies.isNotEmpty)
+              _DetailSection(
+                icon:
+                    Icons.lock_outline_rounded,
+                title:
+                    'Auth dependencies',
+                accent:
+                    Colors.redAccent,
+                child: Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: contract
+                      .authDependencies
+                      .map(
+                        (String value) =>
+                            _InfoBadge(
+                          icon: Icons
+                              .shield_outlined,
+                          label: value,
+                          color:
+                              Colors.redAccent,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            if (contract
+                .frontendHttpHints.isNotEmpty)
+              _DetailSection(
+                icon:
+                    Icons.http_outlined,
+                title:
+                    'Frontend HTTP hints',
+                accent:
+                    AppColors.skyBlue,
+                child: Column(
+                  children: contract
+                      .frontendHttpHints
+                      .map(
+                        (
+                          DeveloperFrontendHttpHint
+                              hint,
+                        ) =>
+                            _RelationRow(
+                          icon:
+                              Icons.http_outlined,
+                          title:
+                              '${hint.method} ${hint.path ?? ''}'
+                                  .trim(),
+                          subtitle:
+                              '${hint.call} · ${hint.confidence}',
+                          color:
+                              AppColors.skyBlue,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            Center(
+              child: TextButton.icon(
+                onPressed: _reload,
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: 16,
+                ),
+                label: const Text(
+                  'Refresh contract',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ApiEndpointCard
+    extends StatelessWidget {
+  final DeveloperApiEndpointContract
+      endpoint;
+
+  const _ApiEndpointCard({
+    required this.endpoint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final String route = [
+      endpoint.method,
+      endpoint.path,
+    ]
+        .where(
+          (String? value) =>
+              value != null &&
+              value.trim().isNotEmpty,
+        )
+        .join(' ');
+
+    return Container(
+      width: double.infinity,
+      margin:
+          const EdgeInsets.only(
+        bottom: 8,
+      ),
+      padding:
+          const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color:
+            AppColors.eleganceDeepNavy,
+        borderRadius:
+            BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.materialSky
+              .withValues(alpha: 0.14),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  route.isEmpty
+                      ? endpoint.function
+                      : route,
+                  style:
+                      DeveloperUiStyle
+                          .bodyStrong,
+                ),
+              ),
+              _InfoBadge(
+                icon: Icons
+                    .verified_outlined,
+                label: endpoint
+                    .confidence
+                    .toUpperCase(),
+                color:
+                    AppColors.materialSky,
+              ),
+            ],
+          ),
+          const SizedBox(
+            height: 6,
+          ),
+          Text(
+            '${endpoint.file} → '
+            '${endpoint.function}()',
+            style:
+                DeveloperUiStyle.bodyMuted,
+          ),
+          if (endpoint.requestSchema !=
+              null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Request: '
+              '${endpoint.requestSchema}',
+              style:
+                  DeveloperUiStyle
+                      .bodyMuted,
+            ),
+          ],
+          if (endpoint.responseSchema !=
+              null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Response: '
+              '${endpoint.responseSchema}',
+              style:
+                  DeveloperUiStyle
+                      .bodyMuted,
+            ),
+          ],
+          if (endpoint
+              .authDependencies.isNotEmpty) ...[
+            const SizedBox(height: 7),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: endpoint
+                  .authDependencies
+                  .map(
+                    (String value) =>
+                        _InfoBadge(
+                      icon: Icons
+                          .lock_outline_rounded,
+                      label: value,
+                      color:
+                          Colors.redAccent,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -675,6 +1544,348 @@ class _FlowTab extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RuntimeTab extends StatefulWidget {
+  final DeveloperFileDoc file;
+  final DeveloperFunctionDoc function;
+
+  const _RuntimeTab({
+    required this.file,
+    required this.function,
+  });
+
+  @override
+  State<_RuntimeTab> createState() =>
+      _RuntimeTabState();
+}
+
+class _RuntimeTabState
+    extends State<_RuntimeTab> {
+  final DeveloperApiRepository _repository =
+      const DeveloperApiRepository();
+
+  late Future<DeveloperRuntimeRisk>
+      _futureRuntime;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureRuntime = _load();
+  }
+
+  Future<DeveloperRuntimeRisk> _load() {
+    return _repository.getRuntimeRisk(
+      path: widget.file.path,
+      functionName:
+          widget.function.name,
+    );
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _futureRuntime = _load();
+    });
+
+    await _futureRuntime;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<
+        DeveloperRuntimeRisk>(
+      future: _futureRuntime,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<
+                DeveloperRuntimeRisk>
+            snapshot,
+      ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const Center(
+            child:
+                CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _EmptyTab(
+            icon:
+                Icons.bug_report_outlined,
+            title:
+                'Runtime analysis unavailable',
+            message:
+                snapshot.error.toString(),
+          );
+        }
+
+        final DeveloperRuntimeRisk?
+            runtime = snapshot.data;
+
+        if (runtime == null) {
+          return const _EmptyTab(
+            icon:
+                Icons.bug_report_outlined,
+            title:
+                'No runtime analysis',
+            message:
+                'No runtime risk information '
+                'was resolved.',
+          );
+        }
+
+        final Color riskColor =
+            DeveloperUiStyle.riskColor(
+          runtime.risk.name,
+        );
+
+        return _TabScroll(
+          children: [
+            _DetailSection(
+              icon:
+                  Icons.bug_report_outlined,
+              title: 'Runtime risk',
+              accent: riskColor,
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    runtime.summary,
+                    style:
+                        DeveloperUiStyle
+                            .bodyMuted,
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      _InfoBadge(
+                        icon: Icons
+                            .warning_amber_rounded,
+                        label: runtime.risk.name
+                            .toUpperCase(),
+                        color: riskColor,
+                      ),
+                      if (runtime
+                          .securityCritical)
+                        const _InfoBadge(
+                          icon: Icons
+                              .shield_outlined,
+                          label:
+                              'SECURITY CRITICAL',
+                          color:
+                              Colors.redAccent,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (runtime.findings.isNotEmpty)
+              _DetailSection(
+                icon: Icons
+                    .warning_amber_rounded,
+                title: 'Findings',
+                accent: riskColor,
+                child: Column(
+                  children: runtime.findings
+                      .map(
+                        (
+                          DeveloperRuntimeFinding
+                              finding,
+                        ) =>
+                            _RuntimeFindingCard(
+                          finding:
+                              finding,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            if (runtime
+                .sideEffects.isNotEmpty)
+              _DetailSection(
+                icon:
+                    Icons.bolt_outlined,
+                title: 'Side effects',
+                accent:
+                    AppColors.materialSky,
+                child: Column(
+                  children: runtime
+                      .sideEffects
+                      .map(
+                        (
+                          DeveloperSideEffect
+                              effect,
+                        ) =>
+                            _RelationRow(
+                          icon: Icons
+                              .bolt_outlined,
+                          title:
+                              effect.label,
+                          subtitle:
+                              '${effect.category} · '
+                              '${effect.confidence}'
+                              '${effect.evidence != null ? ' · ${effect.evidence}' : ''}',
+                          color: AppColors
+                              .materialSky,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            if (runtime
+                .errorPaths.isNotEmpty)
+              _DetailSection(
+                icon:
+                    Icons.alt_route_outlined,
+                title: 'Error paths',
+                accent:
+                    Colors.orangeAccent,
+                child: Column(
+                  children: runtime
+                      .errorPaths
+                      .map(
+                        (
+                          DeveloperErrorPath
+                              path,
+                        ) =>
+                            _RelationRow(
+                          icon: Icons
+                              .alt_route_outlined,
+                          title:
+                              path.code == null
+                                  ? path.label
+                                  : '${path.code} · ${path.label}',
+                          subtitle:
+                              '${path.kind} · ${path.confidence}',
+                          color: Colors
+                              .orangeAccent,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            Center(
+              child: TextButton.icon(
+                onPressed: _reload,
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: 16,
+                ),
+                label: const Text(
+                  'Refresh runtime analysis',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RuntimeFindingCard
+    extends StatelessWidget {
+  final DeveloperRuntimeFinding finding;
+
+  const _RuntimeFindingCard({
+    required this.finding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color =
+        DeveloperUiStyle.riskColor(
+      finding.severity,
+    );
+
+    return Container(
+      width: double.infinity,
+      margin:
+          const EdgeInsets.only(
+        bottom: 8,
+      ),
+      padding:
+          const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color:
+            AppColors.eleganceDeepNavy,
+        borderRadius:
+            BorderRadius.circular(12),
+        border: Border.all(
+          color:
+              color.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  finding.title,
+                  style:
+                      DeveloperUiStyle
+                          .bodyStrong,
+                ),
+              ),
+              _InfoBadge(
+                icon: Icons
+                    .warning_amber_rounded,
+                label: finding.severity
+                    .toUpperCase(),
+                color: color,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            finding.message,
+            style:
+                DeveloperUiStyle.bodyMuted,
+          ),
+          if (finding.evidence != null) ...[
+            const SizedBox(height: 7),
+            Text(
+              'Evidence: ${finding.evidence}',
+              style: TextStyle(
+                color:
+                    AppColors.skyBlue,
+                fontSize: 10,
+              ),
+            ),
+          ],
+          if (finding.recommendation !=
+              null) ...[
+            const SizedBox(height: 7),
+            Text(
+              'Recommendation: '
+              '${finding.recommendation}',
+              style:
+                  DeveloperUiStyle.bodyMuted,
+            ),
+          ],
+          const SizedBox(height: 7),
+          _InfoBadge(
+            icon:
+                Icons.verified_outlined,
+            label: finding.confidence
+                .toUpperCase(),
+            color:
+                AppColors.lavenderBlue,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -138,6 +138,75 @@ class DeveloperApiMapper {
     );
   }
 
+  static DeveloperEndpointArtifact endpoint(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperEndpointArtifact(
+      method:
+          json['method']?.toString() ?? '',
+      path:
+          json['path']?.toString() ?? '',
+      functionName:
+          json['function_name']?.toString() ?? '',
+      lineStart:
+          (json['line_start'] as num?)?.toInt(),
+      routerName:
+          json['router_name']?.toString(),
+      dependencies:
+          stringList(json['dependencies']),
+      responseModel:
+          json['response_model']?.toString(),
+      securityCritical:
+          json['security_critical'] == true,
+      confidence:
+          json['confidence']?.toString() ??
+              'observed',
+    );
+  }
+
+  static DeveloperModelArtifact modelArtifact(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperModelArtifact(
+      name:
+          json['name']?.toString() ?? '',
+      tableName:
+          json['table_name']?.toString(),
+      bases:
+          stringList(json['bases']),
+      columns:
+          stringList(json['columns']),
+      relationships:
+          stringList(json['relationships']),
+      lineStart:
+          (json['line_start'] as num?)?.toInt(),
+      confidence:
+          json['confidence']?.toString() ??
+              'observed',
+    );
+  }
+
+  static DeveloperTestArtifact testArtifact(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperTestArtifact(
+      name:
+          json['name']?.toString() ?? '',
+      lineStart:
+          (json['line_start'] as num?)?.toInt(),
+      framework:
+          json['framework']?.toString() ??
+              'unknown',
+      calls:
+          stringList(json['calls']),
+      targetCandidates:
+          stringList(json['target_candidates']),
+      confidence:
+          json['confidence']?.toString() ??
+              'observed',
+    );
+  }
+
   static DeveloperFileDoc file(
     Map<String, dynamic> json,
   ) {
@@ -191,6 +260,33 @@ class DeveloperApiMapper {
       flows: stringList(json['flows']),
       securityNotes:
           stringList(json['security_notes']),
+      endpoints:
+          (json['endpoints'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => endpoint(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(),
+      models:
+          (json['models'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => modelArtifact(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(),
+      tests:
+          (json['tests'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => testArtifact(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(),
     );
   }
 
@@ -495,6 +591,275 @@ class DeveloperApiMapper {
               .toList(),
       securityCritical:
           json['security_critical'] == true,
+    );
+  }
+
+  static DeveloperSourceCode source(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperSourceCode(
+      path:
+          json['path']?.toString() ?? '',
+      language:
+          json['language']?.toString() ?? '',
+      symbol:
+          json['symbol']?.toString(),
+      sourceKind:
+          json['source_kind']?.toString() ??
+              'file',
+      lineStart:
+          (json['line_start'] as num?)
+                  ?.toInt() ??
+              1,
+      lineEnd:
+          (json['line_end'] as num?)
+                  ?.toInt() ??
+              1,
+      lineCount:
+          (json['line_count'] as num?)
+                  ?.toInt() ??
+              0,
+      source:
+          json['source']?.toString() ?? '',
+      commitSha:
+          json['commit_sha']?.toString(),
+      contentHash:
+          json['content_hash']?.toString() ??
+              '',
+      repository:
+          json['repository']?.toString() ??
+              '',
+      branch:
+          json['branch']?.toString(),
+    );
+  }
+
+  static DeveloperApiEndpointContract
+      apiEndpointContract(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperApiEndpointContract(
+      file:
+          json['file']?.toString() ?? '',
+      function:
+          json['function']?.toString() ?? '',
+      method:
+          json['method']?.toString(),
+      path:
+          json['path']?.toString(),
+      authDependencies:
+          (json['auth_dependencies'] as List? ??
+                  const [])
+              .map(
+                (dynamic value) =>
+                    value.toString(),
+              )
+              .toList(),
+      requestSchema:
+          json['request_schema']?.toString(),
+      responseSchema:
+          json['response_schema']?.toString(),
+      confidence:
+          json['confidence']?.toString() ??
+              'unknown',
+      securityCritical:
+          json['security_critical'] == true,
+    );
+  }
+
+  static DeveloperFrontendHttpHint
+      frontendHttpHint(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperFrontendHttpHint(
+      method:
+          json['method']?.toString() ?? '',
+      path:
+          json['path']?.toString(),
+      call:
+          json['call']?.toString() ?? '',
+      confidence:
+          json['confidence']?.toString() ??
+              'inferred',
+    );
+  }
+
+  static DeveloperApiContract apiContract(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperApiContract(
+      path:
+          json['path']?.toString() ?? '',
+      function:
+          json['function']?.toString() ?? '',
+      layer:
+          json['layer']?.toString() ?? '',
+      summary:
+          json['summary']?.toString() ?? '',
+      confidence:
+          json['confidence']?.toString() ??
+              'unknown',
+      authRequired:
+          json['auth_required'] == true,
+      authDependencies:
+          (json['auth_dependencies'] as List? ??
+                  const [])
+              .map(
+                (dynamic value) =>
+                    value.toString(),
+              )
+              .toList(),
+      requestSchemas:
+          (json['request_schemas'] as List? ??
+                  const [])
+              .map(
+                (dynamic value) =>
+                    value.toString(),
+              )
+              .toList(),
+      responseSchemas:
+          (json['response_schemas'] as List? ??
+                  const [])
+              .map(
+                (dynamic value) =>
+                    value.toString(),
+              )
+              .toList(),
+      securityCritical:
+          json['security_critical'] == true,
+      backendEndpoints:
+          (json['backend_endpoints'] as List? ??
+                  const [])
+              .whereType<Map>()
+              .map(
+                (Map item) =>
+                    apiEndpointContract(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
+      frontendHttpHints:
+          (json['frontend_http_hints'] as List? ??
+                  const [])
+              .whereType<Map>()
+              .map(
+                (Map item) =>
+                    frontendHttpHint(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
+    );
+  }
+
+  static DeveloperRuntimeFinding
+      runtimeFinding(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperRuntimeFinding(
+      id: json['id']?.toString() ?? '',
+      title:
+          json['title']?.toString() ?? '',
+      category:
+          json['category']?.toString() ?? '',
+      severity:
+          json['severity']?.toString() ?? 'low',
+      confidence:
+          json['confidence']?.toString() ??
+              'inferred',
+      message:
+          json['message']?.toString() ?? '',
+      evidence:
+          json['evidence']?.toString(),
+      recommendation:
+          json['recommendation']?.toString(),
+    );
+  }
+
+  static DeveloperSideEffect sideEffect(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperSideEffect(
+      category:
+          json['category']?.toString() ?? '',
+      label:
+          json['label']?.toString() ?? '',
+      confidence:
+          json['confidence']?.toString() ??
+              'inferred',
+      evidence:
+          json['evidence']?.toString(),
+    );
+  }
+
+  static DeveloperErrorPath errorPath(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperErrorPath(
+      kind:
+          json['kind']?.toString() ?? '',
+      code:
+          json['code']?.toString(),
+      label:
+          json['label']?.toString() ?? '',
+      confidence:
+          json['confidence']?.toString() ??
+              'inferred',
+    );
+  }
+
+  static DeveloperRuntimeRisk runtimeRisk(
+    Map<String, dynamic> json,
+  ) {
+    return DeveloperRuntimeRisk(
+      path:
+          json['path']?.toString() ?? '',
+      function:
+          json['function']?.toString() ?? '',
+      language:
+          json['language']?.toString() ?? '',
+      risk: risk(json['risk']),
+      summary:
+          json['summary']?.toString() ?? '',
+      securityCritical:
+          json['security_critical'] == true,
+      findings:
+          (json['findings'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => runtimeFinding(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
+      sideEffects:
+          (json['side_effects'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => sideEffect(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
+      errorPaths:
+          (json['error_paths'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (Map item) => errorPath(
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
+                ),
+              )
+              .toList(),
     );
   }
 
