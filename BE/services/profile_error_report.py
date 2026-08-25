@@ -13,13 +13,24 @@ from schemas.profile_error_report import (
 
 VALID_PROFILE_ERROR_CATEGORIES = {
     "personal_data",
+    "biography",
     "academic_path",
+    "academic_titles",
     "degree_verification",
     "subject",
     "grade_verification",
     "teacher_assignment",
     "teacher_verification",
     "availability",
+    "news",
+    "groups",
+    "materials",
+    "quiz",
+    "tutor",
+    "messages",
+    "notifications",
+    "account_security",
+    "performance",
     "other",
 }
 
