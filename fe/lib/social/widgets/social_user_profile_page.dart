@@ -13,6 +13,7 @@ import '../message/contact_user_page.dart';
 import '../reviews/user_reviews_section.dart';
 
 import 'academic_paths_page.dart';
+import 'manage_profile_subjects_page.dart';
 
 import 'teacher_assignment_page.dart';
 import 'user_block_action.dart';
@@ -70,6 +71,29 @@ class _SocialUserProfilePageState
   bool get _isTeacher {
     return _user.type ==
         SocialUserType.teacher;
+  }
+
+
+  List<SocialAcademicPath>
+      get _additionalAcademicPaths {
+    final SocialAcademicPath?
+        headerPath =
+        _user.primaryAcademicPath ??
+        _user.currentAcademicPath;
+
+    if (headerPath == null) {
+      return _academicPathsForDisplay;
+    }
+
+    return _academicPathsForDisplay
+        .where(
+          (
+            SocialAcademicPath path,
+          ) =>
+              path.id !=
+              headerPath.id,
+        )
+        .toList();
   }
 
   List<SocialSubject> get _helpSubjects {
@@ -191,19 +215,15 @@ class _SocialUserProfilePageState
           if (_isOwnProfile)
             PopupMenuButton<String>(
               tooltip:
-                  'Opzioni profilo',
-
+                  'Menu account',
               color:
                   AppColors.eleganceDeepNavy,
-
               icon:
                   const Icon(
                 Icons.more_vert_rounded,
               ),
-
               onSelected:
                   _handleOwnProfileMenu,
-
               itemBuilder:
                   (
                 BuildContext context,
@@ -211,68 +231,13 @@ class _SocialUserProfilePageState
                       const [
                 PopupMenuItem<String>(
                   value:
-                      'account_security',
-
-                  child:
-                      _ProfileMenuItem(
-                    icon:
-                        Icons
-                            .manage_accounts_outlined,
-
-                    label:
-                        'Account e sicurezza',
-                  ),
-                ),
-
-                PopupMenuDivider(),
-
-                PopupMenuItem<String>(
-                  value:
-                      'report_error',
-
-                  child:
-                      _ProfileMenuItem(
-                    icon:
-                        Icons
-                            .bug_report_outlined,
-
-                    label:
-                        'Segnala un errore',
-                  ),
-                ),
-
-                PopupMenuItem<String>(
-                  value:
-                      'delete_account',
-
-                  child:
-                      _ProfileMenuItem(
-                    icon:
-                        Icons
-                            .delete_forever_outlined,
-
-                    label:
-                        'Elimina account',
-
-                    danger:
-                        true,
-                  ),
-                ),
-
-                PopupMenuDivider(),
-
-                PopupMenuItem<String>(
-                  value:
                       'logout',
-
                   child:
                       _ProfileMenuItem(
                     icon:
                         Icons.logout_rounded,
-
                     label:
                         'Esci',
-
                     danger:
                         true,
                   ),
@@ -291,7 +256,7 @@ class _SocialUserProfilePageState
             constraints:
                 const BoxConstraints(
               maxWidth:
-                  800,
+                  1000,
             ),
 
             child:
@@ -332,12 +297,14 @@ class _SocialUserProfilePageState
                       16,
                 ),
 
-                _buildAcademicPaths(),
+                if (_additionalAcademicPaths.isNotEmpty) ...[
+                  _buildAcademicPaths(),
 
-                const SizedBox(
-                  height:
-                      16,
-                ),
+                  const SizedBox(
+                    height:
+                        16,
+                  ),
+                ],
 
                 if (_isTeacher) ...[
                   _buildTeacherAssignments(),
@@ -385,6 +352,15 @@ class _SocialUserProfilePageState
 
                 _buildReviews(),
 
+                if (_isOwnProfile) ...[
+                  const SizedBox(
+                    height:
+                        18,
+                  ),
+
+                  _buildOwnAccountActions(),
+                ],
+
                 if (
                   !_isOwnProfile &&
                   _isAuthenticated
@@ -406,6 +382,234 @@ class _SocialUserProfilePageState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildOwnAccountActions() {
+    return LayoutBuilder(
+      builder:
+          (
+        BuildContext context,
+        BoxConstraints constraints,
+      ) {
+        final bool compact =
+            constraints.maxWidth <
+                620;
+
+
+        final Widget securityButton =
+            OutlinedButton.icon(
+          onPressed:
+              _openAccountSecurity,
+          icon:
+              const Icon(
+            Icons.manage_accounts_outlined,
+          ),
+          label:
+              const Text(
+            'Account e sicurezza',
+          ),
+          style:
+              OutlinedButton.styleFrom(
+            foregroundColor:
+                AppColors.materialSky,
+            side:
+                BorderSide(
+              color:
+                  AppColors.skyBlue
+                      .withOpacity(
+                0.26,
+              ),
+            ),
+            padding:
+                const EdgeInsets.symmetric(
+              vertical:
+                  13,
+              horizontal:
+                  14,
+            ),
+            shape:
+                RoundedRectangleBorder(
+              borderRadius:
+                  BorderRadius.circular(
+                13,
+              ),
+            ),
+          ),
+        );
+
+        final Widget reportButton =
+            OutlinedButton.icon(
+          onPressed:
+              _reportingError
+                  ? null
+                  : _reportError,
+          icon:
+              _reportingError
+                  ? const SizedBox(
+                      width:
+                          17,
+                      height:
+                          17,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth:
+                            2,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.bug_report_outlined,
+                    ),
+          label:
+              Text(
+            _reportingError
+                ? 'Invio...'
+                : 'Segnala un errore',
+          ),
+          style:
+              OutlinedButton.styleFrom(
+            foregroundColor:
+                AppColors.materialSky,
+            side:
+                BorderSide(
+              color:
+                  AppColors.skyBlue
+                      .withOpacity(
+                0.26,
+              ),
+            ),
+            padding:
+                const EdgeInsets.symmetric(
+              vertical:
+                  13,
+              horizontal:
+                  14,
+            ),
+            shape:
+                RoundedRectangleBorder(
+              borderRadius:
+                  BorderRadius.circular(
+                13,
+              ),
+            ),
+          ),
+        );
+
+        final Widget deleteButton =
+            OutlinedButton.icon(
+          onPressed:
+              _deletingAccount
+                  ? null
+                  : _confirmDeleteAccount,
+          icon:
+              _deletingAccount
+                  ? const SizedBox(
+                      width:
+                          17,
+                      height:
+                          17,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth:
+                            2,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.delete_forever_outlined,
+                    ),
+          label:
+              Text(
+            _deletingAccount
+                ? 'Eliminazione...'
+                : 'Elimina account',
+          ),
+          style:
+              OutlinedButton.styleFrom(
+            foregroundColor:
+                Colors.redAccent,
+            side:
+                BorderSide(
+              color:
+                  Colors.redAccent
+                      .withOpacity(
+                0.32,
+              ),
+            ),
+            padding:
+                const EdgeInsets.symmetric(
+              vertical:
+                  13,
+              horizontal:
+                  14,
+            ),
+            shape:
+                RoundedRectangleBorder(
+              borderRadius:
+                  BorderRadius.circular(
+                13,
+              ),
+            ),
+          ),
+        );
+
+        if (compact) {
+          return Column(
+            children: [
+              SizedBox(
+                width:
+                    double.infinity,
+                child:
+                    securityButton,
+              ),
+              const SizedBox(
+                height:
+                    10,
+              ),
+              SizedBox(
+                width:
+                    double.infinity,
+                child:
+                    reportButton,
+              ),
+              const SizedBox(
+                height:
+                    10,
+              ),
+              SizedBox(
+                width:
+                    double.infinity,
+                child:
+                    deleteButton,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child:
+                  securityButton,
+            ),
+            const SizedBox(
+              width:
+                  10,
+            ),
+            Expanded(
+              child:
+                  reportButton,
+            ),
+            const SizedBox(
+              width:
+                  10,
+            ),
+            Expanded(
+              child:
+                  deleteButton,
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -533,7 +737,7 @@ class _SocialUserProfilePageState
 
                   label:
                       const Text(
-                    'Gestisci',
+                    'Modifica',
                   ),
 
                   style:
@@ -998,10 +1202,11 @@ class _SocialUserProfilePageState
                 ),
               ),
 
-              _AvailabilityBadge(
-                available:
-                    _user.available,
-              ),
+              if (_user.availableForHelp)
+                const _AvailabilityBadge(
+                  available:
+                      true,
+                ),
             ],
           ),
 
@@ -1038,6 +1243,42 @@ class _SocialUserProfilePageState
               _buildPrimaryAcademicSummary(
                 currentPath,
               ),
+
+            if (_isOwnProfile) ...[
+              const SizedBox(
+                height:
+                    8,
+              ),
+
+              Align(
+                alignment:
+                    Alignment.centerRight,
+                child:
+                    TextButton.icon(
+                  onPressed:
+                      _refreshingProfile
+                          ? null
+                          : _openAcademicPaths,
+                  icon:
+                      const Icon(
+                    Icons.edit_outlined,
+                    size:
+                        14,
+                  ),
+                  label:
+                      const Text(
+                    'Modifica percorso',
+                  ),
+                  style:
+                      TextButton.styleFrom(
+                    foregroundColor:
+                        AppColors.materialSky,
+                    visualDensity:
+                        VisualDensity.compact,
+                  ),
+                ),
+              ),
+            ],
           ] else ...[
             const SizedBox(
               height:
@@ -1091,6 +1332,42 @@ class _SocialUserProfilePageState
                       ? 'Non specificato'
                       : _user.course,
             ),
+
+            if (_isOwnProfile) ...[
+              const SizedBox(
+                height:
+                    8,
+              ),
+
+              Align(
+                alignment:
+                    Alignment.centerRight,
+                child:
+                    TextButton.icon(
+                  onPressed:
+                      _refreshingProfile
+                          ? null
+                          : _openAcademicPaths,
+                  icon:
+                      const Icon(
+                    Icons.edit_outlined,
+                    size:
+                        14,
+                  ),
+                  label:
+                      const Text(
+                    'Modifica percorso',
+                  ),
+                  style:
+                      TextButton.styleFrom(
+                    foregroundColor:
+                        AppColors.materialSky,
+                    visualDensity:
+                        VisualDensity.compact,
+                  ),
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -1259,10 +1536,42 @@ class _SocialUserProfilePageState
   Widget _buildAbout() {
     return _SectionCard(
       title:
-          'Profilo',
+          'Biografia',
 
       icon:
-          Icons.person_outline_rounded,
+          Icons.badge_outlined,
+
+      trailing:
+          _isOwnProfile
+              ? TextButton.icon(
+                  onPressed:
+                      _refreshingProfile
+                          ? null
+                          : _editBiography,
+                  icon:
+                      const Icon(
+                    Icons.edit_outlined,
+                    size:
+                        15,
+                  ),
+                  label:
+                      const Text(
+                    'Modifica',
+                  ),
+                  style:
+                      TextButton.styleFrom(
+                    foregroundColor:
+                        AppColors.materialSky,
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal:
+                          8,
+                      vertical:
+                          4,
+                    ),
+                  ),
+                )
+              : null,
 
       child:
           Text(
@@ -1793,11 +2102,11 @@ class _SocialUserProfilePageState
   Widget _buildAcademicPaths() {
     final List<SocialAcademicPath>
         paths =
-        _academicPathsForDisplay;
+        _additionalAcademicPaths;
 
     return _SectionCard(
       title:
-          'Percorsi accademici',
+          'Altri percorsi accademici',
 
       icon:
           Icons
@@ -1821,7 +2130,7 @@ class _SocialUserProfilePageState
 
                   label:
                       const Text(
-                    'Gestisci',
+                    'Modifica',
                   ),
 
                   style:
@@ -1863,8 +2172,8 @@ class _SocialUserProfilePageState
           if (paths.isEmpty)
             Text(
               _isOwnProfile
-                  ? 'Nessun percorso accademico aggiunto.'
-                  : 'Nessun percorso accademico pubblico.',
+                  ? 'Nessun altro percorso accademico.'
+                  : 'Nessun altro percorso accademico pubblico.',
 
               style:
                   TextStyle(
@@ -1883,69 +2192,7 @@ class _SocialUserProfilePageState
               _buildAcademicPath,
             ),
 
-          if (_isOwnProfile) ...[
-            const SizedBox(
-              height:
-                  10,
-            ),
-
-            SizedBox(
-              width:
-                  double.infinity,
-
-              child:
-                  OutlinedButton.icon(
-                onPressed:
-                    _refreshingProfile
-                        ? null
-                        : _openAcademicPaths,
-
-                icon:
-                    const Icon(
-                  Icons.add_rounded,
-
-                  size:
-                      17,
-                ),
-
-                label:
-                    const Text(
-                  'Aggiungi o gestisci percorsi',
-                ),
-
-                style:
-                    OutlinedButton.styleFrom(
-                  foregroundColor:
-                      AppColors.skyBlue,
-
-                  side:
-                      BorderSide(
-                    color:
-                        AppColors.skyBlue
-                            .withOpacity(
-                      0.25,
-                    ),
-                  ),
-
-                  padding:
-                      const EdgeInsets
-                          .symmetric(
-                    vertical:
-                        12,
-                  ),
-
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      12,
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ],
-        ],
       ),
     );
   }
@@ -2188,6 +2435,38 @@ class _SocialUserProfilePageState
 
       icon:
           Icons.menu_book_outlined,
+
+      trailing:
+          _isOwnProfile
+              ? TextButton.icon(
+                  onPressed:
+                      _refreshingProfile
+                          ? null
+                          : _openSubjectsEditor,
+                  icon:
+                      const Icon(
+                    Icons.edit_outlined,
+                    size:
+                        15,
+                  ),
+                  label:
+                      const Text(
+                    'Modifica',
+                  ),
+                  style:
+                      TextButton.styleFrom(
+                    foregroundColor:
+                        AppColors.materialSky,
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal:
+                          8,
+                      vertical:
+                          4,
+                    ),
+                  ),
+                )
+              : null,
 
       child:
           _user.subjects.isEmpty
@@ -2543,27 +2822,6 @@ class _SocialUserProfilePageState
         children: [
           _AvailabilityRow(
             icon:
-                Icons.circle,
-
-            title:
-                'Disponibilità generale',
-
-            value:
-                _user.available
-                    ? 'Disponibile'
-                    : 'Non disponibile',
-
-            active:
-                _user.available,
-          ),
-
-          const SizedBox(
-            height:
-                12,
-          ),
-
-          _AvailabilityRow(
-            icon:
                 Icons
                     .volunteer_activism_outlined,
 
@@ -2577,6 +2835,11 @@ class _SocialUserProfilePageState
 
             active:
                 _user.availableForHelp,
+
+            onEdit:
+                _isOwnProfile
+                    ? _editHelpAvailability
+                    : null,
           ),
 
           const SizedBox(
@@ -2601,6 +2864,11 @@ class _SocialUserProfilePageState
             active:
                 _user
                     .availableForPrivateLessons,
+
+            onEdit:
+                _isOwnProfile
+                    ? _editPrivateLessonsAvailability
+                    : null,
           ),
         ],
       ),
@@ -2639,6 +2907,543 @@ class _SocialUserProfilePageState
     }
 
     return 'Percorso accademico';
+  }
+
+  Future<void> _editBiography() async {
+    if (!_isOwnProfile ||
+        _refreshingProfile) {
+      return;
+    }
+
+    final TextEditingController controller =
+        TextEditingController(
+      text:
+          _user.description,
+    );
+
+    final String? result =
+        await showModalBottomSheet<String>(
+      context:
+          context,
+      isScrollControlled:
+          true,
+      backgroundColor:
+          AppColors.eleganceDeepNavy,
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
+          top:
+              Radius.circular(
+            22,
+          ),
+        ),
+      ),
+      builder:
+          (
+        BuildContext sheetContext,
+      ) {
+        return SafeArea(
+          child:
+              Padding(
+            padding:
+                EdgeInsets.fromLTRB(
+              18,
+              18,
+              18,
+              18 +
+                  MediaQuery.viewInsetsOf(
+                    sheetContext,
+                  ).bottom,
+            ),
+            child:
+                Column(
+              mainAxisSize:
+                  MainAxisSize.min,
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Modifica biografia',
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite,
+                    fontSize:
+                        18,
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      6,
+                ),
+
+                Text(
+                  'Modifica soltanto la descrizione visibile nel tuo profilo.',
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite
+                            .withOpacity(
+                          0.45,
+                        ),
+                    fontSize:
+                        10,
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      14,
+                ),
+
+                TextField(
+                  controller:
+                      controller,
+                  minLines:
+                      4,
+                  maxLines:
+                      8,
+                  maxLength:
+                      1000,
+                  autofocus:
+                      true,
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.pureWhite,
+                  ),
+                  decoration:
+                      const InputDecoration(
+                    labelText:
+                        'Biografia',
+                    hintText:
+                        'Racconta qualcosa di te...',
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                      10,
+                ),
+
+                Row(
+                  children: [
+                    if (_user.description
+                        .trim()
+                        .isNotEmpty)
+                      TextButton.icon(
+                        onPressed:
+                            () {
+                          Navigator.pop(
+                            sheetContext,
+                            '',
+                          );
+                        },
+                        icon:
+                            const Icon(
+                          Icons.delete_outline_rounded,
+                          size:
+                              17,
+                        ),
+                        label:
+                            const Text(
+                          'Rimuovi',
+                        ),
+                        style:
+                            TextButton.styleFrom(
+                          foregroundColor:
+                              Colors.redAccent,
+                        ),
+                      ),
+
+                    const Spacer(),
+
+                    TextButton(
+                      onPressed:
+                          () {
+                        Navigator.pop(
+                          sheetContext,
+                        );
+                      },
+                      child:
+                          const Text(
+                        'Annulla',
+                      ),
+                    ),
+
+                    const SizedBox(
+                      width:
+                          6,
+                    ),
+
+                    ElevatedButton(
+                      onPressed:
+                          () {
+                        Navigator.pop(
+                          sheetContext,
+                          controller.text.trim(),
+                        );
+                      },
+                      child:
+                          const Text(
+                        'Salva',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null ||
+        !mounted) {
+      return;
+    }
+
+    await _updateOwnProfileField(
+      description:
+          result,
+    );
+  }
+
+
+  Future<void> _openSubjectsEditor() async {
+    if (!_isOwnProfile ||
+        _refreshingProfile) {
+      return;
+    }
+
+    final SocialUser? updatedUser =
+        await Navigator.of(
+      context,
+    ).push<SocialUser>(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                ManageProfileSubjectsPage(
+          user:
+              _user,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (updatedUser != null) {
+      setState(() {
+        _user =
+            updatedUser;
+      });
+
+      _session.updateUser(
+        updatedUser,
+      );
+      return;
+    }
+
+    await _refreshProfile();
+  }
+
+
+  Future<void> _editHelpAvailability() async {
+    final bool? value =
+        await _showAvailabilityEditor(
+      title:
+          'Aiuto allo studio',
+      description:
+          'Indica se sei disponibile ad aiutare altri studenti.',
+      value:
+          _user.availableForHelp,
+    );
+
+    if (value == null ||
+        !mounted ||
+        value ==
+            _user.availableForHelp) {
+      return;
+    }
+
+    await _updateOwnProfileField(
+      availableForHelp:
+          value,
+    );
+  }
+
+
+  Future<void>
+      _editPrivateLessonsAvailability() async {
+    final bool? value =
+        await _showAvailabilityEditor(
+      title:
+          'Lezioni private',
+      description:
+          'Indica se sei disponibile per lezioni private.',
+      value:
+          _user.availableForPrivateLessons,
+    );
+
+    if (value == null ||
+        !mounted ||
+        value ==
+            _user
+                .availableForPrivateLessons) {
+      return;
+    }
+
+    await _updateOwnProfileField(
+      availableForPrivateLessons:
+          value,
+    );
+  }
+
+
+  Future<bool?> _showAvailabilityEditor({
+    required String title,
+    required String description,
+    required bool value,
+  }) async {
+    if (!_isOwnProfile ||
+        _refreshingProfile) {
+      return null;
+    }
+
+    bool currentValue =
+        value;
+
+    return showModalBottomSheet<bool>(
+      context:
+          context,
+      backgroundColor:
+          AppColors.eleganceDeepNavy,
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
+          top:
+              Radius.circular(
+            22,
+          ),
+        ),
+      ),
+      builder:
+          (
+        BuildContext sheetContext,
+      ) {
+        return StatefulBuilder(
+          builder:
+              (
+            BuildContext context,
+            StateSetter setSheetState,
+          ) {
+            return SafeArea(
+              child:
+                  Padding(
+                padding:
+                    const EdgeInsets.all(
+                  18,
+                ),
+                child:
+                    Column(
+                  mainAxisSize:
+                      MainAxisSize.min,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Modifica $title',
+                      style:
+                          const TextStyle(
+                        color:
+                            AppColors.pureWhite,
+                        fontSize:
+                            18,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          6,
+                    ),
+
+                    Text(
+                      description,
+                      style:
+                          TextStyle(
+                        color:
+                            AppColors.pureWhite
+                                .withOpacity(
+                              0.45,
+                            ),
+                        fontSize:
+                            10,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          14,
+                    ),
+
+                    SwitchListTile(
+                      contentPadding:
+                          EdgeInsets.zero,
+                      value:
+                          currentValue,
+                      activeThumbColor:
+                          Colors.greenAccent,
+                      title:
+                          Text(
+                        currentValue
+                            ? 'Disponibile'
+                            : 'Non disponibile',
+                        style:
+                            TextStyle(
+                          color:
+                              currentValue
+                                  ? Colors.greenAccent
+                                  : AppColors.pureWhite,
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                      onChanged:
+                          (
+                        bool newValue,
+                      ) {
+                        setSheetState(
+                          () {
+                            currentValue =
+                                newValue;
+                          },
+                        );
+                      },
+                    ),
+
+                    const SizedBox(
+                      height:
+                          10,
+                    ),
+
+                    Row(
+                      mainAxisAlignment:
+                          MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed:
+                              () {
+                            Navigator.pop(
+                              sheetContext,
+                            );
+                          },
+                          child:
+                              const Text(
+                            'Annulla',
+                          ),
+                        ),
+
+                        const SizedBox(
+                          width:
+                              6,
+                        ),
+
+                        ElevatedButton(
+                          onPressed:
+                              () {
+                            Navigator.pop(
+                              sheetContext,
+                              currentValue,
+                            );
+                          },
+                          child:
+                              const Text(
+                            'Salva',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  Future<void> _updateOwnProfileField({
+    String? description,
+    bool? availableForHelp,
+    bool? availableForPrivateLessons,
+  }) async {
+    if (!_isOwnProfile ||
+        _refreshingProfile) {
+      return;
+    }
+
+    setState(() {
+      _refreshingProfile =
+          true;
+    });
+
+    try {
+      final SocialUser updatedUser =
+          await _apiService
+              .updateSocialUser(
+        userId:
+            _user.id,
+        description:
+            description,
+        availableForHelp:
+            availableForHelp,
+        availableForPrivateLessons:
+            availableForPrivateLessons,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _user =
+            updatedUser;
+      });
+
+      _session.updateUser(
+        updatedUser,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        _cleanError(
+          error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _refreshingProfile =
+              false;
+        });
+      }
+    }
   }
 
   Future<void>
@@ -3798,6 +4603,8 @@ class _InfoRow
             ],
           ),
         ),
+
+
       ],
     );
   }
@@ -3863,11 +4670,14 @@ class _AvailabilityRow
 
   final bool active;
 
+  final VoidCallback? onEdit;
+
   const _AvailabilityRow({
     required this.icon,
     required this.title,
     required this.value,
     required this.active,
+    this.onEdit,
   });
 
   @override
@@ -3939,6 +4749,42 @@ class _AvailabilityRow
             ],
           ),
         ),
+
+        if (onEdit != null) ...[
+          const SizedBox(
+            width:
+                8,
+          ),
+
+          TextButton.icon(
+            onPressed:
+                onEdit,
+            icon:
+                const Icon(
+              Icons.edit_outlined,
+              size:
+                  14,
+            ),
+            label:
+                const Text(
+              'Modifica',
+            ),
+            style:
+                TextButton.styleFrom(
+              foregroundColor:
+                  AppColors.materialSky,
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal:
+                    7,
+                vertical:
+                    4,
+              ),
+              visualDensity:
+                  VisualDensity.compact,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -4037,80 +4883,43 @@ class _RoleBadge
   Widget build(
     BuildContext context,
   ) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal:
-            7,
+    final Color color =
+        isTeacher
+            ? AppColors.teacherIndigo
+            : AppColors.studentBlue;
 
-        vertical:
-            5,
-      ),
-
-      decoration:
-          BoxDecoration(
-        color:
-            (
-              isTeacher
-                  ? AppColors.teacherIndigo
-                  : AppColors.studentBlue
-            ).withOpacity(
-          0.12,
+    return Row(
+      mainAxisSize:
+          MainAxisSize.min,
+      children: [
+        Icon(
+          isTeacher
+              ? Icons.cast_for_education_outlined
+              : Icons.school_outlined,
+          color:
+              color,
+          size:
+              13,
         ),
-
-        borderRadius:
-            BorderRadius.circular(
-          8,
+        const SizedBox(
+          width:
+              4,
         ),
-      ),
-
-      child:
-          Row(
-        mainAxisSize:
-            MainAxisSize.min,
-
-        children: [
-          Icon(
-            isTeacher
-                ? Icons
-                    .cast_for_education_outlined
-                : Icons.school_outlined,
-
+        Text(
+          isTeacher
+              ? 'Insegnante'
+              : 'Studente',
+          style:
+              TextStyle(
             color:
-                isTeacher
-                    ? AppColors.teacherIndigo
-                    : AppColors.studentBlue,
-
-            size:
-                13,
+                color,
+            fontSize:
+                9,
+            fontWeight:
+                FontWeight.w600,
           ),
-
-          const SizedBox(
-            width:
-                4,
-          ),
-
-          Text(
-            isTeacher
-                ? 'Insegnante'
-                : 'Studente',
-
-            style:
-                TextStyle(
-              color:
-                  isTeacher
-                      ? AppColors.teacherIndigo
-                      : AppColors.studentBlue,
-
-              fontSize:
-                  9,
-
-              fontWeight:
-                  FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

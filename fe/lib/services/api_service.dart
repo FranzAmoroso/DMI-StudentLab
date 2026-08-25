@@ -132,6 +132,16 @@ class ApiLoginResponse {
   }
 }
 
+class ApiEmailVerificationCooldownException implements Exception {
+  final int retryAfterSeconds;
+
+  const ApiEmailVerificationCooldownException(this.retryAfterSeconds);
+
+  @override
+  String toString() =>
+      'Potrai richiedere un nuovo codice tra $retryAfterSeconds secondi.';
+}
+
 class ApiEmailVerificationResendResponse {
   final String registrationId;
 
@@ -1972,12 +1982,41 @@ class ApiService {
       body: jsonEncode({'registration_id': registrationId}),
     );
 
-    final Map<String, dynamic> data = _decodeMapResponse(
-      response,
-      'Errore reinvio codice di verifica',
-    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final Map<String, dynamic> data = _decodeMapResponse(
+        response,
+        'Errore reinvio codice di verifica',
+      );
 
-    return ApiEmailVerificationResendResponse.fromJson(data);
+      return ApiEmailVerificationResendResponse.fromJson(data);
+    }
+
+    final String detail = _extractApiErrorDetail(response);
+    final RegExpMatch? cooldownMatch = RegExp(
+      r'(?:attendi|tra)\s+(\d+)\s+second',
+      caseSensitive: false,
+    ).firstMatch(detail);
+
+    if (cooldownMatch != null) {
+      final int retryAfterSeconds =
+          int.tryParse(cooldownMatch.group(1) ?? '') ?? 1;
+
+      throw ApiEmailVerificationCooldownException(
+        retryAfterSeconds < 1 ? 1 : retryAfterSeconds,
+      );
+    }
+
+    if (response.statusCode == 503) {
+      throw Exception(
+        'Il servizio email non è temporaneamente disponibile. Riprova tra qualche momento.',
+      );
+    }
+
+    throw Exception(
+      detail.isEmpty
+          ? 'Non è stato possibile reinviare il codice di verifica.'
+          : detail,
+    );
   }
 
   Future<ApiLoginResponse> login({
@@ -2904,6 +2943,32 @@ class ApiService {
       'Accept': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
+  }
+
+  String _extractApiErrorDetail(http.Response response) {
+    final String body = response.body.trim();
+
+    if (body.isEmpty) {
+      return '';
+    }
+
+    try {
+      final dynamic decoded = jsonDecode(body);
+
+      if (decoded is Map) {
+        final dynamic detail = decoded['detail'];
+
+        if (detail is String) {
+          return detail.trim();
+        }
+
+        if (detail != null) {
+          return detail.toString().trim();
+        }
+      }
+    } catch (_) {}
+
+    return body;
   }
 
   Map<String, dynamic> _decodeMapResponse(

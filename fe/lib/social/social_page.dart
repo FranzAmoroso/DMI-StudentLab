@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 
+import 'package:fe/widgets/studentlab_coming_soon_badge.dart';
+
 import '../theme/nightTheme.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_session.dart';
+import '../services/auth_service.dart';
+
+import 'message/message_page.dart';
+import 'notifications/notifications_page.dart';
 
 import 'social_models.dart';
 
 import 'auth/login_page.dart';
+import 'auth/account_security_page.dart';
+
+import 'admin/admin_panel_page.dart';
+import 'teacher/teachear_area_page.dart';
 
 import 'news/private_news_page.dart';
 import 'news/institutional_news_page.dart';
@@ -24,11 +34,23 @@ import 'widgets/student_help_card.dart';
 import 'widgets/teacher_help_card.dart';
 import 'widgets/social_user_profile_page.dart';
 import 'widgets/edit_social_profile_page.dart';
+import 'widgets/studentlab_user_avatar.dart';
+
+
+enum SocialStartDestination {
+  home,
+  groups,
+  colleagues,
+}
 
 
 class SocialPage extends StatefulWidget {
+  final SocialStartDestination startDestination;
+
   const SocialPage({
     super.key,
+    this.startDestination =
+        SocialStartDestination.home,
   });
 
   @override
@@ -39,12 +61,19 @@ class SocialPage extends StatefulWidget {
 
 class _SocialPageState
     extends State<SocialPage> {
-
   final AuthSession _session =
       AuthSession.instance;
+  final AuthService _authService =
+      AuthService();
+  final ApiService _apiService =
+      ApiService();
 
   int _currentIndex =
       0;
+  int _unreadNotificationCount =
+      0;
+  bool _loadingNotifications =
+      false;
 
 
   @override
@@ -53,6 +82,30 @@ class _SocialPageState
 
     _session.addListener(
       _onSessionChanged,
+    );
+
+    if (!_session.isGuest) {
+      _loadUnreadNotifications();
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        if (!mounted ||
+            _session.isGuest) {
+          return;
+        }
+
+        switch (widget.startDestination) {
+          case SocialStartDestination.groups:
+            _openGroupsDirectory();
+            break;
+          case SocialStartDestination.colleagues:
+            _openColleaguesDirectory();
+            break;
+          case SocialStartDestination.home:
+            break;
+        }
+      },
     );
   }
 
@@ -74,10 +127,54 @@ class _SocialPageState
 
     setState(() {
       if (_session.isGuest) {
-        _currentIndex =
+        _unreadNotificationCount =
             0;
       }
     });
+
+    if (!_session.isGuest) {
+      _loadUnreadNotifications();
+    }
+  }
+
+
+  Future<void> _loadUnreadNotifications() async {
+    if (
+      _session.isGuest ||
+      _loadingNotifications
+    ) {
+      return;
+    }
+
+    _loadingNotifications =
+        true;
+
+    try {
+      final int count =
+          await _apiService
+              .getUnreadNotificationCount();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _unreadNotificationCount =
+            count;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _unreadNotificationCount =
+            0;
+      });
+    } finally {
+      _loadingNotifications =
+          false;
+    }
   }
 
 
@@ -93,8 +190,10 @@ class _SocialPageState
       ),
     );
 
-    if (!mounted ||
-        user == null) {
+    if (
+      !mounted ||
+      user == null
+    ) {
       return;
     }
 
@@ -102,6 +201,8 @@ class _SocialPageState
       _currentIndex =
           0;
     });
+
+    await _loadUnreadNotifications();
   }
 
 
@@ -112,6 +213,10 @@ class _SocialPageState
       return;
     }
 
+    _session.updateUser(
+      user,
+    );
+
     setState(() {
       _currentIndex =
           0;
@@ -119,51 +224,1080 @@ class _SocialPageState
   }
 
 
+  Future<void> _openMessages() async {
+    if (_session.isGuest) {
+      await _openLogin();
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const MessagesPage(),
+      ),
+    );
+  }
+
+
+  Future<void> _openNotifications() async {
+    if (_session.isGuest) {
+      await _openLogin();
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const NotificationsPage(),
+      ),
+    );
+
+    if (mounted) {
+      await _loadUnreadNotifications();
+    }
+  }
+
+
+  Future<void> _openMyProfile() async {
+    if (_session.isGuest) {
+      setState(() {
+        _currentIndex =
+            3;
+      });
+      return;
+    }
+
+    SocialUser? user =
+        _session.currentUser;
+
+    if (user == null) {
+      try {
+        user =
+            await _apiService
+                .getCurrentUser();
+
+        if (!mounted) {
+          return;
+        }
+
+        _session.updateUser(
+          user,
+        );
+      } catch (_) {
+        if (!mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(
+          const SnackBar(
+            content:
+                Text(
+              'Non è stato possibile aprire il profilo. Riprova.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                SocialUserProfilePage(
+          user:
+              user!,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    try {
+      final SocialUser refreshedUser =
+          await _apiService
+              .getCurrentUser();
+
+      if (!mounted) {
+        return;
+      }
+
+      _session.updateUser(
+        refreshedUser,
+      );
+    } catch (_) {}
+  }
+
+
+  Future<void> _openGroupsDirectory() async {
+    if (_session.isGuest) {
+      await _openLogin();
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const _SocialGroupsPage(),
+      ),
+    );
+  }
+
+
+  Future<void> _openColleaguesDirectory() async {
+    if (_session.isGuest) {
+      await _openLogin();
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const _SocialUsersPage(),
+      ),
+    );
+  }
+
+
+  Future<void> _openTutorDirectory() async {
+    if (_session.isGuest) {
+      await _openLogin();
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const _SocialUsersPage(
+          tutorOnly:
+              true,
+        ),
+      ),
+    );
+  }
+
+
+  Future<void> _openAccountSecurity() async {
+    if (_session.isGuest) {
+      await _openLogin();
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const AccountSecurityPage(),
+      ),
+    );
+  }
+
+
+  Future<void> _openTeacherArea() async {
+    if (_session.isGuest) {
+      await _openLogin();
+      return;
+    }
+
+    final bool authorized =
+        await _apiService
+            .canAccessTeacherArea();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!authorized) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content:
+              Text(
+            'L’area docente non è disponibile per questo account.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const TeacherAreaPage(),
+      ),
+    );
+  }
+
+
+  Future<void> _openAdminPanel() async {
+    if (_session.isGuest) {
+      await _openLogin();
+      return;
+    }
+
+    final String role =
+        _session.currentUser
+                ?.role
+                .trim()
+                .toLowerCase() ??
+            '';
+
+    final bool isDeveloper =
+        role == 'devsyst';
+
+    final bool authorized =
+        isDeveloper ||
+        await _apiService
+            .canAccessAdminPanel();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!authorized) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content:
+              Text(
+            'Non hai accesso all’Admin Panel.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const AdminPanelPage(),
+      ),
+    );
+  }
+
+
+  Future<void> _logout() async {
+    try {
+      await _authService.logout();
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(
+        context,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content:
+              Text(
+            'Non è stato possibile uscire. Riprova.',
+          ),
+        ),
+      );
+    }
+  }
+
+
+  void _showGuestMenu() {
+    showModalBottomSheet<void>(
+      context:
+          context,
+      backgroundColor:
+          AppColors.eleganceDeepNavy,
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
+          top:
+              Radius.circular(
+            20,
+          ),
+        ),
+      ),
+      builder:
+          (
+        BuildContext sheetContext,
+      ) {
+        return SafeArea(
+          child:
+              Column(
+            mainAxisSize:
+                MainAxisSize.min,
+            children: [
+              const SizedBox(
+                height:
+                    8,
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.fromLTRB(
+                  18,
+                  12,
+                  18,
+                  14,
+                ),
+                child:
+                    Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(
+                        24,
+                      ),
+                      child:
+                          Image.asset(
+                        'assets/mascot/guest_profile.png',
+                        width:
+                            48,
+                        height:
+                            48,
+                        fit:
+                            BoxFit.cover,
+                        errorBuilder:
+                            (
+                          BuildContext context,
+                          Object error,
+                          StackTrace? stackTrace,
+                        ) {
+                          return const CircleAvatar(
+                            radius:
+                                24,
+                            backgroundColor:
+                                AppColors.studentBlue,
+                            child:
+                                Icon(
+                              Icons.person_outline_rounded,
+                              color:
+                                  AppColors.pureWhite,
+                              size:
+                                  24,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(
+                      width:
+                          12,
+                    ),
+                    Expanded(
+                      child:
+                          Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Guest',
+                            style:
+                                TextStyle(
+                              color:
+                                  AppColors.pureWhite,
+                              fontSize:
+                                  16,
+                              fontWeight:
+                                  FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(
+                            height:
+                                3,
+                          ),
+                          Text(
+                            'Profilo temporaneo StudentLab',
+                            style:
+                                TextStyle(
+                              color:
+                                  AppColors.pureWhite.withValues(
+                                alpha:
+                                    0.45,
+                              ),
+                              fontSize:
+                                  11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height:
+                    1,
+                color:
+                    AppColors.pureWhite.withValues(
+                  alpha:
+                      0.08,
+                ),
+              ),
+              _SocialUserMenuTile(
+                icon:
+                    Icons.login_rounded,
+                label:
+                    'Accedi',
+                subtitle:
+                    'Accedi al tuo account StudentLab',
+                onTap:
+                    () {
+                  Navigator.pop(
+                    sheetContext,
+                  );
+                  _openLogin();
+                },
+              ),
+              const SizedBox(
+                height:
+                    6,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+
+  void _showUserMenu() {
+    final SocialUser? user =
+        _session.currentUser;
+
+    if (user == null) {
+      _showGuestMenu();
+      return;
+    }
+
+    final String role =
+        user.role
+            .trim()
+            .toLowerCase();
+
+    final bool showTeacherArea =
+        user.type ==
+            SocialUserType.teacher;
+
+    final bool showAdminPanel =
+        role == 'admin' ||
+        role == 'creator' ||
+        role == 'devsyst';
+
+    showModalBottomSheet<void>(
+      context:
+          context,
+      backgroundColor:
+          AppColors.eleganceDeepNavy,
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
+          top:
+              Radius.circular(
+            20,
+          ),
+        ),
+      ),
+      builder:
+          (
+        BuildContext sheetContext,
+      ) {
+        return SafeArea(
+          child:
+              SingleChildScrollView(
+            child:
+                Column(
+              mainAxisSize:
+                  MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  height:
+                      8,
+                ),
+
+                Padding(
+                  padding:
+                      const EdgeInsets.fromLTRB(
+                    18,
+                    12,
+                    18,
+                    14,
+                  ),
+                  child:
+                      Row(
+                    children: [
+                      StudentLabUserAvatar(
+                        type:
+                            user.type,
+                        radius:
+                            24,
+                      ),
+
+                      const SizedBox(
+                        width:
+                            12,
+                      ),
+
+                      Expanded(
+                        child:
+                            Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.name,
+                              maxLines:
+                                  1,
+                              overflow:
+                                  TextOverflow.ellipsis,
+                              style:
+                                  const TextStyle(
+                                color:
+                                    AppColors.pureWhite,
+                                fontSize:
+                                    16,
+                                fontWeight:
+                                    FontWeight.w600,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height:
+                                  3,
+                            ),
+
+                            Text(
+                              user.email,
+                              maxLines:
+                                  1,
+                              overflow:
+                                  TextOverflow.ellipsis,
+                              style:
+                                  TextStyle(
+                                color:
+                                    AppColors.pureWhite
+                                        .withValues(
+                                      alpha:
+                                          0.45,
+                                    ),
+                                fontSize:
+                                    11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Divider(
+                  height:
+                      1,
+                  color:
+                      AppColors.pureWhite
+                          .withValues(
+                    alpha:
+                        0.08,
+                  ),
+                ),
+
+                _SocialUserMenuTile(
+                  icon:
+                      Icons.person_outline_rounded,
+                  label:
+                      'Profilo',
+                  subtitle:
+                      'Visualizza il tuo profilo StudentLab',
+                  onTap:
+                      () {
+                    Navigator.pop(
+                      sheetContext,
+                    );
+
+                    _openMyProfile();
+                  },
+                ),
+
+                _SocialUserMenuTile(
+                  icon:
+                      Icons.people_outline_rounded,
+                  label:
+                      'Colleghi',
+                  subtitle:
+                      'Studenti e insegnanti StudentLab',
+                  onTap:
+                      () {
+                    Navigator.pop(
+                      sheetContext,
+                    );
+
+                    _openColleaguesDirectory();
+                  },
+                ),
+
+                _SocialUserMenuTile(
+                  icon:
+                      Icons.groups_2_outlined,
+                  label:
+                      'Gruppi',
+                  subtitle:
+                      'I tuoi gruppi e quelli pubblici',
+                  onTap:
+                      () {
+                    Navigator.pop(
+                      sheetContext,
+                    );
+
+                    _openGroupsDirectory();
+                  },
+                ),
+
+                if (showTeacherArea)
+                  _SocialUserMenuTile(
+                    icon:
+                        Icons.cast_for_education_outlined,
+                    label:
+                        'Area docente',
+                    subtitle:
+                        'Materiali e strumenti docente',
+                    onTap:
+                        () {
+                      Navigator.pop(
+                        sheetContext,
+                      );
+
+                      _openTeacherArea();
+                    },
+                  ),
+
+                if (showAdminPanel)
+                  _SocialUserMenuTile(
+                    icon:
+                        Icons.admin_panel_settings_outlined,
+                    iconColor:
+                        Colors.greenAccent,
+                    label:
+                        'Admin Panel',
+                    subtitle:
+                        'Gestione e strumenti amministrativi',
+                    onTap:
+                        () {
+                      Navigator.pop(
+                        sheetContext,
+                      );
+
+                      _openAdminPanel();
+                    },
+                  ),
+
+                Divider(
+                  height:
+                      1,
+                  color:
+                      AppColors.pureWhite
+                          .withValues(
+                    alpha:
+                        0.08,
+                  ),
+                ),
+
+                _SocialUserMenuTile(
+                  icon:
+                      Icons.logout_rounded,
+                  label:
+                      'Esci',
+                  danger:
+                      true,
+                  showArrow:
+                      false,
+                  onTap:
+                      () async {
+                    Navigator.pop(
+                      sheetContext,
+                    );
+
+                    await _logout();
+                  },
+                ),
+
+                const SizedBox(
+                  height:
+                      6,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
   @override
   Widget build(
     BuildContext context,
   ) {
-    if (_session.isGuest) {
-      return _GuestSocialPage(
-        onLogin:
-            _openLogin,
-
-        onProfileCreated:
-            _onProfileCreated,
-      );
-    }
+    final SocialUser? currentUser =
+        _session.currentUser;
 
     return Scaffold(
       backgroundColor:
           AppColors.darkElegance,
 
+      appBar:
+          AppBar(
+        backgroundColor:
+            AppColors.brandNightBlue,
+        foregroundColor:
+            AppColors.pureWhite,
+        elevation:
+            0,
+
+        leading:
+            Navigator.of(
+              context,
+            ).canPop()
+                ? IconButton(
+                    tooltip:
+                        'Indietro',
+                    onPressed:
+                        () {
+                      Navigator.of(
+                        context,
+                      ).maybePop();
+                    },
+                    icon:
+                        const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                    ),
+                  )
+                : null,
+
+        title:
+            const Text(
+          'StudentLab Social',
+          style:
+              TextStyle(
+            fontWeight:
+                FontWeight.w500,
+          ),
+        ),
+
+        actions: [
+
+          if (!_session.isGuest) ...[
+
+            IconButton(
+
+              tooltip:
+
+                  'Messaggi',
+
+              onPressed:
+
+                  _openMessages,
+
+              icon:
+
+                  const Icon(
+
+                Icons.chat_bubble_outline_rounded,
+
+              ),
+
+            ),
+
+            _SocialNotificationButton(
+
+              count:
+
+                  _unreadNotificationCount,
+
+              onPressed:
+
+                  _openNotifications,
+
+            ),
+
+          ],
+
+          Padding(
+
+            padding:
+
+                const EdgeInsets.only(
+
+              right:
+
+                  10,
+
+              left:
+
+                  2,
+
+            ),
+
+            child:
+
+                InkWell(
+
+              onTap:
+
+                  _showUserMenu,
+
+              borderRadius:
+
+                  BorderRadius.circular(
+
+                20,
+
+              ),
+
+              child:
+
+                  Padding(
+
+                padding:
+
+                    const EdgeInsets.all(
+
+                  4,
+
+                ),
+
+                child:
+
+                    _session.isGuest
+
+                        ? ClipRRect(
+
+                            borderRadius:
+
+                                BorderRadius.circular(
+
+                              16,
+
+                            ),
+
+                            child:
+
+                                Image.asset(
+
+                              'assets/mascot/guest_profile.png',
+
+                              width:
+
+                                  32,
+
+                              height:
+
+                                  32,
+
+                              fit:
+
+                                  BoxFit.cover,
+
+                              errorBuilder:
+
+                                  (
+
+                                BuildContext context,
+
+                                Object error,
+
+                                StackTrace? stackTrace,
+
+                              ) {
+
+                                return const CircleAvatar(
+
+                                  radius:
+
+                                      16,
+
+                                  backgroundColor:
+
+                                      AppColors.studentBlue,
+
+                                  child:
+
+                                      Icon(
+
+                                    Icons.person_outline_rounded,
+
+                                    color:
+
+                                        AppColors.pureWhite,
+
+                                    size:
+
+                                        18,
+
+                                  ),
+
+                                );
+
+                              },
+
+                            ),
+
+                          )
+
+                        : currentUser == null
+
+                            ? const CircleAvatar(
+
+                                radius:
+
+                                    16,
+
+                                backgroundColor:
+
+                                    AppColors.studentBlue,
+
+                                child:
+
+                                    Icon(
+
+                                  Icons.person_outline_rounded,
+
+                                  color:
+
+                                      AppColors.pureWhite,
+
+                                  size:
+
+                                      18,
+
+                                ),
+
+                              )
+
+                            : StudentLabUserAvatar(
+
+                                type:
+
+                                    currentUser.type,
+
+                                radius:
+
+                                    16,
+
+                              ),
+
+              ),
+
+            ),
+
+          ),
+
+        ],
+      ),
+
       body:
           SafeArea(
+        top:
+            false,
         child:
             Column(
           children: [
             Expanded(
               child:
-                  IndexedStack(
-                index:
-                    _currentIndex,
-
-                children:
-                    const [
-                  InstitutionalNewsPage(
-                    embedded: true,
+                  Center(
+                child:
+                    ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(
+                    maxWidth:
+                        1180,
                   ),
+                  child:
+                      IndexedStack(
+                    index:
+                        _currentIndex,
+                    children: [
+                      const InstitutionalNewsPage(
+                        embedded:
+                            true,
+                      ),
 
-                  _SocialGroupsPage(),
+                      _TutorHubSection(
+                        onLogin:
+                            _openLogin,
+                      ),
 
-                  _SocialUsersPage(),
+                      const _ComingSoonSection(
+                        icon:
+                            Icons.menu_book_outlined,
+                        title:
+                            'Libri',
+                        description:
+                            'La sezione Libri è in arrivo.',
+                      ),
 
-                  _SocialProfilePage(),
-                ],
+                      const _ComingSoonSection(
+                        icon:
+                            Icons.work_outline_rounded,
+                        title:
+                            'Lavori',
+                        description:
+                            'La sezione Lavori è in arrivo.',
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
 
-            _buildNavigation(),
+            Center(
+              child:
+                  ConstrainedBox(
+                constraints:
+                    const BoxConstraints(
+                  maxWidth:
+                      900,
+                ),
+                child:
+                    _buildNavigation(),
+              ),
+            ),
           ],
         ),
       ),
@@ -174,24 +1308,36 @@ class _SocialPageState
   Widget _buildNavigation() {
     const sections = [
       (
-        icon: Icons.newspaper_outlined,
-        selectedIcon: Icons.newspaper_rounded,
-        label: 'News',
+        icon:
+            Icons.newspaper_outlined,
+        selectedIcon:
+            Icons.newspaper_rounded,
+        label:
+            'Avvisi',
       ),
       (
-        icon: Icons.groups_outlined,
-        selectedIcon: Icons.groups_rounded,
-        label: 'Gruppi',
+        icon:
+            Icons.volunteer_activism_outlined,
+        selectedIcon:
+            Icons.volunteer_activism_rounded,
+        label:
+            'Tutor',
       ),
       (
-        icon: Icons.people_outline_rounded,
-        selectedIcon: Icons.people_rounded,
-        label: 'Utenti',
+        icon:
+            Icons.menu_book_outlined,
+        selectedIcon:
+            Icons.menu_book_rounded,
+        label:
+            'Libri',
       ),
       (
-        icon: Icons.person_outline_rounded,
-        selectedIcon: Icons.person_rounded,
-        label: 'Profilo',
+        icon:
+            Icons.work_outline_rounded,
+        selectedIcon:
+            Icons.work_rounded,
+        label:
+            'Lavori',
       ),
     ];
 
@@ -218,8 +1364,9 @@ class _SocialPageState
             Border.all(
           color:
               AppColors.skyBlue
-                  .withValues(alpha: 
-            0.12,
+                  .withValues(
+            alpha:
+                0.12,
           ),
         ),
       ),
@@ -273,8 +1420,9 @@ class _SocialPageState
                     color:
                         selected
                             ? AppColors.skyBlue
-                                .withValues(alpha: 
-                                0.16,
+                                .withValues(
+                                alpha:
+                                    0.16,
                               )
                             : Colors.transparent,
 
@@ -288,22 +1436,20 @@ class _SocialPageState
                       Row(
                     mainAxisAlignment:
                         MainAxisAlignment.center,
-
                     children: [
                       Icon(
                         selected
                             ? section.selectedIcon
                             : section.icon,
-
                         size:
                             19,
-
                         color:
                             selected
                                 ? AppColors.materialSky
                                 : AppColors.pureWhite
-                                    .withValues(alpha: 
-                                    0.45,
+                                    .withValues(
+                                    alpha:
+                                        0.45,
                                   ),
                       ),
 
@@ -312,26 +1458,31 @@ class _SocialPageState
                             7,
                       ),
 
-                      Text(
-                        section.label,
-
-                        style:
-                            TextStyle(
-                          color:
-                              selected
-                                  ? AppColors.pureWhite
-                                  : AppColors.pureWhite
-                                      .withValues(alpha: 
-                                      0.45,
-                                    ),
-
-                          fontSize:
-                              11,
-
-                          fontWeight:
-                              selected
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
+                      Flexible(
+                        child:
+                            Text(
+                          section.label,
+                          maxLines:
+                              1,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          style:
+                              TextStyle(
+                            color:
+                                selected
+                                    ? AppColors.pureWhite
+                                    : AppColors.pureWhite
+                                        .withValues(
+                                        alpha:
+                                            0.45,
+                                      ),
+                            fontSize:
+                                11,
+                            fontWeight:
+                                selected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                          ),
                         ),
                       ),
                     ],
@@ -341,6 +1492,885 @@ class _SocialPageState
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+
+class _TutorHubSection
+    extends StatefulWidget {
+  final Future<void> Function()
+      onLogin;
+
+  const _TutorHubSection({
+    required this.onLogin,
+  });
+
+  @override
+  State<_TutorHubSection>
+      createState() =>
+          _TutorHubSectionState();
+}
+
+
+class _TutorHubSectionState
+    extends State<_TutorHubSection> {
+  final ApiService _apiService =
+      ApiService();
+
+  final TextEditingController
+      _searchController =
+      TextEditingController();
+
+  List<SocialUser> _users =
+      [];
+
+  int _selectedFilter =
+      0;
+
+  bool _loading =
+      true;
+
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+
+    super.dispose();
+  }
+
+  bool _canHelp(
+    SocialUser user,
+  ) {
+    return user.availableForHelp ||
+        user.subjects.any(
+          (
+            SocialSubject subject,
+          ) =>
+              subject.isActive &&
+              subject.canHelp,
+        );
+  }
+
+  bool _offersPrivateLessons(
+    SocialUser user,
+  ) {
+    return user.availableForPrivateLessons ||
+        user.subjects.any(
+          (
+            SocialSubject subject,
+          ) =>
+              subject.isActive &&
+              subject.canGivePrivateLessons,
+        );
+  }
+
+  Future<void> _loadUsers() async {
+    if (mounted) {
+      setState(() {
+        _loading =
+            true;
+        _error =
+            null;
+      });
+    }
+
+    try {
+      final List<SocialUser> users =
+          await _apiService
+              .getSocialUsers();
+
+      if (!mounted) {
+        return;
+      }
+
+      final int? currentUserId =
+          AuthSession.instance
+              .currentUserId;
+
+      setState(() {
+        _users =
+            users
+                .where(
+                  (
+                    SocialUser user,
+                  ) =>
+                      user.id !=
+                          currentUserId &&
+                      (
+                        _canHelp(
+                          user,
+                        ) ||
+                        _offersPrivateLessons(
+                          user,
+                        )
+                      ),
+                )
+                .toList();
+
+        _loading =
+            false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loading =
+            false;
+        _error =
+            _cleanError(
+          e,
+        );
+      });
+    }
+  }
+
+  List<SocialUser> get _filteredUsers {
+    final String query =
+        _searchController.text
+            .trim()
+            .toLowerCase();
+
+    return _users.where(
+      (
+        SocialUser user,
+      ) {
+        final bool canHelp =
+            _canHelp(
+          user,
+        );
+
+        final bool privateLessons =
+            _offersPrivateLessons(
+          user,
+        );
+
+        if (_selectedFilter == 1 &&
+            !canHelp) {
+          return false;
+        }
+
+        if (_selectedFilter == 2 &&
+            !privateLessons) {
+          return false;
+        }
+
+        if (query.isEmpty) {
+          return true;
+        }
+
+        final String subjects =
+            user.subjects
+                .where(
+                  (
+                    SocialSubject subject,
+                  ) =>
+                      subject.isActive,
+                )
+                .map(
+                  (
+                    SocialSubject subject,
+                  ) =>
+                      subject.name,
+                )
+                .join(
+                  ' ',
+                );
+
+        final String searchable = [
+          user.name,
+          user.department,
+          user.course,
+          subjects,
+          user.description,
+        ].join(
+          ' ',
+        ).toLowerCase();
+
+        return searchable.contains(
+          query,
+        );
+      },
+    ).toList();
+  }
+
+  Future<void> _openUser(
+    SocialUser user,
+  ) async {
+    if (AuthSession.instance.isGuest) {
+      await widget.onLogin();
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                SocialUserProfilePage(
+          user:
+              user,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final List<SocialUser> users =
+        _filteredUsers;
+
+    return RefreshIndicator(
+      onRefresh:
+          _loadUsers,
+      child:
+          ListView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
+        padding:
+            const EdgeInsets.all(
+          20,
+        ),
+        children: [
+          const Text(
+            'Tutor',
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite,
+              fontSize:
+                  22,
+              fontWeight:
+                  FontWeight.w700,
+            ),
+          ),
+          const SizedBox(
+            height:
+                6,
+          ),
+          Text(
+            'Trova utenti disponibili ad aiutarti nello studio o a offrire lezioni private.',
+            style:
+                TextStyle(
+              color:
+                  AppColors.pureWhite.withValues(
+                alpha:
+                    0.50,
+              ),
+              fontSize:
+                  11,
+              height:
+                  1.4,
+            ),
+          ),
+          const SizedBox(
+            height:
+                16,
+          ),
+          TextField(
+            controller:
+                _searchController,
+            onChanged:
+                (_) {
+              setState(() {});
+            },
+            style:
+                const TextStyle(
+              color:
+                  AppColors.pureWhite,
+            ),
+            decoration:
+                InputDecoration(
+              hintText:
+                  'Cerca tutor o materia...',
+              hintStyle:
+                  const TextStyle(
+                color:
+                    Colors.white38,
+              ),
+              prefixIcon:
+                  const Icon(
+                Icons.search_rounded,
+                color:
+                    AppColors.skyBlue,
+              ),
+              filled:
+                  true,
+              fillColor:
+                  AppColors.eleganceMidnight,
+              border:
+                  OutlineInputBorder(
+                borderRadius:
+                    BorderRadius.circular(
+                  14,
+                ),
+                borderSide:
+                    BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(
+            height:
+                14,
+          ),
+          SingleChildScrollView(
+            scrollDirection:
+                Axis.horizontal,
+            child:
+                Row(
+              children:
+                  List.generate(
+                3,
+                (
+                  int index,
+                ) {
+                  const List<String> labels = [
+                    'Tutti',
+                    'Aiuto',
+                    'Lezioni private',
+                  ];
+
+                  return Padding(
+                    padding:
+                        const EdgeInsets.only(
+                      right:
+                          8,
+                    ),
+                    child:
+                        ChoiceChip(
+                      selected:
+                          _selectedFilter ==
+                              index,
+                      label:
+                          Text(
+                        labels[index],
+                      ),
+                      onSelected:
+                          (_) {
+                        setState(() {
+                          _selectedFilter =
+                              index;
+                        });
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(
+            height:
+                22,
+          ),
+          if (_loading)
+            const Padding(
+              padding:
+                  EdgeInsets.symmetric(
+                vertical:
+                    50,
+              ),
+              child:
+                  Center(
+                child:
+                    CircularProgressIndicator(),
+              ),
+            )
+          else if (_error != null)
+            _ErrorCard(
+              message:
+                  _error!,
+              onRetry:
+                  _loadUsers,
+            )
+          else if (users.isEmpty)
+            const _EmptyCard(
+              icon:
+                  Icons.volunteer_activism_outlined,
+              title:
+                  'Nessun tutor disponibile',
+              message:
+                  'Non ci sono utenti disponibili con questo filtro.',
+            )
+          else
+            LayoutBuilder(
+              builder:
+                  (
+                BuildContext context,
+                BoxConstraints constraints,
+              ) {
+                final double availableWidth =
+                    constraints.maxWidth;
+
+                final int columns =
+                    availableWidth >=
+                            1080
+                        ? 3
+                        : availableWidth >=
+                                700
+                            ? 2
+                            : 1;
+
+                const double gap =
+                    14;
+
+                final double itemWidth =
+                    columns == 1
+                        ? availableWidth
+                        : (
+                              availableWidth -
+                              gap *
+                                  (
+                                    columns -
+                                    1
+                                  )
+                            ) /
+                            columns;
+
+                return Wrap(
+                  spacing:
+                      gap,
+                  runSpacing:
+                      gap,
+                  children:
+                      users.map(
+                    (
+                      SocialUser user,
+                    ) {
+                      return SizedBox(
+                        width:
+                            itemWidth,
+                        child:
+                            InkWell(
+                          onTap:
+                              () {
+                            _openUser(
+                              user,
+                            );
+                          },
+                          borderRadius:
+                              BorderRadius.circular(
+                            18,
+                          ),
+                          child:
+                              user.type ==
+                                      SocialUserType.student
+                                  ? StudentHelpCard(
+                                      student:
+                                          user,
+                                    )
+                                  : TeacherHelpCard(
+                                      teacher:
+                                          user,
+                                    ),
+                        ),
+                      );
+                    },
+                  ).toList(),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _GuestProfileIntroPage
+    extends StatelessWidget {
+  final Future<void> Function()
+      onLogin;
+  final ValueChanged<SocialUser>
+      onProfileCreated;
+
+  const _GuestProfileIntroPage({
+    required this.onLogin,
+    required this.onProfileCreated,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Center(
+      child:
+          ConstrainedBox(
+        constraints:
+            const BoxConstraints(
+          maxWidth:
+              850,
+        ),
+        child:
+            ListView(
+          padding:
+              const EdgeInsets.all(
+            20,
+          ),
+          children: [
+            SocialIntro(
+              onProfileCreated:
+                  onProfileCreated,
+            ),
+
+            const SizedBox(
+              height:
+                  16,
+            ),
+
+            SocialLoginIntro(
+              onLogin:
+                  onLogin,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class _ComingSoonSection
+    extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+
+  const _ComingSoonSection({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return LayoutBuilder(
+      builder:
+          (
+        BuildContext context,
+        BoxConstraints constraints,
+      ) {
+        final double horizontalPadding =
+            constraints.maxWidth <
+                    600
+                ? 20
+                : 28;
+
+        return Center(
+          child:
+              SingleChildScrollView(
+            padding:
+                EdgeInsets.symmetric(
+              horizontal:
+                  horizontalPadding,
+              vertical:
+                  24,
+            ),
+            child:
+                ConstrainedBox(
+              constraints:
+                  const BoxConstraints(
+                maxWidth:
+                    720,
+              ),
+              child:
+                  Container(
+                width:
+                    double.infinity,
+                padding:
+                    const EdgeInsets.all(
+                  22,
+                ),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      AppColors.eleganceMidnight,
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
+                  ),
+                  border:
+                      Border.all(
+                    color:
+                        AppColors.skyBlue
+                            .withValues(
+                      alpha:
+                          0.12,
+                    ),
+                  ),
+                ),
+                child:
+                    Column(
+                  mainAxisSize:
+                      MainAxisSize.min,
+                  children: [
+                    Container(
+                      width:
+                          54,
+                      height:
+                          54,
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            AppColors.brandNightBlue,
+                        borderRadius:
+                            BorderRadius.circular(
+                          15,
+                        ),
+                      ),
+                      child:
+                          Icon(
+                        icon,
+                        color:
+                            AppColors.skyBlue,
+                        size:
+                            28,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          14,
+                    ),
+
+                    Text(
+                      title,
+                      style:
+                          const TextStyle(
+                        color:
+                            AppColors.pureWhite,
+                        fontSize:
+                            20,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          6,
+                    ),
+
+                    Text(
+                      description,
+                      textAlign:
+                          TextAlign.center,
+                      style:
+                          TextStyle(
+                        color:
+                            AppColors.pureWhite
+                                .withValues(
+                          alpha:
+                              0.50,
+                        ),
+                        fontSize:
+                            11,
+                        height:
+                            1.4,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height:
+                          12,
+                    ),
+
+                    const StudentLabComingSoonBadge(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+class _SocialUserMenuTile
+    extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final bool danger;
+  final bool showArrow;
+  final Color? iconColor;
+
+  const _SocialUserMenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.subtitle,
+    this.danger = false,
+    this.showArrow = true,
+    this.iconColor,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final Color color =
+        danger
+            ? Colors.redAccent
+            : AppColors.pureWhite;
+
+    return ListTile(
+      leading:
+          Icon(
+        icon,
+        color:
+            danger
+                ? Colors.redAccent
+                : iconColor ??
+                    AppColors.skyBlue,
+      ),
+      title:
+          Text(
+        label,
+        style:
+            TextStyle(
+          color:
+              color,
+          fontWeight:
+              FontWeight.w500,
+        ),
+      ),
+      subtitle:
+          subtitle == null
+              ? null
+              : Text(
+                  subtitle!,
+                  style:
+                      TextStyle(
+                    color:
+                        AppColors.pureWhite
+                            .withValues(
+                          alpha:
+                              0.42,
+                        ),
+                    fontSize:
+                        10,
+                  ),
+                ),
+      trailing:
+          showArrow
+              ? const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color:
+                      Colors.white30,
+                  size:
+                      14,
+                )
+              : null,
+      onTap:
+          onTap,
+    );
+  }
+}
+
+
+class _SocialNotificationButton
+    extends StatelessWidget {
+  final int count;
+  final VoidCallback onPressed;
+
+  const _SocialNotificationButton({
+    required this.count,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return IconButton(
+      tooltip:
+          'Notifiche',
+      onPressed:
+          onPressed,
+      icon:
+          Stack(
+        clipBehavior:
+            Clip.none,
+        children: [
+          const Icon(
+            Icons.notifications_none_rounded,
+          ),
+
+          if (count > 0)
+            Positioned(
+              top:
+                  -5,
+              right:
+                  -7,
+              child:
+                  Container(
+                constraints:
+                    const BoxConstraints(
+                  minWidth:
+                      17,
+                  minHeight:
+                      17,
+                ),
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal:
+                      4,
+                ),
+                alignment:
+                    Alignment.center,
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.redAccent,
+                  borderRadius:
+                      BorderRadius.circular(
+                    9,
+                  ),
+                  border:
+                      Border.all(
+                    color:
+                        AppColors.brandNightBlue,
+                    width:
+                        2,
+                  ),
+                ),
+                child:
+                    Text(
+                  count > 99
+                      ? '99+'
+                      : '$count',
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.pureWhite,
+                    fontSize:
+                        8,
+                    fontWeight:
+                        FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1377,6 +3407,33 @@ class _SocialProfilePageState
   }
 
 
+  Future<void> _openFullProfile() async {
+    final SocialUser? user =
+        _user;
+
+    if (user == null) {
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                SocialUserProfilePage(
+          user:
+              user,
+        ),
+      ),
+    );
+
+    if (mounted) {
+      await _loadProfile();
+    }
+  }
+
+
   Future<void> _editProfile() async {
     final SocialUser? user =
         _user;
@@ -1419,69 +3476,20 @@ class _SocialProfilePageState
   Widget build(
     BuildContext context,
   ) {
-    return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
-
-      appBar:
-          AppBar(
-        backgroundColor:
-            AppColors.brandNightBlue,
-
-        foregroundColor:
-            AppColors.pureWhite,
-
-        title:
-            const Text(
-          'Profilo',
-        ),
-
-        actions: [
-          IconButton(
-            tooltip:
-                'Aggiorna',
-
-            icon:
-                const Icon(
-              Icons.refresh_rounded,
-            ),
-
-            onPressed:
-                _loading
-                    ? null
-                    : _loadProfile,
-          ),
-
-          IconButton(
-            tooltip:
-                'Comunicazioni private',
-
-            icon:
-                const Icon(
-              Icons.chat_bubble_outline_rounded,
-            ),
-
-            onPressed:
-                _openPrivateNews,
-          ),
-        ],
-      ),
-
-      body:
-          SafeArea(
+    return SafeArea(
+      top:
+          false,
+      child:
+          Center(
         child:
-            Center(
-          child:
-              ConstrainedBox(
-            constraints:
-                const BoxConstraints(
-              maxWidth:
-                  850,
-            ),
-
-            child:
-                _buildBody(),
+            ConstrainedBox(
+          constraints:
+              const BoxConstraints(
+            maxWidth:
+                850,
           ),
+          child:
+              _buildBody(),
         ),
       ),
     );
@@ -1594,34 +3602,11 @@ class _SocialProfilePageState
                 CrossAxisAlignment.start,
 
             children: [
-              CircleAvatar(
+              StudentLabUserAvatar(
+                type:
+                    user.type,
                 radius:
                     35,
-
-                backgroundColor:
-                    isTeacher
-                        ? AppColors.teacherIndigo
-                        : AppColors.studentBlue,
-
-                child:
-                    Text(
-                  user.name.isNotEmpty
-                      ? user.name[0]
-                          .toUpperCase()
-                      : '?',
-
-                  style:
-                      const TextStyle(
-                    color:
-                        AppColors.pureWhite,
-
-                    fontSize:
-                        24,
-
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
               ),
 
               const SizedBox(
@@ -1777,7 +3762,23 @@ class _SocialProfilePageState
           if (user.academicTitles.isNotEmpty) ...[
             const SizedBox(
               height:
-                  22,
+                  20,
+            ),
+
+            Divider(
+              height:
+                  1,
+              color:
+                  AppColors.pureWhite
+                      .withValues(
+                alpha:
+                    0.07,
+              ),
+            ),
+
+            const SizedBox(
+              height:
+                  14,
             ),
 
             const Text(
@@ -1827,6 +3828,22 @@ class _SocialProfilePageState
                   18,
             ),
 
+            Divider(
+              height:
+                  1,
+              color:
+                  AppColors.pureWhite
+                      .withValues(
+                alpha:
+                    0.07,
+              ),
+            ),
+
+            const SizedBox(
+              height:
+                  14,
+            ),
+
             const Text(
               'Percorsi accademici',
 
@@ -1871,6 +3888,22 @@ class _SocialProfilePageState
           const SizedBox(
             height:
                 18,
+          ),
+
+          Divider(
+            height:
+                1,
+            color:
+                AppColors.pureWhite
+                    .withValues(
+              alpha:
+                  0.07,
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                14,
           ),
 
           Text(
@@ -1946,6 +3979,22 @@ class _SocialProfilePageState
                 20,
           ),
 
+          Divider(
+            height:
+                1,
+            color:
+                AppColors.pureWhite
+                    .withValues(
+              alpha:
+                  0.07,
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                14,
+          ),
+
           const Text(
             'Descrizione',
 
@@ -2006,6 +4055,38 @@ class _SocialProfilePageState
           SizedBox(
             width:
                 double.infinity,
+            child:
+                ElevatedButton.icon(
+              onPressed:
+                  _openFullProfile,
+              icon:
+                  const Icon(
+                Icons.person_search_outlined,
+              ),
+              label:
+                  const Text(
+                'Apri profilo completo',
+              ),
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor:
+                    AppColors.socialBlue,
+                foregroundColor:
+                    AppColors.pureWhite,
+                elevation:
+                    0,
+              ),
+            ),
+          ),
+
+          const SizedBox(
+            height:
+                10,
+          ),
+
+          SizedBox(
+            width:
+                double.infinity,
 
             child:
                 OutlinedButton.icon(
@@ -2035,8 +4116,12 @@ class _SocialProfilePageState
 
 class _SocialUsersPage
     extends StatefulWidget {
+  final bool tutorOnly;
 
-  const _SocialUsersPage();
+  const _SocialUsersPage({
+    this.tutorOnly =
+        false,
+  });
 
 
   @override
@@ -2137,6 +4222,34 @@ class _SocialUsersPageState
   }
 
 
+  bool _canHelp(
+    SocialUser user,
+  ) {
+    return user.availableForHelp ||
+        user.subjects.any(
+          (
+            SocialSubject subject,
+          ) =>
+              subject.isActive &&
+              subject.canHelp,
+        );
+  }
+
+
+  bool _offersPrivateLessons(
+    SocialUser user,
+  ) {
+    return user.availableForPrivateLessons ||
+        user.subjects.any(
+          (
+            SocialSubject subject,
+          ) =>
+              subject.isActive &&
+              subject.canGivePrivateLessons,
+        );
+  }
+
+
   List<SocialUser> get _filteredUsers {
     final String query =
         _searchController.text
@@ -2147,21 +4260,49 @@ class _SocialUsersPageState
       (
         SocialUser user,
       ) {
-        if (_selectedFilter == 1 &&
-            user.type !=
-                SocialUserType.student) {
-          return false;
-        }
+        final bool canHelp =
+            _canHelp(
+          user,
+        );
 
-        if (_selectedFilter == 2 &&
-            user.type !=
-                SocialUserType.teacher) {
-          return false;
-        }
+        final bool privateLessons =
+            _offersPrivateLessons(
+          user,
+        );
 
-        if (_selectedFilter == 3 &&
-            !user.available) {
-          return false;
+        if (widget.tutorOnly) {
+          if (!canHelp &&
+              !privateLessons) {
+            return false;
+          }
+
+          if (_selectedFilter == 1 &&
+              !canHelp) {
+            return false;
+          }
+
+          if (_selectedFilter == 2 &&
+              !privateLessons) {
+            return false;
+          }
+        } else {
+          if (_selectedFilter == 1 &&
+              user.type !=
+                  SocialUserType.student) {
+            return false;
+          }
+
+          if (_selectedFilter == 2 &&
+              user.type !=
+                  SocialUserType.teacher) {
+            return false;
+          }
+
+          if (_selectedFilter == 3 &&
+              !canHelp &&
+              !privateLessons) {
+            return false;
+          }
         }
 
         if (query.isEmpty) {
@@ -2171,7 +4312,9 @@ class _SocialUsersPageState
         final String subjects =
             user.subjects
                 .map(
-                  (subject) =>
+                  (
+                    SocialSubject subject,
+                  ) =>
                       subject.name,
                 )
                 .join(
@@ -2231,8 +4374,10 @@ class _SocialUsersPageState
             AppColors.pureWhite,
 
         title:
-            const Text(
-          'Utenti',
+            Text(
+          widget.tutorOnly
+              ? 'Tutor'
+              : 'Colleghi',
         ),
 
         actions: [
@@ -2320,7 +4465,9 @@ class _SocialUsersPageState
                     decoration:
                         InputDecoration(
                       hintText:
-                          'Cerca studenti, insegnanti, materie...',
+                          widget.tutorOnly
+                              ? 'Cerca tutor, materie, corsi...'
+                              : 'Cerca studenti, insegnanti, materie...',
 
                       hintStyle:
                           const TextStyle(
@@ -2379,12 +4526,19 @@ class _SocialUsersPageState
 
 
   Widget _buildFilters() {
-    const List<String> labels = [
-      'Tutti',
-      'Studenti',
-      'Insegnanti',
-      'Disponibili',
-    ];
+    final List<String> labels =
+        widget.tutorOnly
+            ? const [
+                'Tutti',
+                'Aiuto',
+                'Lezioni private',
+              ]
+            : const [
+                'Tutti',
+                'Studenti',
+                'Insegnanti',
+                'Disponibili',
+              ];
 
     return SingleChildScrollView(
       scrollDirection:
@@ -2463,15 +4617,21 @@ class _SocialUsersPageState
         _filteredUsers;
 
     if (users.isEmpty) {
-      return const _EmptyCard(
+      return _EmptyCard(
         icon:
-            Icons.person_search_outlined,
+            widget.tutorOnly
+                ? Icons.volunteer_activism_outlined
+                : Icons.person_search_outlined,
 
         title:
-            'Nessun utente',
+            widget.tutorOnly
+                ? 'Nessun tutor disponibile'
+                : 'Nessun utente',
 
         message:
-            'Nessun profilo corrisponde alla ricerca.',
+            widget.tutorOnly
+                ? 'Non ci sono utenti disponibili con questo filtro.'
+                : 'Nessun profilo corrisponde alla ricerca.',
       );
     }
 
@@ -3751,82 +5911,63 @@ class _EmptyGroupHubCard
 
 class _AvailabilityBadge
     extends StatelessWidget {
-
   final bool available;
-
 
   const _AvailabilityBadge({
     required this.available,
   });
 
-
   @override
   Widget build(
     BuildContext context,
   ) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal:
-            8,
+    final Color color =
+        available
+            ? Colors.greenAccent
+            : Colors.white30;
 
-        vertical:
-            6,
-      ),
-
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.brandNightBlue,
-
-        borderRadius:
-            BorderRadius.circular(
-          9,
-        ),
-      ),
-
-      child:
-          Row(
-        mainAxisSize:
-            MainAxisSize.min,
-
-        children: [
-          Icon(
-            Icons.circle,
-
-            size:
-                7,
-
+    return Row(
+      mainAxisSize:
+          MainAxisSize.min,
+      children: [
+        Container(
+          width:
+              8,
+          height:
+              8,
+          decoration:
+              BoxDecoration(
             color:
-                available
-                    ? Colors.greenAccent
-                    : Colors.white30,
+                color,
+            shape:
+                BoxShape.circle,
           ),
+        ),
 
-          const SizedBox(
-            width:
-                5,
+        const SizedBox(
+          width:
+              6,
+        ),
+
+        Text(
+          available
+              ? 'Disponibile'
+              : 'Non disponibile',
+          style:
+              TextStyle(
+            color:
+                color,
+            fontSize:
+                10,
+            fontWeight:
+                FontWeight.w700,
           ),
-
-          Text(
-            available
-                ? 'Disponibile'
-                : 'Non disponibile',
-
-            style:
-                const TextStyle(
-              color:
-                  AppColors.pureWhite,
-
-              fontSize:
-                  9,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
+
 
 
 class _ProfileInfoRow

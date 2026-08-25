@@ -99,7 +99,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
       if (currentUserId != null) {
         try {
-          await _syncService.syncMaterials(userId: currentUserId);
+          await _syncService.syncMaterials(
+            userId: currentUserId,
+            forceFull: true,
+          );
         } catch (_) {
           syncFailed = true;
         }
@@ -107,8 +110,13 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     }
 
     try {
-      final List<MaterialLocal> materials = await _materialRepository
-          .getAvailableByUser(localUserId);
+      final List<MaterialLocal> availableMaterials =
+          await _materialRepository.getAvailableByUser(localUserId);
+
+      final List<MaterialLocal> materials = availableMaterials
+          .where(_isDisplayableMaterial)
+          .toList();
+
       final List<MaterialOfflineEntry> offline = await _downloadService
           .getDownloadedMaterialEntries(userId: localUserId);
 
@@ -134,6 +142,20 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         _error = _friendlyError(error);
       });
     }
+  }
+
+  bool _isDisplayableMaterial(MaterialLocal material) {
+    final String university = material.university?.trim() ?? '';
+    final String department = material.department?.trim() ?? '';
+    final String course = material.course?.trim() ?? '';
+    final String subjectName = material.subjectName?.trim() ?? '';
+
+    final bool hasSubject = material.subjectId != null || subjectName.isNotEmpty;
+
+    return university.isNotEmpty &&
+        department.isNotEmpty &&
+        course.isNotEmpty &&
+        hasSubject;
   }
 
   void _validateSelection() {
@@ -1351,14 +1373,24 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     await _openPublicationPage(
       initialFilePath: file.path,
       initialFileName: material.originalName,
+      initialUniversity: material.university,
+      initialDepartment: material.department,
+      initialCourse: material.course,
+      initialSubjectId: material.subjectId,
+      initialSubjectName: material.subjectName,
     );
   }
 
   Future<void> _openPublicationPage({
     String? initialFilePath,
     String? initialFileName,
+    String? initialUniversity,
+    String? initialDepartment,
+    String? initialCourse,
+    int? initialSubjectId,
+    String? initialSubjectName,
   }) async {
-    if (_openingPublicationForm) {
+    if (_openingPublicationForm || !mounted) {
       return;
     }
 
@@ -1366,20 +1398,23 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       _openingPublicationForm = true;
     });
 
+    bool? submitted;
+
     try {
-      final bool? submitted = await Navigator.of(context).push<bool>(
+      submitted = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
           builder: (_) => _MaterialPublicationPage(
             apiService: _apiService,
             initialFilePath: initialFilePath,
             initialFileName: initialFileName,
+            initialUniversity: initialUniversity,
+            initialDepartment: initialDepartment,
+            initialCourse: initialCourse,
+            initialSubjectId: initialSubjectId,
+            initialSubjectName: initialSubjectName,
           ),
         ),
       );
-
-      if (submitted == true && mounted) {
-        _showMessage('Materiale inviato. La proposta è ora in revisione.');
-      }
     } finally {
       if (mounted) {
         setState(() {
@@ -1387,6 +1422,18 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         });
       }
     }
+
+    if (!mounted || submitted != true) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage('Materiale inviato. La proposta è ora in revisione.');
+    });
   }
 
   Widget _buildSubjectHeader(_LocalSubject subject) {
@@ -2099,20 +2146,32 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
       _error = null;
     });
 
+    bool completed = false;
+
     try {
+      final SocialSubject? catalogSubject = _resolvedCatalogSubject;
+
+      final String university = _universityController.text.trim();
+      final String department = _departmentController.text.trim();
+      final String course = _courseController.text.trim();
+      final String subjectName = _subjectController.text.trim();
+      final String? originalName = _fileName;
+
       await widget.importService.importMaterial(
         sourcePath: filePath,
-        university: _optionalText(_universityController.text),
-        department: _optionalText(_departmentController.text),
-        course: _optionalText(_courseController.text),
-        subjectName: _optionalText(_subjectController.text),
-        originalName: _fileName,
+        university: university,
+        department: department,
+        course: course,
+        subjectName: subjectName,
+        originalName: originalName,
+        subjectId: catalogSubject?.id,
       );
 
       if (!mounted) {
         return;
       }
 
+      completed = true;
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) {
@@ -2123,7 +2182,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
         _error = _friendlyLocalError(e);
       });
     } finally {
-      if (mounted) {
+      if (!completed && mounted) {
         setState(() {
           _saving = false;
         });
@@ -2157,7 +2216,8 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                     ),
                     child: Text(
                       'Il file resterà sul tuo dispositivo e non viene inviato a StudentLab. '
-                      'L’associazione ad ateneo, dipartimento, corso e materia è facoltativa e serve solo a organizzare la libreria locale.',
+                      'Ateneo, dipartimento, corso e materia sono obbligatori per organizzare correttamente '
+                      'le dispense e permettere il collegamento automatico alle card.',
                       style: TextStyle(
                         color: AppColors.pureWhite.withValues(alpha: 0.58),
                         fontSize: 11,
@@ -2168,38 +2228,42 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                   const SizedBox(height: 18),
                   _hybridField(
                     controller: _universityController,
-                    label: 'Ateneo (facoltativo)',
+                    label: 'Ateneo *',
                     icon: Icons.account_balance_outlined,
                     options: _universityOptions,
                     loading: _loadingUniversities,
                     onOptionSelected: _selectUniversityOption,
+                    requiredField: true,
                   ),
                   const SizedBox(height: 13),
                   _hybridField(
                     controller: _departmentController,
-                    label: 'Dipartimento (facoltativo)',
+                    label: 'Dipartimento *',
                     icon: Icons.apartment_outlined,
                     options: _departmentOptions,
                     loading: _loadingDepartments,
                     onOptionSelected: _selectDepartmentOption,
+                    requiredField: true,
                   ),
                   const SizedBox(height: 13),
                   _hybridField(
                     controller: _courseController,
-                    label: 'Corso (facoltativo)',
+                    label: 'Corso *',
                     icon: Icons.school_outlined,
                     options: _courseOptions,
                     loading: _loadingCourses,
                     onOptionSelected: _selectCourseOption,
+                    requiredField: true,
                   ),
                   const SizedBox(height: 13),
                   _hybridField(
                     controller: _subjectController,
-                    label: 'Materia (facoltativo)',
+                    label: 'Materia *',
                     icon: Icons.menu_book_outlined,
                     options: _subjectOptions,
                     loading: _loadingSubjects,
                     onOptionSelected: _selectSubjectOption,
+                    requiredField: true,
                   ),
                   const SizedBox(height: 18),
                   InkWell(
@@ -2659,6 +2723,34 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     return null;
   }
 
+  SocialSubject? get _resolvedCatalogSubject {
+    final AcademicUniversity? university = _findUniversity(
+      _universityController.text,
+    );
+    final AcademicDepartment? department = _findDepartment(
+      _departmentController.text,
+    );
+    final AcademicCourse? course = _findCourse(_courseController.text);
+
+    if (university == null || department == null || course == null) {
+      return null;
+    }
+
+    final String value = _subjectController.text.trim();
+
+    if (value.isEmpty) {
+      return null;
+    }
+
+    for (final SocialSubject subject in _catalogSubjects) {
+      if (subject.isActive && _sameLocalText(subject.name, value)) {
+        return subject;
+      }
+    }
+
+    return null;
+  }
+
   List<String> _uniqueOptions(Iterable<String> source) {
     final Map<String, String> values = {};
 
@@ -2722,9 +2814,13 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
 
         helperText: loading
             ? 'Caricamento opzioni...'
+            : requiredField
+            ? options.isEmpty
+                  ? 'Campo obbligatorio • inserisci un valore valido'
+                  : 'Campo obbligatorio • scrivi oppure scegli tra quelli esistenti'
             : options.isEmpty
-            ? 'Facoltativo • puoi lasciare vuoto'
-            : 'Facoltativo • scrivi oppure scegli tra quelli esistenti',
+            ? 'Puoi lasciare vuoto'
+            : 'Scrivi oppure scegli tra quelli esistenti',
 
         helperStyle: TextStyle(
           color: AppColors.pureWhite.withValues(alpha: 0.35),
@@ -2825,11 +2921,21 @@ class _MaterialPublicationPage extends StatefulWidget {
   final ApiService apiService;
   final String? initialFilePath;
   final String? initialFileName;
+  final String? initialUniversity;
+  final String? initialDepartment;
+  final String? initialCourse;
+  final int? initialSubjectId;
+  final String? initialSubjectName;
 
   const _MaterialPublicationPage({
     required this.apiService,
     this.initialFilePath,
     this.initialFileName,
+    this.initialUniversity,
+    this.initialDepartment,
+    this.initialCourse,
+    this.initialSubjectId,
+    this.initialSubjectName,
   });
 
   @override
@@ -2933,6 +3039,8 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
         _loadingCatalog = false;
       });
+
+      await _restoreInitialHierarchy();
     } catch (e) {
       if (!mounted) {
         return;
@@ -2944,6 +3052,128 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
         _error = _friendlyPublicationError(e);
       });
     }
+  }
+
+  Future<void> _restoreInitialHierarchy() async {
+    final String universityValue = widget.initialUniversity?.trim() ?? '';
+    final String departmentValue = widget.initialDepartment?.trim() ?? '';
+    final String courseValue = widget.initialCourse?.trim() ?? '';
+
+    if (universityValue.isEmpty ||
+        departmentValue.isEmpty ||
+        courseValue.isEmpty) {
+      return;
+    }
+
+    final AcademicUniversity? university = _findInitialUniversity(
+      universityValue,
+    );
+
+    if (university == null) {
+      return;
+    }
+
+    await _selectUniversity(university);
+
+    if (!mounted) {
+      return;
+    }
+
+    final AcademicDepartment? department = _findInitialDepartment(
+      departmentValue,
+    );
+
+    if (department == null) {
+      return;
+    }
+
+    await _selectDepartment(department);
+
+    if (!mounted) {
+      return;
+    }
+
+    final AcademicCourse? course = _findInitialCourse(courseValue);
+
+    if (course == null) {
+      return;
+    }
+
+    await _selectCourse(course);
+
+    if (!mounted) {
+      return;
+    }
+
+    SocialSubject? subject;
+
+    final int? initialSubjectId = widget.initialSubjectId;
+
+    if (initialSubjectId != null) {
+      for (final SocialSubject current in _subjects) {
+        if (current.id == initialSubjectId) {
+          subject = current;
+          break;
+        }
+      }
+    }
+
+    if (subject == null) {
+      final String subjectName = widget.initialSubjectName?.trim() ?? '';
+
+      if (subjectName.isNotEmpty) {
+        for (final SocialSubject current in _subjects) {
+          if (_samePublicationText(current.name, subjectName)) {
+            subject = current;
+            break;
+          }
+        }
+      }
+    }
+
+    if (subject != null && mounted) {
+      setState(() {
+        _selectedSubject = subject;
+      });
+    }
+  }
+
+  AcademicUniversity? _findInitialUniversity(String value) {
+    for (final AcademicUniversity university in _universities) {
+      if (_samePublicationText(university.name, value) ||
+          _samePublicationText(university.code, value)) {
+        return university;
+      }
+    }
+
+    return null;
+  }
+
+  AcademicDepartment? _findInitialDepartment(String value) {
+    for (final AcademicDepartment department in _departments) {
+      if (_samePublicationText(department.name, value) ||
+          _samePublicationText(department.code, value)) {
+        return department;
+      }
+    }
+
+    return null;
+  }
+
+  AcademicCourse? _findInitialCourse(String value) {
+    for (final AcademicCourse course in _courses) {
+      if (_samePublicationText(course.name, value) ||
+          _samePublicationText(course.code, value)) {
+        return course;
+      }
+    }
+
+    return null;
+  }
+
+  bool _samePublicationText(String a, String b) {
+    return a.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase() ==
+        b.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
   }
 
   Future<void> _selectUniversity(AcademicUniversity? university) async {
@@ -3141,46 +3371,45 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
   }
 
   Future<void> _submit() async {
-    if (_submitting) {
+    if (_submitting || !mounted) {
       return;
     }
 
-    if (!_formKey.currentState!.validate()) {
+    final FormState? formState = _formKey.currentState;
+
+    if (formState == null || !formState.validate()) {
       return;
     }
 
     final SocialSubject? subject = _selectedSubject;
-
     final String? filePath = _selectedFilePath;
 
     if (subject == null) {
       _showMessage('Seleziona la materia del materiale.');
-
       return;
     }
 
     if (filePath == null || filePath.trim().isEmpty) {
       _showMessage('Seleziona il file da proporre.');
-
       return;
     }
 
+    final String title = _titleController.text.trim();
+    final String description = _descriptionController.text.trim();
+
     setState(() {
       _submitting = true;
-
       _error = null;
     });
+
+    bool completed = false;
 
     try {
       await widget.apiService.uploadMaterialPublication(
         subjectId: subject.id,
-
-        title: _titleController.text.trim(),
-
-        description: _descriptionController.text.trim(),
-
+        title: title,
+        description: description,
         filePath: filePath,
-
         onPossibleDuplicate: () async {
           if (!mounted) {
             return;
@@ -3197,6 +3426,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
         return;
       }
 
+      completed = true;
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) {
@@ -3207,7 +3437,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
         _error = _friendlyPublicationError(e);
       });
     } finally {
-      if (mounted) {
+      if (!completed && mounted) {
         setState(() {
           _submitting = false;
         });
@@ -3401,7 +3631,9 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
           Expanded(
             child: Text(
-              'Ogni materiale proposto viene controllato prima della pubblicazione. ',
+              'Ogni materiale proposto viene controllato prima della pubblicazione. '
+              'Ateneo, dipartimento, corso e materia sono obbligatori per collocarlo '
+              'correttamente nelle card di StudentLab.',
 
               style: TextStyle(
                 color: AppColors.pureWhite.withValues(alpha: 0.58),
@@ -3419,6 +3651,9 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
   Widget _buildUniversityField() {
     return DropdownButtonFormField<AcademicUniversity>(
+      key: ValueKey<String>(
+        'publication-university-${_selectedUniversity?.code ?? 'none'}',
+      ),
       initialValue: _selectedUniversity,
 
       isExpanded: true,
@@ -3426,7 +3661,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
       dropdownColor: AppColors.eleganceDeepNavy,
 
       decoration: _decoration(
-        label: 'Ateneo',
+        label: 'Ateneo *',
 
         icon: Icons.account_balance_outlined,
       ),
@@ -3459,6 +3694,9 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
   Widget _buildDepartmentField() {
     return DropdownButtonFormField<AcademicDepartment>(
+      key: ValueKey<String>(
+        'publication-department-${_selectedDepartment?.code ?? 'none'}',
+      ),
       initialValue: _selectedDepartment,
 
       isExpanded: true,
@@ -3468,7 +3706,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
       decoration: _decoration(
         label: _loadingDepartments
             ? 'Caricamento dipartimenti...'
-            : 'Dipartimento',
+            : 'Dipartimento *',
 
         icon: Icons.apartment_outlined,
       ),
@@ -3504,6 +3742,9 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
   Widget _buildCourseField() {
     return DropdownButtonFormField<AcademicCourse>(
+      key: ValueKey<String>(
+        'publication-course-${_selectedCourse?.code ?? 'none'}',
+      ),
       initialValue: _selectedCourse,
 
       isExpanded: true,
@@ -3511,7 +3752,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
       dropdownColor: AppColors.eleganceDeepNavy,
 
       decoration: _decoration(
-        label: _loadingCourses ? 'Caricamento corsi...' : 'Corso',
+        label: _loadingCourses ? 'Caricamento corsi...' : 'Corso *',
 
         icon: Icons.school_outlined,
       ),
@@ -3546,6 +3787,9 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
   Widget _buildSubjectField() {
     return DropdownButtonFormField<SocialSubject>(
+      key: ValueKey<String>(
+        'publication-subject-${_selectedSubject?.id ?? 'none'}',
+      ),
       initialValue: _selectedSubject,
 
       isExpanded: true,
@@ -3553,7 +3797,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
       dropdownColor: AppColors.eleganceDeepNavy,
 
       decoration: _decoration(
-        label: _loadingSubjects ? 'Caricamento materie...' : 'Materia',
+        label: _loadingSubjects ? 'Caricamento materie...' : 'Materia *',
 
         icon: Icons.menu_book_outlined,
       ),

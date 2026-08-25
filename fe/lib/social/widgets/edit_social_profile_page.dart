@@ -9,51 +9,31 @@ import '../social_models.dart';
 
 import 'manage_profile_subjects_page.dart';
 
-
 class EditSocialProfilePage extends StatefulWidget {
   final SocialUser user;
 
-
-  const EditSocialProfilePage({
-    super.key,
-    required this.user,
-  });
-
+  const EditSocialProfilePage({super.key, required this.user});
 
   @override
-  State<EditSocialProfilePage> createState() =>
-      _EditSocialProfilePageState();
+  State<EditSocialProfilePage> createState() => _EditSocialProfilePageState();
 }
 
+class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-class _EditSocialProfilePageState
-    extends State<EditSocialProfilePage> {
+  final ApiService _apiService = ApiService();
 
-  final GlobalKey<FormState> _formKey =
-      GlobalKey<FormState>();
-
-  final ApiService _apiService =
-      ApiService();
-
-  final AuthSession _session =
-      AuthSession.instance;
-
+  final AuthSession _session = AuthSession.instance;
 
   late SocialUser _user;
 
+  late final TextEditingController _firstNameController;
 
-  late final TextEditingController
-      _firstNameController;
+  late final TextEditingController _lastNameController;
 
-  late final TextEditingController
-      _lastNameController;
+  late final TextEditingController _emailController;
 
-  late final TextEditingController
-      _emailController;
-
-  late final TextEditingController
-      _descriptionController;
-
+  late final TextEditingController _descriptionController;
 
   late bool _available;
 
@@ -61,58 +41,32 @@ class _EditSocialProfilePageState
 
   late bool _availableForPrivateLessons;
 
+  bool _saving = false;
 
-  bool _saving =
-      false;
-
-  bool _academicWorking =
-      false;
+  bool _academicWorking = false;
 
   String? _error;
-
 
   @override
   void initState() {
     super.initState();
 
-    _user =
-        widget.user;
+    _user = widget.user;
 
-    _firstNameController =
-        TextEditingController(
-      text:
-          _user.firstName,
-    );
+    _firstNameController = TextEditingController(text: _user.firstName);
 
-    _lastNameController =
-        TextEditingController(
-      text:
-          _user.lastName,
-    );
+    _lastNameController = TextEditingController(text: _user.lastName);
 
-    _emailController =
-        TextEditingController(
-      text:
-          _user.email,
-    );
+    _emailController = TextEditingController(text: _user.email);
 
-    _descriptionController =
-        TextEditingController(
-      text:
-          _user.description,
-    );
+    _descriptionController = TextEditingController(text: _user.description);
 
-    _available =
-        _user.available;
+    _available = _user.available;
 
-    _availableForHelp =
-        _user.availableForHelp;
+    _availableForHelp = _user.availableForHelp;
 
-    _availableForPrivateLessons =
-        _user
-            .availableForPrivateLessons;
+    _availableForPrivateLessons = _user.availableForPrivateLessons;
   }
-
 
   @override
   void dispose() {
@@ -127,377 +81,160 @@ class _EditSocialProfilePageState
     super.dispose();
   }
 
-
   Future<void> _save() async {
     if (_saving) {
       return;
     }
 
-    if (
-      !_formKey.currentState!
-          .validate()
-    ) {
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
     setState(() {
-      _saving =
-          true;
+      _saving = true;
 
-      _error =
-          null;
+      _error = null;
     });
 
+    bool completed = false;
+
     try {
-      final SocialUser updatedUser =
-          await _apiService
-              .updateSocialUser(
-        userId:
-            _user.id,
+      final SocialUser updatedUser = await _apiService.updateSocialUser(
+        userId: _user.id,
 
-        firstName:
-            _firstNameController.text
-                .trim(),
+        firstName: _firstNameController.text.trim(),
 
-        lastName:
-            _lastNameController.text
-                .trim(),
+        lastName: _lastNameController.text.trim(),
 
-        description:
-            _descriptionController.text
-                .trim(),
+        description: _descriptionController.text.trim(),
 
-        available:
-            _available,
+        available: _available,
 
-        availableForHelp:
-            _availableForHelp,
+        availableForHelp: _availableForHelp,
 
-        availableForPrivateLessons:
-            _availableForPrivateLessons,
+        availableForPrivateLessons: _availableForPrivateLessons,
       );
 
-      _session.updateUser(
-        updatedUser,
-      );
+      _session.updateUser(updatedUser);
 
-      _user =
-          updatedUser;
+      _user = updatedUser;
 
       if (!mounted) {
         return;
       }
 
-      Navigator.pop(
-        context,
-        updatedUser,
-      );
+      completed = true;
+
+      Navigator.pop(context, updatedUser);
     } catch (e) {
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _error =
-            _cleanErrorMessage(
-          e,
-        );
+        _error = _cleanErrorMessage(e);
       });
     } finally {
-      if (mounted) {
+      if (!completed && mounted) {
         setState(() {
-          _saving =
-              false;
+          _saving = false;
         });
       }
     }
   }
 
-
   Future<void> _refreshUser() async {
-    final SocialUser user =
-        await _apiService
-            .getCurrentUser();
+    final SocialUser user = await _apiService.getCurrentUser();
 
-    _session.updateUser(
-      user,
-    );
+    _session.updateUser(user);
 
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _user =
-          user;
+      _user = user;
     });
   }
-
 
   Future<void> _manageSubjects() async {
-    if (
-      _saving ||
-      _academicWorking
-    ) {
+    if (_saving || _academicWorking) {
       return;
     }
 
-    final SocialUser? updatedUser =
-        await Navigator.of(
-      context,
-    ).push<SocialUser>(
-      MaterialPageRoute(
-        builder:
-            (_) =>
-                ManageProfileSubjectsPage(
-          user:
-              _user,
-        ),
-      ),
-    );
-
-    if (
-      !mounted ||
-      updatedUser == null
-    ) {
-      return;
-    }
-
-    _session.updateUser(
-      updatedUser,
-    );
-
-    setState(() {
-      _user =
-          updatedUser;
-    });
-  }
-
-
-  Future<void>
-      _openAddAcademicPath() async {
-    if (
-      _saving ||
-      _academicWorking
-    ) {
-      return;
-    }
-
-    final _AcademicPathFormResult?
-        result =
-        await showModalBottomSheet<
-            _AcademicPathFormResult>(
-      context:
-          context,
-
-      isScrollControlled:
-          true,
-
-      backgroundColor:
-          AppColors.eleganceDeepNavy,
-
-      shape:
-          const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(
-          top:
-              Radius.circular(
-            22,
+    final SocialUser? updatedUser = await Navigator.of(context)
+        .push<SocialUser>(
+          MaterialPageRoute(
+            builder: (_) => ManageProfileSubjectsPage(user: _user),
           ),
-        ),
-      ),
+        );
 
-      builder:
-          (_) =>
-              const _AcademicPathEditorSheet(),
-    );
-
-    if (
-      result == null ||
-      !mounted
-    ) {
+    if (!mounted || updatedUser == null) {
       return;
     }
+
+    _session.updateUser(updatedUser);
 
     setState(() {
-      _academicWorking =
-          true;
-
-      _error =
-          null;
+      _user = updatedUser;
     });
-
-    try {
-      await _apiService
-          .createAcademicPath(
-        university:
-            result.university.name,
-
-        universityCode:
-            result.university.code,
-
-        department:
-            result.department.name,
-
-        departmentCode:
-            result.department.code,
-
-        course:
-            result.course.name,
-
-        courseCode:
-            result.course.code,
-
-        degreeType:
-            result.course.degreeType,
-
-        status:
-            result.status,
-
-        startYear:
-            result.startYear,
-
-        graduationYear:
-            result.graduationYear,
-
-        isCurrent:
-            result.isCurrent,
-
-        isPrimary:
-            result.isPrimary,
-      );
-
-      await _refreshUser();
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _error =
-            _cleanErrorMessage(
-          e,
-        );
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _academicWorking =
-              false;
-        });
-      }
-    }
   }
 
-
-  Future<void>
-      _openEditAcademicPath(
-    SocialAcademicPath path,
-  ) async {
-    if (
-      _saving ||
-      _academicWorking
-    ) {
+  Future<void> _openAddAcademicPath() async {
+    if (_saving || _academicWorking) {
       return;
     }
 
-    final _AcademicPathFormResult?
-        result =
-        await showModalBottomSheet<
-            _AcademicPathFormResult>(
-      context:
-          context,
+    final _AcademicPathFormResult? result =
+        await showModalBottomSheet<_AcademicPathFormResult>(
+          context: context,
 
-      isScrollControlled:
-          true,
+          isScrollControlled: true,
 
-      backgroundColor:
-          AppColors.eleganceDeepNavy,
+          backgroundColor: AppColors.eleganceDeepNavy,
 
-      shape:
-          const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(
-          top:
-              Radius.circular(
-            22,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
           ),
-        ),
-      ),
 
-      builder:
-          (_) =>
-              _AcademicPathEditorSheet(
-        initialPath:
-            path,
-      ),
-    );
+          builder: (_) => const _AcademicPathEditorSheet(),
+        );
 
-    if (
-      result == null ||
-      !mounted
-    ) {
+    if (result == null || !mounted) {
       return;
     }
 
     setState(() {
-      _academicWorking =
-          true;
+      _academicWorking = true;
 
-      _error =
-          null;
+      _error = null;
     });
 
     try {
-      await _apiService
-          .updateAcademicPath(
-        academicPathId:
-            path.id,
+      await _apiService.createAcademicPath(
+        university: result.university.name,
 
-        university:
-            result.university.name,
+        universityCode: result.university.code,
 
-        universityCode:
-            result.university.code,
+        department: result.department.name,
 
-        department:
-            result.department.name,
+        departmentCode: result.department.code,
 
-        departmentCode:
-            result.department.code,
+        course: result.course.name,
 
-        course:
-            result.course.name,
+        courseCode: result.course.code,
 
-        courseCode:
-            result.course.code,
+        degreeType: result.course.degreeType,
 
-        degreeType:
-            result.course.degreeType,
+        status: result.status,
 
-        status:
-            result.status,
+        startYear: result.startYear,
 
-        startYear:
-            result.startYear,
+        graduationYear: result.graduationYear,
 
-        clearStartYear:
-            result.startYear == null,
+        isCurrent: result.isCurrent,
 
-        graduationYear:
-            result.graduationYear,
-
-        clearGraduationYear:
-            result.graduationYear ==
-                null,
-
-        isCurrent:
-            result.isCurrent,
-
-        isPrimary:
-            result.isPrimary
-                ? true
-                : null,
+        isPrimary: result.isPrimary,
       );
 
       await _refreshUser();
@@ -507,46 +244,78 @@ class _EditSocialProfilePageState
       }
 
       setState(() {
-        _error =
-            _cleanErrorMessage(
-          e,
-        );
+        _error = _cleanErrorMessage(e);
       });
     } finally {
       if (mounted) {
         setState(() {
-          _academicWorking =
-              false;
+          _academicWorking = false;
         });
       }
     }
   }
 
+  Future<void> _openEditAcademicPath(SocialAcademicPath path) async {
+    if (_saving || _academicWorking) {
+      return;
+    }
 
-  Future<void>
-      _setCurrentAcademicPath(
-    SocialAcademicPath path,
-  ) async {
-    if (
-      _saving ||
-      _academicWorking ||
-      path.isCurrent
-    ) {
+    final _AcademicPathFormResult? result =
+        await showModalBottomSheet<_AcademicPathFormResult>(
+          context: context,
+
+          isScrollControlled: true,
+
+          backgroundColor: AppColors.eleganceDeepNavy,
+
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+
+          builder: (_) => _AcademicPathEditorSheet(initialPath: path),
+        );
+
+    if (result == null || !mounted) {
       return;
     }
 
     setState(() {
-      _academicWorking =
-          true;
+      _academicWorking = true;
 
-      _error =
-          null;
+      _error = null;
     });
 
     try {
-      await _apiService
-          .setCurrentAcademicPath(
-        path.id,
+      await _apiService.updateAcademicPath(
+        academicPathId: path.id,
+
+        university: result.university.name,
+
+        universityCode: result.university.code,
+
+        department: result.department.name,
+
+        departmentCode: result.department.code,
+
+        course: result.course.name,
+
+        courseCode: result.course.code,
+
+        degreeType: result.course.degreeType,
+
+        status: result.status,
+
+        startYear: result.startYear,
+
+        clearStartYear: result.startYear == null,
+
+        graduationYear: result.graduationYear,
+
+        clearGraduationYear: result.graduationYear == null,
+
+        isCurrent: result.isCurrent,
+
+        isPrimary: result.isPrimary ? true : null,
       );
 
       await _refreshUser();
@@ -556,47 +325,30 @@ class _EditSocialProfilePageState
       }
 
       setState(() {
-        _error =
-            _cleanErrorMessage(
-          e,
-        );
+        _error = _cleanErrorMessage(e);
       });
     } finally {
       if (mounted) {
         setState(() {
-          _academicWorking =
-              false;
+          _academicWorking = false;
         });
       }
     }
   }
 
-
-  Future<void>
-      _setPrimaryAcademicPath(
-    SocialAcademicPath path,
-  ) async {
-    if (
-      _saving ||
-      _academicWorking ||
-      path.isPrimary
-    ) {
+  Future<void> _setCurrentAcademicPath(SocialAcademicPath path) async {
+    if (_saving || _academicWorking || path.isCurrent) {
       return;
     }
 
     setState(() {
-      _academicWorking =
-          true;
+      _academicWorking = true;
 
-      _error =
-          null;
+      _error = null;
     });
 
     try {
-      await _apiService
-          .setPrimaryAcademicPath(
-        path.id,
-      );
+      await _apiService.setCurrentAcademicPath(path.id);
 
       await _refreshUser();
     } catch (e) {
@@ -605,105 +357,91 @@ class _EditSocialProfilePageState
       }
 
       setState(() {
-        _error =
-            _cleanErrorMessage(
-          e,
-        );
+        _error = _cleanErrorMessage(e);
       });
     } finally {
       if (mounted) {
         setState(() {
-          _academicWorking =
-              false;
+          _academicWorking = false;
         });
       }
     }
   }
 
-
-  Future<void>
-      _removeAcademicPath(
-    SocialAcademicPath path,
-  ) async {
-    if (
-      _saving ||
-      _academicWorking
-    ) {
+  Future<void> _setPrimaryAcademicPath(SocialAcademicPath path) async {
+    if (_saving || _academicWorking || path.isPrimary) {
       return;
     }
 
-    final bool? confirmed =
-        await showDialog<bool>(
-      context:
-          context,
+    setState(() {
+      _academicWorking = true;
 
-      builder:
-          (
-        dialogContext,
-      ) {
+      _error = null;
+    });
+
+    try {
+      await _apiService.setPrimaryAcademicPath(path.id);
+
+      await _refreshUser();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = _cleanErrorMessage(e);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _academicWorking = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _removeAcademicPath(SocialAcademicPath path) async {
+    if (_saving || _academicWorking) {
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+
+      builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor:
-              AppColors.eleganceDeepNavy,
+          backgroundColor: AppColors.eleganceDeepNavy,
 
-          title:
-              const Text(
+          title: const Text(
             'Rimuovi percorso',
 
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
+            style: TextStyle(color: AppColors.pureWhite),
           ),
 
-          content:
-              Text(
+          content: Text(
             'Vuoi rimuovere "${path.course}" dai tuoi percorsi accademici?',
 
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.65,
-              ),
-            ),
+            style: TextStyle(color: AppColors.pureWhite.withOpacity(0.65)),
           ),
 
           actions: [
             TextButton(
-              onPressed:
-                  () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
               },
 
-              child:
-                  const Text(
-                'Annulla',
-              ),
+              child: const Text('Annulla'),
             ),
 
             TextButton(
-              onPressed:
-                  () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
               },
 
-              child:
-                  const Text(
+              child: const Text(
                 'Rimuovi',
 
-                style:
-                    TextStyle(
-                  color:
-                      Colors.redAccent,
-                ),
+                style: TextStyle(color: Colors.redAccent),
               ),
             ),
           ],
@@ -716,18 +454,13 @@ class _EditSocialProfilePageState
     }
 
     setState(() {
-      _academicWorking =
-          true;
+      _academicWorking = true;
 
-      _error =
-          null;
+      _error = null;
     });
 
     try {
-      await _apiService
-          .removeAcademicPath(
-        path.id,
-      );
+      await _apiService.removeAcademicPath(path.id);
 
       await _refreshUser();
     } catch (e) {
@@ -736,366 +469,197 @@ class _EditSocialProfilePageState
       }
 
       setState(() {
-        _error =
-            _cleanErrorMessage(
-          e,
-        );
+        _error = _cleanErrorMessage(e);
       });
     } finally {
       if (mounted) {
         setState(() {
-          _academicWorking =
-              false;
+          _academicWorking = false;
         });
       }
     }
   }
 
+  String _cleanErrorMessage(Object error) {
+    final String message = error.toString().toLowerCase();
 
-  String _cleanErrorMessage(
-    Object error,
-  ) {
-    final String message =
-        error
-            .toString()
-            .toLowerCase();
-
-    if (
-      message.contains(
-            '401',
-          ) ||
-          message.contains(
-            'unauthorized',
-          )
-    ) {
+    if (message.contains('401') || message.contains('unauthorized')) {
       return 'La sessione non è più valida. Accedi nuovamente a StudentLab.';
     }
 
-    if (
-      message.contains(
-            '403',
-          ) ||
-          message.contains(
-            'forbidden',
-          )
-    ) {
+    if (message.contains('403') || message.contains('forbidden')) {
       return 'Non hai i permessi necessari per completare questa operazione.';
     }
 
-    if (
-      message.contains(
-            '404',
-          ) ||
-          message.contains(
-            'not found',
-          )
-    ) {
+    if (message.contains('404') || message.contains('not found')) {
       return 'Alcune informazioni del profilo non sono più disponibili. Aggiorna la pagina e riprova.';
     }
 
-    if (
-      message.contains(
-            '409',
-          ) ||
-          message.contains(
-            'conflict',
-          ) ||
-          message.contains(
-            'already',
-          )
-    ) {
+    if (message.contains('409') ||
+        message.contains('conflict') ||
+        message.contains('already')) {
       return 'La modifica richiesta è in conflitto con informazioni già presenti nel profilo.';
     }
 
-    if (
-      message.contains(
-            '422',
-          ) ||
-          message.contains(
-            'validation',
-          ) ||
-          message.contains(
-            'invalid',
-          )
-    ) {
+    if (message.contains('422') ||
+        message.contains('validation') ||
+        message.contains('invalid')) {
       return 'Alcuni dati inseriti non sono validi. Controllali e riprova.';
     }
 
-    if (
-      message.contains(
-            'network',
-          ) ||
-          message.contains(
-            'socket',
-          ) ||
-          message.contains(
-            'connection',
-          ) ||
-          message.contains(
-            'timeout',
-          ) ||
-          message.contains(
-            'host lookup',
-          )
-    ) {
+    if (message.contains('network') ||
+        message.contains('socket') ||
+        message.contains('connection') ||
+        message.contains('timeout') ||
+        message.contains('host lookup')) {
       return 'Non è stato possibile contattare StudentLab. Controlla la connessione e riprova.';
     }
 
-    if (
-      message.contains(
-            '500',
-          ) ||
-          message.contains(
-            '502',
-          ) ||
-          message.contains(
-            '503',
-          )
-    ) {
+    if (message.contains('500') ||
+        message.contains('502') ||
+        message.contains('503')) {
       return 'StudentLab non è temporaneamente disponibile. Riprova tra qualche momento.';
     }
 
     return 'Non è stato possibile completare la modifica del profilo. Riprova.';
   }
 
-
-  String? _requiredValidator(
-    String? value,
-  ) {
-    if (
-      value == null ||
-      value.trim().isEmpty
-    ) {
+  String? _requiredValidator(String? value) {
+    if (value == null || value.trim().isEmpty) {
       return 'Campo obbligatorio';
     }
 
     return null;
   }
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final bool isTeacher =
-        _user.type ==
-            SocialUserType.teacher;
+  Widget build(BuildContext context) {
+    final bool isTeacher = _user.type == SocialUserType.teacher;
 
     return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
+      backgroundColor: AppColors.darkElegance,
 
-      appBar:
-          AppBar(
-        backgroundColor:
-            AppColors.brandNightBlue,
+      appBar: AppBar(
+        backgroundColor: AppColors.brandNightBlue,
 
-        foregroundColor:
-            AppColors.pureWhite,
+        foregroundColor: AppColors.pureWhite,
 
-        elevation:
-            0,
+        elevation: 0,
 
-        title:
-            const Text(
+        title: const Text(
           'Modifica profilo',
 
-          style:
-              TextStyle(
-            fontSize:
-                18,
-
-            fontWeight:
-                FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
 
         actions: [
           TextButton(
-            onPressed:
-                _saving ||
-                        _academicWorking
-                    ? null
-                    : _save,
+            onPressed: _saving || _academicWorking ? null : _save,
 
-            child:
-                const Text(
+            child: const Text(
               'Salva',
 
-              style:
-                  TextStyle(
-                color:
-                    AppColors.skyBlue,
+              style: TextStyle(
+                color: AppColors.skyBlue,
 
-                fontWeight:
-                    FontWeight.w600,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ],
       ),
 
-      body:
-          SafeArea(
-        child:
-            Center(
-          child:
-              ConstrainedBox(
-            constraints:
-                const BoxConstraints(
-              maxWidth:
-                  700,
-            ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
 
-            child:
-                Form(
-              key:
-                  _formKey,
+            child: Form(
+              key: _formKey,
 
-              child:
-                  ListView(
-                padding:
-                    const EdgeInsets.all(
-                  20,
-                ),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
 
                 children: [
-                  _buildHeader(
-                    isTeacher,
-                  ),
+                  _buildHeader(isTeacher),
 
-                  const SizedBox(
-                    height:
-                        20,
-                  ),
+                  const SizedBox(height: 20),
 
                   _buildPersonalSection(),
 
-                  const SizedBox(
-                    height:
-                        16,
-                  ),
+                  const SizedBox(height: 16),
 
                   _buildAcademicSection(),
 
-                  const SizedBox(
-                    height:
-                        16,
-                  ),
+                  const SizedBox(height: 16),
 
                   _buildSubjectsSection(),
 
-                  const SizedBox(
-                    height:
-                        16,
-                  ),
+                  const SizedBox(height: 16),
 
                   _buildRoleSection(),
 
-                  const SizedBox(
-                    height:
-                        16,
-                  ),
+                  const SizedBox(height: 16),
 
                   _buildAvailabilitySection(),
 
-                  const SizedBox(
-                    height:
-                        16,
-                  ),
+                  const SizedBox(height: 16),
 
                   _buildDescriptionSection(),
 
-                  if (_error !=
-                      null) ...[
-                    const SizedBox(
-                      height:
-                          18,
-                    ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 18),
 
                     _buildError(),
                   ],
 
-                  const SizedBox(
-                    height:
-                        24,
-                  ),
+                  const SizedBox(height: 24),
 
                   SizedBox(
-                    height:
-                        52,
+                    height: 52,
 
-                    child:
-                        ElevatedButton.icon(
-                      onPressed:
-                          _saving ||
-                                  _academicWorking
-                              ? null
-                              : _save,
+                    child: ElevatedButton.icon(
+                      onPressed: _saving || _academicWorking ? null : _save,
 
-                      icon:
-                          _saving
-                              ? const SizedBox(
-                                  width:
-                                      18,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 18,
 
-                                  height:
-                                      18,
+                              height: 18,
 
-                                  child:
-                                      CircularProgressIndicator(
-                                    strokeWidth:
-                                        2,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
 
-                                    color:
-                                        AppColors.pureWhite,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.save_outlined,
-                                ),
+                                color: AppColors.pureWhite,
+                              ),
+                            )
+                          : const Icon(Icons.save_outlined),
 
-                      label:
-                          Text(
-                        _saving
-                            ? 'Salvataggio...'
-                            : 'Salva modifiche',
+                      label: Text(
+                        _saving ? 'Salvataggio...' : 'Salva modifiche',
 
-                        style:
-                            const TextStyle(
-                          fontSize:
-                              15,
+                        style: const TextStyle(
+                          fontSize: 15,
 
-                          fontWeight:
-                              FontWeight.w600,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
 
-                      style:
-                          ElevatedButton.styleFrom(
-                        backgroundColor:
-                            isTeacher
-                                ? AppColors.teacherIndigo
-                                : AppColors.socialBlue,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isTeacher
+                            ? AppColors.teacherIndigo
+                            : AppColors.socialBlue,
 
-                        foregroundColor:
-                            AppColors.pureWhite,
+                        foregroundColor: AppColors.pureWhite,
 
-                        shape:
-                            RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(
-                            15,
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
                         ),
                       ),
                     ),
                   ),
 
-                  const SizedBox(
-                    height:
-                        30,
-                  ),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -1105,166 +669,102 @@ class _EditSocialProfilePageState
     );
   }
 
-
-  Widget _buildHeader(
-    bool isTeacher,
-  ) {
+  Widget _buildHeader(bool isTeacher) {
     final String name =
         '${_firstNameController.text} '
                 '${_lastNameController.text}'
             .trim();
 
     return Container(
-      padding:
-          const EdgeInsets.all(
-        17,
+      padding: const EdgeInsets.all(17),
+
+      decoration: BoxDecoration(
+        color: AppColors.eleganceMidnight,
+
+        borderRadius: BorderRadius.circular(18),
+
+        border: Border.all(color: AppColors.skyBlue.withOpacity(0.12)),
       ),
 
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.eleganceMidnight,
-
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-
-        border:
-            Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.12,
-          ),
-        ),
-      ),
-
-      child:
-          Row(
+      child: Row(
         children: [
           CircleAvatar(
-            radius:
-                26,
+            radius: 26,
 
-            backgroundColor:
-                isTeacher
-                    ? AppColors.teacherIndigo
-                    : AppColors.studentBlue,
+            backgroundColor: isTeacher
+                ? AppColors.teacherIndigo
+                : AppColors.studentBlue,
 
-            child:
-                Text(
-              name.isNotEmpty
-                  ? name[0]
-                      .toUpperCase()
-                  : '?',
+            child: Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
 
-              style:
-                  const TextStyle(
-                color:
-                    AppColors.pureWhite,
+              style: const TextStyle(
+                color: AppColors.pureWhite,
 
-                fontSize:
-                    18,
+                fontSize: 18,
 
-                fontWeight:
-                    FontWeight.bold,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
 
-          const SizedBox(
-            width:
-                12,
-          ),
+          const SizedBox(width: 12),
 
           Expanded(
-            child:
-                Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
                 Text(
-                  name.isEmpty
-                      ? 'Profilo StudentLab'
-                      : name,
+                  name.isEmpty ? 'Profilo StudentLab' : name,
 
-                  style:
-                      const TextStyle(
-                    color:
-                        AppColors.pureWhite,
+                  style: const TextStyle(
+                    color: AppColors.pureWhite,
 
-                    fontSize:
-                        16,
+                    fontSize: 16,
 
-                    fontWeight:
-                        FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
 
-                const SizedBox(
-                  height:
-                      3,
-                ),
+                const SizedBox(height: 3),
 
                 Text(
-                  isTeacher
-                      ? 'Insegnante'
-                      : 'Studente',
+                  isTeacher ? 'Insegnante' : 'Studente',
 
-                  style:
-                      const TextStyle(
-                    color:
-                        AppColors.materialSky,
+                  style: const TextStyle(
+                    color: AppColors.materialSky,
 
-                    fontSize:
-                        10,
+                    fontSize: 10,
 
-                    fontWeight:
-                        FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
 
-                if (
-                  isTeacher &&
-                  _user.isVerifiedTeacher
-                ) ...[
-                  const SizedBox(
-                    height:
-                        4,
-                  ),
+                if (isTeacher && _user.isVerifiedTeacher) ...[
+                  const SizedBox(height: 4),
 
                   const Row(
                     children: [
                       Icon(
                         Icons.verified_rounded,
 
-                        color:
-                            Colors.greenAccent,
+                        color: Colors.greenAccent,
 
-                        size:
-                            13,
+                        size: 13,
                       ),
 
-                      SizedBox(
-                        width:
-                            4,
-                      ),
+                      SizedBox(width: 4),
 
                       Text(
                         'Docente verificato',
 
-                        style:
-                            TextStyle(
-                          color:
-                              Colors.greenAccent,
+                        style: TextStyle(
+                          color: Colors.greenAccent,
 
-                          fontSize:
-                              9,
+                          fontSize: 9,
 
-                          fontWeight:
-                              FontWeight.w600,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -1278,146 +778,89 @@ class _EditSocialProfilePageState
     );
   }
 
-
   Widget _buildPersonalSection() {
     return _EditSection(
-      title:
-          'Informazioni personali',
+      title: 'Informazioni personali',
 
-      icon:
-          Icons.person_outline_rounded,
+      icon: Icons.person_outline_rounded,
 
-      child:
-          Column(
+      child: Column(
         children: [
           TextFormField(
-            controller:
-                _firstNameController,
+            controller: _firstNameController,
 
-            enabled:
-                !_saving,
+            enabled: !_saving,
 
-            validator:
-                _requiredValidator,
+            validator: _requiredValidator,
 
-            textInputAction:
-                TextInputAction.next,
+            textInputAction: TextInputAction.next,
 
-            onChanged:
-                (_) {
+            onChanged: (_) {
               setState(() {});
             },
 
-            style:
-                const TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
+            style: const TextStyle(color: AppColors.pureWhite),
 
-            decoration:
-                _inputDecoration(
-              label:
-                  'Nome',
+            decoration: _inputDecoration(
+              label: 'Nome',
 
-              icon:
-                  Icons.badge_outlined,
+              icon: Icons.badge_outlined,
             ),
           ),
 
-          const SizedBox(
-            height:
-                12,
-          ),
+          const SizedBox(height: 12),
 
           TextFormField(
-            controller:
-                _lastNameController,
+            controller: _lastNameController,
 
-            enabled:
-                !_saving,
+            enabled: !_saving,
 
-            validator:
-                _requiredValidator,
+            validator: _requiredValidator,
 
-            textInputAction:
-                TextInputAction.next,
+            textInputAction: TextInputAction.next,
 
-            onChanged:
-                (_) {
+            onChanged: (_) {
               setState(() {});
             },
 
-            style:
-                const TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
+            style: const TextStyle(color: AppColors.pureWhite),
 
-            decoration:
-                _inputDecoration(
-              label:
-                  'Cognome',
+            decoration: _inputDecoration(
+              label: 'Cognome',
 
-              icon:
-                  Icons.badge_outlined,
+              icon: Icons.badge_outlined,
             ),
           ),
 
-          const SizedBox(
-            height:
-                12,
-          ),
+          const SizedBox(height: 12),
 
           TextFormField(
-            controller:
-                _emailController,
+            controller: _emailController,
 
-            readOnly:
-                true,
+            readOnly: true,
 
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.60,
-              ),
-            ),
+            style: TextStyle(color: AppColors.pureWhite.withOpacity(0.60)),
 
-            decoration:
-                _inputDecoration(
-              label:
-                  'Email',
+            decoration: _inputDecoration(
+              label: 'Email',
 
-              icon:
-                  Icons.email_outlined,
+              icon: Icons.email_outlined,
 
-              hint:
-                  'Email account',
+              hint: 'Email account',
             ),
           ),
 
-          const SizedBox(
-            height:
-                7,
-          ),
+          const SizedBox(height: 7),
 
           Text(
             'L\'email dell\'account non viene modificata da questa schermata.',
 
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.35,
-              ),
+            style: TextStyle(
+              color: AppColors.pureWhite.withOpacity(0.35),
 
-              fontSize:
-                  9,
+              fontSize: 9,
 
-              height:
-                  1.3,
+              height: 1.3,
             ),
           ),
         ],
@@ -1425,19 +868,14 @@ class _EditSocialProfilePageState
     );
   }
 
-
   Widget _buildAcademicSection() {
     return _EditSection(
-      title:
-          'Percorsi accademici',
+      title: 'Percorsi accademici',
 
-      icon:
-          Icons.school_outlined,
+      icon: Icons.school_outlined,
 
-      child:
-          Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.stretch,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
 
         children: [
           Text(
@@ -1445,138 +883,73 @@ class _EditSocialProfilePageState
                 ? 'Non hai ancora aggiunto percorsi accademici.'
                 : 'Gestisci le lauree e i percorsi universitari associati al tuo profilo.',
 
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.48,
-              ),
+            style: TextStyle(
+              color: AppColors.pureWhite.withOpacity(0.48),
 
-              fontSize:
-                  10,
+              fontSize: 10,
 
-              height:
-                  1.4,
+              height: 1.4,
             ),
           ),
 
           if (_academicWorking) ...[
-            const SizedBox(
-              height:
-                  14,
-            ),
+            const SizedBox(height: 14),
 
             const LinearProgressIndicator(),
           ],
 
-          if (_user.academicPaths
-              .isNotEmpty) ...[
-            const SizedBox(
-              height:
-                  15,
-            ),
+          if (_user.academicPaths.isNotEmpty) ...[
+            const SizedBox(height: 15),
 
             ..._user.academicPaths.map(
-              (
-                SocialAcademicPath path,
-              ) =>
-                  Padding(
-                padding:
-                    const EdgeInsets.only(
-                  bottom:
-                      10,
-                ),
+              (SocialAcademicPath path) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
 
-                child:
-                    _AcademicPathCard(
-                  path:
-                      path,
+                child: _AcademicPathCard(
+                  path: path,
 
-                  disabled:
-                      _saving ||
-                          _academicWorking,
+                  disabled: _saving || _academicWorking,
 
-                  onEdit:
-                      () {
-                    _openEditAcademicPath(
-                      path,
-                    );
+                  onEdit: () {
+                    _openEditAcademicPath(path);
                   },
 
-                  onSetCurrent:
-                      () {
-                    _setCurrentAcademicPath(
-                      path,
-                    );
+                  onSetCurrent: () {
+                    _setCurrentAcademicPath(path);
                   },
 
-                  onSetPrimary:
-                      () {
-                    _setPrimaryAcademicPath(
-                      path,
-                    );
+                  onSetPrimary: () {
+                    _setPrimaryAcademicPath(path);
                   },
 
-                  onRemove:
-                      () {
-                    _removeAcademicPath(
-                      path,
-                    );
+                  onRemove: () {
+                    _removeAcademicPath(path);
                   },
                 ),
               ),
             ),
           ],
 
-          const SizedBox(
-            height:
-                5,
-          ),
+          const SizedBox(height: 5),
 
           OutlinedButton.icon(
-            onPressed:
-                _saving ||
-                        _academicWorking
-                    ? null
-                    : _openAddAcademicPath,
+            onPressed: _saving || _academicWorking
+                ? null
+                : _openAddAcademicPath,
 
-            icon:
-                const Icon(
-              Icons.add_rounded,
-            ),
+            icon: const Icon(Icons.add_rounded),
 
-            label:
-                const Text(
-              'Aggiungi percorso accademico',
-            ),
+            label: const Text('Aggiungi percorso accademico'),
 
-            style:
-                OutlinedButton.styleFrom(
-              foregroundColor:
-                  AppColors.materialSky,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.materialSky,
 
-              side:
-                  BorderSide(
-                color:
-                    AppColors.skyBlue
-                        .withOpacity(
-                  0.25,
-                ),
-              ),
+              side: BorderSide(color: AppColors.skyBlue.withOpacity(0.25)),
 
-              padding:
-                  const EdgeInsets.symmetric(
-                vertical:
-                    12,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
 
-              shape:
-                  RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(
-                  12,
-                ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
@@ -1585,121 +958,67 @@ class _EditSocialProfilePageState
     );
   }
 
-
   Widget _buildSubjectsSection() {
     return _EditSection(
-      title:
-          'Materie',
+      title: 'Materie',
 
-      icon:
-          Icons.menu_book_outlined,
+      icon: Icons.menu_book_outlined,
 
-      child:
-          Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.stretch,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
 
         children: [
           Text(
             _user.subjects.isEmpty
                 ? 'Non hai ancora aggiunto materie al tuo profilo.'
                 : '${_user.subjects.length} '
-                    '${_user.subjects.length == 1 ? 'materia associata' : 'materie associate'} '
-                    'al profilo.',
+                      '${_user.subjects.length == 1 ? 'materia associata' : 'materie associate'} '
+                      'al profilo.',
 
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.48,
-              ),
+            style: TextStyle(
+              color: AppColors.pureWhite.withOpacity(0.48),
 
-              fontSize:
-                  10,
+              fontSize: 10,
 
-              height:
-                  1.4,
+              height: 1.4,
             ),
           ),
 
-          if (_user.subjects
-              .isNotEmpty) ...[
-            const SizedBox(
-              height:
-                  13,
-            ),
+          if (_user.subjects.isNotEmpty) ...[
+            const SizedBox(height: 13),
 
             Wrap(
-              spacing:
-                  7,
+              spacing: 7,
 
-              runSpacing:
-                  7,
+              runSpacing: 7,
 
-              children:
-                  _user.subjects
-                      .map(
-                        (
-                          SocialSubject subject,
-                        ) =>
-                            _ProfileSubjectChip(
-                          subject:
-                              subject,
-                        ),
-                      )
-                      .toList(),
+              children: _user.subjects
+                  .map(
+                    (SocialSubject subject) =>
+                        _ProfileSubjectChip(subject: subject),
+                  )
+                  .toList(),
             ),
           ],
 
-          const SizedBox(
-            height:
-                15,
-          ),
+          const SizedBox(height: 15),
 
           OutlinedButton.icon(
-            onPressed:
-                _saving ||
-                        _academicWorking
-                    ? null
-                    : _manageSubjects,
+            onPressed: _saving || _academicWorking ? null : _manageSubjects,
 
-            icon:
-                const Icon(
-              Icons.tune_rounded,
-            ),
+            icon: const Icon(Icons.tune_rounded),
 
-            label:
-                const Text(
-              'Gestisci materie',
-            ),
+            label: const Text('Gestisci materie'),
 
-            style:
-                OutlinedButton.styleFrom(
-              foregroundColor:
-                  AppColors.materialSky,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.materialSky,
 
-              side:
-                  BorderSide(
-                color:
-                    AppColors.skyBlue
-                        .withOpacity(
-                  0.25,
-                ),
-              ),
+              side: BorderSide(color: AppColors.skyBlue.withOpacity(0.25)),
 
-              padding:
-                  const EdgeInsets.symmetric(
-                vertical:
-                    12,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
 
-              shape:
-                  RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(
-                  12,
-                ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
@@ -1708,143 +1027,88 @@ class _EditSocialProfilePageState
     );
   }
 
-
   Widget _buildRoleSection() {
-    final bool isTeacher =
-        _user.type ==
-            SocialUserType.teacher;
+    final bool isTeacher = _user.type == SocialUserType.teacher;
 
     return _EditSection(
-      title:
-          'Tipo di profilo',
+      title: 'Tipo di profilo',
 
-      icon:
-          Icons.manage_accounts_outlined,
+      icon: Icons.manage_accounts_outlined,
 
-      child:
-          Container(
-        padding:
-            const EdgeInsets.all(
-          13,
-        ),
+      child: Container(
+        padding: const EdgeInsets.all(13),
 
-        decoration:
-            BoxDecoration(
-          color:
-              AppColors.brandNightBlue,
+        decoration: BoxDecoration(
+          color: AppColors.brandNightBlue,
 
-          borderRadius:
-              BorderRadius.circular(
-            13,
-          ),
+          borderRadius: BorderRadius.circular(13),
 
-          border:
-              Border.all(
-            color:
-                (
-                  isTeacher
-                      ? AppColors.teacherIndigo
-                      : AppColors.studentBlue
-                ).withOpacity(
-              0.25,
-            ),
+          border: Border.all(
+            color: (isTeacher ? AppColors.teacherIndigo : AppColors.studentBlue)
+                .withOpacity(0.25),
           ),
         ),
 
-        child:
-            Row(
+        child: Row(
           children: [
             Container(
-              width:
-                  42,
+              width: 42,
 
-              height:
-                  42,
+              height: 42,
 
-              decoration:
-                  BoxDecoration(
+              decoration: BoxDecoration(
                 color:
-                    (
-                      isTeacher
-                          ? AppColors.teacherIndigo
-                          : AppColors.studentBlue
-                    ).withOpacity(
-                  0.14,
-                ),
+                    (isTeacher
+                            ? AppColors.teacherIndigo
+                            : AppColors.studentBlue)
+                        .withOpacity(0.14),
 
-                borderRadius:
-                    BorderRadius.circular(
-                  11,
-                ),
+                borderRadius: BorderRadius.circular(11),
               ),
 
-              child:
-                  Icon(
+              child: Icon(
                 isTeacher
-                    ? Icons
-                        .cast_for_education_rounded
+                    ? Icons.cast_for_education_rounded
                     : Icons.school_rounded,
 
-                color:
-                    isTeacher
-                        ? AppColors.teacherIndigo
-                        : AppColors.studentBlue,
+                color: isTeacher
+                    ? AppColors.teacherIndigo
+                    : AppColors.studentBlue,
               ),
             ),
 
-            const SizedBox(
-              width:
-                  11,
-            ),
+            const SizedBox(width: 11),
 
             Expanded(
-              child:
-                  Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
 
                 children: [
                   Text(
-                    isTeacher
-                        ? 'Insegnante'
-                        : 'Studente',
+                    isTeacher ? 'Insegnante' : 'Studente',
 
-                    style:
-                        const TextStyle(
-                      color:
-                          AppColors.pureWhite,
+                    style: const TextStyle(
+                      color: AppColors.pureWhite,
 
-                      fontSize:
-                          12,
+                      fontSize: 12,
 
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
 
-                  const SizedBox(
-                    height:
-                        3,
-                  ),
+                  const SizedBox(height: 3),
 
                   Text(
                     isTeacher
                         ? 'Il ruolo docente è gestito dal sistema di verifica StudentLab.'
                         : 'Il ruolo studente è associato al tuo account.',
 
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite
-                              .withOpacity(
-                        0.40,
-                      ),
+                    style: TextStyle(
+                      color: AppColors.pureWhite.withOpacity(0.40),
 
-                      fontSize:
-                          9,
+                      fontSize: 9,
 
-                      height:
-                          1.35,
+                      height: 1.35,
                     ),
                   ),
                 ],
@@ -1856,210 +1120,134 @@ class _EditSocialProfilePageState
     );
   }
 
-
   Widget _buildAvailabilitySection() {
     return _EditSection(
-      title:
-          'Disponibilità',
+      title: 'Disponibilità',
 
-      icon:
-          Icons.schedule_outlined,
+      icon: Icons.schedule_outlined,
 
-      child:
-          Column(
+      child: Column(
         children: [
           SwitchListTile(
-            contentPadding:
-                EdgeInsets.zero,
+            contentPadding: EdgeInsets.zero,
 
-            value:
-                _available,
+            value: _available,
 
-            onChanged:
-                _saving
-                    ? null
-                    : (
-                        bool value,
-                      ) {
-                        setState(() {
-                          _available =
-                              value;
-                        });
-                      },
+            onChanged: _saving
+                ? null
+                : (bool value) {
+                    setState(() {
+                      _available = value;
+                    });
+                  },
 
-            activeColor:
-                AppColors.skyBlue,
+            activeColor: AppColors.skyBlue,
 
-            title:
-                const Text(
+            title: const Text(
               'Disponibile',
 
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite,
+              style: TextStyle(
+                color: AppColors.pureWhite,
 
-                fontSize:
-                    13,
+                fontSize: 13,
 
-                fontWeight:
-                    FontWeight.w500,
+                fontWeight: FontWeight.w500,
               ),
             ),
 
-            subtitle:
-                Text(
+            subtitle: Text(
               'Indica agli altri utenti che sei disponibile a essere contattato.',
 
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.42,
-                ),
+              style: TextStyle(
+                color: AppColors.pureWhite.withOpacity(0.42),
 
-                fontSize:
-                    10,
+                fontSize: 10,
 
-                height:
-                    1.35,
+                height: 1.35,
               ),
             ),
           ),
 
-          Divider(
-            color:
-                AppColors.pureWhite
-                    .withOpacity(
-              0.06,
-            ),
-          ),
+          Divider(color: AppColors.pureWhite.withOpacity(0.06)),
 
           SwitchListTile(
-            contentPadding:
-                EdgeInsets.zero,
+            contentPadding: EdgeInsets.zero,
 
-            value:
-                _availableForHelp,
+            value: _availableForHelp,
 
-            onChanged:
-                _saving
-                    ? null
-                    : (
-                        bool value,
-                      ) {
-                        setState(() {
-                          _availableForHelp =
-                              value;
-                        });
-                      },
+            onChanged: _saving
+                ? null
+                : (bool value) {
+                    setState(() {
+                      _availableForHelp = value;
+                    });
+                  },
 
-            activeColor:
-                AppColors.skyBlue,
+            activeColor: AppColors.skyBlue,
 
-            title:
-                const Text(
+            title: const Text(
               'Disponibile ad aiutare',
 
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite,
+              style: TextStyle(
+                color: AppColors.pureWhite,
 
-                fontSize:
-                    13,
+                fontSize: 13,
 
-                fontWeight:
-                    FontWeight.w500,
+                fontWeight: FontWeight.w500,
               ),
             ),
 
-            subtitle:
-                Text(
+            subtitle: Text(
               'Abilita globalmente la tua disponibilità per aiutare altri utenti nelle materie selezionate.',
 
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.42,
-                ),
+              style: TextStyle(
+                color: AppColors.pureWhite.withOpacity(0.42),
 
-                fontSize:
-                    10,
+                fontSize: 10,
 
-                height:
-                    1.35,
+                height: 1.35,
               ),
             ),
           ),
 
-          Divider(
-            color:
-                AppColors.pureWhite
-                    .withOpacity(
-              0.06,
-            ),
-          ),
+          Divider(color: AppColors.pureWhite.withOpacity(0.06)),
 
           SwitchListTile(
-            contentPadding:
-                EdgeInsets.zero,
+            contentPadding: EdgeInsets.zero,
 
-            value:
-                _availableForPrivateLessons,
+            value: _availableForPrivateLessons,
 
-            onChanged:
-                _saving
-                    ? null
-                    : (
-                        bool value,
-                      ) {
-                        setState(() {
-                          _availableForPrivateLessons =
-                              value;
-                        });
-                      },
+            onChanged: _saving
+                ? null
+                : (bool value) {
+                    setState(() {
+                      _availableForPrivateLessons = value;
+                    });
+                  },
 
-            activeColor:
-                AppColors.skyBlue,
+            activeColor: AppColors.skyBlue,
 
-            title:
-                const Text(
+            title: const Text(
               'Lezioni private',
 
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite,
+              style: TextStyle(
+                color: AppColors.pureWhite,
 
-                fontSize:
-                    13,
+                fontSize: 13,
 
-                fontWeight:
-                    FontWeight.w500,
+                fontWeight: FontWeight.w500,
               ),
             ),
 
-            subtitle:
-                Text(
+            subtitle: Text(
               'Abilita globalmente la possibilità di offrire lezioni private nelle materie selezionate.',
 
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.42,
-                ),
+              style: TextStyle(
+                color: AppColors.pureWhite.withOpacity(0.42),
 
-                fontSize:
-                    10,
+                fontSize: 10,
 
-                height:
-                    1.35,
+                height: 1.35,
               ),
             ),
           ),
@@ -2068,121 +1256,72 @@ class _EditSocialProfilePageState
     );
   }
 
-
   Widget _buildDescriptionSection() {
     return _EditSection(
-      title:
-          'Descrizione',
+      title: 'Descrizione',
 
-      icon:
-          Icons.notes_rounded,
+      icon: Icons.notes_rounded,
 
-      child:
-          TextFormField(
-        controller:
-            _descriptionController,
+      child: TextFormField(
+        controller: _descriptionController,
 
-        enabled:
-            !_saving,
+        enabled: !_saving,
 
-        minLines:
-            4,
+        minLines: 4,
 
-        maxLines:
-            7,
+        maxLines: 7,
 
-        maxLength:
-            1000,
+        maxLength: 1000,
 
-        style:
-            const TextStyle(
-          color:
-              AppColors.pureWhite,
-        ),
+        style: const TextStyle(color: AppColors.pureWhite),
 
-        decoration:
-            _inputDecoration(
-          label:
-              'Parla di te',
+        decoration: _inputDecoration(
+          label: 'Parla di te',
 
-          icon:
-              Icons.edit_note_rounded,
+          icon: Icons.edit_note_rounded,
 
-          hint:
-              'Interessi, materie, obiettivi di studio...',
+          hint: 'Interessi, materie, obiettivi di studio...',
         ),
       ),
     );
   }
 
-
   Widget _buildError() {
     return Container(
-      padding:
-          const EdgeInsets.all(
-        14,
+      padding: const EdgeInsets.all(14),
+
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withOpacity(0.08),
+
+        borderRadius: BorderRadius.circular(12),
+
+        border: Border.all(color: Colors.redAccent.withOpacity(0.20)),
       ),
 
-      decoration:
-          BoxDecoration(
-        color:
-            Colors.redAccent
-                .withOpacity(
-          0.08,
-        ),
-
-        borderRadius:
-            BorderRadius.circular(
-          12,
-        ),
-
-        border:
-            Border.all(
-          color:
-              Colors.redAccent
-                  .withOpacity(
-            0.20,
-          ),
-        ),
-      ),
-
-      child:
-          Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           const Icon(
             Icons.error_outline_rounded,
 
-            color:
-                Colors.redAccent,
+            color: Colors.redAccent,
 
-            size:
-                19,
+            size: 19,
           ),
 
-          const SizedBox(
-            width:
-                8,
-          ),
+          const SizedBox(width: 8),
 
           Expanded(
-            child:
-                Text(
-              _error ??
-                  'Errore durante il salvataggio.',
+            child: Text(
+              _error ?? 'Errore durante il salvataggio.',
 
-              style:
-                  const TextStyle(
-                color:
-                    Colors.white70,
+              style: const TextStyle(
+                color: Colors.white70,
 
-                fontSize:
-                    10,
+                fontSize: 10,
 
-                height:
-                    1.4,
+                height: 1.4,
               ),
             ),
           ),
@@ -2190,7 +1329,6 @@ class _EditSocialProfilePageState
       ),
     );
   }
-
 
   InputDecoration _inputDecoration({
     required String label,
@@ -2198,130 +1336,59 @@ class _EditSocialProfilePageState
     String? hint,
   }) {
     return InputDecoration(
-      labelText:
-          label,
+      labelText: label,
 
-      hintText:
-          hint,
+      hintText: hint,
 
-      labelStyle:
-          TextStyle(
-        color:
-            AppColors.pureWhite
-                .withOpacity(
-          0.55,
-        ),
+      labelStyle: TextStyle(color: AppColors.pureWhite.withOpacity(0.55)),
+
+      hintStyle: TextStyle(color: AppColors.pureWhite.withOpacity(0.28)),
+
+      prefixIcon: Icon(icon, color: AppColors.skyBlue),
+
+      filled: true,
+
+      fillColor: AppColors.brandNightBlue,
+
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+
+        borderSide: BorderSide.none,
       ),
 
-      hintStyle:
-          TextStyle(
-        color:
-            AppColors.pureWhite
-                .withOpacity(
-          0.28,
-        ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+
+        borderSide: BorderSide(color: AppColors.skyBlue.withOpacity(0.08)),
       ),
 
-      prefixIcon:
-          Icon(
-        icon,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
 
-        color:
-            AppColors.skyBlue,
+        borderSide: BorderSide(color: AppColors.skyBlue.withOpacity(0.50)),
       ),
 
-      filled:
-          true,
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
 
-      fillColor:
-          AppColors.brandNightBlue,
-
-      border:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
-
-        borderSide:
-            BorderSide.none,
+        borderSide: const BorderSide(color: Colors.redAccent),
       ),
 
-      enabledBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
 
-        borderSide:
-            BorderSide(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.08,
-          ),
-        ),
-      ),
-
-      focusedBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
-
-        borderSide:
-            BorderSide(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.50,
-          ),
-        ),
-      ),
-
-      errorBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
-
-        borderSide:
-            const BorderSide(
-          color:
-              Colors.redAccent,
-        ),
-      ),
-
-      focusedErrorBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
-
-        borderSide:
-            const BorderSide(
-          color:
-              Colors.redAccent,
-        ),
+        borderSide: const BorderSide(color: Colors.redAccent),
       ),
     );
   }
 }
 
-
-class _EditSection
-    extends StatelessWidget {
-
+class _EditSection extends StatelessWidget {
   final String title;
 
   final IconData icon;
 
   final Widget child;
-
 
   const _EditSection({
     required this.title,
@@ -2329,82 +1396,44 @@ class _EditSection
     required this.child,
   });
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.all(
-        17,
+      padding: const EdgeInsets.all(17),
+
+      decoration: BoxDecoration(
+        color: AppColors.eleganceMidnight,
+
+        borderRadius: BorderRadius.circular(18),
+
+        border: Border.all(color: AppColors.skyBlue.withOpacity(0.10)),
       ),
 
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.eleganceMidnight,
-
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-
-        border:
-            Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.10,
-          ),
-        ),
-      ),
-
-      child:
-          Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           Row(
             children: [
-              Icon(
-                icon,
+              Icon(icon, color: AppColors.skyBlue, size: 19),
 
-                color:
-                    AppColors.skyBlue,
-
-                size:
-                    19,
-              ),
-
-              const SizedBox(
-                width:
-                    8,
-              ),
+              const SizedBox(width: 8),
 
               Text(
                 title,
 
-                style:
-                    const TextStyle(
-                  color:
-                      AppColors.pureWhite,
+                style: const TextStyle(
+                  color: AppColors.pureWhite,
 
-                  fontSize:
-                      14,
+                  fontSize: 14,
 
-                  fontWeight:
-                      FontWeight.w600,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(
-            height:
-                15,
-          ),
+          const SizedBox(height: 15),
 
           child,
         ],
@@ -2413,149 +1442,93 @@ class _EditSection
   }
 }
 
-
-class _ProfileSubjectChip
-    extends StatelessWidget {
-
+class _ProfileSubjectChip extends StatelessWidget {
   final SocialSubject subject;
 
-
-  const _ProfileSubjectChip({
-    required this.subject,
-  });
-
+  const _ProfileSubjectChip({required this.subject});
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal:
-            9,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
 
-        vertical:
-            7,
+      decoration: BoxDecoration(
+        color: AppColors.brandNightBlue,
+
+        borderRadius: BorderRadius.circular(10),
+
+        border: Border.all(color: AppColors.skyBlue.withOpacity(0.08)),
       ),
 
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.brandNightBlue,
-
-        borderRadius:
-            BorderRadius.circular(
-          10,
-        ),
-
-        border:
-            Border.all(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.08,
-          ),
-        ),
-      ),
-
-      child:
-          Row(
-        mainAxisSize:
-            MainAxisSize.min,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
 
         children: [
           const Icon(
             Icons.menu_book_outlined,
 
-            color:
-                AppColors.materialSky,
+            color: AppColors.materialSky,
 
-            size:
-                13,
+            size: 13,
           ),
 
-          const SizedBox(
-            width:
-                5,
-          ),
+          const SizedBox(width: 5),
 
-          Text(
-            subject.name,
+          Flexible(
+            child: Text(
+              subject.name,
 
-            style:
-                const TextStyle(
-              color:
-                  AppColors.pureWhite,
+              maxLines: 1,
 
-              fontSize:
-                  9,
+              overflow: TextOverflow.ellipsis,
 
-              fontWeight:
-                  FontWeight.w500,
+              style: const TextStyle(
+                color: AppColors.pureWhite,
+
+                fontSize: 9,
+
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
 
-          if (subject.grade !=
-              null) ...[
-            const SizedBox(
-              width:
-                  6,
-            ),
+          if (subject.grade != null) ...[
+            const SizedBox(width: 6),
 
             Text(
               '${subject.grade}/30',
 
-              style:
-                  const TextStyle(
-                color:
-                    AppColors.materialSky,
+              style: const TextStyle(
+                color: AppColors.materialSky,
 
-                fontSize:
-                    8,
+                fontSize: 8,
 
-                fontWeight:
-                    FontWeight.w600,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
 
           if (subject.canHelp) ...[
-            const SizedBox(
-              width:
-                  5,
-            ),
+            const SizedBox(width: 5),
 
             const Icon(
-              Icons
-                  .volunteer_activism_outlined,
+              Icons.volunteer_activism_outlined,
 
-              color:
-                  AppColors.materialSky,
+              color: AppColors.materialSky,
 
-              size:
-                  11,
+              size: 11,
             ),
           ],
 
-          if (
-            subject
-                .canGivePrivateLessons
-          ) ...[
-            const SizedBox(
-              width:
-                  5,
-            ),
+          if (subject.canGivePrivateLessons) ...[
+            const SizedBox(width: 5),
 
             const Icon(
-              Icons
-                  .cast_for_education_outlined,
+              Icons.cast_for_education_outlined,
 
-              color:
-                  AppColors.materialSky,
+              color: AppColors.materialSky,
 
-              size:
-                  11,
+              size: 11,
             ),
           ],
         ],
@@ -2564,10 +1537,7 @@ class _ProfileSubjectChip
   }
 }
 
-
-class _AcademicPathCard
-    extends StatelessWidget {
-
+class _AcademicPathCard extends StatelessWidget {
   final SocialAcademicPath path;
 
   final bool disabled;
@@ -2580,7 +1550,6 @@ class _AcademicPathCard
 
   final VoidCallback onRemove;
 
-
   const _AcademicPathCard({
     required this.path,
     required this.disabled,
@@ -2590,49 +1559,27 @@ class _AcademicPathCard
     required this.onRemove,
   });
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
-      width:
-          double.infinity,
+      width: double.infinity,
 
-      padding:
-          const EdgeInsets.all(
-        13,
-      ),
+      padding: const EdgeInsets.all(13),
 
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.brandNightBlue,
+      decoration: BoxDecoration(
+        color: AppColors.brandNightBlue,
 
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
+        borderRadius: BorderRadius.circular(13),
 
-        border:
-            Border.all(
-          color:
-              path.isPrimary
-                  ? AppColors.skyBlue
-                      .withOpacity(
-                    0.25,
-                  )
-                  : AppColors.skyBlue
-                      .withOpacity(
-                    0.07,
-                  ),
+        border: Border.all(
+          color: path.isPrimary
+              ? AppColors.skyBlue.withOpacity(0.25)
+              : AppColors.skyBlue.withOpacity(0.07),
         ),
       ),
 
-      child:
-          Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           Row(
@@ -2640,23 +1587,16 @@ class _AcademicPathCard
               const Icon(
                 Icons.school_outlined,
 
-                color:
-                    AppColors.skyBlue,
+                color: AppColors.skyBlue,
 
-                size:
-                    18,
+                size: 18,
               ),
 
-              const SizedBox(
-                width:
-                    8,
-              ),
+              const SizedBox(width: 8),
 
               Expanded(
-                child:
-                    Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
                     Text(
@@ -2664,37 +1604,24 @@ class _AcademicPathCard
                           ? path.course
                           : '${path.course} ${path.degreeType}',
 
-                      style:
-                          const TextStyle(
-                        color:
-                            AppColors.pureWhite,
+                      style: const TextStyle(
+                        color: AppColors.pureWhite,
 
-                        fontSize:
-                            12,
+                        fontSize: 12,
 
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
 
-                    const SizedBox(
-                      height:
-                          3,
-                    ),
+                    const SizedBox(height: 3),
 
                     Text(
                       path.university,
 
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite
-                                .withOpacity(
-                          0.40,
-                        ),
+                      style: TextStyle(
+                        color: AppColors.pureWhite.withOpacity(0.40),
 
-                        fontSize:
-                            9,
+                        fontSize: 9,
                       ),
                     ),
                   ],
@@ -2702,24 +1629,17 @@ class _AcademicPathCard
               ),
 
               PopupMenuButton<String>(
-                enabled:
-                    !disabled,
+                enabled: !disabled,
 
-                icon:
-                    const Icon(
+                icon: const Icon(
                   Icons.more_vert_rounded,
 
-                  color:
-                      Colors.white54,
+                  color: Colors.white54,
                 ),
 
-                color:
-                    AppColors.eleganceDeepNavy,
+                color: AppColors.eleganceDeepNavy,
 
-                onSelected:
-                    (
-                  String value,
-                ) {
+                onSelected: (String value) {
                   switch (value) {
                     case 'edit':
                       onEdit();
@@ -2739,75 +1659,47 @@ class _AcademicPathCard
                   }
                 },
 
-                itemBuilder:
-                    (_) {
+                itemBuilder: (_) {
                   return [
                     const PopupMenuItem(
-                      value:
-                          'edit',
+                      value: 'edit',
 
-                      child:
-                          Text(
+                      child: Text(
                         'Modifica',
 
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite,
-                        ),
+                        style: TextStyle(color: AppColors.pureWhite),
                       ),
                     ),
 
-                    if (
-                      path.isEnrolled &&
-                      !path.isCurrent
-                    )
+                    if (path.isEnrolled && !path.isCurrent)
                       const PopupMenuItem(
-                        value:
-                            'current',
+                        value: 'current',
 
-                        child:
-                            Text(
+                        child: Text(
                           'Imposta corrente',
 
-                          style:
-                              TextStyle(
-                            color:
-                                AppColors.pureWhite,
-                          ),
+                          style: TextStyle(color: AppColors.pureWhite),
                         ),
                       ),
 
                     if (!path.isPrimary)
                       const PopupMenuItem(
-                        value:
-                            'primary',
+                        value: 'primary',
 
-                        child:
-                            Text(
+                        child: Text(
                           'Imposta principale',
 
-                          style:
-                              TextStyle(
-                            color:
-                                AppColors.pureWhite,
-                          ),
+                          style: TextStyle(color: AppColors.pureWhite),
                         ),
                       ),
 
                     const PopupMenuItem(
-                      value:
-                          'remove',
+                      value: 'remove',
 
-                      child:
-                          Text(
+                      child: Text(
                         'Rimuovi',
 
-                        style:
-                            TextStyle(
-                          color:
-                              Colors.redAccent,
-                        ),
+                        style: TextStyle(color: Colors.redAccent),
                       ),
                     ),
                   ];
@@ -2816,121 +1708,73 @@ class _AcademicPathCard
             ],
           ),
 
-          const SizedBox(
-            height:
-                10,
-          ),
+          const SizedBox(height: 10),
 
           Wrap(
-            spacing:
-                6,
+            spacing: 6,
 
-            runSpacing:
-                6,
+            runSpacing: 6,
 
             children: [
               _AcademicPathBadge(
-                label:
-                    _academicStatusLabel(
-                  path.status,
-                ),
+                label: _academicStatusLabel(path.status),
 
-                icon:
-                    _academicStatusIcon(
-                  path.status,
-                ),
+                icon: _academicStatusIcon(path.status),
               ),
 
               if (path.isPrimary)
                 const _AcademicPathBadge(
-                  label:
-                      'Principale',
+                  label: 'Principale',
 
-                  icon:
-                      Icons.star_outline_rounded,
+                  icon: Icons.star_outline_rounded,
                 ),
 
               if (path.isCurrent)
                 const _AcademicPathBadge(
-                  label:
-                      'Corrente',
+                  label: 'Corrente',
 
-                  icon:
-                      Icons
-                          .play_circle_outline_rounded,
+                  icon: Icons.play_circle_outline_rounded,
                 ),
 
-              if (
-                path.isGraduated &&
-                path.isVerified
-              )
+              if (path.isGraduated && path.isVerified)
                 const _AcademicPathBadge(
-                  label:
-                      'Laurea verificata',
+                  label: 'Laurea verificata',
 
-                  icon:
-                      Icons.verified_rounded,
+                  icon: Icons.verified_rounded,
 
-                  color:
-                      Colors.greenAccent,
+                  color: Colors.greenAccent,
                 ),
 
-              if (
-                path.isGraduated &&
-                path.isVerificationPending
-              )
+              if (path.isGraduated && path.isVerificationPending)
                 const _AcademicPathBadge(
-                  label:
-                      'Verifica in corso',
+                  label: 'Verifica in corso',
 
-                  icon:
-                      Icons.schedule_rounded,
+                  icon: Icons.schedule_rounded,
 
-                  color:
-                      Colors.amber,
+                  color: Colors.amber,
                 ),
 
-              if (
-                path.isGraduated &&
-                path.isVerificationRejected
-              )
+              if (path.isGraduated && path.isVerificationRejected)
                 const _AcademicPathBadge(
-                  label:
-                      'Verifica rifiutata',
+                  label: 'Verifica rifiutata',
 
-                  icon:
-                      Icons.cancel_outlined,
+                  icon: Icons.cancel_outlined,
 
-                  color:
-                      Colors.redAccent,
+                  color: Colors.redAccent,
                 ),
             ],
           ),
 
-          if (
-            path.startYear != null ||
-            path.graduationYear != null
-          ) ...[
-            const SizedBox(
-              height:
-                  9,
-            ),
+          if (path.startYear != null || path.graduationYear != null) ...[
+            const SizedBox(height: 9),
 
             Text(
-              _academicYearsLabel(
-                path,
-              ),
+              _academicYearsLabel(path),
 
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.38,
-                ),
+              style: TextStyle(
+                color: AppColors.pureWhite.withOpacity(0.38),
 
-                fontSize:
-                    9,
+                fontSize: 9,
               ),
             ),
           ],
@@ -2940,195 +1784,118 @@ class _AcademicPathCard
   }
 }
 
-
-class _AcademicPathEditorSheet
-    extends StatefulWidget {
-
+class _AcademicPathEditorSheet extends StatefulWidget {
   final SocialAcademicPath? initialPath;
 
-
-  const _AcademicPathEditorSheet({
-    this.initialPath,
-  });
-
+  const _AcademicPathEditorSheet({this.initialPath});
 
   @override
-  State<_AcademicPathEditorSheet>
-      createState() =>
-          _AcademicPathEditorSheetState();
+  State<_AcademicPathEditorSheet> createState() =>
+      _AcademicPathEditorSheetState();
 }
 
+class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-class _AcademicPathEditorSheetState
-    extends State<_AcademicPathEditorSheet> {
+  final ApiService _apiService = ApiService();
 
-  final GlobalKey<FormState> _formKey =
-      GlobalKey<FormState>();
+  final TextEditingController _startYearController = TextEditingController();
 
-  final ApiService _apiService =
-      ApiService();
-
-  final TextEditingController
-      _startYearController =
+  final TextEditingController _graduationYearController =
       TextEditingController();
 
-  final TextEditingController
-      _graduationYearController =
-      TextEditingController();
+  List<AcademicUniversity> _universities = [];
 
+  List<AcademicDepartment> _departments = [];
 
-  List<AcademicUniversity>
-      _universities =
-      [];
+  List<AcademicCourse> _courses = [];
 
-  List<AcademicDepartment>
-      _departments =
-      [];
+  AcademicUniversity? _university;
 
-  List<AcademicCourse>
-      _courses =
-      [];
+  AcademicDepartment? _department;
 
+  AcademicCourse? _course;
 
-  AcademicUniversity?
-      _university;
+  AcademicPathStatus _status = AcademicPathStatus.enrolled;
 
-  AcademicDepartment?
-      _department;
+  bool _isCurrent = false;
 
-  AcademicCourse?
-      _course;
+  bool _isPrimary = false;
 
-
-  AcademicPathStatus _status =
-      AcademicPathStatus.enrolled;
-
-  bool _isCurrent =
-      false;
-
-  bool _isPrimary =
-      false;
-
-  bool _loading =
-      true;
+  bool _loading = true;
 
   String? _error;
-
 
   @override
   void initState() {
     super.initState();
 
-    final SocialAcademicPath?
-        path =
-        widget.initialPath;
+    final SocialAcademicPath? path = widget.initialPath;
 
     if (path != null) {
-      _status =
-          path.status;
+      _status = path.status;
 
-      _isCurrent =
-          path.isCurrent;
+      _isCurrent = path.isCurrent;
 
-      _isPrimary =
-          path.isPrimary;
+      _isPrimary = path.isPrimary;
 
       if (path.startYear != null) {
-        _startYearController.text =
-            path.startYear
-                .toString();
+        _startYearController.text = path.startYear.toString();
       }
 
-      if (
-        path.graduationYear != null
-      ) {
-        _graduationYearController
-                .text =
-            path.graduationYear
-                .toString();
+      if (path.graduationYear != null) {
+        _graduationYearController.text = path.graduationYear.toString();
       }
     }
 
     _load();
   }
 
-
   @override
   void dispose() {
     _startYearController.dispose();
 
-    _graduationYearController
-        .dispose();
+    _graduationYearController.dispose();
 
     super.dispose();
   }
 
-
   Future<void> _load() async {
-    setState(() {
-      _loading =
-          true;
-
-      _error =
-          null;
-    });
-
     try {
-      final List<AcademicUniversity>
-          universities =
-          await _apiService
-              .getUniversities();
+      final List<AcademicUniversity> universities = await _apiService
+          .getUniversities();
 
       if (!mounted) {
         return;
       }
 
-      AcademicUniversity?
-          selectedUniversity;
+      AcademicUniversity? selectedUniversity;
 
-      final SocialAcademicPath?
-          initialPath =
-          widget.initialPath;
+      final SocialAcademicPath? initialPath = widget.initialPath;
 
       if (initialPath != null) {
-        for (
-          final AcademicUniversity university
-          in universities
-        ) {
-          if (
-            university.code ==
-                initialPath.universityCode
-          ) {
-            selectedUniversity =
-                university;
+        for (final AcademicUniversity university in universities) {
+          if (university.code == initialPath.universityCode) {
+            selectedUniversity = university;
 
             break;
           }
         }
       }
 
-      selectedUniversity ??=
-          universities.isEmpty
-              ? null
-              : universities.first;
+      selectedUniversity ??= universities.isEmpty ? null : universities.first;
 
       setState(() {
-        _universities =
-            universities;
+        _universities = universities;
 
-        _university =
-            selectedUniversity;
+        _university = selectedUniversity;
       });
 
-      if (selectedUniversity !=
-          null) {
+      if (selectedUniversity != null) {
         await _loadDepartments(
           selectedUniversity.code,
-          initialDepartmentCode:
-              initialPath
-                  ?.departmentCode,
-          initialCourseCode:
-              initialPath?.courseCode,
+          initialDepartmentCode: initialPath?.departmentCode,
+          initialCourseCode: initialPath?.courseCode,
         );
       }
 
@@ -3137,8 +1904,7 @@ class _AcademicPathEditorSheetState
       }
 
       setState(() {
-        _loading =
-            false;
+        _loading = false;
       });
     } catch (e) {
       if (!mounted) {
@@ -3146,388 +1912,232 @@ class _AcademicPathEditorSheetState
       }
 
       setState(() {
-        _loading =
-            false;
+        _loading = false;
 
-        _error =
-            e.toString();
+        _error = e.toString();
       });
     }
   }
-
 
   Future<void> _loadDepartments(
     String universityCode, {
     String? initialDepartmentCode,
     String? initialCourseCode,
   }) async {
-    final List<AcademicDepartment>
-        departments =
-        await _apiService
-            .getDepartments(
-      universityCode,
-    );
+    final List<AcademicDepartment> departments = await _apiService
+        .getDepartments(universityCode);
 
     if (!mounted) {
       return;
     }
 
-    AcademicDepartment?
-        selectedDepartment;
+    AcademicDepartment? selectedDepartment;
 
-    if (initialDepartmentCode !=
-        null) {
-      for (
-        final AcademicDepartment department
-        in departments
-      ) {
-        if (
-          department.code ==
-              initialDepartmentCode
-        ) {
-          selectedDepartment =
-              department;
+    if (initialDepartmentCode != null) {
+      for (final AcademicDepartment department in departments) {
+        if (department.code == initialDepartmentCode) {
+          selectedDepartment = department;
 
           break;
         }
       }
     }
 
-    selectedDepartment ??=
-        departments.isEmpty
-            ? null
-            : departments.first;
+    selectedDepartment ??= departments.isEmpty ? null : departments.first;
 
     setState(() {
-      _departments =
-          departments;
+      _departments = departments;
 
-      _department =
-          selectedDepartment;
+      _department = selectedDepartment;
 
-      _courses =
-          [];
+      _courses = [];
 
-      _course =
-          null;
+      _course = null;
     });
 
-    if (selectedDepartment !=
-        null) {
+    if (selectedDepartment != null) {
       await _loadCourses(
-        universityCode:
-            universityCode,
+        universityCode: universityCode,
 
-        departmentCode:
-            selectedDepartment.code,
+        departmentCode: selectedDepartment.code,
 
-        initialCourseCode:
-            initialCourseCode,
+        initialCourseCode: initialCourseCode,
       );
     }
   }
-
 
   Future<void> _loadCourses({
     required String universityCode,
     required String departmentCode,
     String? initialCourseCode,
   }) async {
-    final List<AcademicCourse>
-        courses =
-        await _apiService.getCourses(
-      universityCode:
-          universityCode,
+    final List<AcademicCourse> courses = await _apiService.getCourses(
+      universityCode: universityCode,
 
-      departmentCode:
-          departmentCode,
+      departmentCode: departmentCode,
     );
 
     if (!mounted) {
       return;
     }
 
-    AcademicCourse?
-        selectedCourse;
+    AcademicCourse? selectedCourse;
 
-    if (initialCourseCode !=
-        null) {
-      for (
-        final AcademicCourse course
-        in courses
-      ) {
-        if (
-          course.code ==
-              initialCourseCode
-        ) {
-          selectedCourse =
-              course;
+    if (initialCourseCode != null) {
+      for (final AcademicCourse course in courses) {
+        if (course.code == initialCourseCode) {
+          selectedCourse = course;
 
           break;
         }
       }
     }
 
-    selectedCourse ??=
-        courses.isEmpty
-            ? null
-            : courses.first;
+    selectedCourse ??= courses.isEmpty ? null : courses.first;
 
     setState(() {
-      _courses =
-          courses;
+      _courses = courses;
 
-      _course =
-          selectedCourse;
+      _course = selectedCourse;
     });
   }
 
-
   void _submit() {
-    if (
-      !_formKey.currentState!
-          .validate()
-    ) {
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    final AcademicUniversity?
-        university =
-        _university;
+    final AcademicUniversity? university = _university;
 
-    final AcademicDepartment?
-        department =
-        _department;
+    final AcademicDepartment? department = _department;
 
-    final AcademicCourse?
-        course =
-        _course;
+    final AcademicCourse? course = _course;
 
-    if (
-      university == null ||
-      department == null ||
-      course == null
-    ) {
+    if (university == null || department == null || course == null) {
       return;
     }
 
-    final int? startYear =
-        _startYearController.text
-                .trim()
-                .isEmpty
-            ? null
-            : int.tryParse(
-                _startYearController.text
-                    .trim(),
-              );
+    final int? startYear = _startYearController.text.trim().isEmpty
+        ? null
+        : int.tryParse(_startYearController.text.trim());
 
-    final int? graduationYear =
-        _status ==
-                AcademicPathStatus
-                    .graduated
-            ? _graduationYearController
-                    .text
-                    .trim()
-                    .isEmpty
-                ? null
-                : int.tryParse(
-                    _graduationYearController
-                        .text
-                        .trim(),
-                  )
-            : null;
+    final int? graduationYear = _status == AcademicPathStatus.graduated
+        ? _graduationYearController.text.trim().isEmpty
+              ? null
+              : int.tryParse(_graduationYearController.text.trim())
+        : null;
 
     Navigator.pop(
       context,
       _AcademicPathFormResult(
-        university:
-            university,
+        university: university,
 
-        department:
-            department,
+        department: department,
 
-        course:
-            course,
+        course: course,
 
-        status:
-            _status,
+        status: _status,
 
-        startYear:
-            startYear,
+        startYear: startYear,
 
-        graduationYear:
-            graduationYear,
+        graduationYear: graduationYear,
 
-        isCurrent:
-            _status ==
-                    AcademicPathStatus
-                        .enrolled
-                ? _isCurrent
-                : false,
+        isCurrent: _status == AcademicPathStatus.enrolled ? _isCurrent : false,
 
-        isPrimary:
-            _isPrimary,
+        isPrimary: _isPrimary,
       ),
     );
   }
 
-
-  String? _validateYear(
-    String? value,
-  ) {
-    if (
-      value == null ||
-      value.trim().isEmpty
-    ) {
+  String? _validateYear(String? value) {
+    if (value == null || value.trim().isEmpty) {
       return null;
     }
 
-    final int? year =
-        int.tryParse(
-      value.trim(),
-    );
+    final int? year = int.tryParse(value.trim());
 
     if (year == null) {
       return 'Anno non valido';
     }
 
-    final int currentYear =
-        DateTime.now().year;
+    final int currentYear = DateTime.now().year;
 
-    if (
-      year < 1900 ||
-      year > currentYear + 1
-    ) {
+    if (year < 1900 || year > currentYear + 1) {
       return 'Anno non valido';
     }
 
     return null;
   }
 
-
-  String? _validateGraduationYear(
-    String? value,
-  ) {
-    if (
-      _status !=
-          AcademicPathStatus
-              .graduated
-    ) {
+  String? _validateGraduationYear(String? value) {
+    if (_status != AcademicPathStatus.graduated) {
       return null;
     }
 
-    if (
-      value == null ||
-      value.trim().isEmpty
-    ) {
+    if (value == null || value.trim().isEmpty) {
       return 'Inserisci l\'anno di laurea';
     }
 
-    final int? year =
-        int.tryParse(
-      value.trim(),
-    );
+    final int? year = int.tryParse(value.trim());
 
     if (year == null) {
       return 'Anno non valido';
     }
 
-    final int currentYear =
-        DateTime.now().year;
+    final int currentYear = DateTime.now().year;
 
-    if (
-      year < 1900 ||
-      year > currentYear
-    ) {
+    if (year < 1900 || year > currentYear) {
       return 'Anno di laurea non valido';
     }
 
-    final int? startYear =
-        int.tryParse(
-      _startYearController.text
-          .trim(),
-    );
+    final int? startYear = int.tryParse(_startYearController.text.trim());
 
-    if (
-      startYear != null &&
-      year < startYear
-    ) {
+    if (startYear != null && year < startYear) {
       return 'L\'anno di laurea non può precedere l\'anno di inizio';
     }
 
     return null;
   }
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final double keyboard =
-        MediaQuery.of(
-      context,
-    ).viewInsets.bottom;
+  Widget build(BuildContext context) {
+    final double keyboard = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
-      padding:
-          EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        keyboard + 20,
-      ),
+      padding: EdgeInsets.fromLTRB(20, 18, 20, keyboard + 20),
 
-      child:
-          SingleChildScrollView(
-        child:
-            Form(
-          key:
-              _formKey,
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
 
-          child:
-              Column(
-            mainAxisSize:
-                MainAxisSize.min,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
 
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
               Text(
-                widget.initialPath ==
-                        null
+                widget.initialPath == null
                     ? 'Aggiungi percorso'
                     : 'Modifica percorso',
 
-                style:
-                    const TextStyle(
-                  color:
-                      AppColors.pureWhite,
+                style: const TextStyle(
+                  color: AppColors.pureWhite,
 
-                  fontSize:
-                      19,
+                  fontSize: 19,
 
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
 
-              const SizedBox(
-                height:
-                    18,
-              ),
+              const SizedBox(height: 18),
 
               if (_loading)
                 const Center(
-                  child:
-                      Padding(
-                    padding:
-                        EdgeInsets.all(
-                      20,
-                    ),
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
 
-                    child:
-                        CircularProgressIndicator(),
+                    child: CircularProgressIndicator(),
                   ),
                 )
               else ...[
@@ -3535,48 +2145,30 @@ class _AcademicPathEditorSheetState
                   Text(
                     _error!,
 
-                    style:
-                        const TextStyle(
-                      color:
-                          Colors.redAccent,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
 
-                      fontSize:
-                          10,
+                      fontSize: 10,
                     ),
                   ),
 
-                  const SizedBox(
-                    height:
-                        12,
-                  ),
+                  const SizedBox(height: 12),
                 ],
 
-                DropdownButtonFormField<
-                    AcademicUniversity>(
-                  value:
-                      _university,
+                DropdownButtonFormField<AcademicUniversity>(
+                  value: _university,
 
-                  isExpanded:
-                      true,
+                  isExpanded: true,
 
-                  dropdownColor:
-                      AppColors
-                          .eleganceDeepNavy,
+                  dropdownColor: AppColors.eleganceDeepNavy,
 
-                  decoration:
-                      _sheetDecoration(
-                    label:
-                        'Ateneo',
+                  decoration: _sheetDecoration(
+                    label: 'Ateneo',
 
-                    icon:
-                        Icons
-                            .account_balance_outlined,
+                    icon: Icons.account_balance_outlined,
                   ),
 
-                  validator:
-                      (
-                    value,
-                  ) {
+                  validator: (value) {
                     if (value == null) {
                       return 'Seleziona un ateneo';
                     }
@@ -3584,91 +2176,55 @@ class _AcademicPathEditorSheetState
                     return null;
                   },
 
-                  items:
-                      _universities
-                          .map(
-                            (
-                              AcademicUniversity university,
-                            ) =>
-                                DropdownMenuItem(
-                              value:
-                                  university,
+                  items: _universities
+                      .map(
+                        (AcademicUniversity university) => DropdownMenuItem(
+                          value: university,
 
-                              child:
-                                  Text(
-                                university.name,
+                          child: Text(
+                            university.name,
 
-                                overflow:
-                                    TextOverflow
-                                        .ellipsis,
+                            overflow: TextOverflow.ellipsis,
 
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      AppColors
-                                          .pureWhite,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
+                            style: const TextStyle(color: AppColors.pureWhite),
+                          ),
+                        ),
+                      )
+                      .toList(),
 
-                  onChanged:
-                      (
-                    AcademicUniversity?
-                        value,
-                  ) async {
+                  onChanged: (AcademicUniversity? value) async {
                     if (value == null) {
                       return;
                     }
 
                     setState(() {
-                      _university =
-                          value;
+                      _university = value;
 
-                      _department =
-                          null;
+                      _department = null;
 
-                      _course =
-                          null;
+                      _course = null;
                     });
 
-                    await _loadDepartments(
-                      value.code,
-                    );
+                    await _loadDepartments(value.code);
                   },
                 ),
 
-                const SizedBox(
-                  height:
-                      13,
-                ),
+                const SizedBox(height: 13),
 
-                DropdownButtonFormField<
-                    AcademicDepartment>(
-                  value:
-                      _department,
+                DropdownButtonFormField<AcademicDepartment>(
+                  value: _department,
 
-                  isExpanded:
-                      true,
+                  isExpanded: true,
 
-                  dropdownColor:
-                      AppColors
-                          .eleganceDeepNavy,
+                  dropdownColor: AppColors.eleganceDeepNavy,
 
-                  decoration:
-                      _sheetDecoration(
-                    label:
-                        'Dipartimento',
+                  decoration: _sheetDecoration(
+                    label: 'Dipartimento',
 
-                    icon:
-                        Icons.business_outlined,
+                    icon: Icons.business_outlined,
                   ),
 
-                  validator:
-                      (
-                    value,
-                  ) {
+                  validator: (value) {
                     if (value == null) {
                       return 'Seleziona un dipartimento';
                     }
@@ -3676,99 +2232,59 @@ class _AcademicPathEditorSheetState
                     return null;
                   },
 
-                  items:
-                      _departments
-                          .map(
-                            (
-                              AcademicDepartment department,
-                            ) =>
-                                DropdownMenuItem(
-                              value:
-                                  department,
+                  items: _departments
+                      .map(
+                        (AcademicDepartment department) => DropdownMenuItem(
+                          value: department,
 
-                              child:
-                                  Text(
-                                department.name,
+                          child: Text(
+                            department.name,
 
-                                overflow:
-                                    TextOverflow
-                                        .ellipsis,
+                            overflow: TextOverflow.ellipsis,
 
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      AppColors
-                                          .pureWhite,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
+                            style: const TextStyle(color: AppColors.pureWhite),
+                          ),
+                        ),
+                      )
+                      .toList(),
 
-                  onChanged:
-                      (
-                    AcademicDepartment?
-                        value,
-                  ) async {
-                    final AcademicUniversity?
-                        university =
-                        _university;
+                  onChanged: (AcademicDepartment? value) async {
+                    final AcademicUniversity? university = _university;
 
-                    if (
-                      value == null ||
-                      university == null
-                    ) {
+                    if (value == null || university == null) {
                       return;
                     }
 
                     setState(() {
-                      _department =
-                          value;
+                      _department = value;
 
-                      _course =
-                          null;
+                      _course = null;
                     });
 
                     await _loadCourses(
-                      universityCode:
-                          university.code,
+                      universityCode: university.code,
 
-                      departmentCode:
-                          value.code,
+                      departmentCode: value.code,
                     );
                   },
                 ),
 
-                const SizedBox(
-                  height:
-                      13,
-                ),
+                const SizedBox(height: 13),
 
-                DropdownButtonFormField<
-                    AcademicCourse>(
-                  value:
-                      _course,
+                DropdownButtonFormField<AcademicCourse>(
+                  value: _course,
 
-                  isExpanded:
-                      true,
+                  isExpanded: true,
 
-                  dropdownColor:
-                      AppColors
-                          .eleganceDeepNavy,
+                  dropdownColor: AppColors.eleganceDeepNavy,
 
-                  decoration:
-                      _sheetDecoration(
-                    label:
-                        'Corso',
+                  decoration: _sheetDecoration(
+                    label: 'Corso',
 
-                    icon:
-                        Icons.school_outlined,
+                    icon: Icons.school_outlined,
                   ),
 
-                  validator:
-                      (
-                    value,
-                  ) {
+                  validator: (value) {
                     if (value == null) {
                       return 'Seleziona un corso';
                     }
@@ -3776,422 +2292,247 @@ class _AcademicPathEditorSheetState
                     return null;
                   },
 
-                  items:
-                      _courses
-                          .map(
-                            (
-                              AcademicCourse course,
-                            ) =>
-                                DropdownMenuItem(
-                              value:
-                                  course,
+                  items: _courses
+                      .map(
+                        (AcademicCourse course) => DropdownMenuItem(
+                          value: course,
 
-                              child:
-                                  Text(
-                                course.name,
+                          child: Text(
+                            course.name,
 
-                                overflow:
-                                    TextOverflow
-                                        .ellipsis,
+                            overflow: TextOverflow.ellipsis,
 
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      AppColors
-                                          .pureWhite,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
+                            style: const TextStyle(color: AppColors.pureWhite),
+                          ),
+                        ),
+                      )
+                      .toList(),
 
-                  onChanged:
-                      (
-                    AcademicCourse?
-                        value,
-                  ) {
+                  onChanged: (AcademicCourse? value) {
                     setState(() {
-                      _course =
-                          value;
+                      _course = value;
                     });
                   },
                 ),
 
-                const SizedBox(
-                  height:
-                      13,
-                ),
+                const SizedBox(height: 13),
 
-                DropdownButtonFormField<
-                    AcademicPathStatus>(
-                  value:
-                      _status,
+                DropdownButtonFormField<AcademicPathStatus>(
+                  value: _status,
 
-                  dropdownColor:
-                      AppColors
-                          .eleganceDeepNavy,
+                  dropdownColor: AppColors.eleganceDeepNavy,
 
-                  decoration:
-                      _sheetDecoration(
-                    label:
-                        'Stato',
+                  decoration: _sheetDecoration(
+                    label: 'Stato',
 
-                    icon:
-                        Icons
-                            .workspace_premium_outlined,
+                    icon: Icons.workspace_premium_outlined,
                   ),
 
-                  items:
-                      const [
+                  items: const [
                     DropdownMenuItem(
-                      value:
-                          AcademicPathStatus
-                              .enrolled,
+                      value: AcademicPathStatus.enrolled,
 
-                      child:
-                          Text(
+                      child: Text(
                         'Attualmente iscritto',
 
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite,
-                        ),
+                        style: TextStyle(color: AppColors.pureWhite),
                       ),
                     ),
 
                     DropdownMenuItem(
-                      value:
-                          AcademicPathStatus
-                              .graduated,
+                      value: AcademicPathStatus.graduated,
 
-                      child:
-                          Text(
+                      child: Text(
                         'Laureato',
 
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite,
-                        ),
+                        style: TextStyle(color: AppColors.pureWhite),
                       ),
                     ),
 
                     DropdownMenuItem(
-                      value:
-                          AcademicPathStatus
-                              .suspended,
+                      value: AcademicPathStatus.suspended,
 
-                      child:
-                          Text(
+                      child: Text(
                         'Percorso sospeso',
 
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite,
-                        ),
+                        style: TextStyle(color: AppColors.pureWhite),
                       ),
                     ),
 
                     DropdownMenuItem(
-                      value:
-                          AcademicPathStatus
-                              .transferred,
+                      value: AcademicPathStatus.transferred,
 
-                      child:
-                          Text(
+                      child: Text(
                         'Trasferito',
 
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite,
-                        ),
+                        style: TextStyle(color: AppColors.pureWhite),
                       ),
                     ),
 
                     DropdownMenuItem(
-                      value:
-                          AcademicPathStatus
-                              .withdrawn,
+                      value: AcademicPathStatus.withdrawn,
 
-                      child:
-                          Text(
+                      child: Text(
                         'Percorso interrotto',
 
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite,
-                        ),
+                        style: TextStyle(color: AppColors.pureWhite),
                       ),
                     ),
                   ],
 
-                  onChanged:
-                      (
-                    AcademicPathStatus?
-                        value,
-                  ) {
+                  onChanged: (AcademicPathStatus? value) {
                     if (value == null) {
                       return;
                     }
 
                     setState(() {
-                      _status =
-                          value;
+                      _status = value;
 
-                      if (
-                        value !=
-                            AcademicPathStatus
-                                .enrolled
-                      ) {
-                        _isCurrent =
-                            false;
+                      if (value != AcademicPathStatus.enrolled) {
+                        _isCurrent = false;
                       }
 
-                      if (
-                        value !=
-                            AcademicPathStatus
-                                .graduated
-                      ) {
-                        _graduationYearController
-                            .clear();
+                      if (value != AcademicPathStatus.graduated) {
+                        _graduationYearController.clear();
                       }
                     });
                   },
                 ),
 
-                const SizedBox(
-                  height:
-                      13,
-                ),
+                const SizedBox(height: 13),
 
                 TextFormField(
-                  controller:
-                      _startYearController,
+                  controller: _startYearController,
 
-                  keyboardType:
-                      TextInputType.number,
+                  keyboardType: TextInputType.number,
 
-                  validator:
-                      _validateYear,
+                  validator: _validateYear,
 
-                  style:
-                      const TextStyle(
-                    color:
-                        AppColors.pureWhite,
-                  ),
+                  style: const TextStyle(color: AppColors.pureWhite),
 
-                  decoration:
-                      _sheetDecoration(
-                    label:
-                        'Anno di inizio',
+                  decoration: _sheetDecoration(
+                    label: 'Anno di inizio',
 
-                    icon:
-                        Icons
-                            .calendar_month_outlined,
+                    icon: Icons.calendar_month_outlined,
 
-                    hint:
-                        'Facoltativo',
+                    hint: 'Facoltativo',
                   ),
                 ),
 
-                if (
-                  _status ==
-                      AcademicPathStatus
-                          .graduated
-                ) ...[
-                  const SizedBox(
-                    height:
-                        13,
-                  ),
+                if (_status == AcademicPathStatus.graduated) ...[
+                  const SizedBox(height: 13),
 
                   TextFormField(
-                    controller:
-                        _graduationYearController,
+                    controller: _graduationYearController,
 
-                    keyboardType:
-                        TextInputType.number,
+                    keyboardType: TextInputType.number,
 
-                    validator:
-                        _validateGraduationYear,
+                    validator: _validateGraduationYear,
 
-                    style:
-                        const TextStyle(
-                      color:
-                          AppColors.pureWhite,
-                    ),
+                    style: const TextStyle(color: AppColors.pureWhite),
 
-                    decoration:
-                        _sheetDecoration(
-                      label:
-                          'Anno di laurea',
+                    decoration: _sheetDecoration(
+                      label: 'Anno di laurea',
 
-                      icon:
-                          Icons
-                              .workspace_premium_outlined,
+                      icon: Icons.workspace_premium_outlined,
                     ),
                   ),
                 ],
 
-                const SizedBox(
-                  height:
-                      8,
-                ),
+                const SizedBox(height: 8),
 
-                if (
-                  _status ==
-                      AcademicPathStatus
-                          .enrolled
-                )
+                if (_status == AcademicPathStatus.enrolled)
                   SwitchListTile(
-                    contentPadding:
-                        EdgeInsets.zero,
+                    contentPadding: EdgeInsets.zero,
 
-                    value:
-                        _isCurrent,
+                    value: _isCurrent,
 
-                    onChanged:
-                        (
-                      bool value,
-                    ) {
+                    onChanged: (bool value) {
                       setState(() {
-                        _isCurrent =
-                            value;
+                        _isCurrent = value;
                       });
                     },
 
-                    activeColor:
-                        AppColors.skyBlue,
+                    activeColor: AppColors.skyBlue,
 
-                    title:
-                        const Text(
+                    title: const Text(
                       'Percorso corrente',
 
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite,
+                      style: TextStyle(
+                        color: AppColors.pureWhite,
 
-                        fontSize:
-                            12,
+                        fontSize: 12,
 
-                        fontWeight:
-                            FontWeight.w500,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
 
                 SwitchListTile(
-                  contentPadding:
-                      EdgeInsets.zero,
+                  contentPadding: EdgeInsets.zero,
 
-                  value:
-                      _isPrimary,
+                  value: _isPrimary,
 
-                  onChanged:
-                      (
-                    bool value,
-                  ) {
-                    if (
-                      widget.initialPath
-                                  ?.isPrimary ==
-                              true &&
-                          !value
-                    ) {
+                  onChanged: (bool value) {
+                    if (widget.initialPath?.isPrimary == true && !value) {
                       return;
                     }
 
                     setState(() {
-                      _isPrimary =
-                          value;
+                      _isPrimary = value;
                     });
                   },
 
-                  activeColor:
-                      AppColors.skyBlue,
+                  activeColor: AppColors.skyBlue,
 
-                  title:
-                      const Text(
+                  title: const Text(
                     'Percorso principale',
 
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite,
+                    style: TextStyle(
+                      color: AppColors.pureWhite,
 
-                      fontSize:
-                          12,
+                      fontSize: 12,
 
-                      fontWeight:
-                          FontWeight.w500,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
 
-                  subtitle:
-                      Text(
+                  subtitle: Text(
                     'È il percorso mostrato come riferimento principale nel profilo.',
 
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite
-                              .withOpacity(
-                        0.38,
-                      ),
+                    style: TextStyle(
+                      color: AppColors.pureWhite.withOpacity(0.38),
 
-                      fontSize:
-                          9,
+                      fontSize: 9,
                     ),
                   ),
                 ),
 
-                const SizedBox(
-                  height:
-                      18,
-                ),
+                const SizedBox(height: 18),
 
                 SizedBox(
-                  width:
-                      double.infinity,
+                  width: double.infinity,
 
-                  height:
-                      50,
+                  height: 50,
 
-                  child:
-                      ElevatedButton.icon(
-                    onPressed:
-                        _submit,
+                  child: ElevatedButton.icon(
+                    onPressed: _submit,
 
-                    icon:
-                        const Icon(
-                      Icons.check_rounded,
-                    ),
+                    icon: const Icon(Icons.check_rounded),
 
-                    label:
-                        Text(
-                      widget.initialPath ==
-                              null
+                    label: Text(
+                      widget.initialPath == null
                           ? 'Aggiungi percorso'
                           : 'Salva percorso',
                     ),
 
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          AppColors.socialBlue,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.socialBlue,
 
-                      foregroundColor:
-                          AppColors.pureWhite,
+                      foregroundColor: AppColors.pureWhite,
 
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          13,
-                        ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13),
                       ),
                     ),
                   ),
@@ -4204,93 +2545,46 @@ class _AcademicPathEditorSheetState
     );
   }
 
-
   InputDecoration _sheetDecoration({
     required String label,
     required IconData icon,
     String? hint,
   }) {
     return InputDecoration(
-      labelText:
-          label,
+      labelText: label,
 
-      hintText:
-          hint,
+      hintText: hint,
 
-      prefixIcon:
-          Icon(
-        icon,
+      prefixIcon: Icon(icon, color: AppColors.skyBlue),
 
-        color:
-            AppColors.skyBlue,
+      labelStyle: const TextStyle(color: Colors.white54),
+
+      hintStyle: const TextStyle(color: Colors.white24),
+
+      filled: true,
+
+      fillColor: AppColors.brandNightBlue,
+
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+
+        borderSide: BorderSide.none,
       ),
 
-      labelStyle:
-          const TextStyle(
-        color:
-            Colors.white54,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+
+        borderSide: BorderSide(color: AppColors.skyBlue.withOpacity(0.08)),
       ),
 
-      hintStyle:
-          const TextStyle(
-        color:
-            Colors.white24,
-      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
 
-      filled:
-          true,
-
-      fillColor:
-          AppColors.brandNightBlue,
-
-      border:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
-
-        borderSide:
-            BorderSide.none,
-      ),
-
-      enabledBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
-
-        borderSide:
-            BorderSide(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.08,
-          ),
-        ),
-      ),
-
-      focusedBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(
-          13,
-        ),
-
-        borderSide:
-            BorderSide(
-          color:
-              AppColors.skyBlue
-                  .withOpacity(
-            0.45,
-          ),
-        ),
+        borderSide: BorderSide(color: AppColors.skyBlue.withOpacity(0.45)),
       ),
     );
   }
 }
-
 
 class _AcademicPathFormResult {
   final AcademicUniversity university;
@@ -4309,7 +2603,6 @@ class _AcademicPathFormResult {
 
   final bool isPrimary;
 
-
   const _AcademicPathFormResult({
     required this.university,
     required this.department,
@@ -4322,86 +2615,47 @@ class _AcademicPathFormResult {
   });
 }
 
-
-class _AcademicPathBadge
-    extends StatelessWidget {
-
+class _AcademicPathBadge extends StatelessWidget {
   final String label;
 
   final IconData icon;
 
   final Color color;
 
-
   const _AcademicPathBadge({
     required this.label,
     required this.icon,
-    this.color =
-        AppColors.materialSky,
+    this.color = AppColors.materialSky,
   });
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal:
-            7,
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
 
-        vertical:
-            5,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+
+        borderRadius: BorderRadius.circular(8),
       ),
 
-      decoration:
-          BoxDecoration(
-        color:
-            color.withOpacity(
-          0.10,
-        ),
-
-        borderRadius:
-            BorderRadius.circular(
-          8,
-        ),
-      ),
-
-      child:
-          Row(
-        mainAxisSize:
-            MainAxisSize.min,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
 
         children: [
-          Icon(
-            icon,
+          Icon(icon, color: color, size: 11),
 
-            color:
-                color,
-
-            size:
-                11,
-          ),
-
-          const SizedBox(
-            width:
-                4,
-          ),
+          const SizedBox(width: 4),
 
           Text(
             label,
 
-            style:
-                TextStyle(
-              color:
-                  color,
+            style: TextStyle(
+              color: color,
 
-              fontSize:
-                  8,
+              fontSize: 8,
 
-              fontWeight:
-                  FontWeight.w600,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -4410,10 +2664,7 @@ class _AcademicPathBadge
   }
 }
 
-
-String _academicStatusLabel(
-  AcademicPathStatus status,
-) {
+String _academicStatusLabel(AcademicPathStatus status) {
   switch (status) {
     case AcademicPathStatus.enrolled:
       return 'Studente';
@@ -4432,39 +2683,27 @@ String _academicStatusLabel(
   }
 }
 
-
-IconData _academicStatusIcon(
-  AcademicPathStatus status,
-) {
+IconData _academicStatusIcon(AcademicPathStatus status) {
   switch (status) {
     case AcademicPathStatus.enrolled:
       return Icons.school_outlined;
 
     case AcademicPathStatus.graduated:
-      return Icons
-          .workspace_premium_outlined;
+      return Icons.workspace_premium_outlined;
 
     case AcademicPathStatus.suspended:
-      return Icons
-          .pause_circle_outline_rounded;
+      return Icons.pause_circle_outline_rounded;
 
     case AcademicPathStatus.withdrawn:
-      return Icons
-          .remove_circle_outline;
+      return Icons.remove_circle_outline;
 
     case AcademicPathStatus.transferred:
       return Icons.swap_horiz_rounded;
   }
 }
 
-
-String _academicYearsLabel(
-  SocialAcademicPath path,
-) {
-  if (
-    path.startYear != null &&
-    path.graduationYear != null
-  ) {
+String _academicYearsLabel(SocialAcademicPath path) {
+  if (path.startYear != null && path.graduationYear != null) {
     return '${path.startYear} - ${path.graduationYear}';
   }
 

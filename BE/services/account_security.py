@@ -20,6 +20,7 @@ from services.auth import (
     verify_email_verification_code_hash,
     verify_password,
 )
+from services.password_policy import validate_password_policy
 
 
 SECURITY_CODE_MAX_ATTEMPTS = 5
@@ -214,6 +215,8 @@ def complete_password_reset(
     new_password: str,
     secret_key: str,
 ) -> User:
+    validate_password_policy(new_password)
+
     request = (
         db.query(PasswordResetRequest)
         .filter(PasswordResetRequest.request_id == request_id)
@@ -282,6 +285,8 @@ def change_password(
     current_password: str,
     new_password: str,
 ) -> None:
+    validate_password_policy(new_password)
+
     if not verify_password(
         current_password,
         user.password_hash,
@@ -460,6 +465,8 @@ def update_pending_registration_password(
     current_password: str,
     new_password: str,
 ) -> User:
+    validate_password_policy(new_password)
+
     user = get_user_by_registration_id(
         db,
         registration_id,

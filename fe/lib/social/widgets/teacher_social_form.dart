@@ -149,13 +149,13 @@ class _TeacherSocialFormState
   DateTime? _selectedDateOfBirth;
 
   bool _available =
-      true;
+      false;
 
   bool _availableForHelp =
-      true;
+      false;
 
   bool _availableForPrivateLessons =
-      true;
+      false;
 
   bool _loadingAcademicData =
       false;
@@ -189,6 +189,26 @@ class _TeacherSocialFormState
       _availableSubjects =
       [];
 
+  List<AcademicDepartment>
+      _subjectDepartments =
+      [];
+
+  List<AcademicCourse>
+      _subjectCourses =
+      [];
+
+  AcademicUniversity?
+      _subjectUniversity;
+
+  AcademicDepartment?
+      _subjectDepartment;
+
+  AcademicCourse?
+      _subjectCourse;
+
+  bool _loadingSubjectCatalog =
+      false;
+
   AcademicUniversity?
       _selectedUniversity;
 
@@ -217,6 +237,9 @@ class _TeacherSocialFormState
   bool _showAcademicPathEditor =
       false;
 
+  bool _primaryAcademicPathEnabled =
+      false;
+
   int? _editingAcademicPathIndex;
 
   final List<SocialAcademicPathDraft>
@@ -233,9 +256,10 @@ class _TeacherSocialFormState
   int? _editingAcademicTitleIndex;
 
   final List<_TeacherAssignmentData>
-      _assignments = [
-    _TeacherAssignmentData(),
-  ];
+      _assignments = [];
+
+  bool get _hasSelectedSubjects =>
+      _assignments.any((item) => item.selectedSubject != null);
 
   @override
   void initState() {
@@ -356,6 +380,9 @@ class _TeacherSocialFormState
         _selectedUniversity =
             selectedUniversity;
 
+        _subjectUniversity =
+            selectedUniversity;
+
         _manualUniversity =
             false;
 
@@ -370,6 +397,12 @@ class _TeacherSocialFormState
       });
 
       await _loadDepartments(
+        selectedUniversity.code,
+        selectDefault:
+            true,
+      );
+
+      await _loadSubjectDepartments(
         selectedUniversity.code,
         selectDefault:
             true,
@@ -696,25 +729,241 @@ class _TeacherSocialFormState
     }
   }
 
+  Future<void> _loadSubjectDepartments(
+    String universityCode, {
+    bool selectDefault = false,
+  }) async {
+    setState(() {
+      _loadingSubjectCatalog =
+          true;
+
+      _subjectDepartments =
+          [];
+
+      _subjectCourses =
+          [];
+
+      _subjectDepartment =
+          null;
+
+      _subjectCourse =
+          null;
+
+      _availableSubjects =
+          [];
+
+      _subjectsError =
+          null;
+
+      _resetAssignments();
+    });
+
+    try {
+      final List<AcademicDepartment>
+          departments =
+          await _apiService
+              .getDepartments(
+        universityCode,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (departments.isEmpty) {
+        setState(() {
+          _loadingSubjectCatalog =
+              false;
+
+          _subjectsError =
+              'Nessun dipartimento disponibile per l’ateneo selezionato.';
+        });
+        return;
+      }
+
+      AcademicDepartment?
+          selectedDepartment;
+
+      if (selectDefault) {
+        for (
+          final AcademicDepartment department
+          in departments
+        ) {
+          if (
+            department.code
+                    .toUpperCase() ==
+                'DMI'
+          ) {
+            selectedDepartment =
+                department;
+            break;
+          }
+        }
+      }
+
+      selectedDepartment ??=
+          departments.first;
+
+      setState(() {
+        _subjectDepartments =
+            departments;
+
+        _subjectDepartment =
+            selectedDepartment;
+      });
+
+      await _loadSubjectCourses(
+        universityCode:
+            universityCode,
+        departmentCode:
+            selectedDepartment.code,
+        selectDefault:
+            true,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadingSubjectCatalog =
+            false;
+
+        _subjectsError =
+            'Non è stato possibile caricare i dipartimenti per gli insegnamenti.';
+      });
+    }
+  }
+
+
+  Future<void> _loadSubjectCourses({
+    required String universityCode,
+    required String departmentCode,
+    bool selectDefault = false,
+  }) async {
+    setState(() {
+      _loadingSubjectCatalog =
+          true;
+
+      _subjectCourses =
+          [];
+
+      _subjectCourse =
+          null;
+
+      _availableSubjects =
+          [];
+
+      _subjectsError =
+          null;
+
+      _resetAssignments();
+    });
+
+    try {
+      final List<AcademicCourse>
+          courses =
+          await _apiService
+              .getCourses(
+        universityCode:
+            universityCode,
+        departmentCode:
+            departmentCode,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (courses.isEmpty) {
+        setState(() {
+          _loadingSubjectCatalog =
+              false;
+
+          _subjectsError =
+              'Nessun corso disponibile per il dipartimento selezionato.';
+        });
+        return;
+      }
+
+      AcademicCourse?
+          selectedCourse;
+
+      if (selectDefault) {
+        for (
+          final AcademicCourse course
+          in courses
+        ) {
+          if (
+            course.name
+                .toLowerCase()
+                .contains(
+                  'informatica',
+                )
+          ) {
+            selectedCourse =
+                course;
+            break;
+          }
+        }
+      }
+
+      selectedCourse ??=
+          courses.first;
+
+      setState(() {
+        _subjectCourses =
+            courses;
+
+        _subjectCourse =
+            selectedCourse;
+
+        _loadingSubjectCatalog =
+            false;
+      });
+
+      await _loadSubjects();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadingSubjectCatalog =
+            false;
+
+        _subjectsError =
+            'Non è stato possibile caricare i corsi per gli insegnamenti.';
+      });
+    }
+  }
+
+
   Future<void> _loadSubjects() async {
     final AcademicUniversity?
         university =
+        _subjectUniversity ??
         _selectedUniversity;
 
     final AcademicDepartment?
         department =
-        _selectedDepartment;
+        _subjectDepartment;
 
     final AcademicCourse?
         course =
-        _selectedCourse;
+        _subjectCourse;
 
     if (
       university == null ||
       department == null ||
-      course == null ||
-      _manualCourse
+      course == null
     ) {
+      if (mounted) {
+        setState(() {
+          _subjectsError =
+              'Seleziona ateneo, dipartimento e corso nella sezione Insegnamenti.';
+        });
+      }
       return;
     }
 
@@ -745,13 +994,23 @@ class _TeacherSocialFormState
 
       final List<SocialSubject> subjects =
           loadedSubjects
-              .where((SocialSubject subject) => subject.isActive)
+              .where(
+                (
+                  SocialSubject subject,
+                ) =>
+                    subject.isActive,
+              )
               .toList()
             ..sort(
-              (SocialSubject a, SocialSubject b) {
+              (
+                SocialSubject a,
+                SocialSubject b,
+              ) {
                 final int yearCompare =
                     (a.studyYear ?? 999)
-                        .compareTo(b.studyYear ?? 999);
+                        .compareTo(
+                  b.studyYear ?? 999,
+                );
 
                 if (yearCompare != 0) {
                   return yearCompare;
@@ -759,16 +1018,24 @@ class _TeacherSocialFormState
 
                 return a.name
                     .toLowerCase()
-                    .compareTo(b.name.toLowerCase());
+                    .compareTo(
+                  b.name.toLowerCase(),
+                );
               },
             );
 
       setState(() {
-        _availableSubjects = subjects;
-        _loadingSubjects = false;
-        _subjectsError = subjects.isEmpty
-            ? 'Nessuna materia attiva trovata per il corso selezionato.'
-            : null;
+        _availableSubjects =
+            subjects;
+
+        _loadingSubjects =
+            false;
+
+        _subjectsError =
+            subjects.isEmpty
+                ? 'Nessuna materia attiva trovata per il corso selezionato.'
+                : null;
+
         _resetAssignments();
       });
     } catch (_) {
@@ -781,7 +1048,7 @@ class _TeacherSocialFormState
             false;
 
         _subjectsError =
-            'Non è stato possibile caricare le materie. Controlla la connessione e riprova.';
+            'Non è stato possibile caricare le materie. Riprova.';
       });
     }
   }
@@ -807,12 +1074,9 @@ class _TeacherSocialFormState
       return;
     }
 
-    if (
-      !_manualCourse &&
-      _availableSubjects.isEmpty
-    ) {
+    if (_availableSubjects.isEmpty) {
       _showMessage(
-        'Non ci sono materie disponibili per il corso selezionato.',
+        'Carica prima le materie disponibili.',
       );
       return;
     }
@@ -951,40 +1215,49 @@ class _TeacherSocialFormState
         _selectedCourse;
 
     final String universityName =
-        _manualUniversity
-            ? _manualUniversityController.text
-                .trim()
-            : university?.name.trim() ??
-                '';
+        !_primaryAcademicPathEnabled
+            ? ''
+            : _manualUniversity
+                ? _manualUniversityController.text
+                    .trim()
+                : university?.name.trim() ??
+                    '';
 
     final String universityCode =
-        _manualUniversity
+        !_primaryAcademicPathEnabled ||
+                _manualUniversity
             ? ''
             : university?.code.trim() ??
                 '';
 
     final String departmentName =
-        _manualDepartment
-            ? _manualDepartmentController.text
-                .trim()
-            : department?.name.trim() ??
-                '';
+        !_primaryAcademicPathEnabled
+            ? ''
+            : _manualDepartment
+                ? _manualDepartmentController.text
+                    .trim()
+                : department?.name.trim() ??
+                    '';
 
     final String departmentCode =
-        _manualDepartment
+        !_primaryAcademicPathEnabled ||
+                _manualDepartment
             ? ''
             : department?.code.trim() ??
                 '';
 
     final String courseName =
-        _manualCourse
-            ? _manualCourseController.text
-                .trim()
-            : course?.name.trim() ??
-                '';
+        !_primaryAcademicPathEnabled
+            ? ''
+            : _manualCourse
+                ? _manualCourseController.text
+                    .trim()
+                : course?.name.trim() ??
+                    '';
 
     final String courseCode =
-        _manualCourse
+        !_primaryAcademicPathEnabled ||
+                _manualCourse
             ? ''
             : course?.code.trim() ??
                 '';
@@ -1011,7 +1284,8 @@ class _TeacherSocialFormState
     }
 
     final String degreeType =
-        _manualCourse
+        !_primaryAcademicPathEnabled ||
+                _manualCourse
             ? ''
             : course?.degreeType.trim() ??
                 _academicTitleType.trim();
@@ -1041,13 +1315,7 @@ class _TeacherSocialFormState
         socialSubjectsById =
         {};
 
-    final bool canUseCatalogAssignments =
-        hasCompletePrimaryAcademicData &&
-        !_manualUniversity &&
-        !_manualDepartment &&
-        !_manualCourse;
-
-    if (canUseCatalogAssignments) {
+    if (_assignments.isNotEmpty) {
       for (
         final _TeacherAssignmentData item
         in _assignments
@@ -1056,11 +1324,7 @@ class _TeacherSocialFormState
           item.selectedSubject;
 
       if (selectedSubject == null) {
-        _showMessage(
-          'Seleziona tutte le materie insegnate.',
-        );
-
-        return;
+        continue;
       }
 
       final SubjectOffering? offering =
@@ -2700,6 +2964,7 @@ class _TeacherSocialFormState
                         ),
                       ],
 
+                      if (_primaryAcademicPathEnabled) ...[
                       Container(
                         width:
                             double.infinity,
@@ -3011,6 +3276,107 @@ class _TeacherSocialFormState
                           ],
                         ),
                       ),
+
+
+                        const SizedBox(
+                          height:
+                              10,
+                        ),
+
+                        Align(
+                          alignment:
+                              Alignment.centerRight,
+                          child:
+                              TextButton.icon(
+                            onPressed:
+                                () {
+                              setState(() {
+                                _primaryAcademicPathEnabled =
+                                    false;
+                              });
+                            },
+                            icon:
+                                const Icon(
+                              Icons.delete_outline_rounded,
+                              size:
+                                  17,
+                            ),
+                            label:
+                                const Text(
+                              'Rimuovi percorso',
+                            ),
+                            style:
+                                TextButton.styleFrom(
+                              foregroundColor:
+                                  Colors.redAccent,
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          width:
+                              double.infinity,
+                          padding:
+                              const EdgeInsets.all(
+                            14,
+                          ),
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                AppColors.eleganceMidnight,
+                            borderRadius:
+                                BorderRadius.circular(
+                              13,
+                            ),
+                          ),
+                          child:
+                              Text(
+                            'Nessun percorso accademico inserito.',
+                            style:
+                                TextStyle(
+                              color:
+                                  AppColors.pureWhite
+                                      .withValues(alpha: 0.38),
+                              fontSize:
+                                  10,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height:
+                              10,
+                        ),
+
+                        OutlinedButton.icon(
+                          onPressed:
+                              () {
+                            setState(() {
+                              _primaryAcademicPathEnabled =
+                                  true;
+                            });
+                          },
+                          icon:
+                              const Icon(
+                            Icons.add_rounded,
+                          ),
+                          label:
+                              const Text(
+                            'Aggiungi percorso',
+                          ),
+                          style:
+                              OutlinedButton.styleFrom(
+                            foregroundColor:
+                                AppColors.skyBlue,
+                            side:
+                                BorderSide(
+                              color:
+                                  AppColors.skyBlue
+                                      .withValues(alpha: 0.30),
+                            ),
+                          ),
+                        ),
+                      ],
 
                       const SizedBox(
                         height:
@@ -3448,12 +3814,254 @@ class _TeacherSocialFormState
                             20,
                       ),
 
+                      Text(
+                        'Seleziona il contesto accademico da cui caricare le materie. Questa scelta serve solo a cercare gli insegnamenti e non aggiunge automaticamente un percorso al profilo.',
+                        style:
+                            TextStyle(
+                          color:
+                              AppColors.pureWhite
+                                  .withValues(
+                                alpha:
+                                    0.48,
+                              ),
+                          fontSize:
+                              11,
+                          height:
+                              1.4,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                            14,
+                      ),
+
+                      DropdownButtonFormField<
+                          AcademicUniversity>(
+                        initialValue:
+                            _subjectUniversity,
+                        isExpanded:
+                            true,
+                        dropdownColor:
+                            AppColors.eleganceDeepNavy,
+                        decoration:
+                            _decoration(
+                          label:
+                              'Ateneo per insegnamenti',
+                          hint:
+                              'Seleziona ateneo',
+                          icon:
+                              Icons.account_balance_outlined,
+                        ),
+                        items:
+                            _universities
+                                .map(
+                                  (
+                                    AcademicUniversity university,
+                                  ) =>
+                                      DropdownMenuItem<
+                                          AcademicUniversity>(
+                                    value:
+                                        university,
+                                    child:
+                                        Text(
+                                      university.name,
+                                      overflow:
+                                          TextOverflow.ellipsis,
+                                      style:
+                                          const TextStyle(
+                                        color:
+                                            AppColors.pureWhite,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            _loadingSubjectCatalog
+                                ? null
+                                : (
+                          AcademicUniversity? value,
+                        ) async {
+                          if (value == null) {
+                            return;
+                          }
+
+                          setState(() {
+                            _subjectUniversity =
+                                value;
+                          });
+
+                          await _loadSubjectDepartments(
+                            value.code,
+                          );
+                        },
+                      ),
+
+                      const SizedBox(
+                        height:
+                            12,
+                      ),
+
+                      DropdownButtonFormField<
+                          AcademicDepartment>(
+                        initialValue:
+                            _subjectDepartment,
+                        isExpanded:
+                            true,
+                        dropdownColor:
+                            AppColors.eleganceDeepNavy,
+                        decoration:
+                            _decoration(
+                          label:
+                              'Dipartimento per insegnamenti',
+                          hint:
+                              'Seleziona dipartimento',
+                          icon:
+                              Icons.apartment_outlined,
+                        ),
+                        items:
+                            _subjectDepartments
+                                .map(
+                                  (
+                                    AcademicDepartment department,
+                                  ) =>
+                                      DropdownMenuItem<
+                                          AcademicDepartment>(
+                                    value:
+                                        department,
+                                    child:
+                                        Text(
+                                      department.name,
+                                      overflow:
+                                          TextOverflow.ellipsis,
+                                      style:
+                                          const TextStyle(
+                                        color:
+                                            AppColors.pureWhite,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            _loadingSubjectCatalog ||
+                                    _subjectUniversity ==
+                                        null
+                                ? null
+                                : (
+                          AcademicDepartment? value,
+                        ) async {
+                          if (value == null) {
+                            return;
+                          }
+
+                          setState(() {
+                            _subjectDepartment =
+                                value;
+                          });
+
+                          await _loadSubjectCourses(
+                            universityCode:
+                                _subjectUniversity!.code,
+                            departmentCode:
+                                value.code,
+                          );
+                        },
+                      ),
+
+                      const SizedBox(
+                        height:
+                            12,
+                      ),
+
+                      DropdownButtonFormField<
+                          AcademicCourse>(
+                        initialValue:
+                            _subjectCourse,
+                        isExpanded:
+                            true,
+                        dropdownColor:
+                            AppColors.eleganceDeepNavy,
+                        decoration:
+                            _decoration(
+                          label:
+                              'Corso per insegnamenti',
+                          hint:
+                              'Seleziona corso',
+                          icon:
+                              Icons.school_outlined,
+                        ),
+                        items:
+                            _subjectCourses
+                                .map(
+                                  (
+                                    AcademicCourse course,
+                                  ) =>
+                                      DropdownMenuItem<
+                                          AcademicCourse>(
+                                    value:
+                                        course,
+                                    child:
+                                        Text(
+                                      course.name,
+                                      overflow:
+                                          TextOverflow.ellipsis,
+                                      style:
+                                          const TextStyle(
+                                        color:
+                                            AppColors.pureWhite,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            _loadingSubjectCatalog ||
+                                    _subjectUniversity ==
+                                        null ||
+                                    _subjectDepartment ==
+                                        null
+                                ? null
+                                : (
+                          AcademicCourse? value,
+                        ) async {
+                          if (value == null) {
+                            return;
+                          }
+
+                          setState(() {
+                            _subjectCourse =
+                                value;
+
+                            _availableSubjects =
+                                [];
+
+                            _subjectsError =
+                                null;
+
+                            _resetAssignments();
+                          });
+
+                          await _loadSubjects();
+                        },
+                      ),
+
+                      const SizedBox(
+                        height:
+                            14,
+                      ),
+
                       OutlinedButton.icon(
                         onPressed:
                             _loadingSubjects ||
-                                    _manualCourse
+                                    _loadingSubjectCatalog ||
+                                    _subjectCourse ==
+                                        null
                                 ? null
                                 : _loadSubjects,
+
+
 
                         icon:
                             _loadingSubjects
@@ -3508,7 +4116,7 @@ class _TeacherSocialFormState
                         ),
 
                         Text(
-                          '${_availableSubjects.length} materie disponibili per il corso selezionato.',
+                          '${_availableSubjects.length} materie disponibili.',
 
                           style:
                               TextStyle(
@@ -3584,8 +4192,39 @@ class _TeacherSocialFormState
                             14,
                       ),
 
-                      ...List.generate(
-                        _assignments.length,
+                      if (_assignments.isEmpty)
+                        Container(
+                          width:
+                              double.infinity,
+                          padding:
+                              const EdgeInsets.all(
+                            14,
+                          ),
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                AppColors.eleganceMidnight,
+                            borderRadius:
+                                BorderRadius.circular(
+                              13,
+                            ),
+                          ),
+                          child:
+                              Text(
+                            'Nessun insegnamento inserito.',
+                            style:
+                                TextStyle(
+                              color:
+                                  AppColors.pureWhite
+                                      .withValues(alpha: 0.38),
+                              fontSize:
+                                  10,
+                            ),
+                          ),
+                        )
+                      else
+                        ...List.generate(
+                          _assignments.length,
                         (
                           int index,
                         ) {
@@ -3672,16 +4311,18 @@ class _TeacherSocialFormState
 
                       _switchCard(
                         title:
-                            'Disponibile',
+                            'Online',
 
                         subtitle:
-                            'Gli altri utenti vedranno che sei disponibile.',
+                            'Attivo solo quando sei disponibile ad aiutare.',
 
                         value:
                             _available,
 
                         onChanged:
-                            (
+                            !_availableForHelp
+                                ? null
+                                : (
                           bool value,
                         ) {
                           setState(() {
@@ -3713,6 +4354,14 @@ class _TeacherSocialFormState
                           setState(() {
                             _availableForHelp =
                                 value;
+
+                            _available =
+                                value;
+
+                            if (!value) {
+                              _availableForPrivateLessons =
+                                  false;
+                            }
                           });
                         },
                       ),
@@ -3733,7 +4382,9 @@ class _TeacherSocialFormState
                             _availableForPrivateLessons,
 
                         onChanged:
-                            (
+                            !_availableForHelp
+                                ? null
+                                : (
                           bool value,
                         ) {
                           setState(() {
@@ -4624,7 +5275,7 @@ class _TeacherSocialFormState
 
     final RegExp emailRegex =
         RegExp(
-      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+      r'^[^@\s]+@[^@\s]+.[^@\s]+$',
     );
 
     if (
@@ -4641,17 +5292,25 @@ class _TeacherSocialFormState
   String? _validatePassword(
     String? value,
   ) {
-    if (
-      value == null ||
-      value.isEmpty
-    ) {
+    final String password = value ?? '';
+    if (password.isEmpty) {
       return 'Inserisci una password';
     }
-
-    if (value.length < 8) {
-      return 'La password deve contenere almeno 8 caratteri';
+    if (password.length < 8) {
+      return 'Usa almeno 8 caratteri';
     }
-
+    if (!RegExp(r'[a-z]').hasMatch(password)) {
+      return 'Aggiungi almeno una lettera minuscola';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return 'Aggiungi almeno una lettera maiuscola';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(password)) {
+      return 'Aggiungi almeno un numero';
+    }
+    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(password)) {
+      return 'Aggiungi almeno un carattere speciale';
+    }
     return null;
   }
 
@@ -4935,7 +5594,7 @@ class _TeacherSocialFormState
     required String title,
     required String subtitle,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    required ValueChanged<bool>? onChanged,
   }) {
     return Container(
       decoration:

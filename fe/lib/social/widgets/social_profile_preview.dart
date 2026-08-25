@@ -1,8 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
 import '../../theme/nightTheme.dart';
 
 import '../../services/api_service.dart';
@@ -13,6 +9,7 @@ import '../../services/auth_session.dart';
 
 import '../social_models.dart';
 
+import '../auth/email_verification_page.dart';
 import '../policy/studentlab_policy_page.dart';
 import '../widgets/studentlab_user_avatar.dart';
 
@@ -244,11 +241,7 @@ class _SocialProfilePreviewState
 
                                   .pureWhite
 
-                                  .withOpacity(
-
-                            0.55,
-
-                          ),
+                                  .withValues(alpha: 0.55),
 
                           fontSize:
 
@@ -514,11 +507,7 @@ class _SocialProfilePreviewState
 
                                       .pureWhite
 
-                                      .withOpacity(
-
-                                0.20,
-
-                              ),
+                                      .withValues(alpha: 0.20),
 
                             ),
 
@@ -629,13 +618,11 @@ class _SocialProfilePreviewState
               SocialUser>(
         context,
         MaterialPageRoute(
-          builder:
-              (_) =>
-                  _EmailVerificationPage(
-            registration:
-                registration,
-            draft:
-                widget.draft,
+          builder: (_) => EmailVerificationPage(
+            registrationId: registration.registrationId,
+            email: registration.email,
+            expiresIn: registration.expiresIn,
+            draft: widget.draft,
           ),
         ),
       );
@@ -1016,11 +1003,7 @@ class _SocialProfilePreviewState
 
             Colors.redAccent
 
-                .withOpacity(
-
-          0.08,
-
-        ),
+                .withValues(alpha: 0.08),
 
         borderRadius:
 
@@ -1038,11 +1021,7 @@ class _SocialProfilePreviewState
 
               Colors.redAccent
 
-                  .withOpacity(
-
-            0.20,
-
-          ),
+                  .withValues(alpha: 0.20),
 
         ),
 
@@ -1102,11 +1081,7 @@ class _SocialProfilePreviewState
 
                         .pureWhite
 
-                        .withOpacity(
-
-                  0.75,
-
-                ),
+                        .withValues(alpha: 0.75),
 
                 fontSize:
 
@@ -1130,887 +1105,6 @@ class _SocialProfilePreviewState
 
   }
 
-}
-
-
-class _EmailVerificationPage
-    extends StatefulWidget {
-  final AuthRegistrationResult
-      registration;
-
-  final SocialProfileDraft draft;
-
-  const _EmailVerificationPage({
-    required this.registration,
-    required this.draft,
-  });
-
-  @override
-  State<_EmailVerificationPage>
-      createState() =>
-          _EmailVerificationPageState();
-}
-
-
-class _EmailVerificationPageState
-    extends State<_EmailVerificationPage> {
-  final AuthService _authService =
-      AuthService();
-
-  final TextEditingController
-      _codeController =
-      TextEditingController();
-
-  Timer? _timer;
-
-  late String _registrationId;
-
-  late String _email;
-
-  late int _remainingSeconds;
-
-  bool _verifying =
-      false;
-
-  bool _resending =
-      false;
-
-  String? _error;
-
-  String? _message;
-
-
-  @override
-  void initState() {
-    super.initState();
-
-    _registrationId =
-        widget.registration
-            .registrationId;
-
-    _email =
-        widget.registration.email;
-
-    _remainingSeconds =
-        widget.registration.expiresIn;
-
-    _startTimer();
-  }
-
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-
-    _codeController.dispose();
-
-    super.dispose();
-  }
-
-
-  void _startTimer() {
-    _timer?.cancel();
-
-    if (_remainingSeconds <= 0) {
-      return;
-    }
-
-    _timer =
-        Timer.periodic(
-      const Duration(
-        seconds:
-            1,
-      ),
-      (
-        Timer timer,
-      ) {
-        if (!mounted) {
-          timer.cancel();
-
-          return;
-        }
-
-        if (_remainingSeconds <= 1) {
-          timer.cancel();
-
-          setState(() {
-            _remainingSeconds =
-                0;
-          });
-
-          return;
-        }
-
-        setState(() {
-          _remainingSeconds--;
-        });
-      },
-    );
-  }
-
-
-  String get _remainingTimeLabel {
-    final int minutes =
-        _remainingSeconds ~/
-            60;
-
-    final int seconds =
-        _remainingSeconds %
-            60;
-
-    return '${minutes.toString().padLeft(2, '0')}:'
-        '${seconds.toString().padLeft(2, '0')}';
-  }
-
-
-  Future<void> _verify() async {
-    if (_verifying) {
-      return;
-    }
-
-    final String code =
-        _codeController.text
-            .trim();
-
-    if (
-      code.length != 6 ||
-      int.tryParse(
-            code,
-          ) ==
-          null
-    ) {
-      setState(() {
-        _error =
-            'Inserisci il codice di verifica di 6 cifre ricevuto via email.';
-        _message =
-            null;
-      });
-
-      return;
-    }
-
-    if (_remainingSeconds <= 0) {
-      setState(() {
-        _error =
-            'Il codice è scaduto. Richiedi un nuovo codice per continuare.';
-        _message =
-            null;
-      });
-
-      return;
-    }
-
-    setState(() {
-      _verifying =
-          true;
-      _error =
-          null;
-      _message =
-          null;
-    });
-
-    try {
-      final SocialUser user =
-          await _authService
-              .verifyEmail(
-        registrationId:
-            _registrationId,
-        code:
-            code,
-        draft:
-            widget.draft,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      Navigator.pop(
-        context,
-        user,
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _error =
-            _verificationErrorMessage(
-          error,
-        );
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _verifying =
-              false;
-        });
-      }
-    }
-  }
-
-
-  Future<void> _resend() async {
-    if (_resending) {
-      return;
-    }
-
-    setState(() {
-      _resending =
-          true;
-      _error =
-          null;
-      _message =
-          null;
-    });
-
-    try {
-      final AuthVerificationResendResult
-          result =
-          await _authService
-              .resendVerificationCode(
-        registrationId:
-            _registrationId,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _codeController.clear();
-
-      setState(() {
-        _registrationId =
-            result.registrationId;
-        _email =
-            result.email;
-        _remainingSeconds =
-            result.expiresIn;
-        _message =
-            result.message.isNotEmpty
-                ? result.message
-                : 'Ti abbiamo inviato un nuovo codice di verifica.';
-      });
-
-      _startTimer();
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _error =
-            _resendErrorMessage(
-          error,
-        );
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _resending =
-              false;
-        });
-      }
-    }
-  }
-
-
-  String _verificationErrorMessage(
-    Object error,
-  ) {
-    final String message =
-        error
-            .toString()
-            .toLowerCase();
-
-    if (
-      message.contains(
-            'expired',
-          ) ||
-      message.contains(
-            'scad',
-          )
-    ) {
-      return 'Il codice è scaduto. Richiedi un nuovo codice e riprova.';
-    }
-
-    if (
-      message.contains(
-            'code',
-          ) ||
-      message.contains(
-            'codice',
-          ) ||
-      message.contains(
-            'invalid',
-          ) ||
-      message.contains(
-            'incorrect',
-          )
-    ) {
-      return 'Il codice inserito non è corretto. Controllalo e riprova.';
-    }
-
-    if (
-      message.contains(
-            'attempt',
-          ) ||
-      message.contains(
-            'tentativ',
-          ) ||
-      message.contains(
-            '429',
-          )
-    ) {
-      return 'Sono stati effettuati troppi tentativi. Richiedi un nuovo codice o riprova più tardi.';
-    }
-
-    if (
-      message.contains(
-            'network',
-          ) ||
-      message.contains(
-            'socket',
-          ) ||
-      message.contains(
-            'connection',
-          ) ||
-      message.contains(
-            'timeout',
-          ) ||
-      message.contains(
-            'host lookup',
-          )
-    ) {
-      return 'Non è stato possibile contattare StudentLab. Controlla la connessione e riprova.';
-    }
-
-    return 'Non è stato possibile verificare l’email. Controlla il codice e riprova.';
-  }
-
-
-  String _resendErrorMessage(
-    Object error,
-  ) {
-    final String message =
-        error
-            .toString()
-            .toLowerCase();
-
-    if (
-      message.contains(
-            '429',
-          ) ||
-      message.contains(
-            'cooldown',
-          ) ||
-      message.contains(
-            'wait',
-          ) ||
-      message.contains(
-            'attendi',
-          )
-    ) {
-      return 'Hai richiesto un nuovo codice da poco. Attendi prima di riprovare.';
-    }
-
-    if (
-      message.contains(
-            'network',
-          ) ||
-      message.contains(
-            'socket',
-          ) ||
-      message.contains(
-            'connection',
-          ) ||
-      message.contains(
-            'timeout',
-          ) ||
-      message.contains(
-            'host lookup',
-          )
-    ) {
-      return 'Non è stato possibile contattare StudentLab. Controlla la connessione e riprova.';
-    }
-
-    return 'Non è stato possibile inviare un nuovo codice. Riprova.';
-  }
-
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final bool isTeacher =
-        widget.draft.type ==
-            SocialUserType.teacher;
-
-    return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
-      appBar:
-          AppBar(
-        backgroundColor:
-            AppColors.brandNightBlue,
-        foregroundColor:
-            AppColors.pureWhite,
-        elevation:
-            0,
-        title:
-            const Text(
-          'Verifica email',
-          style:
-              TextStyle(
-            fontSize:
-                18,
-            fontWeight:
-                FontWeight.w600,
-          ),
-        ),
-      ),
-      body:
-          SafeArea(
-        child:
-            Center(
-          child:
-              LayoutBuilder(
-            builder:
-                (
-              context,
-              constraints,
-            ) {
-              final double width =
-                  constraints.maxWidth >
-                          600
-                      ? 500
-                      : constraints
-                          .maxWidth;
-
-              return SizedBox(
-                width:
-                    width,
-                child:
-                    SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.all(
-                    20,
-                  ),
-                  child:
-                      Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .stretch,
-                    children: [
-                      const SizedBox(
-                        height:
-                            24,
-                      ),
-                      Container(
-                        width:
-                            72,
-                        height:
-                            72,
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              (
-                                isTeacher
-                                    ? AppColors.teacherIndigo
-                                    : AppColors.socialBlue
-                              )
-                                  .withOpacity(
-                            0.14,
-                          ),
-                          shape:
-                              BoxShape.circle,
-                        ),
-                        child:
-                            Icon(
-                          Icons
-                              .mark_email_read_outlined,
-                          color:
-                              isTeacher
-                                  ? AppColors.teacherIndigo
-                                  : AppColors.materialSky,
-                          size:
-                              34,
-                        ),
-                      ),
-                      const SizedBox(
-                        height:
-                            22,
-                      ),
-                      const Text(
-                        'Controlla la tua email',
-                        textAlign:
-                            TextAlign.center,
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite,
-                          fontSize:
-                              22,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(
-                        height:
-                            10,
-                      ),
-                      Text(
-                        'Abbiamo inviato un codice di 6 cifre a $_email.',
-                        textAlign:
-                            TextAlign.center,
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.pureWhite
-                                  .withOpacity(
-                            0.60,
-                          ),
-                          fontSize:
-                              13,
-                          height:
-                              1.45,
-                        ),
-                      ),
-                      const SizedBox(
-                        height:
-                            28,
-                      ),
-                      TextField(
-                        controller:
-                            _codeController,
-                        enabled:
-                            !_verifying,
-                        keyboardType:
-                            TextInputType.number,
-                        textAlign:
-                            TextAlign.center,
-                        maxLength:
-                            6,
-                        inputFormatters: [
-                          FilteringTextInputFormatter
-                              .digitsOnly,
-                          LengthLimitingTextInputFormatter(
-                            6,
-                          ),
-                        ],
-                        style:
-                            const TextStyle(
-                          color:
-                              AppColors.pureWhite,
-                          fontSize:
-                              24,
-                          fontWeight:
-                              FontWeight.w700,
-                          letterSpacing:
-                              10,
-                        ),
-                        decoration:
-                            InputDecoration(
-                          counterText:
-                              '',
-                          hintText:
-                              '000000',
-                          hintStyle:
-                              TextStyle(
-                            color:
-                                AppColors.pureWhite
-                                    .withOpacity(
-                              0.20,
-                            ),
-                            letterSpacing:
-                                10,
-                          ),
-                          filled:
-                              true,
-                          fillColor:
-                              AppColors.eleganceDeepNavy,
-                          border:
-                              OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(
-                              16,
-                            ),
-                            borderSide:
-                                BorderSide(
-                              color:
-                                  AppColors.pureWhite
-                                      .withOpacity(
-                                0.12,
-                              ),
-                            ),
-                          ),
-                          enabledBorder:
-                              OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(
-                              16,
-                            ),
-                            borderSide:
-                                BorderSide(
-                              color:
-                                  AppColors.pureWhite
-                                      .withOpacity(
-                                0.12,
-                              ),
-                            ),
-                          ),
-                          focusedBorder:
-                              OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(
-                              16,
-                            ),
-                            borderSide:
-                                BorderSide(
-                              color:
-                                  isTeacher
-                                      ? AppColors.teacherIndigo
-                                      : AppColors.socialBlue,
-                              width:
-                                  1.5,
-                            ),
-                          ),
-                        ),
-                        onSubmitted:
-                            (_) {
-                          _verify();
-                        },
-                      ),
-                      const SizedBox(
-                        height:
-                            12,
-                      ),
-                      Text(
-                        _remainingSeconds >
-                                0
-                            ? 'Il codice scade tra $_remainingTimeLabel'
-                            : 'Il codice è scaduto',
-                        textAlign:
-                            TextAlign.center,
-                        style:
-                            TextStyle(
-                          color:
-                              _remainingSeconds >
-                                      0
-                                  ? AppColors.pureWhite
-                                      .withOpacity(
-                                      0.45,
-                                    )
-                                  : Colors.amber,
-                          fontSize:
-                              11,
-                        ),
-                      ),
-                      if (_error !=
-                          null) ...[
-                        const SizedBox(
-                          height:
-                              18,
-                        ),
-                        _VerificationMessage(
-                          text:
-                              _error!,
-                          isError:
-                              true,
-                        ),
-                      ],
-                      if (_message !=
-                          null) ...[
-                        const SizedBox(
-                          height:
-                              18,
-                        ),
-                        _VerificationMessage(
-                          text:
-                              _message!,
-                          isError:
-                              false,
-                        ),
-                      ],
-                      const SizedBox(
-                        height:
-                            24,
-                      ),
-                      SizedBox(
-                        height:
-                            54,
-                        child:
-                            ElevatedButton(
-                          onPressed:
-                              _verifying
-                                  ? null
-                                  : _verify,
-                          style:
-                              ElevatedButton.styleFrom(
-                            backgroundColor:
-                                isTeacher
-                                    ? AppColors.teacherIndigo
-                                    : AppColors.socialBlue,
-                            foregroundColor:
-                                AppColors.pureWhite,
-                            shape:
-                                RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                16,
-                              ),
-                            ),
-                          ),
-                          child:
-                              _verifying
-                                  ? const SizedBox(
-                                      width:
-                                          20,
-                                      height:
-                                          20,
-                                      child:
-                                          CircularProgressIndicator(
-                                        strokeWidth:
-                                            2,
-                                        color:
-                                            AppColors.pureWhite,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Verifica email',
-                                      style:
-                                          TextStyle(
-                                        fontSize:
-                                            16,
-                                        fontWeight:
-                                            FontWeight.w600,
-                                      ),
-                                    ),
-                        ),
-                      ),
-                      const SizedBox(
-                        height:
-                            12,
-                      ),
-                      TextButton(
-                        onPressed:
-                            _resending
-                                ? null
-                                : _resend,
-                        child:
-                            _resending
-                                ? const SizedBox(
-                                    width:
-                                        18,
-                                    height:
-                                        18,
-                                    child:
-                                        CircularProgressIndicator(
-                                      strokeWidth:
-                                          2,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Invia un nuovo codice',
-                                  ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-class _VerificationMessage
-    extends StatelessWidget {
-  final String text;
-
-  final bool isError;
-
-  const _VerificationMessage({
-    required this.text,
-    required this.isError,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final Color color =
-        isError
-            ? Colors.redAccent
-            : Colors.greenAccent;
-
-    return Container(
-      padding:
-          const EdgeInsets.all(
-        14,
-      ),
-      decoration:
-          BoxDecoration(
-        color:
-            color.withOpacity(
-          0.08,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          12,
-        ),
-        border:
-            Border.all(
-          color:
-              color.withOpacity(
-            0.20,
-          ),
-        ),
-      ),
-      child:
-          Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          Icon(
-            isError
-                ? Icons.error_outline_rounded
-                : Icons.check_circle_outline_rounded,
-            color:
-                color,
-            size:
-                20,
-          ),
-          const SizedBox(
-            width:
-                9,
-          ),
-          Expanded(
-            child:
-                Text(
-              text,
-              style:
-                  TextStyle(
-                color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.75,
-                ),
-                fontSize:
-                    11,
-                height:
-                    1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 
@@ -2106,21 +1200,13 @@ class _ProfileCard
 
                       .teacherIndigo
 
-                      .withOpacity(
-
-                    0.35,
-
-                  )
+                      .withValues(alpha: 0.35)
 
                   : AppColors
 
                       .socialBlue
 
-                      .withOpacity(
-
-                    0.35,
-
-                  ),
+                      .withValues(alpha: 0.35),
 
         ),
 
@@ -2242,11 +1328,7 @@ class _ProfileCard
 
                                 .pureWhite
 
-                                .withOpacity(
-
-                          0.55,
-
-                        ),
+                                .withValues(alpha: 0.55),
 
                         fontSize:
 
@@ -2288,11 +1370,7 @@ class _ProfileCard
 
                                 .pureWhite
 
-                                .withOpacity(
-
-                          0.40,
-
-                        ),
+                                .withValues(alpha: 0.40),
 
                         fontSize:
 
@@ -2570,11 +1648,7 @@ class _ProfileCard
 
                           .pureWhite
 
-                          .withOpacity(
-
-                    0.45,
-
-                  ),
+                          .withValues(alpha: 0.45),
 
                   fontSize:
 
@@ -2680,11 +1754,7 @@ class _ProfileCard
 
                           .pureWhite
 
-                          .withOpacity(
-
-                    0.45,
-
-                  ),
+                          .withValues(alpha: 0.45),
 
                   fontSize:
 
@@ -2760,11 +1830,7 @@ class _ProfileCard
 
                         .pureWhite
 
-                        .withOpacity(
-
-                  0.70,
-
-                ),
+                        .withValues(alpha: 0.70),
 
                 fontSize:
 
@@ -2957,9 +2023,7 @@ class _AcademicPathModelPreview
         border:
             Border.all(
           color:
-              AppColors.skyBlue.withOpacity(
-            0.12,
-          ),
+              AppColors.skyBlue.withValues(alpha: 0.12),
         ),
       ),
 
@@ -3092,74 +2156,6 @@ class _AcademicPathModelPreview
   }
 }
 
-class _PrimaryAcademicTitlePreview
-    extends StatelessWidget {
-  final SocialProfileDraft draft;
-
-  const _PrimaryAcademicTitlePreview({
-    required this.draft,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return _AcademicTitleCard(
-      degreeType:
-          draft.degreeType,
-
-      course:
-          draft.course,
-
-      university:
-          draft.university,
-
-      department:
-          draft.department,
-
-      graduationYear:
-          draft.graduationYear,
-
-      isPrimary:
-          true,
-    );
-  }
-}
-
-class _AcademicTitlePreview
-    extends StatelessWidget {
-  final SocialAcademicPathDraft path;
-
-  const _AcademicTitlePreview({
-    required this.path,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return _AcademicTitleCard(
-      degreeType:
-          path.degreeType,
-
-      course:
-          path.course,
-
-      university:
-          path.university,
-
-      department:
-          path.department,
-
-      graduationYear:
-          path.graduationYear,
-
-      isPrimary:
-          path.isPrimary,
-    );
-  }
-}
-
 class _AcademicTitleCard
     extends StatelessWidget {
   final String degreeType;
@@ -3211,9 +2207,7 @@ class _AcademicTitleCard
         border:
             Border.all(
           color:
-              Colors.amber.withOpacity(
-            0.18,
-          ),
+              Colors.amber.withValues(alpha: 0.18),
         ),
       ),
 
@@ -3238,9 +2232,7 @@ class _AcademicTitleCard
                 decoration:
                     BoxDecoration(
                   color:
-                      Colors.amber.withOpacity(
-                    0.10,
-                  ),
+                      Colors.amber.withValues(alpha: 0.10),
 
                   borderRadius:
                       BorderRadius.circular(
@@ -3301,9 +2293,7 @@ class _AcademicTitleCard
                             TextStyle(
                           color:
                               AppColors.pureWhite
-                                  .withOpacity(
-                            0.62,
-                          ),
+                                  .withValues(alpha: 0.62),
 
                           fontSize:
                               11,
@@ -3327,9 +2317,7 @@ class _AcademicTitleCard
                 decoration:
                     BoxDecoration(
                   color:
-                      Colors.amber.withOpacity(
-                    0.10,
-                  ),
+                      Colors.amber.withValues(alpha: 0.10),
 
                   borderRadius:
                       BorderRadius.circular(
@@ -3380,9 +2368,7 @@ class _AcademicTitleCard
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
-                  0.42,
-                ),
+                        .withValues(alpha: 0.42),
 
                 fontSize:
                     10,
@@ -3420,294 +2406,6 @@ class _AcademicTitleCard
       ),
     );
   }
-}
-
-class _AcademicPathPreview
-
-    extends StatelessWidget {
-
-  final SocialProfileDraft draft;
-
-  const _AcademicPathPreview({
-
-    required this.draft,
-
-  });
-
-  @override
-
-  Widget build(
-
-    BuildContext context,
-
-  ) {
-
-    return Container(
-
-      width:
-
-          double.infinity,
-
-      padding:
-
-          const EdgeInsets.all(
-
-        13,
-
-      ),
-
-      decoration:
-
-          BoxDecoration(
-
-        color:
-
-            AppColors
-
-                .brandNightBlue,
-
-        borderRadius:
-
-            BorderRadius.circular(
-
-          12,
-
-        ),
-
-        border:
-
-            Border.all(
-
-          color:
-
-              AppColors
-
-                  .skyBlue
-
-                  .withOpacity(
-
-            0.12,
-
-          ),
-
-        ),
-
-      ),
-
-      child:
-
-          Column(
-
-        crossAxisAlignment:
-
-            CrossAxisAlignment.start,
-
-        children: [
-
-          Row(
-
-            children: [
-
-              const Icon(
-
-                Icons
-
-                    .account_balance_outlined,
-
-                color:
-
-                    AppColors
-
-                        .skyBlue,
-
-                size:
-
-                    17,
-
-              ),
-
-              const SizedBox(
-
-                width:
-
-                    7,
-
-              ),
-
-              Expanded(
-
-                child:
-
-                    Text(
-
-                  draft.university
-
-                          .isEmpty
-
-                      ? 'Ateneo non specificato'
-
-                      : draft.university,
-
-                  style:
-
-                      const TextStyle(
-
-                    color:
-
-                        AppColors
-
-                            .pureWhite,
-
-                    fontSize:
-
-                        12,
-
-                    fontWeight:
-
-                        FontWeight
-
-                            .w600,
-
-                  ),
-
-                ),
-
-              ),
-
-            ],
-
-          ),
-
-          const SizedBox(
-
-            height:
-
-                10,
-
-          ),
-
-          _AcademicInfoRow(
-
-            label:
-
-                'Dipartimento',
-
-            value:
-
-                draft.department
-
-                        .isEmpty
-
-                    ? 'Non specificato'
-
-                    : draft.department,
-
-          ),
-
-          const SizedBox(
-
-            height:
-
-                7,
-
-          ),
-
-          _AcademicInfoRow(
-
-            label:
-
-                'Corso',
-
-            value:
-
-                draft.course
-
-                        .isEmpty
-
-                    ? 'Non specificato'
-
-                    : draft.course,
-
-          ),
-
-          const SizedBox(
-
-            height:
-
-                10,
-
-          ),
-
-          Wrap(
-
-            spacing:
-
-                7,
-
-            runSpacing:
-
-                7,
-
-            children: [
-
-              _AcademicStatusBadge(
-
-                status:
-
-                    draft.academicStatus,
-
-              ),
-
-              if (
-
-                draft.startYear !=
-
-                    null
-
-              )
-
-                _AcademicSimpleBadge(
-
-                  label:
-
-                      'Dal ${draft.startYear}',
-
-                ),
-
-              if (
-
-                draft.academicStatus ==
-
-                        AcademicPathStatus
-
-                            .graduated &&
-
-                    draft.graduationYear !=
-
-                        null
-
-              )
-
-                _AcademicSimpleBadge(
-
-                  label:
-
-                      'Conseguito ${draft.graduationYear}',
-
-                ),
-
-            ],
-
-          ),
-
-        ],
-
-      ),
-
-    );
-
-  }
-
 }
 
 class _TeacherAssignmentPreview
@@ -3910,11 +2608,7 @@ class _TeacherAssignmentPreview
 
                 .teacherIndigo
 
-                .withOpacity(
-
-          0.08,
-
-        ),
+                .withValues(alpha: 0.08),
 
         borderRadius:
 
@@ -3934,11 +2628,7 @@ class _TeacherAssignmentPreview
 
                   .teacherIndigo
 
-                  .withOpacity(
-
-            0.18,
-
-          ),
+                  .withValues(alpha: 0.18),
 
         ),
 
@@ -4130,11 +2820,7 @@ class _TeacherAssignmentPreview
 
                                   .pureWhite
 
-                                  .withOpacity(
-
-                            0.45,
-
-                          ),
+                                  .withValues(alpha: 0.45),
 
                           fontSize:
 
@@ -4186,11 +2872,7 @@ class _TeacherAssignmentPreview
 
                       Colors.amber
 
-                          .withOpacity(
-
-                    0.10,
-
-                  ),
+                          .withValues(alpha: 0.10),
 
                   borderRadius:
 
@@ -4360,11 +3042,7 @@ class _TeacherAssignmentPreview
 
                         .pureWhite
 
-                        .withOpacity(
-
-                  0.50,
-
-                ),
+                        .withValues(alpha: 0.50),
 
                 fontSize:
 
@@ -4379,266 +3057,6 @@ class _TeacherAssignmentPreview
             ),
 
           ],
-
-        ],
-
-      ),
-
-    );
-
-  }
-
-}
-
-class _AdditionalAcademicPathPreview
-
-    extends StatelessWidget {
-
-  final SocialAcademicPathDraft path;
-
-  const _AdditionalAcademicPathPreview({
-
-    required this.path,
-
-  });
-
-  @override
-
-  Widget build(
-
-    BuildContext context,
-
-  ) {
-
-    return Container(
-
-      width:
-
-          double.infinity,
-
-      padding:
-
-          const EdgeInsets.all(
-
-        13,
-
-      ),
-
-      decoration:
-
-          BoxDecoration(
-
-        color:
-
-            AppColors.brandNightBlue,
-
-        borderRadius:
-
-            BorderRadius.circular(
-
-          12,
-
-        ),
-
-        border:
-
-            Border.all(
-
-          color:
-
-              AppColors.skyBlue
-
-                  .withOpacity(
-
-            0.12,
-
-          ),
-
-        ),
-
-      ),
-
-      child:
-
-          Column(
-
-        crossAxisAlignment:
-
-            CrossAxisAlignment.start,
-
-        children: [
-
-          Row(
-
-            children: [
-
-              const Icon(
-
-                Icons.account_balance_outlined,
-
-                color:
-
-                    AppColors.skyBlue,
-
-                size:
-
-                    17,
-
-              ),
-
-              const SizedBox(
-
-                width:
-
-                    7,
-
-              ),
-
-              Expanded(
-
-                child:
-
-                    Text(
-
-                  path.university,
-
-                  style:
-
-                      const TextStyle(
-
-                    color:
-
-                        AppColors.pureWhite,
-
-                    fontSize:
-
-                        12,
-
-                    fontWeight:
-
-                        FontWeight.w600,
-
-                  ),
-
-                ),
-
-              ),
-
-            ],
-
-          ),
-
-          const SizedBox(
-
-            height:
-
-                10,
-
-          ),
-
-          _AcademicInfoRow(
-
-            label:
-
-                'Dipartimento',
-
-            value:
-
-                path.department,
-
-          ),
-
-          const SizedBox(
-
-            height:
-
-                7,
-
-          ),
-
-          _AcademicInfoRow(
-
-            label:
-
-                'Corso',
-
-            value:
-
-                path.course,
-
-          ),
-
-          const SizedBox(
-
-            height:
-
-                10,
-
-          ),
-
-          Wrap(
-
-            spacing:
-
-                7,
-
-            runSpacing:
-
-                7,
-
-            children: [
-
-              _AcademicStatusBadge(
-
-                status:
-
-                    path.status,
-
-              ),
-
-              if (path.startYear != null)
-
-                _AcademicSimpleBadge(
-
-                  label:
-
-                      'Dal ${path.startYear}',
-
-                ),
-
-              if (path.graduationYear != null)
-
-                _AcademicSimpleBadge(
-
-                  label:
-
-                      'Conseguito ${path.graduationYear}',
-
-                ),
-
-              if (path.isCurrent)
-
-                const _AcademicSimpleBadge(
-
-                  label:
-
-                      'Corrente',
-
-                ),
-
-              if (path.isPrimary)
-
-                const _AcademicSimpleBadge(
-
-                  label:
-
-                      'Principale',
-
-                ),
-
-            ],
-
-          ),
 
         ],
 
@@ -4704,11 +3122,7 @@ class _AcademicInfoRow
 
                       .pureWhite
 
-                      .withOpacity(
-
-                0.38,
-
-              ),
+                      .withValues(alpha: 0.38),
 
               fontSize:
 
@@ -4746,11 +3160,7 @@ class _AcademicInfoRow
 
                       .pureWhite
 
-                      .withOpacity(
-
-                0.72,
-
-              ),
+                      .withValues(alpha: 0.72),
 
               fontSize:
 
@@ -4902,11 +3312,7 @@ class _AcademicStatusBadge
 
                 .skyBlue
 
-                .withOpacity(
-
-          0.10,
-
-        ),
+                .withValues(alpha: 0.10),
 
         borderRadius:
 
@@ -5036,11 +3442,7 @@ class _AcademicSimpleBadge
 
                 .pureWhite
 
-                .withOpacity(
-
-          0.05,
-
-        ),
+                .withValues(alpha: 0.05),
 
         borderRadius:
 
@@ -5068,11 +3470,7 @@ class _AcademicSimpleBadge
 
                   .pureWhite
 
-                  .withOpacity(
-
-            0.60,
-
-          ),
+                  .withValues(alpha: 0.60),
 
           fontSize:
 
@@ -5146,11 +3544,7 @@ class _SubjectPreview
 
                 .socialBlue
 
-                .withOpacity(
-
-          0.08,
-
-        ),
+                .withValues(alpha: 0.08),
 
         borderRadius:
 
@@ -5170,11 +3564,7 @@ class _SubjectPreview
 
                   .socialBlue
 
-                  .withOpacity(
-
-            0.18,
-
-          ),
+                  .withValues(alpha: 0.18),
 
         ),
 
@@ -5382,11 +3772,7 @@ class _SubjectPreview
 
                         .pureWhite
 
-                        .withOpacity(
-
-                  0.55,
-
-                ),
+                        .withValues(alpha: 0.55),
 
                 fontSize:
 
@@ -5433,9 +3819,7 @@ class _PreviewVerificationNotice
       decoration:
           BoxDecoration(
         color:
-            Colors.amber.withOpacity(
-          0.07,
-        ),
+            Colors.amber.withValues(alpha: 0.07),
 
         borderRadius:
             BorderRadius.circular(
@@ -5445,9 +3829,7 @@ class _PreviewVerificationNotice
         border:
             Border.all(
           color:
-              Colors.amber.withOpacity(
-            0.18,
-          ),
+              Colors.amber.withValues(alpha: 0.18),
         ),
       ),
 
@@ -5483,9 +3865,7 @@ class _PreviewVerificationNotice
                   TextStyle(
                 color:
                     AppColors.pureWhite
-                        .withOpacity(
-                  0.62,
-                ),
+                        .withValues(alpha: 0.62),
 
                 fontSize:
                     10,
@@ -5527,9 +3907,7 @@ class _PreviewPendingBadge
       decoration:
           BoxDecoration(
         color:
-            Colors.amber.withOpacity(
-          0.10,
-        ),
+            Colors.amber.withValues(alpha: 0.10),
 
         borderRadius:
             BorderRadius.circular(
@@ -5605,9 +3983,7 @@ class _PreviewGradePendingBadge
       decoration:
           BoxDecoration(
         color:
-            Colors.amber.withOpacity(
-          0.10,
-        ),
+            Colors.amber.withValues(alpha: 0.10),
 
         borderRadius:
             BorderRadius.circular(
@@ -5708,11 +4084,7 @@ class _SubjectBadge
 
                 .skyBlue
 
-                .withOpacity(
-
-          0.10,
-
-        ),
+                .withValues(alpha: 0.10),
 
         borderRadius:
 
@@ -5918,11 +4290,7 @@ class _ProfileChip
 
                 .skyBlue
 
-                .withOpacity(
-
-          0.08,
-
-        ),
+                .withValues(alpha: 0.08),
 
         borderRadius:
 
@@ -5942,11 +4310,7 @@ class _ProfileChip
 
                   .skyBlue
 
-                  .withOpacity(
-
-            0.15,
-
-          ),
+                  .withValues(alpha: 0.15),
 
         ),
 

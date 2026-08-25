@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../theme/nightTheme.dart';
 
-import '../../material/admin/admin_material_publications_page.dart';
+import 'admin_material_publications_page.dart';
 
-import 'admin_material_storage_api_service.dart';
+import '../../social/admin/admin_material_storage_api_service.dart';
 
 class AdminMaterialStoragePage extends StatefulWidget {
 

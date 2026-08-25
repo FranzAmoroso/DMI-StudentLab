@@ -28,7 +28,7 @@ class ReviewsCarousel extends StatefulWidget {
     this.height = 330,
     this.autoPlayInterval =
         const Duration(
-      seconds: 6,
+      seconds: 1,
     ),
     this.animationDuration =
         const Duration(

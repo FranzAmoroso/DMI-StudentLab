@@ -6,20 +6,15 @@ import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
 import '../database/database_tables.dart';
-
 import '../models/material_file_local.dart';
 import '../models/material_local.dart';
-
 import '../repositories/material_repository.dart';
-
 import 'local_file_service.dart';
 import 'local_storage_identity.dart';
 
 class LocalMaterialImportService {
   final MaterialRepository _materialRepository;
-
   final LocalFileService _fileService;
-
   final AppDatabase _database;
 
   LocalMaterialImportService({
@@ -63,15 +58,20 @@ class LocalMaterialImportService {
       resolvedUserId,
     );
 
+    final String rawUniversity = _requiredValue(university, 'Ateneo');
+    final String rawDepartment = _requiredValue(department, 'Dipartimento');
+    final String rawCourse = _requiredValue(course, 'Corso');
+    final String rawSubjectName = _requiredValue(subjectName, 'Materia');
+
     final String? canonicalUniversity = _canonicalOptionalValue(
-      university,
+      rawUniversity,
       existing
           .map((MaterialLocal material) => material.university)
           .whereType<String>(),
     );
 
     final String? canonicalDepartment = _canonicalOptionalValue(
-      department,
+      rawDepartment,
       existing
           .where(
             (MaterialLocal material) =>
@@ -82,7 +82,7 @@ class LocalMaterialImportService {
     );
 
     final String? canonicalCourse = _canonicalOptionalValue(
-      course,
+      rawCourse,
       existing
           .where(
             (MaterialLocal material) =>
@@ -94,7 +94,7 @@ class LocalMaterialImportService {
     );
 
     final String? canonicalSubject = _canonicalOptionalValue(
-      subjectName,
+      rawSubjectName,
       existing
           .where(
             (MaterialLocal material) =>
@@ -105,6 +105,18 @@ class LocalMaterialImportService {
           .map((MaterialLocal material) => material.subjectName)
           .whereType<String>(),
     );
+
+    final bool completeCatalogHierarchy =
+        canonicalUniversity != null &&
+        canonicalDepartment != null &&
+        canonicalCourse != null &&
+        canonicalSubject != null;
+
+    if (!completeCatalogHierarchy) {
+      throw ArgumentError('Gerarchia accademica non valida.');
+    }
+
+    final int? resolvedSubjectId = subjectId;
 
     final String mimeType = _mimeType(resolvedName);
 
@@ -163,7 +175,7 @@ class LocalMaterialImportService {
       source: MaterialSourceLocal.local,
       remoteKey: null,
       remoteId: null,
-      subjectId: subjectId,
+      subjectId: resolvedSubjectId,
       groupId: null,
       university: canonicalUniversity,
       department: canonicalDepartment,
@@ -214,10 +226,8 @@ class LocalMaterialImportService {
     }
 
     final String safeName = _sanitizeFileName(fileName);
-
     final String uniqueName =
         '${DateTime.now().microsecondsSinceEpoch}_$safeName';
-
     final String destinationPath = p.join(directory.path, uniqueName);
 
     final File copied = await sourceFile.copy(destinationPath);
@@ -263,6 +273,16 @@ class LocalMaterialImportService {
     );
   }
 
+  String _requiredValue(String? value, String fieldName) {
+    final String normalized = value == null ? '' : _cleanText(value);
+
+    if (normalized.isEmpty) {
+      throw ArgumentError('$fieldName obbligatorio.');
+    }
+
+    return normalized;
+  }
+
   String? _canonicalOptionalValue(String? value, Iterable<String> existing) {
     if (value == null) {
       return null;
@@ -285,7 +305,7 @@ class LocalMaterialImportService {
 
   bool _sameText(String? a, String? b) {
     if (a == null || b == null) {
-      return a == null && b == null;
+      return false;
     }
 
     return _normalizeText(a) == _normalizeText(b);
@@ -307,7 +327,6 @@ class LocalMaterialImportService {
     }
 
     value = value.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-
     value = value.replaceAll(RegExp(r'^\.+'), '');
 
     if (value.isEmpty) {

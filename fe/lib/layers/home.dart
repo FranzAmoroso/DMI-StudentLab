@@ -2,16 +2,23 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:flutter/rendering.dart';
+
 import 'package:fe/layers/homeLayer.dart';
 
 import 'package:fe/theme/nightTheme.dart';
 
 import 'package:fe/services/api_service.dart';
+
 import 'package:fe/services/auth_service.dart';
+
 import 'package:fe/services/auth_session.dart';
 
 import 'package:fe/social/social_models.dart';
+
 import 'package:fe/social/social_page.dart';
+
+import 'package:fe/social/auth/login_page.dart';
 
 import 'package:fe/social/message/message_page.dart';
 
@@ -21,673 +28,676 @@ import 'package:fe/social/admin/admin_panel_page.dart';
 
 import 'package:fe/social/teacher/teachear_area_page.dart';
 
+import 'package:fe/social/widgets/studentlab_user_avatar.dart';
 
 class HomePage extends StatefulWidget {
+
   const HomePage({
-    super.key,
+
+super.key,
+
   });
 
   @override
+
   State<HomePage> createState() =>
+
       _HomePageState();
+
 }
 
-
 class _HomePageState
+
     extends State<HomePage> {
+
   final AuthSession _authSession =
+
       AuthSession.instance;
 
   final AuthService _authService =
+
       AuthService();
 
   final ApiService _apiService =
+
       ApiService();
 
   bool _restoringSession =
+
       true;
 
   bool _loadingPermissions =
+
       false;
 
   bool _loadingNotifications =
+
       false;
 
   bool _adminAccess =
+
       false;
 
   bool _teacherAccess =
+
       false;
 
   int _unreadNotificationCount =
+
       0;
 
+  bool _navbarVisible = true;
 
   @override
+
   void initState() {
-    super.initState();
+
+super.initState();
 
     _authSession.addListener(
+
       _onAuthChanged,
+
     );
 
     _restoreSession();
-  }
 
+  }
 
   @override
+
   void dispose() {
+
     _authSession.removeListener(
+
       _onAuthChanged,
+
     );
 
-    super.dispose();
+super.dispose();
+
   }
 
-
   void _onAuthChanged() {
+
     if (!mounted) {
+
       return;
+
     }
 
     setState(() {});
 
     if (!_authSession.isAuthenticated) {
+
       setState(() {
+
         _adminAccess =
+
             false;
 
         _teacherAccess =
+
             false;
 
         _unreadNotificationCount =
+
             0;
+
       });
 
       return;
+
     }
 
     unawaited(
+
       Future.wait([
+
         _loadPermissions(),
+
         _loadUnreadNotifications(),
+
       ]),
+
     );
+
   }
 
-
   Future<void> _restoreSession() async {
+
     try {
+
       await _authService
+
           .restoreSession();
 
       if (
+
         _authSession
+
             .isAuthenticated
+
       ) {
+
         await Future.wait([
+
           _loadPermissions(),
+
           _loadUnreadNotifications(),
+
         ]);
+
       }
+
     } catch (_) {
+
       if (mounted) {
+
         setState(() {
+
           _adminAccess =
+
               false;
 
           _teacherAccess =
+
               false;
 
           _unreadNotificationCount =
+
               0;
+
         });
+
       }
+
     } finally {
+
       if (!mounted) {
+
         return;
+
       }
 
       setState(() {
+
         _restoringSession =
+
             false;
+
       });
+
     }
+
   }
 
-
   Future<void>
+
       _loadPermissions() async {
+
     if (
+
       !_authSession
+
           .isAuthenticated
+
     ) {
+
       if (mounted) {
+
         setState(() {
+
           _adminAccess =
+
               false;
 
           _teacherAccess =
+
               false;
+
         });
+
       }
 
       return;
+
     }
 
     if (_loadingPermissions) {
+
       return;
+
     }
 
     _loadingPermissions =
+
         true;
 
     try {
-      final List<bool> permissions =
-          await Future.wait<bool>([
-        _apiService
-            .canAccessAdminPanel(),
 
-        _apiService
-            .canAccessTeacherArea(),
+      final bool isDeveloperSystem =
+
+          _currentUser?.role.trim().toLowerCase() == 'devsyst';
+
+      final List<bool> permissions =
+
+          await Future.wait<bool>([
+
+        _apiService.canAccessAdminPanel(),
+
+        _apiService.canAccessTeacherArea(),
+
       ]);
 
       if (!mounted) {
+
         return;
+
       }
 
       setState(() {
+
         _adminAccess =
-            permissions[0];
+
+            isDeveloperSystem || permissions[0];
 
         _teacherAccess =
+
             permissions[1];
+
       });
+
     } catch (_) {
+
       if (!mounted) {
+
         return;
+
       }
 
       setState(() {
+
         _adminAccess =
+
             false;
 
         _teacherAccess =
+
             false;
+
       });
+
     } finally {
+
       _loadingPermissions =
+
           false;
+
     }
+
   }
 
-
   Future<void>
+
       _loadUnreadNotifications() async {
+
     if (!_isAuthenticated) {
+
       if (mounted) {
+
         setState(() {
+
           _unreadNotificationCount =
+
               0;
+
         });
+
       }
 
       return;
+
     }
 
     if (_loadingNotifications) {
+
       return;
+
     }
 
     _loadingNotifications =
+
         true;
 
     try {
+
       final int count =
+
           await _apiService
+
               .getUnreadNotificationCount();
 
       if (!mounted) {
+
         return;
+
       }
 
       setState(() {
+
         _unreadNotificationCount =
+
             count;
+
       });
+
     } catch (_) {
+
       if (!mounted) {
+
         return;
+
       }
 
       setState(() {
-        _unreadNotificationCount =
-            0;
-      });
-    } finally {
-      _loadingNotifications =
-          false;
-    }
-  }
 
+        _unreadNotificationCount =
+
+            0;
+
+      });
+
+    } finally {
+
+      _loadingNotifications =
+
+          false;
+
+    }
+
+  }
 
   bool get _isAuthenticated {
-    return _authSession
-        .isAuthenticated;
-  }
 
+    return _authSession
+
+        .isAuthenticated;
+
+  }
 
   SocialUser? get _currentUser {
+
     return _authSession
+
         .currentUser;
+
   }
 
-
   String get _displayName {
+
     final SocialUser? user =
+
         _currentUser;
 
     if (user == null) {
+
       return 'Utente';
+
     }
 
     if (
+
       user.firstName
+
           .isNotEmpty
+
     ) {
+
       return user.firstName;
+
     }
 
     if (user.name.isNotEmpty) {
+
       return user.name;
+
     }
 
     return 'Utente';
-  }
 
+  }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+
+  Widget build(BuildContext context) {
+
     return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
 
+      backgroundColor: AppColors.darkElegance,
 
-appBar: AppBar(
-  backgroundColor: AppColors.eleganceMidnight,
-  elevation: AppColors.nightAppBarTheme.elevation,
-  centerTitle: false,
-  leading: Padding(
-    padding: const EdgeInsets.all(6),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(11),
-      child: Image.asset(
-        'assets/icons/favicon.png',
-        width: 44,
-        height: 44,
-        fit: BoxFit.cover,
-      ),
-    ),
-  ),
-  actions: [
-    if (_restoringSession)
-      const Padding(
-        padding: EdgeInsets.only(right: 18),
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
+      body: SafeArea(
+
+        bottom: false,
+
+        child: Column(
+
+          children: [
+
+            AnimatedSize(
+
+              duration: const Duration(milliseconds: 220),
+
+              curve: Curves.easeOutCubic,
+
+              alignment: Alignment.topCenter,
+
+              child: _navbarVisible ? _buildNavbar() : const SizedBox.shrink(),
+
             ),
-          ),
-        ),
-      )
-    else if (_isAuthenticated) ...[
-      _NavbarIconButton(
-        tooltip: 'Messaggi',
-        icon: Icons.chat_bubble_outline_rounded,
-        onPressed: _openMessages,
-      ),
-      const SizedBox(width: 7),
-      _NavbarIconButton(
-        tooltip: 'Notifiche',
-        icon: Icons.notifications_none_rounded,
-        badge: _unreadNotificationCount,
-        onPressed: _openNotifications,
-      ),
-      const SizedBox(width: 7),
-      _UserButton(
-        name: _displayName,
-        onPressed: _showUserMenu,
-      ),
-      const SizedBox(width: 12),
-    ],
-  ],
-),
 
-      body:
-          HomeLayer(),
-    );
-  }
+            Expanded(
 
+              child: NotificationListener<UserScrollNotification>(
 
-  Future<void>
-      _openMessages() async {
-    if (!_isAuthenticated) {
-      return;
-    }
+                onNotification: _handleHomeScroll,
 
-    await Navigator.of(
-      context,
-    ).push(
-      MaterialPageRoute(
-        builder:
-            (_) =>
-                const MessagesPage(),
-      ),
-    );
-  }
+                child: HomeLayer(),
 
-
-  Future<void>
-      _openNotifications() async {
-    if (!_isAuthenticated) {
-      return;
-    }
-
-    await Navigator.of(
-      context,
-    ).push(
-      MaterialPageRoute(
-        builder:
-            (_) =>
-                const NotificationsPage(),
-      ),
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    await _loadUnreadNotifications();
-  }
-
-
-  Future<void>
-      _openProfile() async {
-    if (!_isAuthenticated) {
-      return;
-    }
-
-    await Navigator.of(
-      context,
-    ).push(
-      MaterialPageRoute(
-        builder:
-            (_) =>
-                const SocialPage(),
-      ),
-    );
-  }
-
-
-  Future<void>
-      _openAdminPanel() async {
-    if (!_isAuthenticated) {
-      return;
-    }
-
-    try {
-      final bool authorized =
-          await _apiService
-              .canAccessAdminPanel();
-
-      if (!mounted) {
-        return;
-      }
-
-      if (!authorized) {
-        setState(() {
-          _adminAccess =
-              false;
-        });
-
-        _showMessage(
-          'Non hai i permessi per accedere all\'Admin Panel.',
-        );
-
-        return;
-      }
-
-      await Navigator.of(
-        context,
-      ).push(
-        MaterialPageRoute(
-          builder:
-              (_) =>
-                  const AdminPanelPage(),
-        ),
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      await _loadPermissions();
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Impossibile verificare i permessi amministrativi.',
-      );
-    }
-  }
-
-
-  Future<void>
-      _openTeacherArea() async {
-    if (!_isAuthenticated) {
-      return;
-    }
-
-    try {
-      final bool authorized =
-          await _apiService
-              .canAccessTeacherArea();
-
-      if (!mounted) {
-        return;
-      }
-
-      if (!authorized) {
-        setState(() {
-          _teacherAccess =
-              false;
-        });
-
-        _showMessage(
-          'Non hai i permessi per accedere all\'Area Docenti.',
-        );
-
-        return;
-      }
-
-      await Navigator.of(
-        context,
-      ).push(
-        MaterialPageRoute(
-          builder:
-              (_) =>
-                  const TeacherAreaPage(),
-        ),
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      await _loadPermissions();
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Impossibile verificare i permessi docente.',
-      );
-    }
-  }
-
-
-  Future<void> _logout() async {
-    try {
-      await _authService.logout();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _adminAccess =
-            false;
-
-        _teacherAccess =
-            false;
-
-        _unreadNotificationCount =
-            0;
-      });
-
-      _showMessage(
-        'Disconnessione completata.',
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Errore durante la disconnessione: $e',
-      );
-    }
-  }
-
-
-  Future<void>
-      _confirmLogout() async {
-    final bool? confirmed =
-        await showDialog<bool>(
-      context:
-          context,
-
-      builder:
-          (
-        BuildContext dialogContext,
-      ) {
-        return AlertDialog(
-          backgroundColor:
-              AppColors
-                  .eleganceDeepNavy,
-
-          title:
-              const Text(
-            'Disconnetti account',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
-          ),
-
-          content:
-              Text(
-            'Vuoi davvero uscire dal tuo account StudentLab? '
-            'I file scaricati offline non verranno eliminati.',
-
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite
-                      .withOpacity(
-                0.65,
               ),
 
-              height:
-                  1.4,
-            ),
-          ),
-
-          actions: [
-            TextButton(
-              onPressed:
-                  () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
-              },
-
-              child:
-                  const Text(
-                'Annulla',
-              ),
             ),
 
-            TextButton(
-              onPressed:
-                  () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
-              },
-
-              child:
-                  const Text(
-                'Esci',
-
-                style:
-                    TextStyle(
-                  color:
-                      Colors.redAccent,
-                ),
-              ),
-            ),
           ],
-        );
-      },
+
+        ),
+
+      ),
+
     );
 
-    if (confirmed != true) {
-      return;
-    }
-
-    await _logout();
   }
 
+  Widget _buildNavbar() {
 
-  void _showUserMenu() {
+    return Container(
+
+      height: 56,
+
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+
+      decoration: BoxDecoration(
+
+        color: AppColors.eleganceMidnight,
+
+        borderRadius: BorderRadius.circular(16),
+
+        border: Border.all(
+
+          color: AppColors.skyBlue.withValues(alpha: 0.12),
+
+        ),
+
+      ),
+
+      child: Row(
+
+        children: [
+
+          _StudentLabNavbarLogo(onPressed: () {}),
+
+          const Spacer(),
+
+          if (_restoringSession)
+
+            const Padding(
+
+              padding: EdgeInsets.symmetric(horizontal: 8),
+
+              child: SizedBox(
+
+                width: 20,
+
+                height: 20,
+
+                child: CircularProgressIndicator(
+
+                  strokeWidth: 2,
+
+                  color: AppColors.skyBlue,
+
+                ),
+
+              ),
+
+            )
+
+          else if (_isAuthenticated) ...[
+
+            _NavbarIconButton(
+
+              tooltip: 'Messaggi',
+
+              icon: Icons.chat_bubble_outline_rounded,
+
+              iconColor: AppColors.socialSky,
+
+              onPressed: _openMessages,
+
+            ),
+
+            const SizedBox(width: 6),
+
+            _NavbarIconButton(
+
+              tooltip: 'Notifiche',
+
+              icon: Icons.notifications_none_rounded,
+
+              iconColor: AppColors.materialSky,
+
+              badge: _unreadNotificationCount,
+
+              onPressed: _openNotifications,
+
+            ),
+
+            const SizedBox(width: 6),
+
+            if (_currentUser != null)
+
+              _UserButton(
+
+                user: _currentUser!,
+
+                name: _displayName,
+
+                onPressed: _showUserMenu,
+
+              ),
+
+          ] else ...[
+
+            _GuestProfileButton(
+
+              onPressed: _showGuestMenu,
+
+            ),
+
+          ],
+
+        ],
+
+      ),
+
+    );
+
+  }
+
+  bool _handleHomeScroll(UserScrollNotification notification) {
+
+    if (notification.metrics.pixels <= 8) {
+
+      if (!_navbarVisible && mounted) setState(() => _navbarVisible = true);
+
+      return false;
+
+    }
+
+    if (notification.direction == ScrollDirection.reverse && _navbarVisible) {
+
+      setState(() => _navbarVisible = false);
+
+    } else if (notification.direction == ScrollDirection.forward && !_navbarVisible) {
+
+      setState(() => _navbarVisible = true);
+
+    }
+
+    return false;
+
+  }
+
+  Future<void> _openGuestLogin() async {
+
     final SocialUser? user =
-        _currentUser;
+        await Navigator.of(
+      context,
+    ).push<SocialUser>(
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                const LoginPage(),
+      ),
+    );
 
-    if (user == null) {
+    if (
+      !mounted ||
+      user == null
+    ) {
       return;
     }
+
+    _authSession.updateUser(
+      user,
+    );
+
+    await Future.wait([
+      _loadPermissions(),
+      _loadUnreadNotifications(),
+    ]);
+
+  }
+
+  void _showGuestMenu() {
 
     showModalBottomSheet<void>(
       context:
           context,
-
       backgroundColor:
-          AppColors
-              .eleganceDeepNavy,
-
+          AppColors.eleganceDeepNavy,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
@@ -698,17 +708,16 @@ appBar: AppBar(
           ),
         ),
       ),
-
       builder:
           (
         BuildContext sheetContext,
       ) {
+
         return SafeArea(
           child:
               Column(
             mainAxisSize:
                 MainAxisSize.min,
-
             children: [
               const SizedBox(
                 height:
@@ -717,43 +726,50 @@ appBar: AppBar(
 
               Padding(
                 padding:
-                    const EdgeInsets
-                        .fromLTRB(
+                    const EdgeInsets.fromLTRB(
                   18,
                   12,
                   18,
                   14,
                 ),
-
                 child:
                     Row(
                   children: [
-                    CircleAvatar(
-                      radius:
-                          24,
-
-                      backgroundColor:
-                          AppColors.skyBlue,
-
+                    ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(
+                        24,
+                      ),
                       child:
-                          Text(
-                        user.name.isNotEmpty
-                            ? user.name[0]
-                                .toUpperCase()
-                            : '?',
-
-                        style:
-                            const TextStyle(
-                          color:
-                              AppColors
-                                  .eleganceSoftNight,
-
-                          fontSize:
-                              17,
-
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
+                          Image.asset(
+                        'assets/mascot/guest_profile.png',
+                        width:
+                            48,
+                        height:
+                            48,
+                        fit:
+                            BoxFit.cover,
+                        errorBuilder:
+                            (
+                          BuildContext context,
+                          Object error,
+                          StackTrace? stackTrace,
+                        ) {
+                          return const CircleAvatar(
+                            radius:
+                                24,
+                            backgroundColor:
+                                AppColors.studentBlue,
+                            child:
+                                Icon(
+                              Icons.person_outline_rounded,
+                              color:
+                                  AppColors.pureWhite,
+                              size:
+                                  24,
+                            ),
+                          );
+                        },
                       ),
                     ),
 
@@ -766,60 +782,18 @@ appBar: AppBar(
                       child:
                           Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-
+                            CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            user.name,
-
-                            maxLines:
-                                1,
-
-                            overflow:
-                                TextOverflow
-                                    .ellipsis,
-
-                            style:
-                                const TextStyle(
-                              color:
-                                  AppColors
-                                      .pureWhite,
-
-                              fontSize:
-                                  16,
-
-                              fontWeight:
-                                  FontWeight.w600,
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height:
-                                3,
-                          ),
-
-                          Text(
-                            user.email,
-
-                            maxLines:
-                                1,
-
-                            overflow:
-                                TextOverflow
-                                    .ellipsis,
-
+                          const Text(
+                            'Guest',
                             style:
                                 TextStyle(
                               color:
-                                  AppColors
-                                      .pureWhite
-                                      .withOpacity(
-                                    0.45,
-                                  ),
-
+                                  AppColors.pureWhite,
                               fontSize:
-                                  11,
+                                  16,
+                              fontWeight:
+                                  FontWeight.w600,
                             ),
                           ),
 
@@ -829,26 +803,16 @@ appBar: AppBar(
                           ),
 
                           Text(
-                            _adminAccess
-                                ? 'Amministratore'
-                                : _teacherAccess
-                                    ? 'Docente verificato'
-                                    : user.type ==
-                                            SocialUserType.teacher
-                                        ? 'Insegnante'
-                                        : 'Studente',
-
+                            'Profilo temporaneo StudentLab',
                             style:
-                                const TextStyle(
+                                TextStyle(
                               color:
-                                  AppColors
-                                      .materialSky,
-
+                                  AppColors.pureWhite.withValues(
+                                alpha:
+                                    0.45,
+                              ),
                               fontSize:
-                                  10,
-
-                              fontWeight:
-                                  FontWeight.w600,
+                                  11,
                             ),
                           ),
                         ],
@@ -861,388 +825,60 @@ appBar: AppBar(
               Divider(
                 height:
                     1,
-
                 color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.08,
+                    AppColors.pureWhite.withValues(
+                  alpha:
+                      0.08,
                 ),
               ),
 
               ListTile(
                 leading:
                     const Icon(
-                  Icons
-                      .person_outline_rounded,
-
+                  Icons.login_rounded,
                   color:
                       AppColors.skyBlue,
                 ),
-
                 title:
                     const Text(
-                  'Profilo',
-
+                  'Accedi',
                   style:
                       TextStyle(
                     color:
                         AppColors.pureWhite,
+                    fontWeight:
+                        FontWeight.w500,
                   ),
                 ),
-
                 subtitle:
                     Text(
-                  'Visualizza il tuo profilo Social',
-
+                  'Accedi al tuo account StudentLab',
                   style:
                       TextStyle(
                     color:
-                        AppColors.pureWhite
-                            .withOpacity(
-                      0.42,
+                        AppColors.pureWhite.withValues(
+                      alpha:
+                          0.42,
                     ),
-
                     fontSize:
                         10,
                   ),
                 ),
-
                 trailing:
                     const Icon(
-                  Icons
-                      .arrow_forward_ios_rounded,
-
+                  Icons.arrow_forward_ios_rounded,
                   color:
                       Colors.white30,
-
                   size:
                       14,
                 ),
-
                 onTap:
-                    () {
+                    () async {
                   Navigator.pop(
                     sheetContext,
                   );
 
-                  _openProfile();
-                },
-              ),
-
-              ListTile(
-                leading:
-                    const Icon(
-                  Icons
-                      .chat_bubble_outline_rounded,
-
-                  color:
-                      AppColors.skyBlue,
-                ),
-
-                title:
-                    const Text(
-                  'Messaggi',
-
-                  style:
-                      TextStyle(
-                    color:
-                        AppColors.pureWhite,
-                  ),
-                ),
-
-                trailing:
-                    const Icon(
-                  Icons
-                      .arrow_forward_ios_rounded,
-
-                  color:
-                      Colors.white30,
-
-                  size:
-                      14,
-                ),
-
-                onTap:
-                    () {
-                  Navigator.pop(
-                    sheetContext,
-                  );
-
-                  _openMessages();
-                },
-              ),
-
-              ListTile(
-                leading:
-                    const Icon(
-                  Icons
-                      .notifications_none_rounded,
-
-                  color:
-                      AppColors.skyBlue,
-                ),
-
-                title:
-                    const Text(
-                  'Notifiche',
-
-                  style:
-                      TextStyle(
-                    color:
-                        AppColors.pureWhite,
-                  ),
-                ),
-
-                trailing:
-                    Row(
-                  mainAxisSize:
-                      MainAxisSize.min,
-
-                  children: [
-                    if (
-                      _unreadNotificationCount >
-                          0
-                    )
-                      Container(
-                        padding:
-                            const EdgeInsets
-                                .symmetric(
-                          horizontal:
-                              7,
-
-                          vertical:
-                              3,
-                        ),
-
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              Colors
-                                  .redAccent,
-
-                          borderRadius:
-                              BorderRadius
-                                  .circular(
-                            10,
-                          ),
-                        ),
-
-                        child:
-                            Text(
-                          _unreadNotificationCount >
-                                  99
-                              ? '99+'
-                              : '$_unreadNotificationCount',
-
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.white,
-
-                            fontSize:
-                                10,
-
-                            fontWeight:
-                                FontWeight.bold,
-                          ),
-                        ),
-                      ),
-
-                    const SizedBox(
-                      width:
-                          8,
-                    ),
-
-                    const Icon(
-                      Icons
-                          .arrow_forward_ios_rounded,
-
-                      color:
-                          Colors.white30,
-
-                      size:
-                          14,
-                    ),
-                  ],
-                ),
-
-                onTap:
-                    () {
-                  Navigator.pop(
-                    sheetContext,
-                  );
-
-                  _openNotifications();
-                },
-              ),
-
-              if (_teacherAccess)
-                ListTile(
-                  leading:
-                      const Icon(
-                    Icons
-                        .cast_for_education_outlined,
-
-                    color:
-                        AppColors
-                            .teacherIndigo,
-                  ),
-
-                  title:
-                      const Text(
-                    'Area Docenti',
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite,
-
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-
-                  subtitle:
-                      Text(
-                    'Materiali e strumenti docente',
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite
-                              .withOpacity(
-                            0.42,
-                          ),
-
-                      fontSize:
-                          10,
-                    ),
-                  ),
-
-                  trailing:
-                      const Icon(
-                    Icons
-                        .arrow_forward_ios_rounded,
-
-                    color:
-                        Colors.white30,
-
-                    size:
-                        14,
-                  ),
-
-                  onTap:
-                      () {
-                    Navigator.pop(
-                      sheetContext,
-                    );
-
-                    _openTeacherArea();
-                  },
-                ),
-
-              if (_adminAccess)
-                ListTile(
-                  leading:
-                      const Icon(
-                    Icons
-                        .admin_panel_settings_outlined,
-
-                    color:
-                        Colors.greenAccent,
-                  ),
-
-                  title:
-                      const Text(
-                    'Admin Panel',
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite,
-
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-
-                  subtitle:
-                      Text(
-                    'Moderazione e gestione StudentLab',
-
-                    style:
-                        TextStyle(
-                      color:
-                          AppColors.pureWhite
-                              .withOpacity(
-                            0.42,
-                          ),
-
-                      fontSize:
-                          10,
-                    ),
-                  ),
-
-                  trailing:
-                      const Icon(
-                    Icons
-                        .arrow_forward_ios_rounded,
-
-                    color:
-                        Colors.white30,
-
-                    size:
-                        14,
-                  ),
-
-                  onTap:
-                      () {
-                    Navigator.pop(
-                      sheetContext,
-                    );
-
-                    _openAdminPanel();
-                  },
-                ),
-
-              Divider(
-                height:
-                    1,
-
-                color:
-                    AppColors.pureWhite
-                        .withOpacity(
-                  0.08,
-                ),
-              ),
-
-              ListTile(
-                leading:
-                    const Icon(
-                  Icons.logout_rounded,
-
-                  color:
-                      Colors.redAccent,
-                ),
-
-                title:
-                    const Text(
-                  'Esci',
-
-                  style:
-                      TextStyle(
-                    color:
-                        Colors.redAccent,
-                  ),
-                ),
-
-                onTap:
-                    () {
-                  Navigator.pop(
-                    sheetContext,
-                  );
-
-                  _confirmLogout();
+                  await _openGuestLogin();
                 },
               ),
 
@@ -1253,349 +889,1721 @@ appBar: AppBar(
             ],
           ),
         );
+
       },
     );
+
   }
 
+  Future<void>
 
-  void _showMessage(
-    String message,
-  ) {
-    if (!mounted) {
+      _openMessages() async {
+
+    if (!_isAuthenticated) {
+
       return;
+
     }
 
-    ScaffoldMessenger.of(
+    await Navigator.of(
+
       context,
-    ).showSnackBar(
-      SnackBar(
-        content:
-            Text(
-          message,
+
+    ).push(
+
+      MaterialPageRoute(
+
+        builder:
+
+            (_) =>
+
+                const MessagesPage(),
+
+      ),
+
+    );
+
+  }
+
+  Future<void>
+
+      _openNotifications() async {
+
+    if (!_isAuthenticated) {
+
+      return;
+
+    }
+
+    await Navigator.of(
+
+      context,
+
+    ).push(
+
+      MaterialPageRoute(
+
+        builder:
+
+            (_) =>
+
+                const NotificationsPage(),
+
+      ),
+
+    );
+
+    if (!mounted) {
+
+      return;
+
+    }
+
+    await _loadUnreadNotifications();
+
+  }
+
+  Future<void>
+
+      _openProfile() async {
+
+    if (!_isAuthenticated) {
+
+      return;
+
+    }
+
+    await Navigator.of(
+
+      context,
+
+    ).push(
+
+      MaterialPageRoute(
+
+        builder:
+
+            (_) =>
+
+                const SocialPage(),
+
+      ),
+
+    );
+
+  }
+
+  Future<void> _openGroupsDirectory() async {
+
+    if (!_isAuthenticated) {
+
+      return;
+
+    }
+
+    await Navigator.of(context).push(
+
+      MaterialPageRoute(
+
+        builder: (_) => const SocialPage(),
+
+      ),
+
+    );
+
+  }
+
+  Future<void> _openUsersDirectory() async {
+
+    if (!_isAuthenticated) {
+
+      return;
+
+    }
+
+    await Navigator.of(context).push(
+
+      MaterialPageRoute(
+
+        builder: (_) => const SocialPage(),
+
+      ),
+
+    );
+
+  }
+
+  Future<void>
+
+      _openAdminPanel() async {
+
+    if (!_isAuthenticated) {
+
+      return;
+
+    }
+
+    try {
+
+      final bool isDeveloperSystem =
+
+          _currentUser?.role.trim().toLowerCase() == 'devsyst';
+
+      final bool authorized =
+
+          isDeveloperSystem ||
+
+          await _apiService.canAccessAdminPanel();
+
+      if (!mounted) {
+
+        return;
+
+      }
+
+      if (!authorized) {
+
+        setState(() {
+
+          _adminAccess =
+
+              false;
+
+        });
+
+        return;
+
+      }
+
+      await Navigator.of(
+
+        context,
+
+      ).push(
+
+        MaterialPageRoute(
+
+          builder:
+
+              (_) =>
+
+                  const AdminPanelPage(),
+
+        ),
+
+      );
+
+      if (!mounted) {
+
+        return;
+
+      }
+
+      await _loadPermissions();
+
+    } catch (_) {
+
+      if (!mounted) {
+
+        return;
+
+      }
+
+      setState(() {
+
+        _adminAccess = false;
+
+      });
+
+    }
+
+  }
+
+  Future<void>
+
+      _openTeacherArea() async {
+
+    if (!_isAuthenticated) {
+
+      return;
+
+    }
+
+    try {
+
+      final bool authorized =
+
+          await _apiService
+
+              .canAccessTeacherArea();
+
+      if (!mounted) {
+
+        return;
+
+      }
+
+      if (!authorized) {
+
+        setState(() {
+
+          _teacherAccess =
+
+              false;
+
+        });
+
+        return;
+
+      }
+
+      await Navigator.of(
+
+        context,
+
+      ).push(
+
+        MaterialPageRoute(
+
+          builder:
+
+              (_) =>
+
+                  const TeacherAreaPage(),
+
+        ),
+
+      );
+
+      if (!mounted) {
+
+        return;
+
+      }
+
+      await _loadPermissions();
+
+    } catch (_) {
+
+      if (!mounted) {
+
+        return;
+
+      }
+
+      setState(() {
+
+        _teacherAccess = false;
+
+      });
+
+    }
+
+  }
+
+  Future<void> _logout() async {
+
+    try {
+
+      await _authService.logout();
+
+      if (!mounted) {
+
+        return;
+
+      }
+
+      setState(() {
+
+        _adminAccess =
+
+            false;
+
+        _teacherAccess =
+
+            false;
+
+        _unreadNotificationCount =
+
+            0;
+
+      });
+
+    } catch (_) {
+
+      return;
+
+    }
+
+  }
+
+  Future<void>
+
+      _confirmLogout() async {
+
+    final bool? confirmed =
+
+        await showDialog<bool>(
+
+      context:
+
+          context,
+
+      builder:
+
+          (
+
+        BuildContext dialogContext,
+
+      ) {
+
+        return AlertDialog(
+
+          backgroundColor:
+
+              AppColors
+
+                  .eleganceDeepNavy,
+
+          title:
+
+              const Text(
+
+            'Disconnetti account',
+
+            style:
+
+                TextStyle(
+
+              color:
+
+                  AppColors.pureWhite,
+
+            ),
+
+          ),
+
+          content:
+
+              Text(
+
+            'Vuoi davvero uscire dal tuo account StudentLab? '
+
+            'I file scaricati offline non verranno eliminati.',
+
+            style:
+
+                TextStyle(
+
+              color:
+
+                  AppColors.pureWhite
+
+                      .withOpacity(
+
+                0.65,
+
+              ),
+
+              height:
+
+                  1.4,
+
+            ),
+
+          ),
+
+          actions: [
+
+            TextButton(
+
+              onPressed:
+
+                  () {
+
+                Navigator.pop(
+
+                  dialogContext,
+
+                  false,
+
+                );
+
+              },
+
+              child:
+
+                  const Text(
+
+                'Annulla',
+
+              ),
+
+            ),
+
+            TextButton(
+
+              onPressed:
+
+                  () {
+
+                Navigator.pop(
+
+                  dialogContext,
+
+                  true,
+
+                );
+
+              },
+
+              child:
+
+                  const Text(
+
+                'Esci',
+
+                style:
+
+                    TextStyle(
+
+                  color:
+
+                      Colors.redAccent,
+
+                ),
+
+              ),
+
+            ),
+
+          ],
+
+        );
+
+      },
+
+    );
+
+    if (confirmed != true) {
+
+      return;
+
+    }
+
+    await _logout();
+
+  }
+
+  void _showUserMenu() {
+
+    final SocialUser? user =
+
+        _currentUser;
+
+    if (user == null) {
+
+      return;
+
+    }
+
+    showModalBottomSheet<void>(
+
+      context:
+
+          context,
+
+      isScrollControlled:
+          true,
+
+      backgroundColor:
+
+          AppColors
+
+              .eleganceDeepNavy,
+
+      shape:
+
+          const RoundedRectangleBorder(
+
+        borderRadius:
+
+            BorderRadius.vertical(
+
+          top:
+
+              Radius.circular(
+
+            20,
+
+          ),
+
+        ),
+
+      ),
+
+      builder:
+
+          (
+
+        BuildContext sheetContext,
+
+      ) {
+
+        final double maxHeight =
+            MediaQuery.sizeOf(
+                  sheetContext,
+                ).height *
+                0.86;
+
+        return SafeArea(
+
+          child:
+              ConstrainedBox(
+
+            constraints:
+                BoxConstraints(
+              maxHeight:
+                  maxHeight,
+            ),
+
+            child:
+                SingleChildScrollView(
+
+              physics:
+                  const ClampingScrollPhysics(),
+
+              child:
+                  Column(
+
+                mainAxisSize:
+
+                    MainAxisSize.min,
+
+                children: [
+
+              const SizedBox(
+
+                height:
+
+                    8,
+
+              ),
+
+              Padding(
+
+                padding:
+
+                    const EdgeInsets
+
+                        .fromLTRB(
+
+                  18,
+
+                  12,
+
+                  18,
+
+                  14,
+
+                ),
+
+                child:
+
+                    Row(
+
+                  children: [
+
+                    StudentLabUserAvatar(
+
+                      type: user.type,
+
+                      radius: 24,
+
+                    ),
+
+                    const SizedBox(
+
+                      width:
+
+                          12,
+
+                    ),
+
+                    Expanded(
+
+                      child:
+
+                          Column(
+
+                        crossAxisAlignment:
+
+                            CrossAxisAlignment
+
+                                .start,
+
+                        children: [
+
+                          Text(
+
+                            user.name,
+
+                            maxLines:
+
+                                1,
+
+                            overflow:
+
+                                TextOverflow
+
+                                    .ellipsis,
+
+                            style:
+
+                                const TextStyle(
+
+                              color:
+
+                                  AppColors
+
+                                      .pureWhite,
+
+                              fontSize:
+
+                                  16,
+
+                              fontWeight:
+
+                                  FontWeight.w600,
+
+                            ),
+
+                          ),
+
+                          const SizedBox(
+
+                            height:
+
+                                3,
+
+                          ),
+
+                          Text(
+
+                            user.email,
+
+                            maxLines:
+
+                                1,
+
+                            overflow:
+
+                                TextOverflow
+
+                                    .ellipsis,
+
+                            style:
+
+                                TextStyle(
+
+                              color:
+
+                                  AppColors
+
+                                      .pureWhite
+
+                                      .withOpacity(
+
+                                    0.45,
+
+                                  ),
+
+                              fontSize:
+
+                                  11,
+
+                            ),
+
+                          ),
+
+                          const SizedBox(
+
+                            height:
+
+                                3,
+
+                          ),
+
+                          Text(
+
+                            user.role == 'creator'
+
+                                ? 'Creator'
+
+                                : user.role == 'devsyst'
+
+                                    ? 'Developer'
+
+                                    : _adminAccess
+
+                                        ? 'Amministratore'
+
+                                        : _teacherAccess
+
+                                            ? 'Docente verificato'
+
+                                            : user.type ==
+
+                                                    SocialUserType.teacher
+
+                                                ? 'Insegnante'
+
+                                                : 'Studente',
+
+                            style:
+
+                                const TextStyle(
+
+                              color:
+
+                                  AppColors
+
+                                      .materialSky,
+
+                              fontSize:
+
+                                  10,
+
+                              fontWeight:
+
+                                  FontWeight.w600,
+
+                            ),
+
+                          ),
+
+                        ],
+
+                      ),
+
+                    ),
+
+                  ],
+
+                ),
+
+              ),
+
+              Divider(
+
+                height:
+
+                    1,
+
+                color:
+
+                    AppColors.pureWhite
+
+                        .withOpacity(
+
+                  0.08,
+
+                ),
+
+              ),
+
+              ListTile(
+
+                leading:
+
+                    const Icon(
+
+                  Icons
+
+                      .person_outline_rounded,
+
+                  color:
+
+                      AppColors.skyBlue,
+
+                ),
+
+                title:
+
+                    const Text(
+
+                  'Profilo',
+
+                  style:
+
+                      TextStyle(
+
+                    color:
+
+                        AppColors.pureWhite,
+
+                  ),
+
+                ),
+
+                subtitle:
+
+                    Text(
+
+                  'Visualizza il tuo profilo Social',
+
+                  style:
+
+                      TextStyle(
+
+                    color:
+
+                        AppColors.pureWhite
+
+                            .withOpacity(
+
+                      0.42,
+
+                    ),
+
+                    fontSize:
+
+                        10,
+
+                  ),
+
+                ),
+
+                trailing:
+
+                    const Icon(
+
+                  Icons
+
+                      .arrow_forward_ios_rounded,
+
+                  color:
+
+                      Colors.white30,
+
+                  size:
+
+                      14,
+
+                ),
+
+                onTap:
+
+                    () {
+
+                  Navigator.pop(
+
+                    sheetContext,
+
+                  );
+
+                  _openProfile();
+
+                },
+
+              ),
+
+              ListTile(
+
+                leading: const Icon(
+
+                  Icons.groups_2_outlined,
+
+                  color: AppColors.skyBlue,
+
+                ),
+
+                title: const Text(
+
+                  'Gruppi',
+
+                  style: TextStyle(color: AppColors.pureWhite),
+
+                ),
+
+                subtitle: Text(
+
+                  'I tuoi gruppi e quelli pubblici',
+
+                  style: TextStyle(
+
+                    color: AppColors.pureWhite.withOpacity(0.42),
+
+                    fontSize: 10,
+
+                  ),
+
+                ),
+
+                trailing: const Icon(
+
+                  Icons.arrow_forward_ios_rounded,
+
+                  color: Colors.white30,
+
+                  size: 14,
+
+                ),
+
+                onTap: () {
+
+                  Navigator.pop(sheetContext);
+
+                  _openGroupsDirectory();
+
+                },
+
+              ),
+
+              ListTile(
+
+                leading: const Icon(
+
+                  Icons.people_outline_rounded,
+
+                  color: AppColors.socialSky,
+
+                ),
+
+                title: const Text(
+
+                  'Utenti',
+
+                  style: TextStyle(color: AppColors.pureWhite),
+
+                ),
+
+                subtitle: Text(
+
+                  'Studenti e insegnanti StudentLab',
+
+                  style: TextStyle(
+
+                    color: AppColors.pureWhite.withOpacity(0.42),
+
+                    fontSize: 10,
+
+                  ),
+
+                ),
+
+                trailing: const Icon(
+
+                  Icons.arrow_forward_ios_rounded,
+
+                  color: Colors.white30,
+
+                  size: 14,
+
+                ),
+
+                onTap: () {
+
+                  Navigator.pop(sheetContext);
+
+                  _openUsersDirectory();
+
+                },
+
+              ),
+
+              if (_teacherAccess)
+
+                ListTile(
+
+                  leading:
+
+                      const Icon(
+
+                    Icons
+
+                        .cast_for_education_outlined,
+
+                    color:
+
+                        AppColors
+
+                            .teacherIndigo,
+
+                  ),
+
+                  title:
+
+                      const Text(
+
+                    'Area Docenti',
+
+                    style:
+
+                        TextStyle(
+
+                      color:
+
+                          AppColors.pureWhite,
+
+                      fontWeight:
+
+                          FontWeight.w600,
+
+                    ),
+
+                  ),
+
+                  subtitle:
+
+                      Text(
+
+                    'Materiali e strumenti docente',
+
+                    style:
+
+                        TextStyle(
+
+                      color:
+
+                          AppColors.pureWhite
+
+                              .withOpacity(
+
+                            0.42,
+
+                          ),
+
+                      fontSize:
+
+                          10,
+
+                    ),
+
+                  ),
+
+                  trailing:
+
+                      const Icon(
+
+                    Icons
+
+                        .arrow_forward_ios_rounded,
+
+                    color:
+
+                        Colors.white30,
+
+                    size:
+
+                        14,
+
+                  ),
+
+                  onTap:
+
+                      () {
+
+                    Navigator.pop(
+
+                      sheetContext,
+
+                    );
+
+                    _openTeacherArea();
+
+                  },
+
+                ),
+
+              if (_adminAccess)
+
+                ListTile(
+
+                  leading:
+
+                      const Icon(
+
+                    Icons
+
+                        .admin_panel_settings_outlined,
+
+                    color:
+
+                        Colors.greenAccent,
+
+                  ),
+
+                  title:
+
+                      const Text(
+
+                    'Admin Panel',
+
+                    style:
+
+                        TextStyle(
+
+                      color:
+
+                          AppColors.pureWhite,
+
+                      fontWeight:
+
+                          FontWeight.w600,
+
+                    ),
+
+                  ),
+
+                  subtitle:
+
+                      Text(
+
+                    'Moderazione e gestione StudentLab',
+
+                    style:
+
+                        TextStyle(
+
+                      color:
+
+                          AppColors.pureWhite
+
+                              .withOpacity(
+
+                            0.42,
+
+                          ),
+
+                      fontSize:
+
+                          10,
+
+                    ),
+
+                  ),
+
+                  trailing:
+
+                      const Icon(
+
+                    Icons
+
+                        .arrow_forward_ios_rounded,
+
+                    color:
+
+                        Colors.white30,
+
+                    size:
+
+                        14,
+
+                  ),
+
+                  onTap:
+
+                      () {
+
+                    Navigator.pop(
+
+                      sheetContext,
+
+                    );
+
+                    _openAdminPanel();
+
+                  },
+
+                ),
+
+              Divider(
+
+                height:
+
+                    1,
+
+                color:
+
+                    AppColors.pureWhite
+
+                        .withOpacity(
+
+                  0.08,
+
+                ),
+
+              ),
+
+              ListTile(
+
+                leading:
+
+                    const Icon(
+
+                  Icons.logout_rounded,
+
+                  color:
+
+                      Colors.redAccent,
+
+                ),
+
+                title:
+
+                    const Text(
+
+                  'Esci',
+
+                  style:
+
+                      TextStyle(
+
+                    color:
+
+                        Colors.redAccent,
+
+                  ),
+
+                ),
+
+                onTap:
+
+                    () {
+
+                  Navigator.pop(
+
+                    sheetContext,
+
+                  );
+
+                  _confirmLogout();
+
+                },
+
+              ),
+
+                  const SizedBox(
+
+                    height:
+
+                        6,
+
+                  ),
+
+                ],
+
+              ),
+
+            ),
+
+          ),
+
+        );
+
+      },
+
+    );
+
+  }
+
+}
+
+class _StudentLabNavbarLogo extends StatelessWidget {
+
+  final VoidCallback onPressed;
+
+  const _StudentLabNavbarLogo({
+
+    required this.onPressed,
+
+  });
+
+  @override
+
+  Widget build(BuildContext context) {
+
+    return Tooltip(
+
+      message: 'StudentLab',
+
+      child: InkWell(
+
+        onTap: onPressed,
+
+        borderRadius: BorderRadius.circular(12),
+
+        child: Padding(
+
+          padding: const EdgeInsets.all(4),
+
+          child: ClipRRect(
+
+            borderRadius: BorderRadius.circular(10),
+
+            child: Image.asset(
+
+              'assets/icons/favicon.png',
+
+              width: 38,
+
+              height: 38,
+
+              fit: BoxFit.cover,
+
+            ),
+
+          ),
+
+        ),
+
+      ),
+
+    );
+
+  }
+
+}
+
+class _GuestProfileButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _GuestProfileButton({
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Profilo guest',
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(
+          20,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(
+            4,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(
+              16,
+            ),
+            child: Image.asset(
+              'assets/mascot/guest_profile.png',
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              errorBuilder: (
+                BuildContext context,
+                Object error,
+                StackTrace? stackTrace,
+              ) {
+                return const CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppColors.studentBlue,
+                  child: Icon(
+                    Icons.person_outline_rounded,
+                    color: AppColors.pureWhite,
+                    size: 18,
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
+class _NavbarIconButton extends StatelessWidget {
 
-class _NavbarIconButton
-    extends StatelessWidget {
   final String tooltip;
 
   final IconData icon;
+
+  final Color iconColor;
 
   final int badge;
 
   final VoidCallback onPressed;
 
-
   const _NavbarIconButton({
+
     required this.tooltip,
+
     required this.icon,
+
+    required this.iconColor,
+
     required this.onPressed,
-    this.badge = 0,
+
+this.badge = 0,
+
   });
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+
+  Widget build(BuildContext context) {
+
     return Tooltip(
-      message:
-          tooltip,
 
-      child:
-          InkWell(
-        onTap:
-            onPressed,
+      message: tooltip,
 
-        borderRadius:
-            BorderRadius.circular(
-          12,
-        ),
+      child: InkWell(
 
-        child:
-            SizedBox(
-          width:
-              42,
+        onTap: onPressed,
 
-          height:
-              42,
+        borderRadius: BorderRadius.circular(12),
 
-          child:
-              Stack(
-            clipBehavior:
-                Clip.none,
+        child: SizedBox(
+
+          width: 38,
+
+          height: 38,
+
+          child: Stack(
+
+            clipBehavior: Clip.none,
 
             children: [
+
               Center(
-                child:
-                    Container(
-                  width:
-                      36,
 
-                  height:
-                      36,
+                child: Container(
 
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors
-                            .brandNightBlue
-                            .withOpacity(
-                          0.65,
-                        ),
+                  width: 38,
 
-                    borderRadius:
-                        BorderRadius.circular(
-                      11,
+                  height: 38,
+
+                  decoration: BoxDecoration(
+
+                    color: AppColors.brandNightBlue,
+
+                    borderRadius: BorderRadius.circular(12),
+
+                    border: Border.all(
+
+                      color: AppColors.skyBlue.withValues(alpha: 0.10),
+
                     ),
 
-                    border:
-                        Border.all(
-                      color:
-                          AppColors
-                              .skyBlue
-                              .withOpacity(
-                            0.10,
-                          ),
-                    ),
                   ),
 
-                  child:
-                      Icon(
+                  child: Icon(
+
                     icon,
 
-                    color:
-                        AppColors
-                            .pureWhite
-                            .withOpacity(
-                          0.82,
-                        ),
+                    color: iconColor,
 
-                    size:
-                        21,
+                    size: 20,
+
                   ),
+
                 ),
+
               ),
 
               if (badge > 0)
+
                 Positioned(
-                  top:
-                      1,
 
-                  right:
-                      0,
+                  top: -3,
 
-                  child:
-                      Container(
-                    constraints:
-                        const BoxConstraints(
-                      minWidth:
-                          17,
+                  right: -3,
 
-                      minHeight:
-                          17,
+                  child: Container(
+
+                    constraints: const BoxConstraints(
+
+                      minWidth: 17,
+
+                      minHeight: 17,
+
                     ),
 
-                    padding:
-                        const EdgeInsets.symmetric(
-                      horizontal:
-                          4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
 
-                    alignment:
-                        Alignment.center,
+                    alignment: Alignment.center,
 
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          Colors.redAccent,
+                    decoration: BoxDecoration(
 
-                      borderRadius:
-                          BorderRadius.circular(
-                        10,
+                      color: Colors.redAccent,
+
+                      borderRadius: BorderRadius.circular(9),
+
+                      border: Border.all(
+
+                        color: AppColors.eleganceMidnight,
+
+                        width: 2,
+
                       ),
 
-                      border:
-                          Border.all(
-                        color:
-                            AppColors
-                                .eleganceMidnight,
-
-                        width:
-                            1.5,
-                      ),
                     ),
 
-                    child:
-                        Text(
-                      badge > 99
-                          ? '99+'
-                          : '$badge',
+                    child: Text(
 
-                      style:
-                          const TextStyle(
-                        color:
-                            Colors.white,
+                      badge > 99 ? '99+' : '$badge',
 
-                        fontSize:
-                            8,
+                      style: const TextStyle(
 
-                        fontWeight:
-                            FontWeight.bold,
+                        color: AppColors.pureWhite,
+
+                        fontSize: 8,
+
+                        fontWeight: FontWeight.w700,
+
                       ),
+
                     ),
+
                   ),
+
                 ),
+
             ],
+
           ),
+
         ),
+
       ),
+
     );
+
   }
+
 }
 
+class _UserButton extends StatelessWidget {
 
-class _UserButton
-    extends StatelessWidget {
+  final SocialUser user;
+
   final String name;
 
   final VoidCallback onPressed;
 
-
   const _UserButton({
+
+    required this.user,
+
     required this.name,
+
     required this.onPressed,
+
   });
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+
+  Widget build(BuildContext context) {
+
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+
+    final bool compact = screenWidth < 390;
+
     return InkWell(
-      onTap:
-          onPressed,
 
-      borderRadius:
-          BorderRadius.circular(
-        12,
-      ),
+      onTap: onPressed,
 
-      child:
-          Container(
-        height:
-            38,
+      borderRadius: BorderRadius.circular(12),
 
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal:
-              10,
+      child: Container(
+
+        height: 38,
+
+        constraints: BoxConstraints(
+
+          maxWidth: compact ? 42 : 140,
+
         ),
 
-        decoration:
-            BoxDecoration(
-          color:
-              AppColors.brandNightBlue,
+        padding: EdgeInsets.symmetric(
 
-          borderRadius:
-              BorderRadius.circular(
-            12,
-          ),
+          horizontal: compact ? 5 : 7,
 
-          border:
-              Border.all(
-            color:
-                AppColors.skyBlue
-                    .withOpacity(
-              0.25,
-            ),
-          ),
         ),
 
-        child:
-            Row(
-          mainAxisSize:
-              MainAxisSize.min,
+        decoration: BoxDecoration(
+
+          color: AppColors.brandNightBlue,
+
+          borderRadius: BorderRadius.circular(12),
+
+          border: Border.all(
+
+            color: AppColors.socialSky.withValues(alpha: 0.16),
+
+          ),
+
+        ),
+
+        child: Row(
+
+          mainAxisSize: MainAxisSize.min,
 
           children: [
-            CircleAvatar(
-              radius:
-                  13,
 
-              backgroundColor:
-                  AppColors.skyBlue,
+            StudentLabUserAvatar(
 
-              child:
-                  Text(
-                name.isNotEmpty
-                    ? name[0]
-                        .toUpperCase()
-                    : '?',
+              type: user.type,
 
-                style:
-                    const TextStyle(
-                  color:
-                      AppColors
-                          .eleganceSoftNight,
+              radius: 12,
 
-                  fontSize:
-                      12,
+            ),
 
-                  fontWeight:
-                      FontWeight.bold,
+            if (!compact) ...[
+
+              const SizedBox(width: 7),
+
+              Flexible(
+
+                child: Text(
+
+                  name,
+
+                  maxLines: 1,
+
+                  overflow: TextOverflow.ellipsis,
+
+                  style: const TextStyle(
+
+                    color: AppColors.pureWhite,
+
+                    fontSize: 12,
+
+                    fontWeight: FontWeight.w600,
+
+                  ),
+
                 ),
+
               ),
-            ),
 
-            const SizedBox(
-              width:
-                  8,
-            ),
+              const SizedBox(width: 2),
 
-            Text(
-              name,
+              Icon(
 
-              maxLines:
-                  1,
+                Icons.keyboard_arrow_down_rounded,
 
-              overflow:
-                  TextOverflow.ellipsis,
+                color: AppColors.socialSky.withValues(alpha: 0.70),
 
-              style:
-                  const TextStyle(
-                color:
-                    AppColors.pureWhite,
+                size: 17,
 
-                fontSize:
-                    13,
-
-                fontWeight:
-                    FontWeight.w600,
               ),
-            ),
 
-            const SizedBox(
-              width:
-                  4,
-            ),
+            ],
 
-            const Icon(
-              Icons
-                  .keyboard_arrow_down_rounded,
-
-              color:
-                  Colors.white60,
-
-              size:
-                  18,
-            ),
           ],
+
         ),
+
       ),
+
     );
+
   }
+
 }

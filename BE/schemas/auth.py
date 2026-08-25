@@ -1,7 +1,9 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from services.password_policy import validate_password_policy
 
 
 AcademicPathStatusValue = Literal[
@@ -44,6 +46,11 @@ class RegisterRequest(BaseModel):
     available_for_private_lessons: bool | None = None
     willing_to_teach: bool | None = None
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        return validate_password_policy(value)
+
 
 class RegistrationResponse(BaseModel):
     registration_id: str
@@ -79,6 +86,11 @@ class PendingRegistrationPasswordUpdateRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
     confirm_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return validate_password_policy(value)
 
     @model_validator(mode="after")
     def validate_passwords(self):
@@ -129,6 +141,11 @@ class PasswordResetCompleteRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
     confirm_password: str = Field(min_length=8, max_length=128)
 
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return validate_password_policy(value)
+
     @model_validator(mode="after")
     def validate_passwords(self):
         if self.new_password != self.confirm_password:
@@ -145,6 +162,11 @@ class PasswordChangeRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
     confirm_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return validate_password_policy(value)
 
     @model_validator(mode="after")
     def validate_passwords(self):

@@ -105,6 +105,13 @@ class _AcademicPathsPageState
         await _apiService
             .getCurrentUser();
 
+    final List<SocialAcademicPath>
+        paths =
+        await _apiService
+            .getUserAcademicPaths(
+      user.id,
+    );
+
     if (!mounted) {
       return;
     }
@@ -114,7 +121,7 @@ class _AcademicPathsPageState
           user;
 
       _paths =
-          user.academicPaths;
+          paths;
     });
 
     _authSession.updateUser(

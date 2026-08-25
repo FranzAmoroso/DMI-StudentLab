@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-
-import 'package:fe/quiz/subjectSelection.dart';
-
-import 'package:fe/theme/nightTheme.dart';
-
 import 'package:fe/material/StudentMaterialPage.dart';
-
+import 'package:fe/quiz/subjectSelection.dart';
 import 'package:fe/social/social_page.dart';
-
+import 'package:fe/theme/nightTheme.dart';
+import 'package:fe/widgets/studentlab_coming_soon_badge.dart';
 
 enum HomeFeatureType {
   exercise,
@@ -15,219 +11,195 @@ enum HomeFeatureType {
   review,
   definitions,
   materials,
-  social,
+  institution,
+  marketplace,
+  jobs,
 }
-
 
 class FeatureCard {
   final HomeFeatureType type;
-
   final String title;
-
   final String description;
-
   final IconData icon;
-
-  final Color color;
-
+  final Color accent;
   final bool isComingSoon;
-
 
   const FeatureCard({
     required this.type,
     required this.title,
     required this.description,
     required this.icon,
-    required this.color,
+    required this.accent,
     this.isComingSoon = false,
   });
 }
 
-
 class HomeLayer extends StatelessWidget {
-  HomeLayer({
-    super.key,
-  });
+  HomeLayer({super.key});
 
-
-  final List<FeatureCard> _featureCards = [
+  final List<FeatureCard> _featureCards =
+      const <FeatureCard>[
     FeatureCard(
-      type:
-          HomeFeatureType.exercise,
-
-      title:
-          'Esercitazione',
-
+      type: HomeFeatureType.exercise,
+      title: 'Esercitazione',
       description:
-          'Allena la tua mente senza lo stress del tempo, '
-          'filtrando le domande per singoli argomenti della materia.',
-
-      icon:
-          Icons.quiz,
-
-      color:
-          AppColors.eleganceObsidian,
+          'Allenati senza pressione, scegliendo materia e argomenti su cui vuoi concentrarti.',
+      icon: Icons.quiz_outlined,
+      accent: AppColors.skyBlue,
     ),
-
     FeatureCard(
-      type:
-          HomeFeatureType.examSimulation,
-
-      title:
-          'Simulazione Esame',
-
+      type: HomeFeatureType.examSimulation,
+      title: 'Simulazione Esame',
       description:
-          'Mettiti alla prova con i veri compiti d\'esame '
-          'd\'appello, aggiornati in base al professore del tuo corso.',
-
+          'Mettiti alla prova con simulazioni strutturate come un vero appello.',
       icon:
-          Icons.checklist,
-
-      color:
-          AppColors.eleganceMidnight,
-
-      isComingSoon:
-          true,
+          Icons.assignment_turned_in_outlined,
+      accent: AppColors.teacherIndigo,
+      isComingSoon: true,
     ),
-
     FeatureCard(
-      type:
-          HomeFeatureType.review,
-
-      title:
-          'Ripasso',
-
+      type: HomeFeatureType.review,
+      title: 'Ripasso',
       description:
-          'Rivedi i concetti più difficili e approfondisci '
-          'gli argomenti delle domande che hai sbagliato.',
-
-      icon:
-          Icons.warning_amber_rounded,
-
-      color:
-          AppColors.charcoalGrey,
-
-      isComingSoon:
-          true,
+          'Rivedi errori, concetti deboli e argomenti che meritano più attenzione.',
+      icon: Icons.restart_alt_rounded,
+      accent: AppColors.adminMagenta,
+      isComingSoon: true,
     ),
-
     FeatureCard(
-      type:
-          HomeFeatureType.definitions,
-
-      title:
-          'Definizioni',
-
+      type: HomeFeatureType.definitions,
+      title: 'Definizioni',
       description:
-          'Glossario completo dei termini e concetti chiave del corso.',
-
-      icon:
-          Icons.menu_book,
-
-      color:
-          AppColors.graphite,
-
-      isComingSoon:
-          true,
+          'Consulta termini e concetti chiave delle materie del tuo percorso.',
+      icon: Icons.menu_book_outlined,
+      accent: AppColors.materialSky,
+      isComingSoon: true,
     ),
-
     FeatureCard(
-      type:
-          HomeFeatureType.materials,
-
-      title:
-          'Materiale',
-
+      type: HomeFeatureType.materials,
+      title: 'Materiali',
       description:
-          'Accedi a dispense, slide e documenti utili '
-          'per supportare il tuo studio.',
-
-      icon:
-          Icons.cloud,
-
-      color:
-          AppColors.darkElegance,
+          'Accedi a dispense, slide, documenti e file disponibili anche offline.',
+      icon: Icons.folder_copy_outlined,
+      accent: AppColors.studentBlue,
     ),
-
     FeatureCard(
-      type:
-          HomeFeatureType.social,
-
-      title:
-          'Istituzione',
-
+      type: HomeFeatureType.institution,
+      title: 'Istituzione',
       description:
-          'Esplora studenti, insegnanti, gruppi e materiali '
-          'della community StudentLab.',
-
+          'News di ateneo e dipartimento, gruppi di studio e delle tue materie, studenti, docenti universitari e insegnanti privati.',
       icon:
-          Icons.people,
-
-      color:
-          AppColors.slateGrey,
+          Icons.account_balance_outlined,
+      accent: AppColors.socialBlue,
     ),
   ];
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final double screenWidth =
-        MediaQuery.of(
-      context,
-    ).size.width;
-
-    int crossAxisCount =
-        2;
-
-    if (
-      screenWidth > 600 &&
-      screenWidth <= 900
-    ) {
-      crossAxisCount =
-          3;
-    } else if (
-      screenWidth > 900
-    ) {
-      crossAxisCount =
-          4;
-    }
-
-    return Padding(
-      padding:
-          const EdgeInsets.all(
-        16,
-      ),
-
-      child:
-          GridView.builder(
-        itemCount:
-            _featureCards.length,
-
-        gridDelegate:
-            SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount:
-              crossAxisCount,
-
-          crossAxisSpacing:
-              16,
-
-          mainAxisSpacing:
-              16,
-
-          childAspectRatio:
-              1,
-        ),
-
-        itemBuilder:
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder:
             (
           BuildContext context,
-          int index,
+          BoxConstraints constraints,
         ) {
-          return _buildGridCard(
-            context,
-            _featureCards[index],
+          final double width =
+              constraints.maxWidth;
+
+          final int crossAxisCount;
+          final double maxWidth;
+          final double cardHeight;
+          final double gap;
+          final double horizontalPadding;
+
+          if (width < 560) {
+            crossAxisCount = 1;
+            maxWidth = 660;
+            cardHeight = 178;
+            gap = 12;
+            horizontalPadding = 16;
+          } else if (width < 900) {
+            crossAxisCount = 2;
+            maxWidth = 860;
+            cardHeight = 204;
+            gap = 14;
+            horizontalPadding = 20;
+          } else if (width < 1320) {
+            crossAxisCount = 3;
+            maxWidth = 1160;
+            cardHeight = 210;
+            gap = 14;
+            horizontalPadding = 24;
+          } else {
+            crossAxisCount = 4;
+            maxWidth = 1420;
+            cardHeight = 214;
+            gap = 16;
+            horizontalPadding = 28;
+          }
+
+          return Center(
+            child: ConstrainedBox(
+              constraints:
+                  BoxConstraints(
+                maxWidth:
+                    maxWidth,
+              ),
+              child:
+                  CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding:
+                        EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      8,
+                      horizontalPadding,
+                      28,
+                    ),
+                    sliver:
+                        SliverGrid(
+                      delegate:
+                          SliverChildBuilderDelegate(
+                        (
+                          BuildContext context,
+                          int index,
+                        ) {
+                          final FeatureCard card =
+                              _featureCards[index];
+
+                          return _FeatureCardView(
+                            card:
+                                card,
+                            animationSeed:
+                                index,
+                            onTap:
+                                () =>
+                                    _openFeature(
+                              context,
+                              card,
+                            ),
+                          );
+                        },
+                        childCount:
+                            _featureCards.length,
+                      ),
+                      gridDelegate:
+                          SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount:
+                            crossAxisCount,
+                        crossAxisSpacing:
+                            gap,
+                        mainAxisSpacing:
+                            gap,
+                        mainAxisExtent:
+                            cardHeight,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -235,485 +207,432 @@ class HomeLayer extends StatelessWidget {
   }
 
 
-  Widget _buildGridCard(
-    BuildContext context,
-    FeatureCard card,
-  ) {
-    final ValueNotifier<double>
-        shakeOffset =
-        ValueNotifier<double>(
-      0,
-    );
-
-    final ValueNotifier<double>
-        cardScale =
-        ValueNotifier<double>(
-      1,
-    );
-
-    final Widget cardBody =
-        ValueListenableBuilder<double>(
-      valueListenable:
-          cardScale,
-
-      builder:
-          (
-        BuildContext context,
-        double scale,
-        Widget? child,
-      ) {
-        return AnimatedScale(
-          scale:
-              scale,
-
-          duration:
-              const Duration(
-            milliseconds:
-                150,
-          ),
-
-          curve:
-              Curves.easeOutCubic,
-
-          child:
-              Card(
-            elevation:
-                AppColors
-                    .elegantCardTheme
-                    .elevation,
-
-            shape:
-                RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
-            ),
-
-            child:
-                ClipRRect(
-              borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
-
-              child:
-                  Stack(
-                children: [
-                  Container(
-                    decoration:
-                        BoxDecoration(
-                      gradient:
-                          LinearGradient(
-                        begin:
-                            Alignment.topLeft,
-
-                        end:
-                            Alignment.bottomRight,
-
-                        colors: [
-                          card.color,
-
-                          card.color
-                              .withOpacity(
-                            0.8,
-                          ),
-
-                          AppColors
-                              .darkElegance,
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  Padding(
-                    padding:
-                        const EdgeInsets.all(
-                      16,
-                    ),
-
-                    child:
-                        Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-
-                      mainAxisAlignment:
-                          MainAxisAlignment
-                              .spaceBetween,
-
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding:
-                                  const EdgeInsets.all(
-                                8,
-                              ),
-
-                              decoration:
-                                  const BoxDecoration(
-                                color:
-                                    AppColors
-                                        .translucentWhite,
-
-                                shape:
-                                    BoxShape.circle,
-                              ),
-
-                              child:
-                                  Icon(
-                                card.icon,
-
-                                size:
-                                    26,
-
-                                color:
-                                    AppColors.pureWhite,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-
-                          children: [
-                            Text(
-                              card.title,
-
-                              maxLines:
-                                  1,
-
-                              overflow:
-                                  TextOverflow.ellipsis,
-
-                              style:
-                                  const TextStyle(
-                                fontSize:
-                                    18,
-
-                                fontWeight:
-                                    FontWeight.bold,
-
-                                color:
-                                    AppColors.pureWhite,
-                              ),
-                            ),
-
-                            const SizedBox(
-                              height:
-                                  4,
-                            ),
-
-                            Text(
-                              card.description,
-
-                              maxLines:
-                                  2,
-
-                              overflow:
-                                  TextOverflow.ellipsis,
-
-                              style:
-                                  TextStyle(
-                                fontSize:
-                                    12,
-
-                                color:
-                                    AppColors.pureWhite
-                                        .withOpacity(
-                                  card.isComingSoon
-                                      ? 0.4
-                                      : 0.7,
-                                ),
-
-                                fontWeight:
-                                    FontWeight.w300,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  Positioned.fill(
-                    child:
-                        GestureDetector(
-                      behavior:
-                          HitTestBehavior.opaque,
-
-                      onTapDown:
-                          (_) {
-                        cardScale.value =
-                            1.05;
-                      },
-
-                      onTapUp:
-                          (_) {
-                        cardScale.value =
-                            1;
-                      },
-
-                      onTapCancel:
-                          () {
-                        cardScale.value =
-                            1;
-                      },
-
-                      onTap:
-                          () async {
-                        if (
-                          card.isComingSoon
-                        ) {
-                          await _shakeSoon(
-                            shakeOffset,
-                          );
-
-                          return;
-                        }
-
-                        await _openFeature(
-                          context,
-                          card,
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-
-    if (!card.isComingSoon) {
-      return cardBody;
-    }
-
-    return Stack(
-      children: [
-        cardBody,
-
-        Positioned(
-          top:
-              0,
-
-          right:
-              0,
-
-          child:
-              ValueListenableBuilder<double>(
-            valueListenable:
-                shakeOffset,
-
-            builder:
-                (
-              BuildContext context,
-              double offset,
-              Widget? child,
-            ) {
-              return TweenAnimationBuilder<double>(
-                tween:
-                    Tween<double>(
-                  begin:
-                      0,
-
-                  end:
-                      offset,
-                ),
-
-                duration:
-                    const Duration(
-                  milliseconds:
-                      40,
-                ),
-
-                builder:
-                    (
-                  BuildContext context,
-                  double value,
-                  Widget? child,
-                ) {
-                  return Transform.translate(
-                    offset:
-                        Offset(
-                      value,
-                      0,
-                    ),
-
-                    child:
-                        child,
-                  );
-                },
-
-                child:
-                    ClipRRect(
-                  borderRadius:
-                      const BorderRadius.only(
-                    topRight:
-                        Radius.circular(
-                      20,
-                    ),
-                  ),
-
-                  child:
-                      CustomPaint(
-                    size:
-                        const Size(
-                      65,
-                      65,
-                    ),
-
-                    painter:
-                        BannerPainter(
-                      message:
-                          'SOON',
-
-                      textDirection:
-                          TextDirection.ltr,
-
-                      location:
-                          BannerLocation.topEnd,
-
-                      layoutDirection:
-                          TextDirection.ltr,
-
-                      color:
-                          AppColors.skyBlue,
-
-                      textStyle:
-                          const TextStyle(
-                        fontSize:
-                            9,
-
-                        fontWeight:
-                            FontWeight.bold,
-
-                        color:
-                            AppColors
-                                .brandNightBlue,
-
-                        letterSpacing:
-                            1,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
 
   Future<void> _openFeature(
     BuildContext context,
     FeatureCard card,
   ) async {
+
     switch (card.type) {
       case HomeFeatureType.exercise:
-        await Navigator.of(
-          context,
-        ).push(
-          MaterialPageRoute(
-            builder:
-                (_) =>
-                    const SubjectSelection()
+        await Navigator.of(context)
+            .push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const SubjectSelection(),
           ),
         );
-
         return;
 
       case HomeFeatureType.materials:
-        await Navigator.of(
-          context,
-        ).push(
-          MaterialPageRoute(
-            builder:
-                (_) =>
-                    const StudentMaterialPage(),
+        await Navigator.of(context)
+            .push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const StudentMaterialPage(),
           ),
         );
-
         return;
 
-      case HomeFeatureType.social:
-        await Navigator.of(
-          context,
-        ).push(
-          MaterialPageRoute(
-            builder:
-                (_) =>
-                    const SocialPage(),
+      case HomeFeatureType.institution:
+        await Navigator.of(context)
+            .push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const SocialPage(),
           ),
         );
-
         return;
 
       case HomeFeatureType.examSimulation:
       case HomeFeatureType.review:
       case HomeFeatureType.definitions:
+      case HomeFeatureType.marketplace:
+      case HomeFeatureType.jobs:
         return;
     }
   }
+}
 
 
-  Future<void> _shakeSoon(
-    ValueNotifier<double> shakeOffset,
-  ) async {
-    if (
-      shakeOffset.value !=
-          0
-    ) {
-      return;
+class _HomeIconBox
+    extends StatelessWidget {
+  final IconData icon;
+  final Color accent;
+  final double size;
+  final double iconSize;
+  final double borderRadius;
+
+  const _HomeIconBox({
+    required this.icon,
+    required this.accent,
+    required this.size,
+    required this.iconSize,
+    required this.borderRadius,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      width:
+          size,
+      height:
+          size,
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.brandNightBlue,
+        borderRadius:
+            BorderRadius.circular(
+          borderRadius,
+        ),
+        border:
+            Border.all(
+          color:
+              accent.withValues(
+            alpha:
+                0.14,
+          ),
+        ),
+      ),
+      alignment:
+          Alignment.center,
+      child:
+          Icon(
+        icon,
+        color:
+            accent,
+        size:
+            iconSize,
+      ),
+    );
+  }
+}
+
+class _FeatureCardView
+    extends StatefulWidget {
+  final FeatureCard card;
+  final int animationSeed;
+  final VoidCallback onTap;
+
+  const _FeatureCardView({
+    required this.card,
+    required this.animationSeed,
+    required this.onTap,
+  });
+
+  @override
+  State<_FeatureCardView> createState() =>
+      _FeatureCardViewState();
+}
+
+class _FeatureCardViewState
+    extends State<_FeatureCardView>
+    with TickerProviderStateMixin {
+  bool _hovered =
+      false;
+  bool _pressed =
+      false;
+
+  late final AnimationController
+      _badgeController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _badgeController =
+        AnimationController(
+      vsync:
+          this,
+      duration:
+          Duration(
+        milliseconds:
+            760 +
+                (
+                  widget.animationSeed %
+                      4
+                ) *
+                    90,
+      ),
+    );
+
+    if (widget.card.isComingSoon) {
+      Future<void>.delayed(
+        Duration(
+          milliseconds:
+              widget.animationSeed *
+                  115,
+        ),
+        () {
+          if (mounted) {
+            _badgeController.repeat(
+              reverse:
+                  true,
+            );
+          }
+        },
+      );
     }
+  }
 
-    shakeOffset.value =
-        6;
+  @override
+  void dispose() {
+    _badgeController.dispose();
+    super.dispose();
+  }
 
-    await Future.delayed(
-      const Duration(
-        milliseconds:
-            50,
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final FeatureCard card =
+        widget.card;
+
+    final double scale =
+        _pressed
+            ? 1.015
+            : _hovered
+                ? 1.006
+                : 1;
+
+    return MouseRegion(
+      onEnter:
+          (_) {
+        setState(() {
+          _hovered =
+              true;
+        });
+      },
+      onExit:
+          (_) {
+        setState(() {
+          _hovered =
+              false;
+          _pressed =
+              false;
+        });
+      },
+      child:
+          AnimatedScale(
+        scale:
+            scale,
+        duration:
+            const Duration(
+          milliseconds:
+              150,
+        ),
+        curve:
+            Curves.easeOutCubic,
+        child:
+            Material(
+          color:
+              Colors.transparent,
+          child:
+              InkWell(
+            onTap:
+                widget.onTap,
+            onTapDown:
+                (_) {
+              setState(() {
+                _pressed =
+                    true;
+              });
+            },
+            onTapUp:
+                (_) {
+              setState(() {
+                _pressed =
+                    false;
+              });
+            },
+            onTapCancel:
+                () {
+              setState(() {
+                _pressed =
+                    false;
+              });
+            },
+            splashColor:
+                Colors.transparent,
+            highlightColor:
+                Colors.transparent,
+            hoverColor:
+                Colors.transparent,
+            focusColor:
+                Colors.transparent,
+            overlayColor:
+                const WidgetStatePropertyAll<Color>(
+              Colors.transparent,
+            ),
+            borderRadius:
+                BorderRadius.circular(
+              18,
+            ),
+            child:
+                Container(
+              decoration:
+                  BoxDecoration(
+                color:
+                    AppColors.eleganceDeepNavy,
+                borderRadius:
+                    BorderRadius.circular(
+                  18,
+                ),
+                border:
+                    Border.all(
+                  color:
+                      card.accent
+                          .withValues(
+                    alpha:
+                        card.isComingSoon
+                            ? 0.11
+                            : 0.20,
+                  ),
+                ),
+              ),
+              child:
+                  Padding(
+                padding:
+                    const EdgeInsets.all(
+                  18,
+                ),
+                child:
+                    Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _HomeIconBox(
+                          icon:
+                              card.icon,
+                          accent:
+                              card.accent,
+                          size:
+                              44,
+                          iconSize:
+                              22,
+                          borderRadius:
+                              13,
+                        ),
+                        const Spacer(),
+                        if (card.isComingSoon)
+                          AnimatedBuilder(
+                            animation:
+                                _badgeController,
+                            child:
+                                const StudentLabComingSoonBadge(),
+                            builder:
+                                (
+                              BuildContext context,
+                              Widget? child,
+                            ) {
+                              final double t =
+                                  Curves.easeInOut
+                                      .transform(
+                                _badgeController.value,
+                              );
+
+                              final double dx =
+                                  -1.6 +
+                                      (
+                                        3.2 *
+                                            t
+                                      );
+
+                              final double angle =
+                                  -0.025 +
+                                      (
+                                        0.050 *
+                                            t
+                                      );
+
+                              return Transform.translate(
+                                offset:
+                                    Offset(
+                                  dx,
+                                  0,
+                                ),
+                                child:
+                                    Transform.rotate(
+                                  angle:
+                                      angle,
+                                  child:
+                                      child,
+                                ),
+                              );
+                            },
+                          )
+                        else
+                          Icon(
+                            Icons
+                                .arrow_outward_rounded,
+                            color:
+                                card.accent
+                                    .withValues(
+                              alpha:
+                                  0.65,
+                            ),
+                            size:
+                                19,
+                          ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      card.title,
+                      maxLines:
+                          1,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style:
+                          const TextStyle(
+                        color:
+                            AppColors.pureWhite,
+                        fontSize:
+                            17,
+                        fontWeight:
+                            FontWeight.w700,
+                        letterSpacing:
+                            -0.2,
+                      ),
+                    ),
+                    const SizedBox(
+                      height:
+                          7,
+                    ),
+                    Text(
+                      card.description,
+                      maxLines:
+                          3,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style:
+                          TextStyle(
+                        color:
+                            AppColors.pureWhite
+                                .withValues(
+                          alpha:
+                              card.isComingSoon
+                                  ? 0.34
+                                  : 0.52,
+                        ),
+                        fontSize:
+                            11,
+                        height:
+                            1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
-
-    shakeOffset.value =
-        -6;
-
-    await Future.delayed(
-      const Duration(
-        milliseconds:
-            50,
-      ),
-    );
-
-    shakeOffset.value =
-        4;
-
-    await Future.delayed(
-      const Duration(
-        milliseconds:
-            50,
-      ),
-    );
-
-    shakeOffset.value =
-        -4;
-
-    await Future.delayed(
-      const Duration(
-        milliseconds:
-            50,
-      ),
-    );
-
-    shakeOffset.value =
-        0;
   }
 }

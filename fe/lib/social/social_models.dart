@@ -2617,6 +2617,7 @@ class SocialUser {
   final List<TeacherAssignment> teacherAssignments;
   final String description;
   final SocialUserType type;
+  final String accountRole;
   final TeacherVerificationStatus teacherVerificationStatus;
   final int? teacherVerifiedBy;
   final DateTime? teacherVerifiedAt;
@@ -2640,6 +2641,7 @@ class SocialUser {
     this.teacherAssignments = const [],
     required this.description,
     required this.type,
+    this.accountRole = '',
     this.teacherVerificationStatus = TeacherVerificationStatus.notRequired,
     this.teacherVerifiedBy,
     this.teacherVerifiedAt,
@@ -2654,6 +2656,10 @@ class SocialUser {
       '$firstName $lastName'.trim();
 
   String get role {
+    final String normalized = accountRole.trim().toLowerCase();
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
     switch (type) {
       case SocialUserType.teacher:
         return 'teacher';
@@ -2661,6 +2667,12 @@ class SocialUser {
         return 'student';
     }
   }
+
+  bool get isCreator => role == 'creator';
+
+  bool get isAdmin => role == 'admin' || role == 'creator';
+
+  bool get isDeveloperSystem => role == 'devsyst' || role == 'creator';
 
   bool get isTeacher =>
       type == SocialUserType.teacher;
@@ -2957,6 +2969,7 @@ class SocialUser {
       teacherAssignments: parsedTeacherAssignments,
       description: json['description']?.toString() ?? '',
       type: type,
+      accountRole: json['role']?.toString().trim().toLowerCase() ?? '',
       teacherVerificationStatus: _teacherVerificationStatusFromValue(
         json['teacher_verification_status'] ?? json['teacher_status'],
         type: type,
@@ -3025,6 +3038,7 @@ class SocialUser {
     List<TeacherAssignment>? teacherAssignments,
     String? description,
     SocialUserType? type,
+    String? accountRole,
     TeacherVerificationStatus? teacherVerificationStatus,
     int? teacherVerifiedBy,
     bool clearTeacherVerifiedBy = false,
@@ -3050,6 +3064,7 @@ class SocialUser {
       teacherAssignments: teacherAssignments ?? this.teacherAssignments,
       description: description ?? this.description,
       type: type ?? this.type,
+      accountRole: accountRole ?? this.accountRole,
       teacherVerificationStatus:
           teacherVerificationStatus ?? this.teacherVerificationStatus,
       teacherVerifiedBy: clearTeacherVerifiedBy

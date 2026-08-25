@@ -548,19 +548,13 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.darkElegance,
-      appBar: AppBar(
-        backgroundColor: AppColors.brandNightBlue,
-        foregroundColor: AppColors.pureWhite,
-        automaticallyImplyLeading: !widget.embedded,
-        title: const Text('News'),
-        actions: [
-          IconButton(
-            tooltip: 'Aggiorna',
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              backgroundColor: AppColors.brandNightBlue,
+              foregroundColor: AppColors.pureWhite,
+              title: const Text('Avvisi'),
+            ),
       floatingActionButton: _canPublish
           ? FloatingActionButton.extended(
               onPressed: _openPublisher,
@@ -582,7 +576,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                 padding: const EdgeInsets.all(20),
                 children: [
                   const Text(
-                    'News StudentLab',
+                    'Avvisi StudentLab',
                     style: TextStyle(
                       color: AppColors.pureWhite,
                       fontSize: 25,
@@ -591,7 +585,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Comunicazioni pubbliche accademiche e istituzionali. Le news dei gruppi restano nei rispettivi gruppi.',
+                    'Comunicazioni pubbliche accademiche e istituzionali. Gli avvisi dei gruppi restano nei rispettivi gruppi.',
                     style: TextStyle(
                       color: AppColors.pureWhite.withValues(alpha: 0.52),
                       fontSize: 12,
@@ -742,7 +736,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     return Row(
       children: [
         Text(
-          '$_total ${_total == 1 ? 'news' : 'news'}',
+          '$_total ${_total == 1 ? 'avviso' : 'avvisi'}',
           style: const TextStyle(
             color: AppColors.pureWhite,
             fontSize: 13,
@@ -769,7 +763,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     if (_error != null) {
       return _StateCard(
         icon: Icons.error_outline_rounded,
-        title: 'Impossibile caricare le news',
+        title: 'Impossibile caricare gli avvisi',
         message: _error!,
         actionLabel: 'Riprova',
         onAction: _load,
@@ -779,7 +773,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     if (_items.isEmpty) {
       return const _StateCard(
         icon: Icons.newspaper_outlined,
-        title: 'Nessuna news',
+        title: 'Nessun avviso',
         message: 'Non ci sono comunicazioni compatibili con i filtri selezionati.',
       );
     }
@@ -802,7 +796,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         if (_items.length < _total)
           OutlinedButton(
             onPressed: _loadingMore ? null : _loadMore,
-            child: Text(_loadingMore ? 'Caricamento...' : 'Carica altre news'),
+            child: Text(_loadingMore ? 'Caricamento...' : 'Carica altri avvisi'),
           ),
       ],
     );
@@ -818,8 +812,8 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   Future<void> _delete(PublicNews news) async {
     final bool confirmed = await _confirm(
-      title: 'Elimina news',
-      message: 'Vuoi eliminare questa news?',
+      title: 'Elimina avviso',
+      message: 'Vuoi eliminare questo avviso?',
       action: 'Elimina',
     );
     if (!confirmed) return;
@@ -827,7 +821,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     try {
       await _newsApi.delete(news.id);
       await _load();
-      _showMessage('News eliminata.');
+      _showMessage('Avviso eliminato.');
     } catch (error) {
       _showMessage(_friendlyError(error));
     }
@@ -840,7 +834,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       builder: (BuildContext dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
         title: const Text(
-          'Rimuovi news',
+          'Rimuovi avviso',
           style: TextStyle(color: AppColors.pureWhite),
         ),
         content: TextField(
@@ -875,7 +869,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     try {
       await _newsApi.moderate(newsId: news.id, reason: reason);
       await _load();
-      _showMessage('News rimossa.');
+      _showMessage('Avviso rimosso.');
     } catch (error) {
       _showMessage(_friendlyError(error));
     }
@@ -906,7 +900,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     final bool confirmed = await _confirm(
       title: 'Blocca utente',
       message:
-          'Non vedrai più le news pubblicate da ${news.author.fullName}. Vuoi continuare?',
+          'Non vedrai più gli avvisi pubblicati da ${news.author.fullName}. Vuoi continuare?',
       action: 'Blocca',
     );
     if (!confirmed) return;
@@ -950,7 +944,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     final String value = error.toString().toLowerCase();
     if (value.contains('401')) return 'La sessione non è più valida. Accedi nuovamente.';
     if (value.contains('403')) return 'Non hai i permessi necessari per questa operazione.';
-    if (value.contains('404')) return 'La news non è più disponibile.';
+    if (value.contains('404')) return 'L’avviso non è più disponibile.';
     if (value.contains('409')) return 'Questa operazione è già stata registrata.';
     if (value.contains('socket') ||
         value.contains('network') ||
@@ -984,7 +978,7 @@ class PublicNewsDetailPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.brandNightBlue,
         foregroundColor: AppColors.pureWhite,
-        title: const Text('News'),
+        title: const Text('Avviso'),
       ),
       body: SafeArea(
         child: Center(
@@ -998,7 +992,7 @@ class PublicNewsDetailPage extends StatelessWidget {
                   isGuest: isGuest,
                   expanded: true,
                 ),
-              ],
+],
             ),
           ),
         ),
@@ -1166,7 +1160,7 @@ class _PublicNewsCard extends StatelessWidget {
             TextButton.icon(
               onPressed: onOpen,
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: const Text('Apri news'),
+              label: const Text('Apri avviso'),
             ),
           ],
         ],
@@ -1325,7 +1319,7 @@ class _PublicNewsReportSheetState extends State<_PublicNewsReportSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Segnala news',
+                'Segnala avviso',
                 style: TextStyle(
                   color: AppColors.pureWhite,
                   fontSize: 17,

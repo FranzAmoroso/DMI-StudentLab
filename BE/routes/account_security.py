@@ -17,7 +17,6 @@ from schemas.auth import (
     PasswordResetStartRequest,
     PasswordResetStartResponse,
     PendingRegistrationEmailUpdateRequest,
-    PendingRegistrationPasswordUpdateRequest,
     PendingRegistrationUpdateResponse,
 )
 from services.account_security import (
@@ -27,7 +26,6 @@ from services.account_security import (
     complete_email_change,
     complete_password_reset,
     update_pending_registration_email,
-    update_pending_registration_password,
 )
 
 
@@ -216,32 +214,4 @@ def api_pending_registration_email_change(
         email=user.email,
         expires_in=expires_in,
         message="Email aggiornata. Inserisci il codice inviato al nuovo indirizzo.",
-    )
-
-
-@router.post(
-    "/registration/password/change",
-    response_model=PendingRegistrationUpdateResponse,
-)
-def api_pending_registration_password_change(
-    request: PendingRegistrationPasswordUpdateRequest,
-    db: Session = Depends(get_db),
-):
-    try:
-        user = update_pending_registration_password(
-            db,
-            registration_id=request.registration_id,
-            current_password=request.current_password,
-            new_password=request.new_password,
-        )
-    except ValueError as exception:
-        raise HTTPException(
-            status_code=400,
-            detail=str(exception),
-        )
-
-    return PendingRegistrationUpdateResponse(
-        registration_id=request.registration_id,
-        email=user.email,
-        message="Password aggiornata. Puoi continuare con la verifica dell'email.",
     )

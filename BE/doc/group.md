@@ -1,5 +1,3 @@
-Le regole già implementate nel blocco sono quelle che avevamo definito: news pubbliche di gruppo o private, risposte tramite parent_news_id, scadenza a 7 giorni, eliminazione dell'autore, moderazione owner/admin per le news del gruppo, privacy delle news private, moderazione globale admin/creator, segnalazioni, blocco utenti, impossibilità di inviare news private tra utenti bloccati e occultamento nel feed dei contenuti degli utenti bloccati.
-
 Sì, adesso il quadro è molto più chiaro e correggo la specifica precedente.
 
 Lo studente **non può pubblicare news pubbliche**. Può pubblicare soltanto:
@@ -1057,3 +1055,5 @@ Per pubblicare prima possibile, farei questo ordine:
 Il primo file che modificherei ora è proprio **`StudyGroup`**, perché tutte le card e le pagine dipendono da quello. Poi passerei immediatamente a `SocialPage`.
 
 Se vuoi procedere file per file come abbiamo fatto col backend, il prossimo passo è: **ti restituisco `StudyGroup` completo e aggiornato, senza commenti**, aggiungendo creator e i campi necessari alla nuova UI.
+
+una cosa che ci stiamo dimenticando è se la materia viene specificata sarà possiible scegliere se sarà nome principaled el gruppo, se non viene specificata allora il nome del gruppo è quello impostato, sarà possibuile dopo l'accesso, chiedere a un gruppo di partecipare
