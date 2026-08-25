@@ -1,8 +1,15 @@
 import 'dart:io';
 
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
+
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 import 'theme/nightTheme.dart';
@@ -15,126 +22,98 @@ import 'services/app_update_service.dart';
 
 import 'widgets/studentlab_wolf_wave.dart';
 
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (
-    Platform.isLinux ||
-    Platform.isWindows
-  ) {
+  _configureGlobalErrorHandling();
+
+  if (Platform.isLinux || Platform.isWindows) {
     sqfliteFfiInit();
 
-    databaseFactory =
-        databaseFactoryFfi;
+    databaseFactory = databaseFactoryFfi;
   }
 
-  final LocalStorageService localStorage =
-      LocalStorageService();
+  final LocalStorageService localStorage = LocalStorageService();
 
   await localStorage.initialize();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor:
-          Colors.transparent,
+      statusBarColor: Colors.transparent,
 
-      statusBarIconBrightness:
-          Brightness.light,
+      statusBarIconBrightness: Brightness.light,
 
-      systemNavigationBarColor:
-          AppColors.darkElegance,
+      systemNavigationBarColor: AppColors.darkElegance,
 
-      systemNavigationBarIconBrightness:
-          Brightness.light,
+      systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
 
-  runApp(
-    const MyApp(),
-  );
+  runApp(const MyApp());
 }
 
+void _configureGlobalErrorHandling() {
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+  };
+
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    FlutterError.reportError(
+      FlutterErrorDetails(exception: error, stack: stack),
+    );
+
+    return kReleaseMode;
+  };
+}
 
 class MyApp extends StatelessWidget {
-  const MyApp({
-    super.key,
-  });
-
+  const MyApp({super.key});
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return MaterialApp(
-      title:
-          'StudentLab',
+      title: 'StudentLab',
 
-      debugShowCheckedModeBanner:
-          false,
+      debugShowCheckedModeBanner: false,
 
-      theme:
-          ThemeData.dark().copyWith(
-        colorScheme:
-            ColorScheme.fromSeed(
-          seedColor:
-              AppColors.brandNightBlue,
+      theme: ThemeData.dark().copyWith(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.brandNightBlue,
 
-          brightness:
-              Brightness.dark,
+          brightness: Brightness.dark,
         ),
 
-        scaffoldBackgroundColor:
-            AppColors.darkElegance,
+        scaffoldBackgroundColor: AppColors.darkElegance,
 
-        appBarTheme:
-            AppColors.nightAppBarTheme,
+        appBarTheme: AppColors.nightAppBarTheme,
 
-        cardTheme:
-            AppColors.elegantCardTheme,
+        cardTheme: AppColors.elegantCardTheme,
 
-        bottomNavigationBarTheme:
-            AppColors.nightBottomNavTheme,
+        bottomNavigationBarTheme: AppColors.nightBottomNavTheme,
       ),
 
-      home:
-          const AppStartupGate(),
+      home: const AppStartupGate(),
     );
   }
 }
 
-
-class AppStartupGate
-    extends StatefulWidget {
-
-  const AppStartupGate({
-    super.key,
-  });
-
+class AppStartupGate extends StatefulWidget {
+  const AppStartupGate({super.key});
 
   @override
-  State<AppStartupGate> createState() =>
-      _AppStartupGateState();
+  State<AppStartupGate> createState() => _AppStartupGateState();
 }
 
+class _AppStartupGateState extends State<AppStartupGate> {
+  final AppUpdateService _updateService = AppUpdateService();
 
-class _AppStartupGateState
-    extends State<AppStartupGate> {
+  bool _loading = true;
 
-  final AppUpdateService _updateService =
-      AppUpdateService();
-
-
-  bool _loading =
-      true;
-
-  bool _optionalUpdateShown =
-      false;
+  bool _optionalUpdateShown = false;
 
   AppUpdateInfo? _updateInfo;
 
   String? _error;
-
 
   @override
   void initState() {
@@ -143,53 +122,36 @@ class _AppStartupGateState
     _checkApplicationVersion();
   }
 
-
   Future<void> _checkApplicationVersion() async {
     if (mounted) {
       setState(() {
-        _loading =
-            true;
+        _loading = true;
 
-        _error =
-            null;
+        _error = null;
       });
     }
 
     try {
-      final AppUpdateInfo info =
-          await _updateService
-              .checkForUpdates();
+      final AppUpdateInfo info = await _updateService.checkForUpdates();
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _updateInfo =
-            info;
+        _updateInfo = info;
 
-        _loading =
-            false;
+        _loading = false;
       });
 
-      if (
-        info.status ==
-            AppUpdateStatus.optional &&
-        !_optionalUpdateShown
-      ) {
-        _optionalUpdateShown =
-            true;
+      if (info.status == AppUpdateStatus.optional && !_optionalUpdateShown) {
+        _optionalUpdateShown = true;
 
-        WidgetsBinding.instance
-            .addPostFrameCallback(
-          (_) {
-            if (mounted) {
-              _showOptionalUpdate(
-                info,
-              );
-            }
-          },
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showOptionalUpdate(info);
+          }
+        });
       }
     } catch (e) {
       if (!mounted) {
@@ -197,193 +159,113 @@ class _AppStartupGateState
       }
 
       setState(() {
-        _loading =
-            false;
+        _loading = false;
 
-        _error =
-            _cleanError(
-          e,
-        );
+        _error = _cleanError(e);
       });
     }
   }
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     if (_loading) {
       return const _StartupLoadingPage();
     }
 
-    final AppUpdateInfo? info =
-        _updateInfo;
+    final AppUpdateInfo? info = _updateInfo;
 
-    if (
-      info?.status ==
-      AppUpdateStatus.maintenance
-    ) {
-      return _MaintenancePage(
-        info:
-            info!,
-
-        onRetry:
-            _checkApplicationVersion,
-      );
+    if (info?.status == AppUpdateStatus.maintenance) {
+      return _MaintenancePage(info: info!, onRetry: _checkApplicationVersion);
     }
 
-    if (
-      info?.status ==
-      AppUpdateStatus.required
-    ) {
+    if (info?.status == AppUpdateStatus.required) {
       return _RequiredUpdatePage(
-        info:
-            info!,
+        info: info!,
 
-        onUpdate:
-            () async {
-          await _openUpdateUrl(
-            info.updateUrl,
-          );
+        onUpdate: () async {
+          await _openUpdateUrl(info.updateUrl);
         },
 
-        onRetry:
-            _checkApplicationVersion,
+        onRetry: _checkApplicationVersion,
       );
     }
 
     return const HomePage();
   }
 
-
-  Future<void> _showOptionalUpdate(
-    AppUpdateInfo info,
-  ) async {
+  Future<void> _showOptionalUpdate(AppUpdateInfo info) async {
     if (!mounted) {
       return;
     }
 
     await showDialog<void>(
-      context:
-          context,
+      context: context,
 
-      barrierDismissible:
-          true,
+      barrierDismissible: true,
 
-      builder:
-          (
-        dialogContext,
-      ) {
+      builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor:
-              AppColors.eleganceDeepNavy,
+          backgroundColor: AppColors.eleganceDeepNavy,
 
-          title:
-              const Text(
+          title: const Text(
             'Aggiornamento disponibile',
 
-            style:
-                TextStyle(
-              color:
-                  AppColors.pureWhite,
-            ),
+            style: TextStyle(color: AppColors.pureWhite),
           ),
 
-          content:
-              Column(
-            mainAxisSize:
-                MainAxisSize.min,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
 
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
               Text(
                 'È disponibile StudentLab '
                 '${info.latestVersion}.',
 
-                style:
-                    const TextStyle(
-                  color:
-                      Colors.white70,
-                ),
+                style: const TextStyle(color: Colors.white70),
               ),
 
               if (info.message.isNotEmpty) ...[
-                const SizedBox(
-                  height:
-                      12,
-                ),
+                const SizedBox(height: 12),
 
                 Text(
                   info.message,
 
-                  style:
-                      const TextStyle(
-                    color:
-                        Colors.white60,
-
-                    fontSize:
-                        13,
-                  ),
+                  style: const TextStyle(color: Colors.white60, fontSize: 13),
                 ),
               ],
 
-              const SizedBox(
-                height:
-                    12,
-              ),
+              const SizedBox(height: 12),
 
               Text(
                 'Versione installata: '
                 '${info.currentVersion}',
 
-                style:
-                    const TextStyle(
-                  color:
-                      Colors.white38,
-
-                  fontSize:
-                      11,
-                ),
+                style: const TextStyle(color: Colors.white38, fontSize: 11),
               ),
             ],
           ),
 
           actions: [
             TextButton(
-              onPressed:
-                  () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
               },
 
-              child:
-                  const Text(
-                'Più tardi',
-              ),
+              child: const Text('Più tardi'),
             ),
 
             FilledButton(
-              onPressed:
-                  info.updateUrl.isEmpty
-                      ? null
-                      : () async {
-                          Navigator.of(
-                            dialogContext,
-                          ).pop();
+              onPressed: info.updateUrl.isEmpty
+                  ? null
+                  : () async {
+                      Navigator.of(dialogContext).pop();
 
-                          await _openUpdateUrl(
-                            info.updateUrl,
-                          );
-                        },
+                      await _openUpdateUrl(info.updateUrl);
+                    },
 
-              child:
-                  const Text(
-                'Aggiorna',
-              ),
+              child: const Text('Aggiorna'),
             ),
           ],
         );
@@ -391,425 +273,253 @@ class _AppStartupGateState
     );
   }
 
-
-  Future<void> _openUpdateUrl(
-    String updateUrl,
-  ) async {
+  Future<void> _openUpdateUrl(String updateUrl) async {
     if (updateUrl.isEmpty) {
-      _showMessage(
-        'Link di aggiornamento non ancora disponibile.',
-      );
+      _showMessage('Link di aggiornamento non ancora disponibile.');
 
       return;
     }
 
-    final Uri? uri =
-        Uri.tryParse(
-      updateUrl,
-    );
+    final Uri? uri = Uri.tryParse(updateUrl);
 
     if (uri == null) {
-      _showMessage(
-        'Link di aggiornamento non valido.',
-      );
+      _showMessage('Link di aggiornamento non valido.');
 
       return;
     }
 
-    final bool opened =
-        await launchUrl(
+    final bool opened = await launchUrl(
       uri,
-      mode:
-          LaunchMode.externalApplication,
+
+      mode: LaunchMode.externalApplication,
     );
 
-    if (!opened &&
-        mounted) {
-      _showMessage(
-        'Impossibile aprire il link di aggiornamento.',
-      );
+    if (!opened && mounted) {
+      _showMessage('Impossibile aprire il link di aggiornamento.');
     }
   }
 
-
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) {
       return;
     }
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(
-      SnackBar(
-        content:
-            Text(
-          message,
-        ),
-      ),
-    );
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  String _cleanError(Object error) {
+    String message = error.toString();
 
-  String _cleanError(
-    Object error,
-  ) {
-    String message =
-        error.toString();
-
-    if (
-      message.startsWith(
-        'Exception: ',
-      )
-    ) {
-      message =
-          message.substring(
-        'Exception: '.length,
-      );
+    if (message.startsWith('Exception: ')) {
+      message = message.substring('Exception: '.length);
     }
 
     return message;
   }
 }
 
-
-class _StartupLoadingPage
-    extends StatelessWidget {
-
+class _StartupLoadingPage extends StatelessWidget {
   const _StartupLoadingPage();
 
-  
-
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return const Scaffold(
       backgroundColor: AppColors.darkElegance,
+
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            StudentLabWolfSplash(
-              size:320,
-            ),
 
-            SizedBox(
-              height: 20,
-            ),
-          ],
+          children: [StudentLabWolfSplash(size: 320), SizedBox(height: 20)],
         ),
       ),
     );
   }
 }
 
-
-class _RequiredUpdatePage
-    extends StatelessWidget {
-
+class _RequiredUpdatePage extends StatelessWidget {
   final AppUpdateInfo info;
 
-  final Future<void> Function()
-      onUpdate;
+  final Future<void> Function() onUpdate;
 
-  final Future<void> Function()
-      onRetry;
-
+  final Future<void> Function() onRetry;
 
   const _RequiredUpdatePage({
     required this.info,
+
     required this.onUpdate,
+
     required this.onRetry,
   });
 
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
+      backgroundColor: AppColors.darkElegance,
 
-      body:
-          SafeArea(
-        child:
-            Center(
-          child:
-              SingleChildScrollView(
-            padding:
-                const EdgeInsets.all(
-              24,
-            ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
 
-            child:
-                ConstrainedBox(
-              constraints:
-                  const BoxConstraints(
-                maxWidth:
-                    480,
-              ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
 
-              child:
-                  Container(
-                width:
-                    double.infinity,
+              child: Container(
+                width: double.infinity,
 
-                padding:
-                    const EdgeInsets.all(
-                  28,
-                ),
+                padding: const EdgeInsets.all(28),
 
-                decoration:
-                    BoxDecoration(
-                  color:
-                      AppColors.eleganceMidnight,
+                decoration: BoxDecoration(
+                  color: AppColors.eleganceMidnight,
 
-                  borderRadius:
-                      BorderRadius.circular(
-                    22,
-                  ),
+                  borderRadius: BorderRadius.circular(22),
 
-                  border:
-                      Border.all(
-                    color:
-                        AppColors.skyBlue
-                            .withOpacity(
-                      0.18,
-                    ),
+                  border: Border.all(
+                    color: AppColors.skyBlue.withOpacity(0.18),
                   ),
                 ),
 
-                child:
-                    Column(
+                child: Column(
                   children: [
                     Container(
-                      width:
-                          72,
+                      width: 72,
 
-                      height:
-                          72,
+                      height: 72,
 
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            AppColors.brandNightBlue,
+                      decoration: BoxDecoration(
+                        color: AppColors.brandNightBlue,
 
-                        borderRadius:
-                            BorderRadius.circular(
-                          20,
-                        ),
+                        borderRadius: BorderRadius.circular(20),
                       ),
 
-                      child:
-                          const Icon(
+                      child: const Icon(
                         Icons.system_update_rounded,
 
-                        color:
-                            AppColors.skyBlue,
+                        color: AppColors.skyBlue,
 
-                        size:
-                            36,
+                        size: 36,
                       ),
                     ),
 
-                    const SizedBox(
-                      height:
-                          24,
-                    ),
+                    const SizedBox(height: 24),
 
                     const Text(
                       'Aggiornamento necessario',
 
-                      textAlign:
-                          TextAlign.center,
+                      textAlign: TextAlign.center,
 
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite,
+                      style: TextStyle(
+                        color: AppColors.pureWhite,
 
-                        fontSize:
-                            22,
+                        fontSize: 22,
 
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
 
-                    const SizedBox(
-                      height:
-                          12,
-                    ),
+                    const SizedBox(height: 12),
 
                     Text(
                       'Questa versione di StudentLab '
                       'non è più supportata.',
 
-                      textAlign:
-                          TextAlign.center,
+                      textAlign: TextAlign.center,
 
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite
-                                .withOpacity(
-                          0.60,
-                        ),
+                      style: TextStyle(
+                        color: AppColors.pureWhite.withOpacity(0.60),
 
-                        fontSize:
-                            14,
+                        fontSize: 14,
 
-                        height:
-                            1.4,
+                        height: 1.4,
                       ),
                     ),
 
                     if (info.message.isNotEmpty) ...[
-                      const SizedBox(
-                        height:
-                            16,
-                      ),
+                      const SizedBox(height: 16),
 
                       Text(
                         info.message,
 
-                        textAlign:
-                            TextAlign.center,
+                        textAlign: TextAlign.center,
 
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.materialSky
-                                  .withOpacity(
-                            0.85,
-                          ),
+                        style: TextStyle(
+                          color: AppColors.materialSky.withOpacity(0.85),
 
-                          fontSize:
-                              13,
+                          fontSize: 13,
 
-                          height:
-                              1.4,
+                          height: 1.4,
                         ),
                       ),
                     ],
 
-                    const SizedBox(
-                      height:
-                          24,
-                    ),
+                    const SizedBox(height: 24),
 
                     _VersionRow(
-                      label:
-                          'Installata',
+                      label: 'Installata',
 
-                      value:
-                          info.currentVersion,
+                      value: info.currentVersion,
                     ),
 
-                    const SizedBox(
-                      height:
-                          8,
-                    ),
+                    const SizedBox(height: 8),
 
                     _VersionRow(
-                      label:
-                          'Minima richiesta',
+                      label: 'Minima richiesta',
 
-                      value:
-                          info.minimumVersion,
+                      value: info.minimumVersion,
                     ),
 
-                    const SizedBox(
-                      height:
-                          8,
-                    ),
+                    const SizedBox(height: 8),
 
                     _VersionRow(
-                      label:
-                          'Disponibile',
+                      label: 'Disponibile',
 
-                      value:
-                          info.latestVersion,
+                      value: info.latestVersion,
                     ),
 
-                    const SizedBox(
-                      height:
-                          28,
-                    ),
+                    const SizedBox(height: 28),
 
                     SizedBox(
-                      width:
-                          double.infinity,
+                      width: double.infinity,
 
-                      child:
-                          FilledButton.icon(
-                        onPressed:
-                            info.updateUrl.isEmpty
-                                ? null
-                                : () async {
-                                    await onUpdate();
-                                  },
+                      child: FilledButton.icon(
+                        onPressed: info.updateUrl.isEmpty
+                            ? null
+                            : () async {
+                                await onUpdate();
+                              },
 
-                        icon:
-                            const Icon(
-                          Icons.download_rounded,
-                        ),
+                        icon: const Icon(Icons.download_rounded),
 
-                        label:
-                            const Text(
-                          'Aggiorna StudentLab',
-                        ),
+                        label: const Text('Aggiorna StudentLab'),
                       ),
                     ),
 
                     if (info.updateUrl.isEmpty) ...[
-                      const SizedBox(
-                        height:
-                            10,
-                      ),
+                      const SizedBox(height: 10),
 
                       const Text(
                         'Il download dell\'aggiornamento '
                         'non è ancora disponibile.',
 
-                        textAlign:
-                            TextAlign.center,
+                        textAlign: TextAlign.center,
 
-                        style:
-                            TextStyle(
-                          color:
-                              Colors.white38,
-
-                          fontSize:
-                              11,
-                        ),
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
                       ),
                     ],
 
-                    const SizedBox(
-                      height:
-                          8,
-                    ),
+                    const SizedBox(height: 8),
 
                     TextButton.icon(
-                      onPressed:
-                          () async {
+                      onPressed: () async {
                         await onRetry();
                       },
 
-                      icon:
-                          const Icon(
-                        Icons.refresh_rounded,
-                      ),
+                      icon: const Icon(Icons.refresh_rounded),
 
-                      label:
-                          const Text(
-                        'Controlla di nuovo',
-                      ),
+                      label: const Text('Controlla di nuovo'),
                     ),
                   ],
                 ),
@@ -822,166 +532,96 @@ class _RequiredUpdatePage
   }
 }
 
-
-class _MaintenancePage
-    extends StatelessWidget {
-
+class _MaintenancePage extends StatelessWidget {
   final AppUpdateInfo info;
 
-  final Future<void> Function()
-      onRetry;
+  final Future<void> Function() onRetry;
 
-
-  const _MaintenancePage({
-    required this.info,
-    required this.onRetry,
-  });
-
+  const _MaintenancePage({required this.info, required this.onRetry});
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          AppColors.darkElegance,
+      backgroundColor: AppColors.darkElegance,
 
-      body:
-          SafeArea(
-        child:
-            Center(
-          child:
-              Padding(
-            padding:
-                const EdgeInsets.all(
-              24,
-            ),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
 
-            child:
-                ConstrainedBox(
-              constraints:
-                  const BoxConstraints(
-                maxWidth:
-                    480,
-              ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
 
-              child:
-                  Container(
-                width:
-                    double.infinity,
+              child: Container(
+                width: double.infinity,
 
-                padding:
-                    const EdgeInsets.all(
-                  28,
-                ),
+                padding: const EdgeInsets.all(28),
 
-                decoration:
-                    BoxDecoration(
-                  color:
-                      AppColors.eleganceMidnight,
+                decoration: BoxDecoration(
+                  color: AppColors.eleganceMidnight,
 
-                  borderRadius:
-                      BorderRadius.circular(
-                    22,
-                  ),
+                  borderRadius: BorderRadius.circular(22),
 
-                  border:
-                      Border.all(
-                    color:
-                        AppColors.skyBlue
-                            .withOpacity(
-                      0.18,
-                    ),
+                  border: Border.all(
+                    color: AppColors.skyBlue.withOpacity(0.18),
                   ),
                 ),
 
-                child:
-                    Column(
-                  mainAxisSize:
-                      MainAxisSize.min,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
 
                   children: [
                     const Icon(
                       Icons.construction_rounded,
 
-                      color:
-                          AppColors.skyBlue,
+                      color: AppColors.skyBlue,
 
-                      size:
-                          56,
+                      size: 56,
                     ),
 
-                    const SizedBox(
-                      height:
-                          20,
-                    ),
+                    const SizedBox(height: 20),
 
                     const Text(
                       'StudentLab è in manutenzione',
 
-                      textAlign:
-                          TextAlign.center,
+                      textAlign: TextAlign.center,
 
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite,
+                      style: TextStyle(
+                        color: AppColors.pureWhite,
 
-                        fontSize:
-                            21,
+                        fontSize: 21,
 
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
 
-                    const SizedBox(
-                      height:
-                          12,
-                    ),
+                    const SizedBox(height: 12),
 
                     Text(
                       info.message.isNotEmpty
                           ? info.message
                           : 'Stiamo effettuando alcuni '
-                              'aggiornamenti. Riprova tra poco.',
+                                'aggiornamenti. Riprova tra poco.',
 
-                      textAlign:
-                          TextAlign.center,
+                      textAlign: TextAlign.center,
 
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors.pureWhite
-                                .withOpacity(
-                          0.60,
-                        ),
+                      style: TextStyle(
+                        color: AppColors.pureWhite.withOpacity(0.60),
 
-                        height:
-                            1.4,
+                        height: 1.4,
                       ),
                     ),
 
-                    const SizedBox(
-                      height:
-                          24,
-                    ),
+                    const SizedBox(height: 24),
 
                     OutlinedButton.icon(
-                      onPressed:
-                          () async {
+                      onPressed: () async {
                         await onRetry();
                       },
 
-                      icon:
-                          const Icon(
-                        Icons.refresh_rounded,
-                      ),
+                      icon: const Icon(Icons.refresh_rounded),
 
-                      label:
-                          const Text(
-                        'Riprova',
-                      ),
+                      label: const Text('Riprova'),
                     ),
                   ],
                 ),
@@ -994,55 +634,34 @@ class _MaintenancePage
   }
 }
 
-
-class _VersionRow
-    extends StatelessWidget {
-
+class _VersionRow extends StatelessWidget {
   final String label;
+
   final String value;
 
-
-  const _VersionRow({
-    required this.label,
-    required this.value,
-  });
-
+  const _VersionRow({required this.label, required this.value});
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child:
-              Text(
+          child: Text(
             label,
 
-            style:
-                const TextStyle(
-              color:
-                  Colors.white54,
-
-              fontSize:
-                  12,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ),
 
         Text(
           value,
 
-          style:
-              const TextStyle(
-            color:
-                AppColors.materialSky,
+          style: const TextStyle(
+            color: AppColors.materialSky,
 
-            fontSize:
-                12,
+            fontSize: 12,
 
-            fontWeight:
-                FontWeight.w600,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
