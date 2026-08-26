@@ -35,6 +35,7 @@ class TeacherAssignmentVerificationUpdate(BaseModel):
     status: Literal[
         "verified",
         "rejected",
+        "pending",
     ]
 
 
@@ -61,3 +62,18 @@ class TeacherAssignmentResponse(BaseModel):
     subject: SubjectResponse
 
     offering: SubjectOfferingResponse | None
+
+
+class TeacherAssignmentTeacher(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+
+
+class TeacherAssignmentAdminResponse(TeacherAssignmentResponse):
+    teacher: TeacherAssignmentTeacher | None = None

@@ -133,6 +133,71 @@ def get_pending_teacher_assignments(
     )
 
 
+def get_all_teacher_assignments(
+    db: Session,
+    status: str | None = None,
+):
+    query = (
+        db.query(
+            TeacherAssignment,
+        )
+        .options(
+            joinedload(
+                TeacherAssignment.subject,
+            )
+            .joinedload(
+                Subject.offerings,
+            )
+            .joinedload(
+                SubjectOffering.teachers,
+            ),
+            joinedload(
+                TeacherAssignment.offering,
+            )
+            .joinedload(
+                SubjectOffering.teachers,
+            ),
+            joinedload(
+                TeacherAssignment.user,
+            ),
+        )
+    )
+
+    if status is not None:
+        query = query.filter(
+            TeacherAssignment.verification_status ==
+            status,
+        )
+
+    return (
+        query
+        .order_by(
+            TeacherAssignment.id.desc(),
+        )
+        .all()
+    )
+
+
+def reset_teacher_assignment(
+    db: Session,
+    assignment: TeacherAssignment,
+):
+    assignment.verification_status = (
+        "pending"
+    )
+
+    assignment.verified_by = None
+
+    assignment.verified_at = None
+
+    db.commit()
+
+    return get_teacher_assignment_by_id(
+        db,
+        assignment.id,
+    )
+
+
 def get_verified_teacher_assignment(
     db: Session,
     teacher_id: int,

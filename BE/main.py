@@ -11,15 +11,6 @@ from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
-    Request,
-)
-
-from fastapi.exceptions import (
-    RequestValidationError,
-)
-
-from fastapi.responses import (
-    JSONResponse,
 )
 
 from fastapi.middleware.cors import (
@@ -457,33 +448,6 @@ from routes.public_news_report import (
 
 
 app = FastAPI()
-
-
-# TEMP diagnostica: logga payload ed errori dei 422 per individuare i campi.
-@app.exception_handler(
-    RequestValidationError,
-)
-async def _debug_validation_error(
-    request: Request,
-    exc: RequestValidationError,
-):
-    print(
-        "VALIDATION_ERROR",
-        request.method,
-        request.url.path,
-        "errors=",
-        exc.errors(),
-        "body=",
-        exc.body,
-        flush=True,
-    )
-
-    return JSONResponse(
-        status_code=422,
-        content={
-            "detail": exc.errors(),
-        },
-    )
 
 
 app.include_router(

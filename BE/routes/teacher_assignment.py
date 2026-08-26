@@ -2,6 +2,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
 )
 
 from sqlalchemy.exc import IntegrityError
@@ -17,8 +18,10 @@ from core.security import (
 from models.user import User
 
 from schemas.teacher_assignment import (
+    TeacherAssignmentAdminResponse,
     TeacherAssignmentCreate,
     TeacherAssignmentResponse,
+    TeacherAssignmentTeacher,
     TeacherAssignmentUpdate,
     TeacherAssignmentVerificationUpdate,
 )
@@ -26,10 +29,12 @@ from schemas.teacher_assignment import (
 from services.teacher_assignment import (
     create_teacher_assignment,
     delete_teacher_assignment,
+    get_all_teacher_assignments,
     get_pending_teacher_assignments,
     get_teacher_assignment_by_id,
     get_teacher_assignments,
     reject_teacher_assignment,
+    reset_teacher_assignment,
     update_teacher_assignment,
     verify_teacher_assignment,
 )
@@ -273,10 +278,32 @@ def api_delete_teacher_assignment(
     }
 
 
+def _admin_assignment_responses(
+    assignments,
+):
+    result = []
+
+    for assignment in assignments:
+        response = TeacherAssignmentAdminResponse.model_validate(
+            assignment,
+        )
+
+        if assignment.user is not None:
+            response.teacher = TeacherAssignmentTeacher.model_validate(
+                assignment.user,
+            )
+
+        result.append(
+            response,
+        )
+
+    return result
+
+
 @router.get(
     "/admin/teacher_assignments/pending",
     response_model=list[
-        TeacherAssignmentResponse
+        TeacherAssignmentAdminResponse
     ],
 )
 def api_admin_pending_teacher_assignments(
@@ -287,8 +314,57 @@ def api_admin_pending_teacher_assignments(
         get_db,
     ),
 ):
-    return get_pending_teacher_assignments(
-        db,
+    return _admin_assignment_responses(
+        get_pending_teacher_assignments(
+            db,
+        ),
+    )
+
+
+@router.get(
+    "/admin/teacher_assignments",
+    response_model=list[
+        TeacherAssignmentAdminResponse
+    ],
+)
+def api_admin_teacher_assignments(
+    status: str | None = Query(
+        default=None,
+    ),
+    current_user: User = Depends(
+        get_admin_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    normalized_status = (
+        status.strip().lower()
+        if status is not None
+        else None
+    )
+
+    if normalized_status in (
+        None,
+        "",
+        "all",
+    ):
+        normalized_status = None
+    elif normalized_status not in (
+        "pending",
+        "verified",
+        "rejected",
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Stato non valido.",
+        )
+
+    return _admin_assignment_responses(
+        get_all_teacher_assignments(
+            db,
+            normalized_status,
+        ),
     )
 
 
@@ -325,6 +401,12 @@ def api_admin_teacher_assignment_verification(
                 db,
                 assignment,
                 current_user,
+            )
+
+        if request.status == "pending":
+            return reset_teacher_assignment(
+                db,
+                assignment,
             )
 
         return reject_teacher_assignment(
