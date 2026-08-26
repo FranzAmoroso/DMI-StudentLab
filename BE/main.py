@@ -446,6 +446,18 @@ from routes.public_news_report import (
     router as public_news_report_router,
 )
 
+from routes.news import (
+    router as news_router,
+)
+
+from routes.user_public_key import (
+    router as user_public_key_router,
+)
+
+from routes.news_report import (
+    router as news_report_router,
+)
+
 
 app = FastAPI()
 
@@ -548,6 +560,18 @@ app.include_router(
 
 app.include_router(
     public_news_report_router,
+)
+
+app.include_router(
+    news_router,
+)
+
+app.include_router(
+    user_public_key_router,
+)
+
+app.include_router(
+    news_report_router,
 )
 
 app.include_router(

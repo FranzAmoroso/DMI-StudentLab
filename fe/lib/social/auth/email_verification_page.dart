@@ -24,6 +24,11 @@ class EmailVerificationPage extends StatefulWidget {
 
   final SocialProfileDraft? draft;
 
+  final void Function(String registrationId, String email)?
+      onRegistrationUpdated;
+
+  final Future<void> Function()? onCancel;
+
   const EmailVerificationPage({
 
 super.key,
@@ -35,6 +40,10 @@ super.key,
     required this.expiresIn,
 
 this.draft,
+
+this.onRegistrationUpdated,
+
+this.onCancel,
 
   });
 
@@ -381,6 +390,8 @@ super.dispose();
 
       });
 
+      widget.onRegistrationUpdated?.call(_registrationId, _email);
+
       _startTimer();
 
     } on ApiEmailVerificationCooldownException catch (error) {
@@ -531,6 +542,8 @@ super.dispose();
 
       });
 
+      widget.onRegistrationUpdated?.call(_registrationId, _email);
+
       _startTimer();
 
     } catch (error) {
@@ -603,6 +616,34 @@ super.dispose();
       return 'Non è stato possibile contattare StudentLab. Controlla la connessione e riprova.';
     }
     return 'Non è stato possibile completare l’operazione. Riprova.';
+  }
+
+  Future<void> _cancelRegistration() async {
+
+    final Future<void> Function()? onCancel = widget.onCancel;
+
+    if (_busy || onCancel == null) {
+
+      return;
+
+    }
+
+    await onCancel();
+
+    if (!mounted) {
+
+      return;
+
+    }
+
+    setState(() {
+
+      _allowPop = true;
+
+    });
+
+    Navigator.of(context).pop();
+
   }
 
   @override
@@ -892,6 +933,30 @@ super.dispose();
                       ),
 
                     ),
+
+                    if (widget.onCancel != null) ...[
+
+                      const SizedBox(height: 8),
+
+                      TextButton(
+
+                        onPressed: _busy ? null : _cancelRegistration,
+
+                        child: Text(
+
+                          'Annulla registrazione',
+
+                          style: TextStyle(
+
+                            color: AppColors.pureWhite.withValues(alpha: 0.55),
+
+                          ),
+
+                        ),
+
+                      ),
+
+                    ],
 
 
                   ],

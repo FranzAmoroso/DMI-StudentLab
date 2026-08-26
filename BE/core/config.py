@@ -157,6 +157,24 @@ class Settings:
             default=False,
         )
 
+        self.compliance_key_id = (
+            self._env("StudentLab_COMPLIANCE_KEY_ID")
+            or self._env("COMPLIANCE_KEY_ID")
+            or ""
+        ).strip()
+
+        self.compliance_public_key = (
+            self._env("StudentLab_COMPLIANCE_PUBLIC_KEY")
+            or self._env("COMPLIANCE_PUBLIC_KEY")
+            or ""
+        ).strip()
+
+        self.compliance_key_algo = (
+            self._env("StudentLab_COMPLIANCE_KEY_ALGO")
+            or self._env("COMPLIANCE_KEY_ALGO")
+            or "x25519"
+        ).strip().lower()
+
     @staticmethod
     def _normalize_env_value(value: str | None) -> str | None:
         if value is None:

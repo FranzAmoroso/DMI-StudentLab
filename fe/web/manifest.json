@@ -1,6 +1,6 @@
 {
-    "name": "fe",
-    "short_name": "fe",
+    "name": "StudentLab",
+    "short_name": "StudentLab",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0F1C3F",

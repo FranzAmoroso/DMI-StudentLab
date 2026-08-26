@@ -30,6 +30,8 @@ import 'admin_support_sessions_page.dart';
 
 import 'admin_teachers_page.dart';
 
+import 'admin_teacher_assignments_page.dart';
+
 import 'admin_user_page.dart';
 
 class AdminPanelPage extends StatefulWidget {
@@ -562,6 +564,18 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
           onTap: () {
             _openProtectedPage(const AdminAcademicPathsPage());
+          },
+        ),
+
+        _AdminModuleCard(
+          icon: Icons.school_outlined,
+
+          title: 'Insegnamenti',
+
+          description: 'Verifica gli insegnamenti dichiarati dai docenti.',
+
+          onTap: () {
+            _openProtectedPage(const AdminTeacherAssignmentsPage());
           },
         ),
 

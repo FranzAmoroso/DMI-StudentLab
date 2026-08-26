@@ -7,6 +7,8 @@ import '../../services/auth_service.dart';
 
 import '../../services/auth_session.dart';
 
+import '../../services/pending_registration_store.dart';
+
 import '../social_models.dart';
 
 import '../auth/email_verification_page.dart';
@@ -48,6 +50,10 @@ class _SocialProfilePreviewState
   final AuthSession _authSession =
 
       AuthSession.instance;
+
+  final PendingRegistrationStore _pendingStore =
+
+      PendingRegistrationStore();
 
   bool _publishing =
 
@@ -609,6 +615,17 @@ class _SocialProfilePreviewState
             acceptance.termsAccepted,
       );
 
+      await _pendingStore.save(
+        PendingRegistration(
+          registrationId:
+              registration.registrationId,
+          email:
+              registration.email,
+          draft:
+              widget.draft,
+        ),
+      );
+
       if (!mounted) {
         return;
       }
@@ -623,14 +640,27 @@ class _SocialProfilePreviewState
             email: registration.email,
             expiresIn: registration.expiresIn,
             draft: widget.draft,
+            onRegistrationUpdated:
+                (
+              String registrationId,
+              String email,
+            ) {
+              _pendingStore.updateIdentity(
+                registrationId:
+                    registrationId,
+                email:
+                    email,
+              );
+            },
           ),
         ),
       );
 
-      if (
-        user == null ||
-        !mounted
-      ) {
+      if (user == null) {
+        return;
+      }
+
+      if (!mounted) {
         return;
       }
 

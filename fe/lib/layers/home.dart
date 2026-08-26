@@ -14,7 +14,11 @@ import 'package:fe/services/auth_service.dart';
 
 import 'package:fe/services/auth_session.dart';
 
+import 'package:fe/services/pending_registration_store.dart';
+
 import 'package:fe/social/social_models.dart';
+
+import 'package:fe/social/auth/email_verification_page.dart';
 
 import 'package:fe/social/social_page.dart';
 
@@ -39,12 +43,22 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AuthSession _authSession = AuthSession.instance;
 
   final AuthService _authService = AuthService();
 
   final ApiService _apiService = ApiService();
+
+  final PendingRegistrationStore _pendingStore = PendingRegistrationStore();
+
+  PendingRegistration? _pendingToResume;
+
+  VerifiedRegistrationBanner? _verifiedBanner;
+
+  Timer? _verifiedBannerTimer;
+
+  bool _resumingRegistration = false;
 
   bool _restoringSession = true;
 
@@ -64,6 +78,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addObserver(this);
+
     _authSession.addListener(_onAuthChanged);
 
     _restoreSession();
@@ -71,9 +87,20 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
+    _verifiedBannerTimer?.cancel();
+
     _authSession.removeListener(_onAuthChanged);
 
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(_refreshRegistrationBanners());
+    }
   }
 
   void _onAuthChanged() {
@@ -95,6 +122,10 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    _pendingToResume = null;
+
+    unawaited(_refreshVerifiedBanner());
+
     unawaited(Future.wait([_loadPermissions(), _loadUnreadNotifications()]));
   }
 
@@ -105,6 +136,10 @@ class _HomePageState extends State<HomePage> {
       if (_authSession.isAuthenticated) {
         await Future.wait([_loadPermissions(), _loadUnreadNotifications()]);
       }
+
+      await _handlePendingRegistration();
+
+      await _refreshVerifiedBanner();
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -123,6 +158,131 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _restoringSession = false;
       });
+    }
+  }
+
+  Future<void> _refreshRegistrationBanners() async {
+    await _handlePendingRegistration();
+
+    await _refreshVerifiedBanner();
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _handlePendingRegistration() async {
+    if (_authSession.isAuthenticated) {
+      final PendingRegistration? pending = await _pendingStore.load();
+
+      if (pending != null) {
+        await _authService.completeProfileExtras(pending.draft);
+
+        await _pendingStore.clear();
+      }
+
+      _pendingToResume = null;
+
+      return;
+    }
+
+    _pendingToResume = await _pendingStore.load();
+  }
+
+  Future<void> _refreshVerifiedBanner() async {
+    _verifiedBanner = await _pendingStore.loadVerifiedBanner(DateTime.now());
+
+    _scheduleVerifiedBannerExpiry();
+  }
+
+  void _scheduleVerifiedBannerExpiry() {
+    _verifiedBannerTimer?.cancel();
+
+    final VerifiedRegistrationBanner? banner = _verifiedBanner;
+
+    if (banner == null) {
+      return;
+    }
+
+    final DateTime expiresAt =
+        banner.verifiedAt.add(PendingRegistrationStore.verifiedBannerTtl);
+
+    final Duration remaining = expiresAt.difference(DateTime.now());
+
+    if (remaining <= Duration.zero) {
+      _verifiedBanner = null;
+
+      unawaited(_pendingStore.clearVerifiedBanner());
+
+      return;
+    }
+
+    _verifiedBannerTimer = Timer(remaining, () async {
+      await _pendingStore.clearVerifiedBanner();
+
+      if (mounted) {
+        setState(() {
+          _verifiedBanner = null;
+        });
+      }
+    });
+  }
+
+  Future<void> _dismissVerifiedBanner() async {
+    _verifiedBannerTimer?.cancel();
+
+    await _pendingStore.clearVerifiedBanner();
+
+    if (mounted) {
+      setState(() {
+        _verifiedBanner = null;
+      });
+    }
+  }
+
+  Future<void> _resumePendingRegistration() async {
+    final PendingRegistration? pending = _pendingToResume;
+
+    if (pending == null || _resumingRegistration || !mounted) {
+      return;
+    }
+
+    _resumingRegistration = true;
+
+    try {
+      final SocialUser? user = await Navigator.of(context).push<SocialUser>(
+        MaterialPageRoute(
+          builder: (_) => EmailVerificationPage(
+            registrationId: pending.registrationId,
+            email: pending.email,
+            expiresIn: 0,
+            draft: pending.draft,
+            onRegistrationUpdated: (String registrationId, String email) {
+              _pendingStore.updateIdentity(
+                registrationId: registrationId,
+                email: email,
+              );
+            },
+            onCancel: () => _pendingStore.clear(),
+          ),
+        ),
+      );
+
+      if (user != null) {
+        await _authService.completeProfileExtras(pending.draft);
+      }
+    } finally {
+      _resumingRegistration = false;
+
+      _pendingToResume = null;
+
+      await _handlePendingRegistration();
+
+      await _refreshVerifiedBanner();
+
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
@@ -265,6 +425,8 @@ class _HomePageState extends State<HomePage> {
               child: _navbarVisible ? _buildNavbar() : const SizedBox.shrink(),
             ),
 
+            _buildRegistrationBanners(),
+
             Expanded(
               child: NotificationListener<UserScrollNotification>(
                 onNotification: _handleHomeScroll,
@@ -274,6 +436,184 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRegistrationBanners() {
+    final PendingRegistration? pending = _pendingToResume;
+
+    final VerifiedRegistrationBanner? verified = _verifiedBanner;
+
+    final List<Widget> banners = [];
+
+    if (pending != null && !_isAuthenticated) {
+      banners.add(_pendingEmailBanner(pending));
+    }
+
+    if (verified != null) {
+      banners.add(_verifiedEmailBanner(verified));
+    }
+
+    if (banners.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+
+        children: banners,
+      ),
+    );
+  }
+
+  Widget _pendingEmailBanner(PendingRegistration pending) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.10),
+
+        borderRadius: BorderRadius.circular(14),
+
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.30)),
+      ),
+
+      child: Material(
+        color: Colors.transparent,
+
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+
+          onTap: _resumingRegistration ? null : _resumePendingRegistration,
+
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.mark_email_unread_outlined,
+
+                  color: Colors.amber,
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+
+                    children: [
+                      const Text(
+                        'Conferma la tua email',
+
+                        style: TextStyle(
+                          color: AppColors.pureWhite,
+
+                          fontWeight: FontWeight.bold,
+
+                          fontSize: 14,
+                        ),
+                      ),
+
+                      const SizedBox(height: 2),
+
+                      Text(
+                        'Verifica ${pending.email} per completare la registrazione.',
+
+                        style: TextStyle(
+                          color: AppColors.pureWhite.withValues(alpha: 0.60),
+
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                _resumingRegistration
+                    ? const SizedBox(
+                        width: 18,
+
+                        height: 18,
+
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+
+                          color: Colors.amber,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.chevron_right_rounded,
+
+                        color: Colors.amber,
+                      ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _verifiedEmailBanner(VerifiedRegistrationBanner banner) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+
+      padding: const EdgeInsets.all(12),
+
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.10),
+
+        borderRadius: BorderRadius.circular(14),
+
+        border: Border.all(color: Colors.green.withValues(alpha: 0.30)),
+      ),
+
+      child: Row(
+        children: [
+          const Icon(
+            Icons.verified_outlined,
+
+            color: Colors.green,
+          ),
+
+          const SizedBox(width: 12),
+
+          const Expanded(
+            child: Text(
+              'Account verificato con successo.',
+
+              style: TextStyle(
+                color: AppColors.pureWhite,
+
+                fontWeight: FontWeight.w600,
+
+                fontSize: 14,
+              ),
+            ),
+          ),
+
+          IconButton(
+            tooltip: 'Chiudi',
+
+            icon: Icon(
+              Icons.close_rounded,
+
+              color: AppColors.pureWhite.withValues(alpha: 0.60),
+
+              size: 20,
+            ),
+
+            onPressed: _dismissVerifiedBanner,
+          ),
+        ],
       ),
     );
   }

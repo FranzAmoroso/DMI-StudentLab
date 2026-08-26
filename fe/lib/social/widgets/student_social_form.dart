@@ -177,6 +177,10 @@ class _StudentSocialFormState
 
   String? _subjectsError;
 
+  String? _passwordError;
+
+  String? _titlesError;
+
   List<AcademicUniversity>
       _universities =
       [];
@@ -1191,23 +1195,35 @@ class _StudentSocialFormState
   }
 
   Future<void> _continue() async {
-    if (
-      !_formKey.currentState!
-          .validate()
-    ) {
+    final bool formValid =
+        _formKey.currentState!
+            .validate();
+
+    String? passwordError =
+        _validatePassword(
+      _passwordController.text,
+    );
+
+    if (passwordError == null &&
+        _passwordController.text !=
+            _confirmPasswordController.text) {
+      passwordError =
+          'Le password non coincidono.';
+    }
+
+    setState(() {
+      _passwordError =
+          passwordError;
+    });
+
+    if (!formValid ||
+        passwordError != null ||
+        _selectedDateOfBirth == null) {
       return;
     }
 
-    final DateTime? dateOfBirth =
-        _selectedDateOfBirth;
-
-    if (dateOfBirth == null) {
-      _showMessage(
-        'Seleziona la tua data di nascita.',
-      );
-
-      return;
-    }
+    final DateTime dateOfBirth =
+        _selectedDateOfBirth!;
 
     final AcademicUniversity?
         university =
@@ -1314,9 +1330,10 @@ class _StudentSocialFormState
           selected.id,
         )
       ) {
-        _showMessage(
-          'Hai selezionato la stessa materia più di una volta.',
-        );
+        setState(() {
+          _subjectsError =
+              'Hai selezionato la stessa materia più di una volta.';
+        });
 
         return;
       }
@@ -2139,15 +2156,19 @@ class _StudentSocialFormState
         current.graduationYear ==
             title.graduationYear
       ) {
-        _showMessage(
-          'Questo titolo è già stato aggiunto.',
-        );
+        setState(() {
+          _titlesError =
+              'Questo titolo è già stato aggiunto.';
+        });
 
         return;
       }
     }
 
     setState(() {
+      _titlesError =
+          null;
+
       if (editingIndex == null) {
         _academicTitles.add(
           title,
@@ -2209,9 +2230,10 @@ class _StudentSocialFormState
           path,
         )
       ) {
-        _showMessage(
-          'Questo percorso accademico è già stato aggiunto.',
-        );
+        setState(() {
+          _academicError =
+              'Questo percorso accademico è già stato aggiunto.';
+        });
 
         return;
       }
@@ -2231,9 +2253,10 @@ class _StudentSocialFormState
             path,
           )
         ) {
-          _showMessage(
-            'Questo percorso accademico è già presente.',
-          );
+          setState(() {
+            _academicError =
+                'Questo percorso accademico è già presente.';
+          });
 
           return;
         }
@@ -2775,6 +2798,17 @@ class _StudentSocialFormState
                         ),
                       ),
 
+                      if (_passwordError != null) ...[
+                        const SizedBox(
+                          height:
+                              12,
+                        ),
+
+                        _buildInlineError(
+                          _passwordError!,
+                        ),
+                      ],
+
                       const SizedBox(
                         height:
                             28,
@@ -2826,55 +2860,8 @@ class _StudentSocialFormState
                       ),
 
                       if (_academicError != null) ...[
-                        Container(
-                          width:
-                              double.infinity,
-
-                          padding:
-                              const EdgeInsets.all(
-                            13,
-                          ),
-
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                Colors.amber.withOpacity(
-                              0.06,
-                            ),
-
-                            borderRadius:
-                                BorderRadius.circular(
-                              12,
-                            ),
-
-                            border:
-                                Border.all(
-                              color:
-                                  Colors.amber.withOpacity(
-                                0.16,
-                              ),
-                            ),
-                          ),
-
-                          child:
-                              Text(
-                            _academicError!,
-
-                            style:
-                                TextStyle(
-                              color:
-                                  AppColors.pureWhite
-                                      .withOpacity(
-                                0.60,
-                              ),
-
-                              fontSize:
-                                  10,
-
-                              height:
-                                  1.4,
-                            ),
-                          ),
+                        _buildInlineError(
+                          _academicError!,
                         ),
 
                         const SizedBox(
@@ -3690,6 +3677,17 @@ class _StudentSocialFormState
                         ),
                       ),
 
+                      if (_titlesError != null) ...[
+                        const SizedBox(
+                          height:
+                              10,
+                        ),
+
+                        _buildInlineError(
+                          _titlesError!,
+                        ),
+                      ],
+
                       const SizedBox(
                         height:
                             20,
@@ -4031,17 +4029,8 @@ class _StudentSocialFormState
                               8,
                         ),
 
-                        Text(
+                        _buildInlineError(
                           _subjectsError!,
-
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.redAccent,
-
-                            fontSize:
-                                11,
-                          ),
                         ),
                       ],
 
@@ -5301,17 +5290,78 @@ class _StudentSocialFormState
     );
   }
 
-  void _showMessage(
+  Widget _buildInlineError(
     String message,
   ) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-      SnackBar(
-        content:
-            Text(
-          message,
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        14,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            Colors.redAccent
+                .withValues(alpha: 0.08),
+
+        borderRadius:
+            BorderRadius.circular(
+          12,
         ),
+
+        border:
+            Border.all(
+          color:
+              Colors.redAccent
+                  .withValues(alpha: 0.20),
+        ),
+      ),
+
+      child:
+          Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+
+            color:
+                Colors.redAccent,
+
+            size:
+                20,
+          ),
+
+          const SizedBox(
+            width:
+                9,
+          ),
+
+          Expanded(
+            child:
+                Text(
+              message,
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite
+                        .withValues(alpha: 0.75),
+
+                fontSize:
+                    11,
+
+                height:
+                    1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

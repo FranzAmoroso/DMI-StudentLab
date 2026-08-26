@@ -322,67 +322,106 @@ class _TeacherMaterialAssignmentsSectionState
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.assignment_ind_outlined,
-                  color: AppColors.materialSky,
-                  size: 21,
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Assegnazioni',
-                        style: TextStyle(
-                          color: AppColors.pureWhite,
-                          fontSize: 13,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bool narrow = constraints.maxWidth < 420;
+
+                final Widget titleBlock = Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color:
+                            AppColors.teacherIndigo.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(
+                        Icons.assignment_ind_outlined,
+                        color: AppColors.materialSky,
+                        size: 21,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Assegnazioni',
+                            style: TextStyle(
+                              color: AppColors.pureWhite,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Assegna i tuoi materiali a singoli studenti o gruppi.',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            AppColors.teacherIndigo.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$activeCount attive',
+                        style: const TextStyle(
+                          color: AppColors.teacherIndigo,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Assegna i tuoi materiali a singoli studenti o gruppi.',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 9,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color:
-                        AppColors.teacherIndigo.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$activeCount attive',
-                    style: const TextStyle(
-                      color: AppColors.teacherIndigo,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
+                  ],
+                );
+
+                final Widget assignButton = FilledButton.icon(
                   onPressed: _processing || widget.materials.isEmpty
                       ? null
                       : _openAssignmentDialog,
-                  icon: const Icon(Icons.add_rounded, size: 16),
+                  icon: const Icon(Icons.add_rounded, size: 18),
                   label: const Text('Assegna'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.teacherIndigo,
                     foregroundColor: AppColors.pureWhite,
                   ),
-                ),
-              ],
+                );
+
+                if (narrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      titleBlock,
+                      const SizedBox(height: 12),
+                      assignButton,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: titleBlock),
+                    const SizedBox(width: 12),
+                    assignButton,
+                  ],
+                );
+              },
             ),
           ),
           const Divider(height: 1, color: Colors.white10),

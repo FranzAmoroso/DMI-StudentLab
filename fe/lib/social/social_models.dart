@@ -270,6 +270,42 @@ class SocialAcademicPathDraft {
       degreeType,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'university': university,
+      'university_code': universityCode,
+      'department': department,
+      'department_code': departmentCode,
+      'course': course,
+      'course_code': courseCode,
+      'degree_type': degreeType,
+      'status': _academicPathStatusToApi(status),
+      'start_year': startYear,
+      'graduation_year': graduationYear,
+      'is_current': isCurrent,
+      'is_primary': isPrimary,
+    };
+  }
+
+  factory SocialAcademicPathDraft.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return SocialAcademicPathDraft(
+      university: json['university']?.toString() ?? '',
+      universityCode: json['university_code']?.toString() ?? '',
+      department: json['department']?.toString() ?? '',
+      departmentCode: json['department_code']?.toString() ?? '',
+      course: json['course']?.toString() ?? '',
+      courseCode: json['course_code']?.toString() ?? '',
+      degreeType: json['degree_type']?.toString() ?? '',
+      status: _academicPathStatusFromValue(json['status']),
+      startYear: _toInt(json['start_year']),
+      graduationYear: _toInt(json['graduation_year']),
+      isCurrent: _toBool(json['is_current']) ?? false,
+      isPrimary: _toBool(json['is_primary']) ?? false,
+    );
+  }
 }
 
 String academicPathTypeLabel(
@@ -817,6 +853,36 @@ class SocialAcademicTitleDraft {
       graduationYear: graduationYear,
       isCurrent: false,
       isPrimary: isPrimary,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'university': university,
+      'university_code': universityCode,
+      'department': department,
+      'department_code': departmentCode,
+      'course': course,
+      'course_code': courseCode,
+      'title_type': titleType,
+      'graduation_year': graduationYear,
+      'is_primary': isPrimary,
+    };
+  }
+
+  factory SocialAcademicTitleDraft.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return SocialAcademicTitleDraft(
+      university: json['university']?.toString() ?? '',
+      universityCode: json['university_code']?.toString() ?? '',
+      department: json['department']?.toString() ?? '',
+      departmentCode: json['department_code']?.toString() ?? '',
+      course: json['course']?.toString() ?? '',
+      courseCode: json['course_code']?.toString() ?? '',
+      titleType: json['title_type']?.toString() ?? '',
+      graduationYear: _toInt(json['graduation_year']),
+      isPrimary: _toBool(json['is_primary']) ?? false,
     );
   }
 }
@@ -1748,6 +1814,10 @@ class TeacherAssignment {
 
   final SubjectOffering? offering;
 
+  final String? teacherName;
+
+  final String? teacherEmail;
+
   const TeacherAssignment({
     required this.id,
     required this.userId,
@@ -1763,6 +1833,8 @@ class TeacherAssignment {
     this.updatedAt,
     required this.subject,
     this.offering,
+    this.teacherName,
+    this.teacherEmail,
   });
 
   bool get isPending {
@@ -1818,6 +1890,19 @@ class TeacherAssignment {
                 ),
               )
             : null;
+
+    final Map<String, dynamic>? teacherData =
+        json['teacher'] is Map
+            ? Map<String, dynamic>.from(
+                json['teacher'] as Map,
+              )
+            : null;
+
+    final String? teacherName =
+        teacherData == null
+            ? null
+            : '${teacherData['first_name'] ?? ''} ${teacherData['last_name'] ?? ''}'
+                .trim();
 
     return TeacherAssignment(
       id:
@@ -1887,6 +1972,14 @@ class TeacherAssignment {
 
       offering:
           offering,
+
+      teacherName:
+          teacherName != null && teacherName.isNotEmpty
+              ? teacherName
+              : null,
+
+      teacherEmail:
+          teacherData?['email']?.toString(),
     );
   }
 
@@ -2036,6 +2129,19 @@ class TeacherAssignmentDraft {
       'is_current':
           isCurrent,
     };
+  }
+
+  factory TeacherAssignmentDraft.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return TeacherAssignmentDraft(
+      subjectId:
+          _toInt(json['subject_id']) ?? 0,
+      offeringId:
+          _toInt(json['offering_id']),
+      isCurrent:
+          _toBool(json['is_current']) ?? true,
+    );
   }
 
   TeacherAssignmentDraft copyWith({
@@ -3312,6 +3418,105 @@ class SocialProfileDraft {
       'available_for_private_lessons': availableForPrivateLessons,
       'willing_to_teach': availableForPrivateLessons,
     };
+  }
+
+  Map<String, dynamic> toStorageJson() {
+    return {
+      'first_name': firstName,
+      'last_name': lastName,
+      'email': email,
+      'date_of_birth': dateOfBirth.toIso8601String(),
+      'university': university,
+      'university_code': universityCode,
+      'department': department,
+      'department_code': departmentCode,
+      'course': course,
+      'course_code': courseCode,
+      'degree_type': degreeType,
+      'academic_status': _academicPathStatusToApi(academicStatus),
+      'start_year': startYear,
+      'graduation_year': graduationYear,
+      'subjects':
+          subjects.map((SocialSubject s) => s.toJson()).toList(),
+      'teacher_assignments': teacherAssignments
+          .map((TeacherAssignmentDraft a) => a.toJson())
+          .toList(),
+      'additional_academic_paths': additionalAcademicPaths
+          .map((SocialAcademicPathDraft p) => p.toJson())
+          .toList(),
+      'academic_titles': academicTitles
+          .map((SocialAcademicTitleDraft t) => t.toJson())
+          .toList(),
+      'description': description,
+      'role': role,
+      'available': available,
+      'available_for_help': availableForHelp,
+      'available_for_private_lessons': availableForPrivateLessons,
+    };
+  }
+
+  factory SocialProfileDraft.fromStorageJson(
+    Map<String, dynamic> json,
+  ) {
+    List<Map<String, dynamic>> mapList(dynamic value) {
+      if (value is! List) {
+        return const [];
+      }
+      return value
+          .whereType<Map>()
+          .map((Map item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    return SocialProfileDraft(
+      firstName: json['first_name']?.toString() ?? '',
+      lastName: json['last_name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      password: '',
+      dateOfBirth:
+          DateTime.tryParse(json['date_of_birth']?.toString() ?? '') ??
+              DateTime.now(),
+      university: json['university']?.toString() ?? '',
+      universityCode: json['university_code']?.toString() ?? '',
+      department: json['department']?.toString() ?? '',
+      departmentCode: json['department_code']?.toString() ?? '',
+      course: json['course']?.toString() ?? '',
+      courseCode: json['course_code']?.toString() ?? '',
+      degreeType: json['degree_type']?.toString() ?? '',
+      academicStatus:
+          _academicPathStatusFromValue(json['academic_status']),
+      startYear: _toInt(json['start_year']),
+      graduationYear: _toInt(json['graduation_year']),
+      subjects: mapList(json['subjects'])
+          .map((Map<String, dynamic> item) => SocialSubject.fromJson(item))
+          .toList(),
+      teacherAssignments: mapList(json['teacher_assignments'])
+          .map(
+            (Map<String, dynamic> item) =>
+                TeacherAssignmentDraft.fromJson(item),
+          )
+          .toList(),
+      additionalAcademicPaths: mapList(json['additional_academic_paths'])
+          .map(
+            (Map<String, dynamic> item) =>
+                SocialAcademicPathDraft.fromJson(item),
+          )
+          .toList(),
+      academicTitles: mapList(json['academic_titles'])
+          .map(
+            (Map<String, dynamic> item) =>
+                SocialAcademicTitleDraft.fromJson(item),
+          )
+          .toList(),
+      description: json['description']?.toString() ?? '',
+      type: (json['role']?.toString().trim().toLowerCase() == 'teacher')
+          ? SocialUserType.teacher
+          : SocialUserType.student,
+      available: _toBool(json['available']) ?? false,
+      availableForHelp: _toBool(json['available_for_help']) ?? false,
+      availableForPrivateLessons:
+          _toBool(json['available_for_private_lessons']) ?? false,
+    );
   }
 
   List<Map<String, dynamic>> academicPathsCreateJson() {

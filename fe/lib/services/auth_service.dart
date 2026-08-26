@@ -6,6 +6,8 @@ import 'api_service.dart';
 
 import 'auth_session.dart';
 
+import 'pending_registration_store.dart';
+
 class AuthRegistrationResult {
 
   final String registrationId;
@@ -98,6 +100,10 @@ class AuthService {
 
       _localStorage;
 
+  final PendingRegistrationStore
+
+      _pendingStore;
+
   AuthService({
 
     ApiService? apiService,
@@ -105,6 +111,8 @@ class AuthService {
     AuthSession? session,
 
     LocalStorageService? localStorage,
+
+    PendingRegistrationStore? pendingStore,
 
   })  : _apiService =
 
@@ -122,7 +130,13 @@ class AuthService {
 
             localStorage ??
 
-                LocalStorageService();
+                LocalStorageService(),
+
+        _pendingStore =
+
+            pendingStore ??
+
+                PendingRegistrationStore();
 
   Future<AuthRegistrationResult>
 
@@ -214,9 +228,37 @@ class AuthService {
 
     final SocialUser user =
 
-        await _completeAuthentication(
+        await _apiService.getCurrentUser(
 
-      accessToken,
+      token:
+
+          accessToken,
+
+    );
+
+    await _pendingStore.markVerified(
+
+      user.email,
+
+      DateTime.now(),
+
+    );
+
+    await _session.setSession(
+
+      accessToken:
+
+          accessToken,
+
+      user:
+
+          user,
+
+    );
+
+    await _localStorage.prepareUserSession(
+
+      user.id,
 
     );
 
@@ -282,6 +324,60 @@ class AuthService {
 
     return user;
 
+  }
+
+  Future<SocialUser?> completeProfileExtras(
+    SocialProfileDraft draft,
+  ) async {
+    for (
+      final SocialAcademicPathDraft path
+      in draft.additionalAcademicPaths
+    ) {
+      try {
+        await _apiService.createAcademicPath(
+          university: path.university,
+          universityCode: path.universityCode,
+          department: path.department,
+          departmentCode: path.departmentCode,
+          course: path.course,
+          courseCode: path.courseCode,
+          degreeType: path.degreeType,
+          status: path.status,
+          startYear: path.startYear,
+          graduationYear: path.graduationYear,
+          isCurrent: path.isCurrent,
+          isPrimary: path.isPrimary,
+        );
+      } catch (_) {}
+    }
+
+    if (draft.type == SocialUserType.teacher) {
+      for (
+        final TeacherAssignmentDraft assignment
+        in draft.teacherAssignments
+      ) {
+        try {
+          await _apiService.createTeacherAssignment(
+            subjectId: assignment.subjectId,
+            offeringId: assignment.offeringId,
+            isCurrent: assignment.isCurrent,
+          );
+        } catch (_) {}
+      }
+    }
+
+    try {
+      final SocialUser user =
+          await _apiService.getCurrentUser();
+
+      _session.updateUser(
+        user,
+      );
+
+      return user;
+    } catch (_) {
+      return _session.currentUser;
+    }
   }
 
   Future<AuthVerificationResendResult>

@@ -1350,7 +1350,9 @@ class _TeacherMaterialEditDialogState
         style: TextStyle(color: AppColors.pureWhite),
       ),
       content: SizedBox(
-        width: 460,
+        width: MediaQuery.sizeOf(context).width < 460
+            ? double.maxFinite
+            : 460,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

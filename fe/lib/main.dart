@@ -21,13 +21,14 @@ import 'local_storage/local_storage.dart';
 import 'services/app_update_service.dart';
 
 import 'widgets/studentlab_wolf_wave.dart';
+import 'package:flutter/foundation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   _configureGlobalErrorHandling();
 
-  if (Platform.isLinux || Platform.isWindows) {
+  if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
     sqfliteFfiInit();
 
     databaseFactory = databaseFactoryFfi;

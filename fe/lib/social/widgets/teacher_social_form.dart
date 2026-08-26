@@ -173,6 +173,10 @@ class _TeacherSocialFormState
 
   String? _subjectsError;
 
+  String? _passwordError;
+
+  String? _titlesError;
+
   List<AcademicUniversity>
       _universities =
       [];
@@ -1068,20 +1072,25 @@ class _TeacherSocialFormState
 
   void _addAssignment() {
     if (_loadingSubjects) {
-      _showMessage(
-        'Attendi il caricamento delle materie.',
-      );
+      setState(() {
+        _subjectsError =
+            'Attendi il caricamento delle materie.';
+      });
       return;
     }
 
     if (_availableSubjects.isEmpty) {
-      _showMessage(
-        'Carica prima le materie disponibili.',
-      );
+      setState(() {
+        _subjectsError =
+            'Carica prima le materie disponibili.';
+      });
       return;
     }
 
     setState(() {
+      _subjectsError =
+          null;
+
       _assignments.add(
         _TeacherAssignmentData(),
       );
@@ -1184,23 +1193,44 @@ class _TeacherSocialFormState
   }
 
   Future<void> _continue() async {
-    if (
-      !_formKey.currentState!
-          .validate()
-    ) {
+    final bool formValid =
+        _formKey.currentState!
+            .validate();
+
+    String? passwordError =
+        _validatePassword(
+      _passwordController.text,
+    );
+
+    if (passwordError == null &&
+        _passwordController.text !=
+            _confirmPasswordController.text) {
+      passwordError =
+          'Le password non coincidono.';
+    }
+
+    final bool missingSubjects =
+        !_hasSelectedSubjects;
+
+    setState(() {
+      _passwordError =
+          passwordError;
+
+      _subjectsError =
+          missingSubjects
+              ? 'Aggiungi almeno un insegnamento e seleziona la relativa materia.'
+              : null;
+    });
+
+    if (!formValid ||
+        passwordError != null ||
+        _selectedDateOfBirth == null ||
+        missingSubjects) {
       return;
     }
 
-    final DateTime? dateOfBirth =
-        _selectedDateOfBirth;
-
-    if (dateOfBirth == null) {
-      _showMessage(
-        'Seleziona la tua data di nascita.',
-      );
-
-      return;
-    }
+    final DateTime dateOfBirth =
+        _selectedDateOfBirth!;
 
     final AcademicUniversity?
         university =
@@ -1276,9 +1306,10 @@ class _TeacherSocialFormState
       hasAnyPrimaryAcademicData &&
       !hasCompletePrimaryAcademicData
     ) {
-      _showMessage(
-        'Se inizi a compilare il percorso accademico, completa ateneo, dipartimento e corso.',
-      );
+      setState(() {
+        _academicError =
+            'Se inizi a compilare il percorso accademico, completa ateneo, dipartimento e corso.';
+      });
 
       return;
     }
@@ -1338,9 +1369,10 @@ class _TeacherSocialFormState
           assignmentKey,
         )
       ) {
-        _showMessage(
-          'Hai inserito due volte lo stesso insegnamento.',
-        );
+        setState(() {
+          _subjectsError =
+              'Hai inserito due volte lo stesso insegnamento.';
+        });
 
         return;
       }
@@ -2232,15 +2264,19 @@ class _TeacherSocialFormState
         current.graduationYear ==
             title.graduationYear
       ) {
-        _showMessage(
-          'Questo titolo è già stato aggiunto.',
-        );
+        setState(() {
+          _titlesError =
+              'Questo titolo è già stato aggiunto.';
+        });
 
         return;
       }
     }
 
     setState(() {
+      _titlesError =
+          null;
+
       if (editingIndex == null) {
         _academicTitles.add(
           title,
@@ -2302,9 +2338,10 @@ class _TeacherSocialFormState
           path,
         )
       ) {
-        _showMessage(
-          'Questo percorso accademico è già stato aggiunto.',
-        );
+        setState(() {
+          _academicError =
+              'Questo percorso accademico è già stato aggiunto.';
+        });
 
         return;
       }
@@ -2324,9 +2361,10 @@ class _TeacherSocialFormState
             path,
           )
         ) {
-          _showMessage(
-            'Questo percorso accademico è già presente.',
-          );
+          setState(() {
+            _academicError =
+                'Questo percorso accademico è già presente.';
+          });
 
           return;
         }
@@ -2864,6 +2902,17 @@ class _TeacherSocialFormState
                         ),
                       ),
 
+                      if (_passwordError != null) ...[
+                        const SizedBox(
+                          height:
+                              12,
+                        ),
+
+                        _buildInlineError(
+                          _passwordError!,
+                        ),
+                      ],
+
                       const SizedBox(
                         height:
                             28,
@@ -2913,49 +2962,8 @@ class _TeacherSocialFormState
                       ),
 
                       if (_academicError != null) ...[
-                        Container(
-                          width:
-                              double.infinity,
-
-                          padding:
-                              const EdgeInsets.all(
-                            13,
-                          ),
-
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                Colors.amber.withValues(alpha: 0.06),
-
-                            borderRadius:
-                                BorderRadius.circular(
-                              12,
-                            ),
-
-                            border:
-                                Border.all(
-                              color:
-                                  Colors.amber.withValues(alpha: 0.16),
-                            ),
-                          ),
-
-                          child:
-                              Text(
-                            _academicError!,
-
-                            style:
-                                TextStyle(
-                              color:
-                                  AppColors.pureWhite
-                                      .withValues(alpha: 0.60),
-
-                              fontSize:
-                                  10,
-
-                              height:
-                                  1.4,
-                            ),
-                          ),
+                        _buildInlineError(
+                          _academicError!,
                         ),
 
                         const SizedBox(
@@ -3759,6 +3767,17 @@ class _TeacherSocialFormState
                         ),
                       ),
 
+                      if (_titlesError != null) ...[
+                        const SizedBox(
+                          height:
+                              10,
+                        ),
+
+                        _buildInlineError(
+                          _titlesError!,
+                        ),
+                      ],
+
                       const SizedBox(
                         height:
                             20,
@@ -4094,17 +4113,8 @@ class _TeacherSocialFormState
                               8,
                         ),
 
-                        Text(
+                        _buildInlineError(
                           _subjectsError!,
-
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.redAccent,
-
-                            fontSize:
-                                11,
-                          ),
                         ),
                       ] else if (
                         !_loadingSubjects &&
@@ -4314,13 +4324,14 @@ class _TeacherSocialFormState
                             'Online',
 
                         subtitle:
-                            'Attivo solo quando sei disponibile ad aiutare.',
+                            'Attivo quando sei disponibile ad aiutare o per lezioni private.',
 
                         value:
                             _available,
 
                         onChanged:
-                            !_availableForHelp
+                            (!_availableForHelp &&
+                                    !_availableForPrivateLessons)
                                 ? null
                                 : (
                           bool value,
@@ -4355,11 +4366,11 @@ class _TeacherSocialFormState
                             _availableForHelp =
                                 value;
 
-                            _available =
-                                value;
-
-                            if (!value) {
-                              _availableForPrivateLessons =
+                            if (value) {
+                              _available =
+                                  true;
+                            } else if (!_availableForPrivateLessons) {
+                              _available =
                                   false;
                             }
                           });
@@ -4382,14 +4393,20 @@ class _TeacherSocialFormState
                             _availableForPrivateLessons,
 
                         onChanged:
-                            !_availableForHelp
-                                ? null
-                                : (
+                            (
                           bool value,
                         ) {
                           setState(() {
                             _availableForPrivateLessons =
                                 value;
+
+                            if (value) {
+                              _available =
+                                  true;
+                            } else if (!_availableForHelp) {
+                              _available =
+                                  false;
+                            }
                           });
                         },
                       ),
@@ -5651,17 +5668,78 @@ class _TeacherSocialFormState
     );
   }
 
-  void _showMessage(
+  Widget _buildInlineError(
     String message,
   ) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-      SnackBar(
-        content:
-            Text(
-          message,
+    return Container(
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets.all(
+        14,
+      ),
+
+      decoration:
+          BoxDecoration(
+        color:
+            Colors.redAccent
+                .withValues(alpha: 0.08),
+
+        borderRadius:
+            BorderRadius.circular(
+          12,
         ),
+
+        border:
+            Border.all(
+          color:
+              Colors.redAccent
+                  .withValues(alpha: 0.20),
+        ),
+      ),
+
+      child:
+          Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+
+            color:
+                Colors.redAccent,
+
+            size:
+                20,
+          ),
+
+          const SizedBox(
+            width:
+                9,
+          ),
+
+          Expanded(
+            child:
+                Text(
+              message,
+
+              style:
+                  TextStyle(
+                color:
+                    AppColors.pureWhite
+                        .withValues(alpha: 0.75),
+
+                fontSize:
+                    11,
+
+                height:
+                    1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -3943,9 +3943,43 @@ class ApiService {
     return data.map(TeacherAssignment.fromJson).toList();
   }
 
+  Future<List<TeacherAssignment>> getAdminTeacherAssignments({
+    String? status,
+  }) async {
+    final String query =
+        (status != null && status.isNotEmpty && status != 'all')
+        ? '?status=$status'
+        : '';
+
+    final Uri url = Uri.parse(
+      '$baseUrl/admin/'
+      'teacher_assignments'
+      '$query',
+    );
+
+    final http.Response response = await http.get(url, headers: _jsonHeaders);
+
+    final List<Map<String, dynamic>> data = _decodeListResponse(
+      response,
+      'Errore caricamento insegnamenti',
+    );
+
+    return data.map(TeacherAssignment.fromJson).toList();
+  }
+
   Future<TeacherAssignment> verifyTeacherAssignment({
     required int assignmentId,
     required bool approve,
+  }) async {
+    return setTeacherAssignmentStatus(
+      assignmentId: assignmentId,
+      status: approve ? 'verified' : 'rejected',
+    );
+  }
+
+  Future<TeacherAssignment> setTeacherAssignmentStatus({
+    required int assignmentId,
+    required String status,
   }) async {
     final Uri url = Uri.parse(
       '$baseUrl/admin/'
@@ -3957,12 +3991,12 @@ class ApiService {
     final http.Response response = await http.patch(
       url,
       headers: _jsonHeaders,
-      body: jsonEncode({'status': approve ? 'verified' : 'rejected'}),
+      body: jsonEncode({'status': status}),
     );
 
     final Map<String, dynamic> data = _decodeMapResponse(
       response,
-      'Errore verifica insegnamento docente',
+      'Errore aggiornamento insegnamento docente',
     );
 
     return TeacherAssignment.fromJson(data);
