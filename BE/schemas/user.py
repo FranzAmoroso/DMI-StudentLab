@@ -6,6 +6,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    field_validator,
 )
 
 from schemas.subject import (
@@ -35,17 +36,17 @@ AcademicPathVerificationStatus = Literal[
 
 
 class UserAcademicPathCreate(BaseModel):
-    university: str
+    university: str = ""
 
-    university_code: str
+    university_code: str = ""
 
-    department: str
+    department: str = ""
 
-    department_code: str
+    department_code: str = ""
 
-    course: str
+    course: str = ""
 
-    course_code: str
+    course_code: str = ""
 
     degree_type: str | None = None
 
@@ -58,6 +59,19 @@ class UserAcademicPathCreate(BaseModel):
     is_current: bool = False
 
     is_primary: bool = False
+
+    @field_validator(
+        "university",
+        "university_code",
+        "department",
+        "department_code",
+        "course",
+        "course_code",
+        mode="before",
+    )
+    @classmethod
+    def _empty_when_missing(cls, value):
+        return "" if value is None else value
 
 
 class UserAcademicPathUpdate(BaseModel):
