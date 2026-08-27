@@ -581,6 +581,10 @@ app.include_router(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://studentlab.net",
+        "https://www.studentlab.net",
+        "https://studentlab-487da.web.app",
+        "https://studentlab-487da.firebaseapp.com",
         "https://dmi-student-lab.vercel.app",
     ],
     allow_origin_regex=(
