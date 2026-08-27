@@ -33,7 +33,7 @@
     "id_correct": "d",
     "formal_explanation": "Le operazioni fondamentali dell'algebra booleana sono OR, AND e NOT.",
     "informal_explanation": "In breve, la risposta da ricordare è: OR, AND, NOT.",
-    "question_response_explanation": "La risposta corretta è \"OR, AND, NOT\" perché le operazioni fondamentali dell'algebra booleana sono OR, AND e NOT. Le altre opzioni non descrivono correttamente il concetto richiesto dalla domanda."
+    "question_response_explanation": "La risposta corretta è \"OR, AND, NOT\". Le operazioni fondamentali dell'algebra booleana sono OR, AND e NOT. La risposta \"SOP, POS, KMAP\" è errata perché SOP e POS sono forme di rappresentazione canonica delle funzioni booleane, mentre K-map è una tecnica grafica di minimizzazione; non sono le tre operazioni logiche fondamentali. La risposta \"AND, XOR, NAND\" è errata perché AND è fondamentale, ma XOR e NAND sono operatori derivati: XOR combina più operazioni logiche e NAND è la negazione di AND. La risposta \"NOR, NAND, XOR\" è errata perché NOR, NAND e XOR sono operatori derivati; possono essere espressi usando le operazioni fondamentali AND, OR e NOT."
   },
   {
     "id_question": "2",
@@ -69,7 +69,7 @@
     "id_correct": "d",
     "formal_explanation": "L'algoritmo di Booth ricodifica sequenze del moltiplicatore usando somme e sottrazioni di potenze di due, riducendo il numero di operazioni.",
     "informal_explanation": "In breve, la risposta da ricordare è: Come somma e sottrazione di potenze di 2, riducendo il numero di addizioni.",
-    "question_response_explanation": "La risposta corretta è \"Come somma e sottrazione di potenze di 2, riducendo il numero di addizioni\" perché l'algoritmo di Booth ricodifica sequenze del moltiplicatore usando somme e sottrazioni di potenze di due, riducendo il numero di operazioni. Le altre opzioni non descrivono correttamente il concetto richiesto dalla domanda."
+    "question_response_explanation": "La risposta corretta è \"Come somma e sottrazione di potenze di 2, riducendo il numero di addizioni\". L'algoritmo di Booth ricodifica sequenze del moltiplicatore usando somme e sottrazioni di potenze di due, riducendo il numero di operazioni. La risposta \"Convertendolo prima in virgola mobile\" è errata perché l'algoritmo di Booth opera sulla rappresentazione binaria intera con segno; non richiede una conversione preliminare in virgola mobile. La risposta \"Come somma diretta di tutti i suoi bit\" è errata perché booth sfrutta transizioni e sequenze di bit per sostituire lunghe serie di addizioni con addizioni e sottrazioni più efficienti. La risposta \"Estraendo solo i bit dispari\" è errata perché la ricodifica di Booth considera coppie/transizioni di bit del moltiplicatore, non seleziona semplicemente i bit in posizione dispari."
   },
   {
     "id_question": "3",
@@ -105,7 +105,7 @@
     "id_correct": "b",
     "formal_explanation": "Nelle architetture RISC le operazioni aritmetiche sono tipicamente register-to-register, mentre molte ISA CISC consentono anche operandi in memoria.",
     "informal_explanation": "In breve, la risposta da ricordare è: nei RISC gli operandi delle operazioni aritmetiche si trovano tipicamente nei registri, mentre nei CISC possono essere presenti anche in memoria.",
-    "question_response_explanation": "La risposta corretta è \"Nei RISC gli operandi devono trovarsi nei registri, nei CISC possono trovarsi anche in memoria\" perché le architetture RISC adottano tipicamente un modello load/store. Le altre opzioni non descrivono correttamente questa differenza."
+    "question_response_explanation": "La risposta corretta è \"Nei RISC gli operandi devono trovarsi nei registri, nei CISC possono trovarsi anche in memoria\". Nelle architetture RISC le operazioni aritmetiche sono tipicamente register-to-register, mentre molte ISA CISC consentono anche operandi in memoria. La risposta \"Nei RISC non esistono operandi\" è errata perché le istruzioni RISC possiedono operandi; nelle operazioni aritmetiche essi sono tipicamente registri. La risposta \"Non c'è alcuna differenza\" è errata perché la filosofia load/store RISC distingue chiaramente le operazioni sui registri dagli accessi in memoria, mentre molte ISA CISC permettono operandi in memoria. La risposta \"Nei CISC gli operandi sono sempre immediati\" è errata perché le istruzioni CISC possono usare diversi modi di indirizzamento, inclusi registri e memoria; gli operandi non sono sempre immediati."
   },
   {
     "id_question": "4",
@@ -141,7 +141,7 @@
     "id_correct": "a",
     "formal_explanation": "Con 20 linee di indirizzo si possono rappresentare 2^20 indirizzi; con memoria byte-addressable ciò corrisponde a 1 MiB, comunemente indicato come 1 MB.",
     "informal_explanation": "Con 20 bit puoi rappresentare 2^20 indirizzi, cioè circa un milione di byte.",
-    "question_response_explanation": "La risposta corretta è \"1 MB\" perché 2^20 byte equivalgono a 1 MiB. 1 GB richiederebbe uno spazio di indirizzamento molto più grande, mentre 1 KB corrisponde a soli 2^10 byte."
+    "question_response_explanation": "La risposta corretta è \"1 MB\". Con 20 linee di indirizzo si possono rappresentare 2^20 indirizzi; con memoria byte-addressable ciò corrisponde a 1 MiB, comunemente indicato come 1 MB. La risposta \"1 GB\" è errata. 1 GB richiederebbe uno spazio di indirizzamento molto più grande, mentre 1 KB corrisponde a soli 2^10 byte. La risposta \"1 KB\" è errata. 1 GB richiederebbe uno spazio di indirizzamento molto più grande, mentre 1 KB corrisponde a soli 2^10 byte. La risposta \"20 KB\" è errata perché 20 KB non deriva da 20 linee di indirizzo: con n linee gli indirizzi possibili sono 2^n, non n kilobyte."
   },
   {
     "id_question": "5",
@@ -177,7 +177,7 @@
     "id_correct": "b",
     "formal_explanation": "Un full adder riceve due bit e un carry-in e produce un bit di somma e un carry-out.",
     "informal_explanation": "Somma due bit tenendo conto anche del riporto proveniente dallo stadio precedente.",
-    "question_response_explanation": "La risposta corretta è \"Prende 2 bit + riporto in entrata, restituisce somma e riporto in uscita\" perché un full adder dispone di tre ingressi e due uscite. L'opzione con soli due ingressi descrive invece un half adder."
+    "question_response_explanation": "La risposta corretta è \"Prende 2 bit + riporto in entrata, restituisce somma e riporto in uscita\". Un full adder riceve due bit e un carry-in e produce un bit di somma e un carry-out. La risposta \"Prende 4 bit, restituisce 1 bit\" è errata perché un singolo full adder opera su due bit più un carry-in; quattro bit richiederebbero una struttura composta da più stadi. La risposta \"Prende un byte, restituisce un byte\" è errata perché la somma di byte completi richiede una catena di più full adder, non un singolo full adder elementare. La risposta \"Prende solo 2 bit, restituisce solo la somma\" è errata perché un circuito con due soli ingressi di dato e senza carry-in descrive un half adder, non un full adder."
   },
   {
     "id_question": "6",
@@ -213,7 +213,7 @@
     "id_correct": "d",
     "formal_explanation": "Il reorder buffer consente l'esecuzione fuori ordine mantenendo il completamento architetturale delle istruzioni nell'ordine corretto.",
     "informal_explanation": "Le istruzioni possono essere eseguite fuori ordine, ma devono sembrare completate nell'ordine previsto dal programma.",
-    "question_response_explanation": "La risposta corretta è quella relativa al completamento ordinato. La predizione dei salti e il refresh della DRAM sono gestiti da strutture differenti."
+    "question_response_explanation": "La risposta corretta è \"A garantire che i risultati vengano scritti nei registri nell'ordine originale di prelievo, anche se eseguiti fuori ordine\". Il reorder buffer consente l'esecuzione fuori ordine mantenendo il completamento architetturale delle istruzioni nell'ordine corretto. La risposta \"A prevedere i salti condizionati\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A garantire che i risultati vengano scritti nei registri nell'ordine originale di prelievo, anche se eseguiti fuori ordine\". La risposta \"A memorizzare le istruzioni in attesa di essere decodificate\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A garantire che i risultati vengano scritti nei registri nell'ordine originale di prelievo, anche se eseguiti fuori ordine\". La risposta \"A gestire il refresh della DRAM\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A garantire che i risultati vengano scritti nei registri nell'ordine originale di prelievo, anche se eseguiti fuori ordine\"."
   },
   {
     "id_question": "7",
@@ -249,7 +249,7 @@
     "id_correct": "b",
     "formal_explanation": "Un mintermine identifica una singola combinazione degli ingressi associata al valore 1 della funzione nella forma canonica SOP.",
     "informal_explanation": "Ogni mintermine corrisponde a una riga della tabella di verità in cui la funzione vale 1.",
-    "question_response_explanation": "La risposta corretta è \"Una configurazione per cui la funzione vale 1\". Le configurazioni associate allo 0 sono invece utilizzate nella rappresentazione tramite maxtermini."
+    "question_response_explanation": "La risposta corretta è \"Una configurazione per cui la funzione vale 1\". Un mintermine identifica una singola combinazione degli ingressi associata al valore 1 della funzione nella forma canonica SOP. La risposta \"Un termine sempre vero indipendentemente dagli ingressi\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Una configurazione per cui la funzione vale 1\". La risposta \"Una configurazione per cui la funzione vale 0\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Una configurazione per cui la funzione vale 1\". La risposta \"Il numero minimo di porte necessarie\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Una configurazione per cui la funzione vale 1\"."
   },
   {
     "id_question": "8",
@@ -285,7 +285,7 @@
     "id_correct": "c",
     "formal_explanation": "Nella somma in complemento a due l'overflow si verifica quando due operandi con lo stesso segno producono un risultato con segno opposto.",
     "informal_explanation": "Se sommi due positivi e ottieni un negativo, oppure due negativi e ottieni un positivo, hai superato il range disponibile.",
-    "question_response_explanation": "La risposta corretta è l'opzione c. Con operandi di segno opposto non si verifica overflow nella somma in complemento a due."
+    "question_response_explanation": "La risposta corretta è \"Quando i due addendi sono concordi di segno e il segno del risultato è diverso dal loro\". Nella somma in complemento a due l'overflow si verifica quando due operandi con lo stesso segno producono un risultato con segno opposto. La risposta \"Solo quando si sottrae, mai quando si somma\" è errata perché l'overflow può verificarsi anche durante una somma, ad esempio sommando due positivi che eccedono il massimo rappresentabile. La risposta \"Quando i due addendi sono discordi di segno\" è errata perché sommando numeri di segno opposto il risultato resta compreso tra i due operandi, quindi non si produce overflow di segno. La risposta \"Sempre, indipendentemente dai segni\" è errata perché l'overflow dipende dai valori e dai segni degli operandi e dal range disponibile; molte somme sono perfettamente rappresentabili."
   },
   {
     "id_question": "9",
@@ -321,7 +321,7 @@
     "id_correct": "b",
     "formal_explanation": "In una pipeline ideale a 5 stadi la prima istruzione termina al ciclo 5; dal ciclo 5 al ciclo 9 terminano complessivamente cinque istruzioni.",
     "informal_explanation": "Dopo aver riempito la pipeline, esce un'istruzione completata a ogni ciclo.",
-    "question_response_explanation": "La risposta corretta è 5: la prima termina al ciclo 5, poi ne termina una ai cicli 6, 7, 8 e 9."
+    "question_response_explanation": "La risposta corretta è \"5\". In una pipeline ideale a 5 stadi la prima istruzione termina al ciclo 5; dal ciclo 5 al ciclo 9 terminano complessivamente cinque istruzioni. La risposta \"1\" non soddisfa la condizione richiesta, mentre \"5\" identifica la proprietà necessaria. La risposta \"9\" non soddisfa la condizione richiesta, mentre \"5\" identifica la proprietà necessaria. La risposta \"4\" non soddisfa la condizione richiesta, mentre \"5\" identifica la proprietà necessaria."
   },
   {
     "id_question": "10",
@@ -357,7 +357,7 @@
     "id_correct": "d",
     "formal_explanation": "Una condizione don't care può essere trattata come 0 oppure 1 durante la minimizzazione, scegliendo il valore più conveniente.",
     "informal_explanation": "È un caso in cui l'uscita non interessa e quindi può essere sfruttato per semplificare il circuito.",
-    "question_response_explanation": "La risposta corretta è l'opzione d. Una condizione don't care non rappresenta necessariamente un errore e non deve essere obbligatoriamente 0 oppure 1."
+    "question_response_explanation": "La risposta corretta è \"Un valore delle variabili per cui la funzione non è definita, il cui valore può essere scelto per minimizzare l'espressione\". Una condizione don't care può essere trattata come 0 oppure 1 durante la minimizzazione, scegliendo il valore più conveniente. La risposta \"Un errore nella tabella di verità\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Un valore delle variabili per cui la funzione non è definita, il cui valore può essere scelto per minimizzare l'espressione\". La risposta \"Un valore che è sempre 1\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Un valore delle variabili per cui la funzione non è definita, il cui valore può essere scelto per minimizzare l'espressione\". La risposta \"Un valore che è sempre 0\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Un valore delle variabili per cui la funzione non è definita, il cui valore può essere scelto per minimizzare l'espressione\"."
   },
   {
     "id_question": "11",
@@ -393,7 +393,7 @@
     "id_correct": "b",
     "formal_explanation": "La lunghezza e la complessità variabile delle istruzioni CISC rendono meno regolare la suddivisione in stadi tipica di una pipeline RISC.",
     "informal_explanation": "Le istruzioni CISC possono avere dimensioni e strutture differenti, quindi sono più difficili da inserire in una pipeline regolare.",
-    "question_response_explanation": "La risposta prevista è b. I processori CISC possiedono comunque Program Counter, ALU e registri."
+    "question_response_explanation": "La risposta corretta è \"Perché le istruzioni CISC possono occupare più di una parola di memoria\". La lunghezza e la complessità variabile delle istruzioni CISC rendono meno regolare la suddivisione in stadi tipica di una pipeline RISC. La risposta \"Perché il CISC non ha un program counter\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché le istruzioni CISC possono occupare più di una parola di memoria\". La risposta \"Perché il CISC non usa un'ALU\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché le istruzioni CISC possono occupare più di una parola di memoria\". La risposta \"Perché il CISC non ha registri\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché le istruzioni CISC possono occupare più di una parola di memoria\"."
   },
   {
     "id_question": "12",
@@ -429,7 +429,7 @@
     "id_correct": "b",
     "formal_explanation": "Con un enable attivo alto, quando l'abilitazione è disattivata l'uscita viene posta in alta impedenza e risulta logicamente scollegata dal bus.",
     "informal_explanation": "Quando l'enable è spento, la porta si comporta come se fosse scollegata.",
-    "question_response_explanation": "La risposta corretta è b. Lo stato di alta impedenza dipende dal segnale di abilitazione, non dal clock."
+    "question_response_explanation": "La risposta corretta è \"Quando il segnale di abilitazione è 0\". Con un enable attivo alto, quando l'abilitazione è disattivata l'uscita viene posta in alta impedenza e risulta logicamente scollegata dal bus. La risposta \"Solo durante il clock negativo\" non soddisfa la condizione richiesta, mentre \"Quando il segnale di abilitazione è 0\" identifica la proprietà necessaria. La risposta \"Sempre, indipendentemente dall'abilitazione\" non soddisfa la condizione richiesta, mentre \"Quando il segnale di abilitazione è 0\" identifica la proprietà necessaria. La risposta \"Quando il segnale di abilitazione è 1\" non soddisfa la condizione richiesta, mentre \"Quando il segnale di abilitazione è 0\" identifica la proprietà necessaria."
   },
   {
     "id_question": "13",
@@ -465,7 +465,7 @@
     "id_correct": "d",
     "formal_explanation": "La predizione dinamica usa informazioni raccolte durante l'esecuzione, come lo storico degli esiti dei branch.",
     "informal_explanation": "Il processore osserva cosa è successo alle esecuzioni precedenti del salto e usa questa informazione per prevedere quella successiva.",
-    "question_response_explanation": "La risposta corretta è d. La direzione del salto o l'analisi del compilatore appartengono invece a possibili strategie statiche."
+    "question_response_explanation": "La risposta corretta è \"Dal comportamento storico/statistico dei salti precedenti\". La predizione dinamica usa informazioni raccolte durante l'esecuzione, come lo storico degli esiti dei branch. La risposta \"Dalla frequenza di clock del processore\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Dal comportamento storico/statistico dei salti precedenti\". La risposta \"Solo dalla direzione del salto (avanti o indietro)\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Dal comportamento storico/statistico dei salti precedenti\". La risposta \"Da un'analisi statica del codice fatta dal compilatore\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Dal comportamento storico/statistico dei salti precedenti\"."
   },
   {
     "id_question": "14",
@@ -501,7 +501,7 @@
     "id_correct": "b",
     "formal_explanation": "Il complemento a due rappresenta interi con segno e permette di riutilizzare sostanzialmente lo stesso circuito per somma e sottrazione.",
     "informal_explanation": "È il modo standard usato dall'hardware per rappresentare numeri positivi e negativi.",
-    "question_response_explanation": "La risposta corretta è b. Il complemento a due non è una tecnica di compressione, gestione cache o correzione degli errori."
+    "question_response_explanation": "La risposta corretta è \"Rappresentare numeri interi con segno permettendo somma/sottrazione con lo stesso circuito\". Il complemento a due rappresenta interi con segno e permette di riutilizzare sostanzialmente lo stesso circuito per somma e sottrazione. La risposta \"Velocizzare gli accessi alla cache\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Rappresentare numeri interi con segno permettendo somma/sottrazione con lo stesso circuito\". La risposta \"Comprimere i dati in memoria\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Rappresentare numeri interi con segno permettendo somma/sottrazione con lo stesso circuito\". La risposta \"Correggere errori di trasmissione sul bus\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Rappresentare numeri interi con segno permettendo somma/sottrazione con lo stesso circuito\"."
   },
   {
     "id_question": "15",
@@ -537,7 +537,7 @@
     "id_correct": "c",
     "formal_explanation": "Nel modello semplificato il ciclo segue l'ordine Fetch, Decode, Execute e Store.",
     "informal_explanation": "Prima prendi l'istruzione, poi la interpreti, la esegui e infine salvi il risultato.",
-    "question_response_explanation": "La risposta corretta è c perché la decodifica deve avvenire dopo il prelievo e prima dell'esecuzione."
+    "question_response_explanation": "La risposta corretta è \"Fetch → Decode → Execute → Store\". Nel modello semplificato il ciclo segue l'ordine Fetch, Decode, Execute e Store. La risposta \"Execute → Fetch → Decode → Store\" è errata perché la sequenza \"Execute → Fetch → Decode → Store\" è errata perché il processore deve prima prelevare l’istruzione (Fetch), poi decodificarla (Decode), quindi eseguirla (Execute) e infine memorizzare il risultato quando previsto. La risposta \"Decode → Fetch → Store → Execute\" è errata perché la sequenza \"Decode → Fetch → Store → Execute\" è errata perché il processore deve prima prelevare l’istruzione (Fetch), poi decodificarla (Decode), quindi eseguirla (Execute) e infine memorizzare il risultato quando previsto. La risposta \"Fetch → Execute → Decode → Store\" è errata perché la sequenza \"Fetch → Execute → Decode → Store\" è errata perché il processore deve prima prelevare l’istruzione (Fetch), poi decodificarla (Decode), quindi eseguirla (Execute) e infine memorizzare il risultato quando previsto."
   },
   {
     "id_question": "16",
@@ -573,7 +573,7 @@
     "id_correct": "a",
     "formal_explanation": "La memoria centrale conserva dati e istruzioni che il processore utilizza durante l'esecuzione.",
     "informal_explanation": "È lo spazio di lavoro principale in cui la CPU trova programmi e dati.",
-    "question_response_explanation": "La risposta corretta è a. I calcoli aritmetici sono svolti principalmente dall'ALU e la conversione analogico-digitale da dispositivi dedicati."
+    "question_response_explanation": "La risposta corretta è \"Depositare dati e istruzioni da eseguire\". La memoria centrale conserva dati e istruzioni che il processore utilizza durante l'esecuzione. La risposta \"Convertire segnali analogici in digitali\" non soddisfa la condizione richiesta, mentre \"Depositare dati e istruzioni da eseguire\" identifica la proprietà necessaria. La risposta \"Solo eseguire calcoli aritmetici\" non soddisfa la condizione richiesta, mentre \"Depositare dati e istruzioni da eseguire\" identifica la proprietà necessaria. La risposta \"Gestire l'alimentazione\" non soddisfa la condizione richiesta, mentre \"Depositare dati e istruzioni da eseguire\" identifica la proprietà necessaria."
   },
   {
     "id_question": "17",
@@ -609,7 +609,7 @@
     "id_correct": "a",
     "formal_explanation": "Nel modello presentato, la complessità e la lunghezza delle istruzioni CISC possono aumentare il costo di prelievo e decodifica e creare un collo di bottiglia.",
     "informal_explanation": "Le istruzioni più complesse richiedono più lavoro per essere lette e decodificate.",
-    "question_response_explanation": "La risposta prevista è a. I processori CISC dispongono comunque di registri e ALU."
+    "question_response_explanation": "La risposta corretta è \"Il tempo di decodifica di istruzioni lunghe supera la capacità di trasporto del bus, che ha clock più basso\". Nel modello presentato, la complessità e la lunghezza delle istruzioni CISC possono aumentare il costo di prelievo e decodifica e creare un collo di bottiglia. La risposta \"Dalla mancanza di registri\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Il tempo di decodifica di istruzioni lunghe supera la capacità di trasporto del bus, che ha clock più basso\". La risposta \"Dall'assenza dell'ALU\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Il tempo di decodifica di istruzioni lunghe supera la capacità di trasporto del bus, che ha clock più basso\". La risposta \"Dalla presenza di troppa cache\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Il tempo di decodifica di istruzioni lunghe supera la capacità di trasporto del bus, che ha clock più basso\"."
   },
   {
     "id_question": "18",
@@ -645,7 +645,7 @@
     "id_correct": "d",
     "formal_explanation": "Nel modello della domanda il carry deve propagarsi attraverso otto stadi consecutivi, quindi il ritardo del riporto finale è 8r.",
     "informal_explanation": "Il riporto attraversa uno dopo l'altro tutti gli otto full adder.",
-    "question_response_explanation": "La risposta corretta è 8r perché il carry deve attraversare otto stadi."
+    "question_response_explanation": "La risposta corretta è \"8r\". Nel modello della domanda il carry deve propagarsi attraverso otto stadi consecutivi, quindi il ritardo del riporto finale è 8r. La risposta \"4r\" non soddisfa la condizione richiesta, mentre \"8r\" identifica la proprietà necessaria. La risposta \"16r\" non soddisfa la condizione richiesta, mentre \"8r\" identifica la proprietà necessaria. La risposta \"2r\" non soddisfa la condizione richiesta, mentre \"8r\" identifica la proprietà necessaria."
   },
   {
     "id_question": "19",
@@ -681,7 +681,7 @@
     "id_correct": "b",
     "formal_explanation": "In caso di cache miss il dato viene recuperato da un livello inferiore della gerarchia di memoria e la linea corrispondente viene caricata in cache.",
     "informal_explanation": "La CPU non trova il dato nella cache e deve cercarlo più lontano.",
-    "question_response_explanation": "La risposta corretta è b. Un cache miss comporta un accesso più lento ma non costituisce un overflow e non blocca definitivamente il processore."
+    "question_response_explanation": "La risposta corretta è \"Si accede alla memoria e si carica una nuova linea di cache\". In caso di cache miss il dato viene recuperato da un livello inferiore della gerarchia di memoria e la linea corrispondente viene caricata in cache. La risposta \"Il dato viene comunque trovato istantaneamente\" è errata perché un cache miss significa proprio che il dato non è presente nel livello di cache consultato, quindi occorre accedere a un livello inferiore e più lento. La risposta \"Viene generato un errore di trabocco\" è errata perché l'overflow riguarda il superamento del range numerico di un'operazione aritmetica e non la gerarchia di memoria. La risposta \"Il processore si blocca definitivamente\" è errata perché il processore può stallare temporaneamente in attesa del dato, ma riprende quando la linea viene recuperata; non si blocca definitivamente."
   },
   {
     "id_question": "20",
@@ -717,7 +717,7 @@
     "id_correct": "d",
     "formal_explanation": "L'hard disk è una memoria secondaria esterna alla CPU, mentre gli altri elementi appartengono al datapath o alla logica del processore.",
     "informal_explanation": "ALU e registri sono dentro la CPU; l'hard disk è una periferica di memorizzazione.",
-    "question_response_explanation": "La risposta corretta è d perché l'hard disk non è un componente interno del processore."
+    "question_response_explanation": "La risposta corretta è \"Hard disk\". L'hard disk è una memoria secondaria esterna alla CPU, mentre gli altri elementi appartengono al datapath o alla logica del processore. La risposta \"Generatore di indirizzi\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Hard disk\". La risposta \"Banco dei registri\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Hard disk\". La risposta \"ALU\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Hard disk\"."
   },
   {
     "id_question": "21",
@@ -753,7 +753,7 @@
     "id_correct": "a",
     "formal_explanation": "Nel procedimento indicato si complementano entrambi gli operandi in modo da ricondurre il moltiplicatore al caso positivo preservando il prodotto.",
     "informal_explanation": "Si trasformano entrambi i valori così da lavorare con un moltiplicatore positivo.",
-    "question_response_explanation": "La risposta corretta è a secondo il procedimento indicato. Ignorare il segno produrrebbe un risultato errato."
+    "question_response_explanation": "La risposta corretta è \"Si effettua il complemento a due di moltiplicando e moltiplicatore, riportandosi al caso di moltiplicatore positivo\". Nel procedimento indicato si complementano entrambi gli operandi in modo da ricondurre il moltiplicatore al caso positivo preservando il prodotto. La risposta \"Si ignora il segno e si moltiplica normalmente\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Si effettua il complemento a due di moltiplicando e moltiplicatore, riportandosi al caso di moltiplicatore positivo\". La risposta \"Non è possibile moltiplicare numeri negativi\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Si effettua il complemento a due di moltiplicando e moltiplicatore, riportandosi al caso di moltiplicatore positivo\". La risposta \"Si estende solo il segno del moltiplicatore\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Si effettua il complemento a due di moltiplicando e moltiplicatore, riportandosi al caso di moltiplicatore positivo\"."
   },
   {
     "id_question": "22",
@@ -789,7 +789,7 @@
     "id_correct": "d",
     "formal_explanation": "Il Program Counter contiene l'indirizzo dell'istruzione successiva da prelevare o eseguire.",
     "informal_explanation": "È il registro che indica alla CPU dove si trova la prossima istruzione.",
-    "question_response_explanation": "La risposta corretta è d. Il PC non è un semplice contatore del numero di istruzioni e non contiene il risultato dell'ALU."
+    "question_response_explanation": "La risposta corretta è \"Contenere l'indirizzo dell'istruzione da eseguire\". Il Program Counter contiene l'indirizzo dell'istruzione successiva da prelevare o eseguire. La risposta \"Contare il numero di istruzioni eseguite\" è errata perché il nome può trarre in inganno: il Program Counter non conta quante istruzioni sono state eseguite, ma memorizza un indirizzo di istruzione. La risposta \"Gestire gli interrupt\" è errata perché la gestione degli interrupt coinvolge registri e logica dedicata; il PC può essere salvato/ripristinato, ma non ha come funzione principale gestire gli interrupt. La risposta \"Contenere il risultato dell'ALU\" è errata perché i risultati dell'ALU vengono memorizzati in registri generali o specifici; il PC contiene invece un indirizzo di controllo del flusso."
   },
   {
     "id_question": "23",
@@ -825,7 +825,7 @@
     "id_correct": "c",
     "formal_explanation": "MFC significa Memory Function Complete e segnala al controllo che l'operazione di memoria richiesta è terminata.",
     "informal_explanation": "La memoria comunica alla CPU che ha terminato e che può proseguire.",
-    "question_response_explanation": "La risposta corretta è c. MFC non è un segnale di overflow né un comando di refresh."
+    "question_response_explanation": "La risposta corretta è \"Segnala che l'operazione di memoria richiesta si è conclusa, permettendo al circuito di controllo di proseguire\". MFC significa Memory Function Complete e segnala al controllo che l'operazione di memoria richiesta è terminata. La risposta \"Avvia il refresh della DRAM\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Segnala che l'operazione di memoria richiesta si è conclusa, permettendo al circuito di controllo di proseguire\". La risposta \"Gestisce solo gli interrupt esterni\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Segnala che l'operazione di memoria richiesta si è conclusa, permettendo al circuito di controllo di proseguire\". La risposta \"Indica un errore di trabocco\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Segnala che l'operazione di memoria richiesta si è conclusa, permettendo al circuito di controllo di proseguire\"."
   },
   {
     "id_question": "24",
@@ -861,7 +861,7 @@
     "id_correct": "d",
     "formal_explanation": "Il problema della fermata chiede di stabilire se un programma terminerà oppure continuerà indefinitamente su un determinato input.",
     "informal_explanation": "La domanda è: questo programma prima o poi finisce oppure gira per sempre?",
-    "question_response_explanation": "La risposta corretta è d. Il problema non riguarda il tempo massimo, il linguaggio utilizzato o il consumo di memoria."
+    "question_response_explanation": "La risposta corretta è \"Determinare se un programma, con un dato input, si fermerà o girerà per sempre\". Il problema della fermata chiede di stabilire se un programma terminerà oppure continuerà indefinitamente su un determinato input. La risposta \"Calcolare il tempo massimo di esecuzione di un algoritmo\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Determinare se un programma, con un dato input, si fermerà o girerà per sempre\". La risposta \"Verificare se un algoritmo è scritto in linguaggio ad alto livello\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Determinare se un programma, con un dato input, si fermerà o girerà per sempre\". La risposta \"Stabilire se un programma userà più memoria del previsto\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Determinare se un programma, con un dato input, si fermerà o girerà per sempre\"."
   },
   {
     "id_question": "25",
@@ -897,7 +897,7 @@
     "id_correct": "a",
     "formal_explanation": "In una rappresentazione posizionale ogni cifra è pesata da una potenza della base determinata dalla posizione occupata.",
     "informal_explanation": "La stessa cifra può valere quantità diverse in base alla posizione in cui si trova.",
-    "question_response_explanation": "La risposta corretta è a. Il valore posizionale è determinato dalla cifra e dalla potenza della base associata alla sua posizione."
+    "question_response_explanation": "La risposta corretta è \"Dalla sua posizione (moltiplicata per una potenza della base)\". In una rappresentazione posizionale ogni cifra è pesata da una potenza della base determinata dalla posizione occupata. La risposta \"Dal colore della cifra\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Dalla sua posizione (moltiplicata per una potenza della base)\". La risposta \"Solo dal simbolo usato\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Dalla sua posizione (moltiplicata per una potenza della base)\". La risposta \"Dalla lunghezza totale del numero\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Dalla sua posizione (moltiplicata per una potenza della base)\"."
   },
   {
     "id_question": "26",
@@ -933,7 +933,7 @@
     "id_correct": "c",
     "formal_explanation": "Nell'indirizzamento indiretto da registro il registro contiene l'indirizzo della locazione di memoria che contiene l'operando.",
     "informal_explanation": "Il registro non contiene il dato finale, ma l'indirizzo in cui andare a cercarlo.",
-    "question_response_explanation": "La risposta corretta è c. Se il registro contenesse direttamente il valore dell'operando si tratterebbe di un'altra modalità di indirizzamento."
+    "question_response_explanation": "La risposta corretta è \"L'indirizzo di memoria dove si trova l'operando\". Nell'indirizzamento indiretto da registro il registro contiene l'indirizzo della locazione di memoria che contiene l'operando. La risposta \"Direttamente il valore dell'operando\" è errata perché se il registro contenesse direttamente l'operando si avrebbe un operando in registro; nell'indiretto da registro esso contiene invece un indirizzo. La risposta \"Lo spiazzamento da sommare al PC\" è errata perché uno spiazzamento sommato al PC appartiene a modalità relative/PC-relative, non all'indirizzamento indiretto da registro. La risposta \"Il codice operativo dell'istruzione\" è errata perché il codice operativo è contenuto nell'istruzione e identifica l'operazione da eseguire; non è il contenuto del registro usato come puntatore."
   },
   {
     "id_question": "27",
@@ -969,7 +969,7 @@
     "id_correct": "b",
     "formal_explanation": "RISC è l'acronimo di Reduced Instruction Set Computer.",
     "informal_explanation": "Indica un'architettura basata su istruzioni relativamente semplici e regolari.",
-    "question_response_explanation": "La risposta corretta è b: Reduced Instruction Set Computer."
+    "question_response_explanation": "La risposta corretta è \"Reduced Instruction Set Computer\". RISC è l'acronimo di Reduced Instruction Set Computer. La risposta \"Rapid Instruction Set Computer\" è errata perché RISC non significa Rapid Instruction Set Computer: l'acronimo espande la parola Reduced. La risposta \"Register Instruction Set Computer\" è errata perché RISC non significa Register Instruction Set Computer: i registri sono importanti nelle architetture RISC, ma non definiscono l'acronimo. La risposta \"Real Instruction Set Code\" è errata perché RISC non significa Real Instruction Set Code; non è l'espansione standard dell'acronimo."
   },
   {
     "id_question": "28",
@@ -1005,7 +1005,7 @@
     "id_correct": "d",
     "formal_explanation": "Il controllo cablato genera i segnali tramite logica hardware, mentre quello microprogrammato esegue microistruzioni memorizzate in una memoria di controllo.",
     "informal_explanation": "Nel controllo cablato il comportamento è costruito nei circuiti; in quello microprogrammato è descritto da un piccolo programma interno.",
-    "question_response_explanation": "La risposta corretta è d. Le due tecniche hanno implementazioni differenti e il controllo microprogrammato può gestire anche condizioni e salti."
+    "question_response_explanation": "La risposta corretta è \"Il cablato usa un contatore di stadi hardware fisso; il microprogrammato usa microistruzioni in una memoria di controllo, gestite da μPC\". Il controllo cablato genera i segnali tramite logica hardware, mentre quello microprogrammato esegue microistruzioni memorizzate in una memoria di controllo. La risposta \"Sono la stessa cosa con nomi diversi\" non soddisfa la condizione richiesta, mentre \"Il cablato usa un contatore di stadi hardware fisso; il microprogrammato usa microistruzioni in una memoria di controllo, gestite da μPC\" identifica la proprietà necessaria. La risposta \"Il controllo microprogrammato non gestisce i salti condizionati\" non soddisfa la condizione richiesta, mentre \"Il cablato usa un contatore di stadi hardware fisso; il microprogrammato usa microistruzioni in una memoria di controllo, gestite da μPC\" identifica la proprietà necessaria. La risposta \"Il controllo cablato è usato solo nei CISC\" non soddisfa la condizione richiesta, mentre \"Il cablato usa un contatore di stadi hardware fisso; il microprogrammato usa microistruzioni in una memoria di controllo, gestite da μPC\" identifica la proprietà necessaria."
   },
   {
     "id_question": "29",
@@ -1041,7 +1041,7 @@
     "id_correct": "d",
     "formal_explanation": "13 su 8 bit è 00001101; invertendo si ottiene 11110010 e aggiungendo 1 si ottiene 11110011.",
     "informal_explanation": "Scrivi +13, inverti tutti i bit e aggiungi uno.",
-    "question_response_explanation": "La risposta corretta è d. 11110010 è soltanto il complemento a uno di 13; aggiungendo 1 si ottiene 11110011."
+    "question_response_explanation": "La risposta corretta è \"11110011\". 13 su 8 bit è 00001101; invertendo si ottiene 11110010 e aggiungendo 1 si ottiene 11110011. La risposta \"10001101\" non soddisfa la condizione richiesta, mentre \"11110011\" identifica la proprietà necessaria. La risposta \"11110010\" non soddisfa la condizione richiesta, mentre \"11110011\" identifica la proprietà necessaria. La risposta \"11101101\" non soddisfa la condizione richiesta, mentre \"11110011\" identifica la proprietà necessaria."
   },
   {
     "id_question": "30",
@@ -1077,7 +1077,7 @@
     "id_correct": "b",
     "formal_explanation": "La codifica complessa e la lunghezza variabile delle istruzioni CISC rendono più difficile una pipeline regolare; molte CPU moderne le decodificano in micro-operazioni interne.",
     "informal_explanation": "Le istruzioni CISC vengono spesso trasformate internamente in operazioni più semplici prima di essere eseguite.",
-    "question_response_explanation": "La risposta corretta è b. I processori CISC utilizzano comunque Program Counter e ALU."
+    "question_response_explanation": "La risposta corretta è \"Perché le istruzioni CISC hanno codifica complessa e lunghezza variabile; i processori moderni (es. i7) le convertono in micro-operazioni stile RISC\". La codifica complessa e la lunghezza variabile delle istruzioni CISC rendono più difficile una pipeline regolare; molte CPU moderne le decodificano in micro-operazioni interne. La risposta \"Perché il CISC ha meno registri\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché le istruzioni CISC hanno codifica complessa e lunghezza variabile; i processori moderni (es. i7) le convertono in micro-operazioni stile RISC\". La risposta \"Perché il CISC non usa il program counter\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché le istruzioni CISC hanno codifica complessa e lunghezza variabile; i processori moderni (es. i7) le convertono in micro-operazioni stile RISC\". La risposta \"Perché il CISC non ha una ALU dedicata\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché le istruzioni CISC hanno codifica complessa e lunghezza variabile; i processori moderni (es. i7) le convertono in micro-operazioni stile RISC\"."
   },
   {
     "id_question": "31",
@@ -1113,7 +1113,7 @@
     "id_correct": "b",
     "formal_explanation": "IEEE 754 single precision usa 1 bit di segno, 8 bit di esponente e 23 bit di frazione.",
     "informal_explanation": "I 32 bit sono suddivisi in 1 + 8 + 23.",
-    "question_response_explanation": "La risposta corretta è b. Gli 11 bit di esponente appartengono invece alla rappresentazione double precision."
+    "question_response_explanation": "La risposta corretta è \"1 segno, 8 esponente, 23 mantissa\". IEEE 754 single precision usa 1 bit di segno, 8 bit di esponente e 23 bit di frazione. La risposta \"1 segno, 11 esponente, 20 mantissa\" è errata perché gli 11 bit di esponente appartengono alla precisione doppia IEEE 754; nella precisione singola l'esponente usa 8 bit e la frazione 23. La risposta \"2 segno, 7 esponente, 23 mantissa\" è errata perché iEEE 754 usa un solo bit di segno; due bit di segno non fanno parte del formato single precision. La risposta \"1 segno, 23 esponente, 8 mantissa\" è errata perché questa suddivisione scambia i campi di esponente e frazione: nella precisione singola l'esponente occupa 8 bit e la frazione 23."
   },
   {
     "id_question": "32",
@@ -1149,7 +1149,7 @@
     "id_correct": "d",
     "formal_explanation": "PCI supporta meccanismi di configurazione automatica delle periferiche, riducendo la necessità di impostazioni manuali tramite jumper.",
     "informal_explanation": "Le periferiche possono essere riconosciute e configurate automaticamente.",
-    "question_response_explanation": "La risposta corretta è d. PCI riduce la necessità di configurazione manuale, non la aumenta."
+    "question_response_explanation": "La risposta corretta è \"Una tecnologia plug & play che assegna automaticamente canali e linee\". PCI supporta meccanismi di configurazione automatica delle periferiche, riducendo la necessità di impostazioni manuali tramite jumper. La risposta \"L'eliminazione totale del bus di sistema\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Una tecnologia plug & play che assegna automaticamente canali e linee\". La risposta \"Un nuovo tipo di RAM\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Una tecnologia plug & play che assegna automaticamente canali e linee\". La risposta \"La necessità di ponticelli hardware per ogni scheda\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Una tecnologia plug & play che assegna automaticamente canali e linee\"."
   },
   {
     "id_question": "33",
@@ -1185,7 +1185,7 @@
     "id_correct": "c",
     "formal_explanation": "64 linee trasferiscono 64 bit in parallelo, equivalenti a 8 byte.",
     "informal_explanation": "Basta dividere 64 bit per 8 bit per byte.",
-    "question_response_explanation": "La risposta corretta è c: 64 / 8 = 8 byte."
+    "question_response_explanation": "La risposta corretta è \"8 byte\". 64 linee trasferiscono 64 bit in parallelo, equivalenti a 8 byte. La risposta \"4 byte\" è errata perché 4 byte corrispondono a 32 bit; un bus dati a 64 linee trasferisce il doppio, cioè 8 byte. La risposta \"64 byte\" è errata perché 64 linee dati trasportano 64 bit, cioè 64/8 = 8 byte, non 64 byte. La risposta \"16 byte\" è errata perché 16 byte corrispondono a 128 bit; un bus a 64 linee trasferisce 64 bit, cioè 8 byte."
   },
   {
     "id_question": "34",
@@ -1221,7 +1221,7 @@
     "id_correct": "a",
     "formal_explanation": "Nella logica CMOS ideale non esiste un percorso continuo tra alimentazione e massa negli stati statici, quindi il consumo statico è molto ridotto.",
     "informal_explanation": "Quando il circuito non sta commutando, consuma pochissima corrente.",
-    "question_response_explanation": "La risposta corretta è a. CMOS utilizza sia transistor NMOS sia PMOS."
+    "question_response_explanation": "La risposta corretta è \"Consumo energetico ridotto, perché non c'è mai continuità tra massa e alimentazione in stato stabile\". Nella logica CMOS ideale non esiste un percorso continuo tra alimentazione e massa negli stati statici, quindi il consumo statico è molto ridotto. La risposta \"Il CMOS non richiede transistori PMOS\" non soddisfa la condizione richiesta, mentre \"Consumo energetico ridotto, perché non c'è mai continuità tra massa e alimentazione in stato stabile\" identifica la proprietà necessaria. La risposta \"Il CMOS ha dimensioni maggiori quindi più affidabile\" non soddisfa la condizione richiesta, mentre \"Consumo energetico ridotto, perché non c'è mai continuità tra massa e alimentazione in stato stabile\" identifica la proprietà necessaria. La risposta \"Il CMOS è più economico da produrre\" non soddisfa la condizione richiesta, mentre \"Consumo energetico ridotto, perché non c'è mai continuità tra massa e alimentazione in stato stabile\" identifica la proprietà necessaria."
   },
   {
     "id_question": "35",
@@ -1257,7 +1257,7 @@
     "id_correct": "a",
     "formal_explanation": "Collegando il carry-out di ciascun full adder al carry-in del successivo si realizza un ripple carry adder a n bit.",
     "informal_explanation": "Ogni stadio somma un bit e passa il proprio riporto allo stadio successivo.",
-    "question_response_explanation": "La risposta corretta è a. Senza propagazione del carry la somma multi-bit non sarebbe corretta."
+    "question_response_explanation": "La risposta corretta è \"Collegando n full adder in modo da propagare il riporto (ripple carry adder)\". Collegando il carry-out di ciascun full adder al carry-in del successivo si realizza un ripple carry adder a n bit. La risposta \"Collegando n full adder in parallelo senza propagazione\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Collegando n full adder in modo da propagare il riporto (ripple carry adder)\". La risposta \"Usando un solo full adder per tutti i bit\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Collegando n full adder in modo da propagare il riporto (ripple carry adder)\". La risposta \"Non è possibile, serve un circuito diverso\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Collegando n full adder in modo da propagare il riporto (ripple carry adder)\"."
   },
   {
     "id_question": "36",
@@ -1293,7 +1293,7 @@
     "id_correct": "c",
     "formal_explanation": "Prima di sommare o sottrarre le mantisse occorre allineare gli esponenti spostando a destra la mantissa associata all'esponente minore.",
     "informal_explanation": "Prima devi portare i due numeri alla stessa scala.",
-    "question_response_explanation": "La risposta corretta è c. La normalizzazione del risultato avviene successivamente."
+    "question_response_explanation": "La risposta corretta è \"Scegliere il numero con esponente minore e shiftare la sua mantissa a destra della differenza degli esponenti\". Prima di sommare o sottrarre le mantisse occorre allineare gli esponenti spostando a destra la mantissa associata all'esponente minore. La risposta \"Normalizzare subito il risultato\" non soddisfa la condizione richiesta, mentre \"Scegliere il numero con esponente minore e shiftare la sua mantissa a destra della differenza degli esponenti\" identifica la proprietà necessaria. La risposta \"Sommare direttamente le mantisse senza allineamento\" non soddisfa la condizione richiesta, mentre \"Scegliere il numero con esponente minore e shiftare la sua mantissa a destra della differenza degli esponenti\" identifica la proprietà necessaria. La risposta \"Sottrarre 127 dagli esponenti\" non soddisfa la condizione richiesta, mentre \"Scegliere il numero con esponente minore e shiftare la sua mantissa a destra della differenza degli esponenti\" identifica la proprietà necessaria."
   },
   {
     "id_question": "37",
@@ -1329,7 +1329,7 @@
     "id_correct": "d",
     "formal_explanation": "L'assemblatore traduce il codice assembly in oggetto; il linker combina moduli oggetto e risolve i simboli esterni.",
     "informal_explanation": "L'assembler traduce un modulo, il linker mette insieme i vari pezzi del programma.",
-    "question_response_explanation": "La risposta corretta è d. La traduzione del codice ad alto livello è normalmente compito del compilatore."
+    "question_response_explanation": "La risposta corretta è \"L'assemblatore traduce il sorgente in binario; il linker combina più file oggetto risolvendo i riferimenti a nomi esterni\". L'assemblatore traduce il codice assembly in oggetto; il linker combina moduli oggetto e risolve i simboli esterni. La risposta \"L'assemblatore si occupa solo del debug\" non soddisfa la condizione richiesta, mentre \"L'assemblatore traduce il sorgente in binario; il linker combina più file oggetto risolvendo i riferimenti a nomi esterni\" identifica la proprietà necessaria. La risposta \"Sono sinonimi dello stesso strumento\" non soddisfa la condizione richiesta, mentre \"L'assemblatore traduce il sorgente in binario; il linker combina più file oggetto risolvendo i riferimenti a nomi esterni\" identifica la proprietà necessaria. La risposta \"Il linker traduce il codice ad alto livello\" non soddisfa la condizione richiesta, mentre \"L'assemblatore traduce il sorgente in binario; il linker combina più file oggetto risolvendo i riferimenti a nomi esterni\" identifica la proprietà necessaria."
   },
   {
     "id_question": "38",
@@ -1365,7 +1365,7 @@
     "id_correct": "a",
     "formal_explanation": "Nel contesto della domanda, l'algoritmo viene formalizzato tramite una macchina di Turing oppure un programma per una macchina di Von Neumann.",
     "informal_explanation": "Un algoritmo può essere rappresentato attraverso modelli formali di calcolo.",
-    "question_response_explanation": "La risposta corretta è a secondo la definizione richiamata nella domanda."
+    "question_response_explanation": "La risposta corretta è \"Una macchina di Turing oppure un programma della macchina di Von Neumann\". Nel contesto della domanda, l'algoritmo viene formalizzato tramite una macchina di Turing oppure un programma per una macchina di Von Neumann. La risposta \"Un sistema operativo\" non soddisfa la condizione richiesta, mentre \"Una macchina di Turing oppure un programma della macchina di Von Neumann\" identifica la proprietà necessaria. La risposta \"Una rete neurale\" non soddisfa la condizione richiesta, mentre \"Una macchina di Turing oppure un programma della macchina di Von Neumann\" identifica la proprietà necessaria. La risposta \"Un compilatore\" non soddisfa la condizione richiesta, mentre \"Una macchina di Turing oppure un programma della macchina di Von Neumann\" identifica la proprietà necessaria."
   },
   {
     "id_question": "39",
@@ -1401,7 +1401,7 @@
     "id_correct": "b",
     "formal_explanation": "La tesi di Church-Turing identifica le funzioni effettivamente calcolabili mediante algoritmo con quelle calcolabili da una macchina di Turing.",
     "informal_explanation": "Se qualcosa può essere calcolato effettivamente da un algoritmo, può essere calcolato anche da una macchina di Turing.",
-    "question_response_explanation": "La risposta corretta è b. La tesi stabilisce una corrispondenza tra calcolabilità algoritmica e calcolabilità mediante macchina di Turing."
+    "question_response_explanation": "La risposta corretta è \"Ogni funzione parziale calcolabile con un algoritmo è calcolabile da una macchina di Turing\". La tesi di Church-Turing identifica le funzioni effettivamente calcolabili mediante algoritmo con quelle calcolabili da una macchina di Turing. La risposta \"La Tesi di Turing riguarda solo i numeri interi\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Ogni funzione parziale calcolabile con un algoritmo è calcolabile da una macchina di Turing\". La risposta \"Le mdT possono calcolare più funzioni di quante un algoritmo possa definire\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Ogni funzione parziale calcolabile con un algoritmo è calcolabile da una macchina di Turing\". La risposta \"Solo alcune funzioni calcolabili con un algoritmo sono calcolabili da una mdT\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Ogni funzione parziale calcolabile con un algoritmo è calcolabile da una macchina di Turing\"."
   },
   {
     "id_question": "40",
@@ -1437,7 +1437,7 @@
     "id_correct": "d",
     "formal_explanation": "45 = 32 + 8 + 4 + 1, quindi in binario è 101101.",
     "informal_explanation": "45 è composto dalle potenze 32, 8, 4 e 1.",
-    "question_response_explanation": "La risposta corretta è d: 101101 in binario corrisponde a 45 in decimale."
+    "question_response_explanation": "La risposta corretta è \"101101\". 45 = 32 + 8 + 4 + 1, quindi in binario è 101101. La risposta \"110101\" non soddisfa la condizione richiesta, mentre \"101101\" identifica la proprietà necessaria. La risposta \"101011\" non soddisfa la condizione richiesta, mentre \"101101\" identifica la proprietà necessaria. La risposta \"100101\" non soddisfa la condizione richiesta, mentre \"101101\" identifica la proprietà necessaria."
   },
   {
     "id_question": "41",
@@ -1473,7 +1473,7 @@
     "id_correct": "c",
     "formal_explanation": "I minitermini 1, 3, 5 e 7 sono esattamente quelli in cui x3 vale 1, quindi la forma minima è f = x3.",
     "informal_explanation": "In tutte le combinazioni indicate l'ultimo bit è sempre 1.",
-    "question_response_explanation": "La risposta corretta è c. x1x2x3 selezionerebbe soltanto il mintermine 7."
+    "question_response_explanation": "La risposta corretta è \"f = x3\". I minitermini 1, 3, 5 e 7 sono esattamente quelli in cui x3 vale 1, quindi la forma minima è f = x3. La risposta \"f = x1\" non soddisfa la condizione richiesta, mentre \"f = x3\" identifica la proprietà necessaria. La risposta \"f = x1+x2\" non soddisfa la condizione richiesta, mentre \"f = x3\" identifica la proprietà necessaria. La risposta \"f = x1x2x3\" non soddisfa la condizione richiesta, mentre \"f = x3\" identifica la proprietà necessaria."
   },
   {
     "id_question": "42",
@@ -1509,7 +1509,7 @@
     "id_correct": "b",
     "formal_explanation": "Il forwarding inoltra direttamente un risultato prodotto nella pipeline all'istruzione dipendente senza attendere la scrittura nel banco registri.",
     "informal_explanation": "Il risultato viene passato direttamente a chi ne ha bisogno.",
-    "question_response_explanation": "La risposta corretta è b. Il forwarding riduce gli stalli dovuti alle dipendenze RAW."
+    "question_response_explanation": "La risposta corretta è \"A rendere disponibile un risultato ad un'istruzione successiva prima che sia scritto nel registro, evitando stalli\". Il forwarding inoltra direttamente un risultato prodotto nella pipeline all'istruzione dipendente senza attendere la scrittura nel banco registri. La risposta \"A gestire i cache miss\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A rendere disponibile un risultato ad un'istruzione successiva prima che sia scritto nel registro, evitando stalli\". La risposta \"Ad anticipare il fetch delle istruzioni successive\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A rendere disponibile un risultato ad un'istruzione successiva prima che sia scritto nel registro, evitando stalli\". La risposta \"A prevedere l'esito dei salti condizionati\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A rendere disponibile un risultato ad un'istruzione successiva prima che sia scritto nel registro, evitando stalli\"."
   },
   {
     "id_question": "43",
@@ -1545,7 +1545,7 @@
     "id_correct": "d",
     "formal_explanation": "Il DMA consente trasferimenti diretti tra periferiche e memoria principale senza coinvolgere la CPU in ogni singolo trasferimento.",
     "informal_explanation": "La CPU delega il trasferimento e può occuparsi di altro.",
-    "question_response_explanation": "La risposta corretta è d. DMA non aumenta direttamente il clock del bus e non è un convertitore analogico-digitale."
+    "question_response_explanation": "La risposta corretta è \"A trasferire dati tra periferica e memoria senza occupare il processore\". Il DMA consente trasferimenti diretti tra periferiche e memoria principale senza coinvolgere la CPU in ogni singolo trasferimento. La risposta \"A gestire solo le interruzioni software\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A trasferire dati tra periferica e memoria senza occupare il processore\". La risposta \"A convertire segnali analogici in digitali\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A trasferire dati tra periferica e memoria senza occupare il processore\". La risposta \"A velocizzare il clock del bus\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A trasferire dati tra periferica e memoria senza occupare il processore\"."
   },
   {
     "id_question": "44",
@@ -1581,7 +1581,7 @@
     "id_correct": "c",
     "formal_explanation": "Nel modello didattico indicato, L1 è la più vicina al processore, seguita da L2 e poi L3.",
     "informal_explanation": "L1 è la cache più vicina e veloce, poi vengono L2 e L3.",
-    "question_response_explanation": "La risposta prevista dal materiale è c. I livelli L1, L2 e L3 appartengono alla gerarchia di cache e non sono semplicemente porzioni della RAM."
+    "question_response_explanation": "La risposta corretta è \"L1 interno al processore, L2 collegato al processore, L3 sulla scheda madre\". Nel modello didattico indicato, L1 è la più vicina al processore, seguita da L2 e poi L3. La risposta \"L1 sulla MB, L2 interno, L3 esterno\" non soddisfa la condizione richiesta, mentre \"L1 interno al processore, L2 collegato al processore, L3 sulla scheda madre\" identifica la proprietà necessaria. La risposta \"Esiste un solo livello di cache\" non soddisfa la condizione richiesta, mentre \"L1 interno al processore, L2 collegato al processore, L3 sulla scheda madre\" identifica la proprietà necessaria. La risposta \"L1, L2, L3 sono tutti sulla RAM\" non soddisfa la condizione richiesta, mentre \"L1 interno al processore, L2 collegato al processore, L3 sulla scheda madre\" identifica la proprietà necessaria."
   },
   {
     "id_question": "45",
@@ -1617,7 +1617,7 @@
     "id_correct": "d",
     "formal_explanation": "Il pipelining suddivide l'elaborazione in stadi sovrapposti, in modo analogo a una catena di montaggio.",
     "informal_explanation": "Mentre una istruzione viene eseguita, un'altra può essere decodificata e un'altra ancora prelevata.",
-    "question_response_explanation": "La risposta corretta è d. Il concetto di pipeline è analogo a una catena di montaggio."
+    "question_response_explanation": "La risposta corretta è \"Alla catena di montaggio, eseguendo più istruzioni in fasi sovrapposte\". Il pipelining suddivide l'elaborazione in stadi sovrapposti, in modo analogo a una catena di montaggio. La risposta \"Al multitasking del sistema operativo\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Alla catena di montaggio, eseguendo più istruzioni in fasi sovrapposte\". La risposta \"Alla ricorsione nei linguaggi di programmazione\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Alla catena di montaggio, eseguendo più istruzioni in fasi sovrapposte\". La risposta \"Alla compressione dei dati\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Alla catena di montaggio, eseguendo più istruzioni in fasi sovrapposte\"."
   },
   {
     "id_question": "46",
@@ -1653,7 +1653,7 @@
     "id_correct": "b",
     "formal_explanation": "NAND e NOR sono funzionalmente complete: usando solo una delle due tipologie è possibile costruire qualsiasi funzione booleana.",
     "informal_explanation": "Con sole NAND oppure sole NOR puoi costruire tutte le altre porte logiche.",
-    "question_response_explanation": "La risposta corretta è b. L'universalità deriva dalla completezza funzionale, non da velocità, consumo o diffusione commerciale."
+    "question_response_explanation": "La risposta corretta è \"Con esse si può realizzare qualsiasi funzione combinatoria\". NAND e NOR sono funzionalmente complete: usando solo una delle due tipologie è possibile costruire qualsiasi funzione booleana. La risposta \"Consumano meno energia delle altre porte\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Con esse si può realizzare qualsiasi funzione combinatoria\". La risposta \"Sono le più veloci in assoluto\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Con esse si può realizzare qualsiasi funzione combinatoria\". La risposta \"Sono presenti in ogni chipset\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Con esse si può realizzare qualsiasi funzione combinatoria\"."
   },
   {
     "id_question": "47",
@@ -1689,7 +1689,7 @@
     "id_correct": "d",
     "formal_explanation": "Nel delayed branch, se il compilatore non riesce a riempire utilmente il delay slot può inserirvi una NOP.",
     "informal_explanation": "Se non c'è nulla di utile da eseguire, viene inserita un'istruzione che non fa niente.",
-    "question_response_explanation": "La risposta corretta è d. Ripetere una istruzione precedente potrebbe modificare il comportamento del programma."
+    "question_response_explanation": "La risposta corretta è \"Istruzioni NOP\". Nel delayed branch, se il compilatore non riesce a riempire utilmente il delay slot può inserirvi una NOP. La risposta \"Salta due volte\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Istruzioni NOP\". La risposta \"Genera un errore di compilazione\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Istruzioni NOP\". La risposta \"Ripete l'ultima istruzione\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Istruzioni NOP\"."
   },
   {
     "id_question": "48",
@@ -1725,7 +1725,7 @@
     "id_correct": "b",
     "formal_explanation": "Una porta di I/O è un indirizzo o un intervallo di indirizzi tramite cui il processore comunica con una periferica.",
     "informal_explanation": "È come un indirizzo attraverso cui la CPU comunica con un dispositivo.",
-    "question_response_explanation": "La risposta corretta è b. Una porta di I/O non indica un cavo fisico né un tipo di RAM."
+    "question_response_explanation": "La risposta corretta è \"Un range di indirizzi riservato ad una periferica\". Una porta di I/O è un indirizzo o un intervallo di indirizzi tramite cui il processore comunica con una periferica. La risposta \"Un tipo di RAM\" è errata. Una porta di I/O non indica un cavo fisico né un tipo di RAM. La risposta \"Un tipo di cavo USB\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Un range di indirizzi riservato ad una periferica\". La risposta \"Un registro della CPU\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Un range di indirizzi riservato ad una periferica\"."
   },
   {
     "id_question": "49",
@@ -1761,7 +1761,7 @@
     "id_correct": "d",
     "formal_explanation": "Una AND realizzata come NAND seguita da NOT richiede 4 + 2 = 6 transistori.",
     "informal_explanation": "Sommi il costo della NAND e quello dell'inverter.",
-    "question_response_explanation": "La risposta corretta è d: 4 + 2 = 6 transistori."
+    "question_response_explanation": "La risposta corretta è \"6\". Una AND realizzata come NAND seguita da NOT richiede 4 + 2 = 6 transistori. La risposta \"8\" non soddisfa la condizione richiesta, mentre \"6\" identifica la proprietà necessaria. La risposta \"2\" non soddisfa la condizione richiesta, mentre \"6\" identifica la proprietà necessaria. La risposta \"4\" non soddisfa la condizione richiesta, mentre \"6\" identifica la proprietà necessaria."
   },
   {
     "id_question": "50",
@@ -1797,7 +1797,7 @@
     "id_correct": "c",
     "formal_explanation": "Nel carry lookahead Gi indica la generazione di un riporto e Pi la sua propagazione attraverso lo stadio.",
     "informal_explanation": "Gi indica se il bit genera un carry; Pi se lascia propagare quello precedente.",
-    "question_response_explanation": "La risposta corretta è c. Gi e Pi non rappresentano né registri né stadi della pipeline."
+    "question_response_explanation": "La risposta corretta è \"Gi = generazione (xi·yi), Pi = propagazione (xi+yi), calcolabili in parallelo in un solo ritardo di porta\". Nel carry lookahead Gi indica la generazione di un riporto e Pi la sua propagazione attraverso lo stadio. La risposta \"Rappresentano gli stadi della pipeline\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Gi = generazione (xi·yi), Pi = propagazione (xi+yi), calcolabili in parallelo in un solo ritardo di porta\". La risposta \"Rappresentano il bit di segno e il trabocco\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Gi = generazione (xi·yi), Pi = propagazione (xi+yi), calcolabili in parallelo in un solo ritardo di porta\". La risposta \"Sono i due registri di scorrimento del moltiplicatore\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Gi = generazione (xi·yi), Pi = propagazione (xi+yi), calcolabili in parallelo in un solo ritardo di porta\"."
   },
   {
     "id_question": "51",
@@ -1833,7 +1833,7 @@
     "id_correct": "b",
     "formal_explanation": "L'indirizzo effettivo viene calcolato sommando lo spiazzamento costante al contenuto del registro base.",
     "informal_explanation": "Prendi l'indirizzo base nel registro e aggiungi l'offset.",
-    "question_response_explanation": "La risposta corretta è b. Non è necessaria una moltiplicazione o concatenazione dei registri."
+    "question_response_explanation": "La risposta corretta è \"Sommando un valore costante (spiazzamento) al contenuto di un registro (indirizzo)\". L'indirizzo effettivo viene calcolato sommando lo spiazzamento costante al contenuto del registro base. La risposta \"Concatenando due registri\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Sommando un valore costante (spiazzamento) al contenuto di un registro (indirizzo)\". La risposta \"Moltiplicando due registri tra loro\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Sommando un valore costante (spiazzamento) al contenuto di un registro (indirizzo)\". La risposta \"Sottraendo lo spiazzamento dal PC sempre\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Sommando un valore costante (spiazzamento) al contenuto di un registro (indirizzo)\"."
   },
   {
     "id_question": "52",
@@ -1869,7 +1869,7 @@
     "id_correct": "b",
     "formal_explanation": "La pipeline RISC classica comprende Instruction Fetch, Instruction Decode, Execute, Memory Access e Write Back.",
     "informal_explanation": "Prima prelevi e decodifichi l'istruzione, poi la esegui, accedi eventualmente alla memoria e scrivi il risultato.",
-    "question_response_explanation": "La risposta corretta è b: IF, ID, EX, MEM, WB."
+    "question_response_explanation": "La risposta corretta è \"IF, ID, EX, MEM, WB\". La pipeline RISC classica comprende Instruction Fetch, Instruction Decode, Execute, Memory Access e Write Back. La risposta \"Decode, Fetch, ALU, Cache, Register\" non soddisfa la condizione richiesta, mentre \"IF, ID, EX, MEM, WB\" identifica la proprietà necessaria. La risposta \"Init, Run, Wait, Store, End\" non soddisfa la condizione richiesta, mentre \"IF, ID, EX, MEM, WB\" identifica la proprietà necessaria. La risposta \"Fetch, Load, Store, Branch, Halt\" non soddisfa la condizione richiesta, mentre \"IF, ID, EX, MEM, WB\" identifica la proprietà necessaria."
   },
   {
     "id_question": "53",
@@ -1905,7 +1905,7 @@
     "id_correct": "d",
     "formal_explanation": "Una macchina di Turing è composta essenzialmente da nastro, testina di lettura/scrittura e unità di controllo finita.",
     "informal_explanation": "Ha un nastro su cui leggere e scrivere, una testina che si muove e delle regole che decidono cosa fare.",
-    "question_response_explanation": "La risposta corretta è d. CPU, RAM e bus appartengono invece all'architettura di un calcolatore reale."
+    "question_response_explanation": "La risposta corretta è \"Nastro, testina, unità di calcolo/controllo/logica\". Una macchina di Turing è composta essenzialmente da nastro, testina di lettura/scrittura e unità di controllo finita. La risposta \"Compilatore, assemblatore, linker\" non soddisfa la condizione richiesta, mentre \"Nastro, testina, unità di calcolo/controllo/logica\" identifica la proprietà necessaria. La risposta \"Registri, ALU, unità di controllo\" non soddisfa la condizione richiesta, mentre \"Nastro, testina, unità di calcolo/controllo/logica\" identifica la proprietà necessaria. La risposta \"CPU, RAM, bus\" non soddisfa la condizione richiesta, mentre \"Nastro, testina, unità di calcolo/controllo/logica\" identifica la proprietà necessaria."
   },
   {
     "id_question": "54",
@@ -1941,7 +1941,7 @@
     "id_correct": "a",
     "formal_explanation": "Il register file è una piccola memoria interna alla CPU, molto veloce, spesso dotata di due porte di lettura e una di scrittura.",
     "informal_explanation": "È il gruppo di registri generali a cui la CPU può accedere molto rapidamente.",
-    "question_response_explanation": "La risposta corretta è a. Il banco dei registri non coincide con la memoria centrale né con una cache L3."
+    "question_response_explanation": "La risposta corretta è \"Una memoria piccola e velocissima con ingressi per due indirizzi di lettura e uno di scrittura\". Il register file è una piccola memoria interna alla CPU, molto veloce, spesso dotata di due porte di lettura e una di scrittura. La risposta \"La memoria principale del calcolatore\" non soddisfa la condizione richiesta, mentre \"Una memoria piccola e velocissima con ingressi per due indirizzi di lettura e uno di scrittura\" identifica la proprietà necessaria. La risposta \"Un tipo di cache di terzo livello\" non soddisfa la condizione richiesta, mentre \"Una memoria piccola e velocissima con ingressi per due indirizzi di lettura e uno di scrittura\" identifica la proprietà necessaria. La risposta \"Un registro speciale che conta i cicli di clock\" non soddisfa la condizione richiesta, mentre \"Una memoria piccola e velocissima con ingressi per due indirizzi di lettura e uno di scrittura\" identifica la proprietà necessaria."
   },
   {
     "id_question": "55",
@@ -1977,7 +1977,7 @@
     "id_correct": "c",
     "formal_explanation": "Nella formula proposta S rappresenta il numero medio di cicli per istruzione nel caso base, prima delle penalità aggiuntive.",
     "informal_explanation": "È il costo medio normale di un'istruzione prima di aggiungere i ritardi dovuti ai problemi della pipeline.",
-    "question_response_explanation": "La risposta corretta è c. Le penalità per dati, salti e miss sono già rappresentate separatamente dagli altri termini."
+    "question_response_explanation": "La risposta corretta è \"Il numero medio di cicli di clock per istruzione senza conflitti\". Nella formula proposta S rappresenta il numero medio di cicli per istruzione nel caso base, prima delle penalità aggiuntive. La risposta \"Il ritardo dovuto ai salti\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Il numero medio di cicli di clock per istruzione senza conflitti\". La risposta \"Il numero di stadi della pipeline\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Il numero medio di cicli di clock per istruzione senza conflitti\". La risposta \"La frequenza di clock del processore\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Il numero medio di cicli di clock per istruzione senza conflitti\"."
   },
   {
     "id_question": "56",
@@ -2013,7 +2013,7 @@
     "id_correct": "d",
     "formal_explanation": "Il firmware di avvio deve essere disponibile anche dopo lo spegnimento; per questo viene memorizzato in memoria non volatile.",
     "informal_explanation": "Il BIOS deve essere ancora presente quando riaccendi il computer.",
-    "question_response_explanation": "La risposta corretta è d. La proprietà fondamentale richiesta è la non volatilità."
+    "question_response_explanation": "La risposta corretta è \"Mantiene il contenuto anche senza alimentazione\". Il firmware di avvio deve essere disponibile anche dopo lo spegnimento; per questo viene memorizzato in memoria non volatile. La risposta \"È più veloce della RAM\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Mantiene il contenuto anche senza alimentazione\". La risposta \"Ha capacità maggiore\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Mantiene il contenuto anche senza alimentazione\". La risposta \"È più economica\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Mantiene il contenuto anche senza alimentazione\"."
   },
   {
     "id_question": "57",
@@ -2049,7 +2049,7 @@
     "id_correct": "d",
     "formal_explanation": "Su 4 bit 5 = 0101 e -3 = 1101; la somma è 0010, cioè 2, e non c'è overflow perché gli addendi hanno segno opposto.",
     "informal_explanation": "5 più -3 fa 2 e, avendo segni diversi, non c'è overflow nella somma.",
-    "question_response_explanation": "La risposta corretta è d. Il risultato è 2 senza overflow."
+    "question_response_explanation": "La risposta corretta è \"2, nessun overflow (addendi con segni discordi)\". Su 4 bit 5 = 0101 e -3 = 1101; la somma è 0010, cioè 2, e non c'è overflow perché gli addendi hanno segno opposto. La risposta \"-2, overflow presente\" non soddisfa la condizione richiesta, mentre \"2, nessun overflow (addendi con segni discordi)\" identifica la proprietà necessaria. La risposta \"8, nessun overflow\" non soddisfa la condizione richiesta, mentre \"2, nessun overflow (addendi con segni discordi)\" identifica la proprietà necessaria."
   },
   {
     "id_question": "58",
@@ -2085,7 +2085,7 @@
     "id_correct": "a",
     "formal_explanation": "Le mappe di Karnaugh usano un ordinamento Gray, quindi celle adiacenti differiscono per una sola variabile.",
     "informal_explanation": "Passando a una casella vicina cambia un solo bit.",
-    "question_response_explanation": "La risposta corretta è a. L'ordine non è quello binario crescente standard, ma quello del codice Gray."
+    "question_response_explanation": "La risposta corretta è \"In modo che differiscano per una sola variabile\". Le mappe di Karnaugh usano un ordinamento Gray, quindi celle adiacenti differiscono per una sola variabile. La risposta \"In modo che differiscano per tutte le variabili\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"In modo che differiscano per una sola variabile\". La risposta \"In modo casuale, non importa l'ordine\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"In modo che differiscano per una sola variabile\". La risposta \"In ordine numerico crescente sempre\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"In modo che differiscano per una sola variabile\"."
   },
   {
     "id_question": "59",
@@ -2121,7 +2121,7 @@
     "id_correct": "b",
     "formal_explanation": "Il linguaggio macchina codifica direttamente le istruzioni in bit, mentre l'assembly usa mnemonici e simboli tradotti poi in codice macchina.",
     "informal_explanation": "La CPU legge bit, mentre il programmatore può usare nomi simbolici come ADD, LOAD e STORE.",
-    "question_response_explanation": "La risposta corretta è b. Assembly e linguaggio macchina rappresentano le stesse operazioni a livelli di rappresentazione differenti."
+    "question_response_explanation": "La risposta corretta è \"Il linguaggio macchina è in alfabeto binario, l'assemblativo è una rappresentazione simbolica leggibile dello stesso\". Il linguaggio macchina codifica direttamente le istruzioni in bit, mentre l'assembly usa mnemonici e simboli tradotti poi in codice macchina. La risposta \"L'assemblativo è più veloce da eseguire\" non soddisfa la condizione richiesta, mentre \"Il linguaggio macchina è in alfabeto binario, l'assemblativo è una rappresentazione simbolica leggibile dello stesso\" identifica la proprietà necessaria. La risposta \"Il linguaggio macchina esiste solo nei CISC\" non soddisfa la condizione richiesta, mentre \"Il linguaggio macchina è in alfabeto binario, l'assemblativo è una rappresentazione simbolica leggibile dello stesso\" identifica la proprietà necessaria. La risposta \"Sono esattamente la stessa cosa\" non soddisfa la condizione richiesta, mentre \"Il linguaggio macchina è in alfabeto binario, l'assemblativo è una rappresentazione simbolica leggibile dello stesso\" identifica la proprietà necessaria."
   },
   {
     "id_question": "60",
@@ -2157,7 +2157,7 @@
     "id_correct": "d",
     "formal_explanation": "XOR vale 1 quando gli ingressi sono diversi, quindi in SOP è x̄1x2 + x1x̄2.",
     "informal_explanation": "XOR vale 1 nei casi 01 e 10.",
-    "question_response_explanation": "La risposta corretta è d. L'espressione x1x2 + x̄1x̄2 rappresenta invece XNOR."
+    "question_response_explanation": "La risposta corretta è \"x̄1x2 + x1x̄2\". XOR vale 1 quando gli ingressi sono diversi, quindi in SOP è x̄1x2 + x1x̄2. La risposta \"x1 + x2\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"x̄1x2 + x1x̄2\". La risposta \"x1x2 + x̄1x̄2\" è errata. L'espressione x1x2 + x̄1x̄2 rappresenta invece XNOR. La risposta \"x̄1x̄2\" è errata. L'espressione x1x2 + x̄1x̄2 rappresenta invece XNOR."
   },
   {
     "id_question": "61",
@@ -2193,7 +2193,7 @@
     "id_correct": "b",
     "formal_explanation": "Il fan-in è il numero di ingressi della porta, mentre il fan-out indica quanti ingressi logici l'uscita può pilotare correttamente.",
     "informal_explanation": "Fan-in indica quanti segnali entrano; fan-out quanti ingressi possono essere pilotati dall'uscita.",
-    "question_response_explanation": "La risposta corretta è b. Fan-in e fan-out sono due caratteristiche differenti."
+    "question_response_explanation": "La risposta corretta è \"Fan-in = numero di ingressi; fan-out = numero di ingressi paralleli collegabili all'uscita\". Il fan-in è il numero di ingressi della porta, mentre il fan-out indica quanti ingressi logici l'uscita può pilotare correttamente. La risposta \"Fan-in = numero di transistori; fan-out = numero di porte totali nel circuito\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Fan-in = numero di ingressi; fan-out = numero di ingressi paralleli collegabili all'uscita\". La risposta \"Sono sinonimi\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Fan-in = numero di ingressi; fan-out = numero di ingressi paralleli collegabili all'uscita\". La risposta \"Fan-in = tensione di soglia; fan-out = frequenza di clock\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Fan-in = numero di ingressi; fan-out = numero di ingressi paralleli collegabili all'uscita\"."
   },
   {
     "id_question": "62",
@@ -2229,7 +2229,7 @@
     "id_correct": "a",
     "formal_explanation": "La coda di prefetch conserva in anticipo byte o istruzioni successive sfruttando la località sequenziale e riducendo i tempi di attesa.",
     "informal_explanation": "Il processore legge in anticipo ciò che probabilmente servirà subito dopo.",
-    "question_response_explanation": "La risposta corretta è a. Predizione dei salti e gestione degli interrupt sono funzioni differenti."
+    "question_response_explanation": "La risposta corretta è \"A memorizzare byte successivi a quello letto, riducendo gli accessi ripetuti alla memoria\". La coda di prefetch conserva in anticipo byte o istruzioni successive sfruttando la località sequenziale e riducendo i tempi di attesa. La risposta \"A convertire istruzioni CISC in RISC\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A memorizzare byte successivi a quello letto, riducendo gli accessi ripetuti alla memoria\". La risposta \"A gestire gli interrupt asincroni\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A memorizzare byte successivi a quello letto, riducendo gli accessi ripetuti alla memoria\". La risposta \"A prevedere l'esito dei salti condizionati\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"A memorizzare byte successivi a quello letto, riducendo gli accessi ripetuti alla memoria\"."
   },
   {
     "id_question": "63",
@@ -2265,7 +2265,7 @@
     "id_correct": "c",
     "formal_explanation": "La dimostrazione classica procede per assurdo costruendo una macchina autoreferenziale che conduce a una contraddizione.",
     "informal_explanation": "Si suppone di avere un programma capace di decidere sempre la fermata e si costruisce un caso che contraddice la sua stessa risposta.",
-    "question_response_explanation": "La risposta corretta è c. L'indecidibilità è un risultato matematico e non dipende dai limiti fisici della memoria."
+    "question_response_explanation": "La risposta corretta è \"Su un argomento autocontraddittorio, simile al paradosso del mentitore\". La dimostrazione classica procede per assurdo costruendo una macchina autoreferenziale che conduce a una contraddizione. La risposta \"Su un argomento induttivo su tutte le macchine di Turing\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Su un argomento autocontraddittorio, simile al paradosso del mentitore\". La risposta \"Su una dimostrazione empirica sperimentale\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Su un argomento autocontraddittorio, simile al paradosso del mentitore\". La risposta \"Su un limite fisico di memoria\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Su un argomento autocontraddittorio, simile al paradosso del mentitore\"."
   },
   {
     "id_question": "64",
@@ -2301,7 +2301,7 @@
     "id_correct": "d",
     "formal_explanation": "La SRAM usa celle bistabili ed è veloce e costosa; la DRAM usa condensatori, richiede refresh ed è più densa ed economica.",
     "informal_explanation": "SRAM è veloce e costosa, DRAM è più economica ma deve essere periodicamente rinfrescata.",
-    "question_response_explanation": "La risposta corretta è d. È la DRAM, non la SRAM, a richiedere il refresh periodico."
+    "question_response_explanation": "La risposta corretta è \"La SRAM usa flip-flop ed è più veloce ma costosa; la DRAM usa microcondensatori, è più lenta ma economica\". La SRAM usa celle bistabili ed è veloce e costosa; la DRAM usa condensatori, richiede refresh ed è più densa ed economica. La risposta \"La DRAM è usata solo per la cache\" non soddisfa la condizione richiesta, mentre \"La SRAM usa flip-flop ed è più veloce ma costosa; la DRAM usa microcondensatori, è più lenta ma economica\" identifica la proprietà necessaria. La risposta \"La SRAM deve essere rinfrescata periodicamente, la DRAM no\" non soddisfa la condizione richiesta, mentre \"La SRAM usa flip-flop ed è più veloce ma costosa; la DRAM usa microcondensatori, è più lenta ma economica\" identifica la proprietà necessaria. La risposta \"Non c'è differenza, sono sinonimi\" non soddisfa la condizione richiesta, mentre \"La SRAM usa flip-flop ed è più veloce ma costosa; la DRAM usa microcondensatori, è più lenta ma economica\" identifica la proprietà necessaria."
   },
   {
     "id_question": "65",
@@ -2337,7 +2337,7 @@
     "id_correct": "a",
     "formal_explanation": "Una nuova CALL sovrascrive il registro di collegamento con un nuovo indirizzo di ritorno, quindi quello precedente deve essere salvato nelle chiamate annidate.",
     "informal_explanation": "Ogni funzione deve ricordare dove tornare; se tutte usano lo stesso registro bisogna salvare il valore precedente.",
-    "question_response_explanation": "La risposta corretta è a. LINK_reg contiene un indirizzo di ritorno, non un opcode."
+    "question_response_explanation": "La risposta corretta è \"Perché LINK_reg viene sempre sovrascritto da Call e Return, e serve per recuperare l'indirizzo di rientro corretto di ciascuna chiamata\". Una nuova CALL sovrascrive il registro di collegamento con un nuovo indirizzo di ritorno, quindi quello precedente deve essere salvato nelle chiamate annidate. La risposta \"Non è mai necessario salvarlo\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché LINK_reg viene sempre sovrascritto da Call e Return, e serve per recuperare l'indirizzo di rientro corretto di ciascuna chiamata\". La risposta \"Perché LINK_reg contiene il codice operativo dell'istruzione\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché LINK_reg viene sempre sovrascritto da Call e Return, e serve per recuperare l'indirizzo di rientro corretto di ciascuna chiamata\". La risposta \"Perché altrimenti la ALU si blocca\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché LINK_reg viene sempre sovrascritto da Call e Return, e serve per recuperare l'indirizzo di rientro corretto di ciascuna chiamata\"."
   },
   {
     "id_question": "66",
@@ -2373,7 +2373,7 @@
     "id_correct": "a",
     "formal_explanation": "Nei circuiti digitali i transistori sono impiegati principalmente come interruttori controllati tra stati di conduzione e interdizione.",
     "informal_explanation": "Sono microscopici interruttori con cui si costruiscono le porte logiche.",
-    "question_response_explanation": "La risposta corretta è a. Le altre opzioni descrivono funzioni differenti o troppo specifiche."
+    "question_response_explanation": "La risposta corretta è \"Fungono da interruttori, con stati di conduzione e interdizione\". Nei circuiti digitali i transistori sono impiegati principalmente come interruttori controllati tra stati di conduzione e interdizione. La risposta \"Immagazzinano dati permanentemente\" non soddisfa la condizione richiesta, mentre \"Fungono da interruttori, con stati di conduzione e interdizione\" identifica la proprietà necessaria. La risposta \"Generano il clock di sistema\" non soddisfa la condizione richiesta, mentre \"Fungono da interruttori, con stati di conduzione e interdizione\" identifica la proprietà necessaria. La risposta \"Convertono corrente alternata in continua\" non soddisfa la condizione richiesta, mentre \"Fungono da interruttori, con stati di conduzione e interdizione\" identifica la proprietà necessaria."
   },
   {
     "id_question": "67",
@@ -2409,7 +2409,7 @@
     "id_correct": "a",
     "formal_explanation": "Con uno stack che cresce verso indirizzi inferiori, si decrementa prima SP e poi si memorizza il registro nella nuova cima dello stack.",
     "informal_explanation": "Prima fai spazio sullo stack e poi ci scrivi il valore.",
-    "question_response_explanation": "La risposta corretta è a. LOAD leggerebbe dalla memoria e non implementerebbe una push."
+    "question_response_explanation": "La risposta corretta è \"Subtract SP,SP,#4 seguita da Store Rj,(SP)\". Con uno stack che cresce verso indirizzi inferiori, si decrementa prima SP e poi si memorizza il registro nella nuova cima dello stack. La risposta \"Con una singola istruzione PUSH dedicata\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Subtract SP,SP,#4 seguita da Store Rj,(SP)\". La risposta \"Store Rj,(SP) seguita da Add SP,SP,#4\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Subtract SP,SP,#4 seguita da Store Rj,(SP)\". La risposta \"Load Rj,(SP) seguita da Subtract SP,SP,#4\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Subtract SP,SP,#4 seguita da Store Rj,(SP)\"."
   },
   {
     "id_question": "68",
@@ -2445,7 +2445,7 @@
     "id_correct": "d",
     "formal_explanation": "Una LOAD richiede fetch e incremento del PC, decodifica e lettura del registro base, calcolo dell'indirizzo effettivo, accesso in memoria e scrittura nel registro destinazione.",
     "informal_explanation": "Prima leggi l'istruzione, poi calcoli R7+X, leggi il dato in memoria e lo metti in R5.",
-    "question_response_explanation": "La risposta corretta è d. Non è possibile calcolare correttamente l'indirizzo prima di aver prelevato e decodificato l'istruzione."
+    "question_response_explanation": "La risposta corretta è \"Prelievo+incremento PC → Decodifica e lettura R7 → Calcolo indirizzo effettivo → Lettura operando da memoria → Caricamento in R5\". Una LOAD richiede fetch e incremento del PC, decodifica e lettura del registro base, calcolo dell'indirizzo effettivo, accesso in memoria e scrittura nel registro destinazione. La risposta \"Prelievo → Caricamento → Decodifica → Lettura → Calcolo indirizzo\" non soddisfa la condizione richiesta, mentre \"Prelievo+incremento PC → Decodifica e lettura R7 → Calcolo indirizzo effettivo → Lettura operando da memoria → Caricamento in R5\" identifica la proprietà necessaria. La risposta \"Calcolo indirizzo → Prelievo → Lettura → Decodifica → Caricamento\" non soddisfa la condizione richiesta, mentre \"Prelievo+incremento PC → Decodifica e lettura R7 → Calcolo indirizzo effettivo → Lettura operando da memoria → Caricamento in R5\" identifica la proprietà necessaria. La risposta \"Decodifica → Prelievo → Calcolo indirizzo → Caricamento → Lettura\" non soddisfa la condizione richiesta, mentre \"Prelievo+incremento PC → Decodifica e lettura R7 → Calcolo indirizzo effettivo → Lettura operando da memoria → Caricamento in R5\" identifica la proprietà necessaria."
   },
   {
     "id_question": "69",
@@ -2481,7 +2481,7 @@
     "id_correct": "a",
     "formal_explanation": "Nel modello NMOS di pull-down, un gate alto abilita la conduzione e la sorgente è collegata a massa.",
     "informal_explanation": "Gate alto significa transistor acceso verso massa.",
-    "question_response_explanation": "La risposta corretta è a. Nel pull-down NMOS la sorgente è collegata alla massa."
+    "question_response_explanation": "La risposta corretta è \"Conduzione; sorgente collegata alla massa\". Nel modello NMOS di pull-down, un gate alto abilita la conduzione e la sorgente è collegata a massa. La risposta \"Interdizione; sorgente collegata all'alimentazione\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Conduzione; sorgente collegata alla massa\". La risposta \"Interdizione; sorgente collegata alla massa\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Conduzione; sorgente collegata alla massa\". La risposta \"Conduzione; sorgente collegata all'alimentazione\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Conduzione; sorgente collegata alla massa\"."
   },
   {
     "id_question": "70",
@@ -2517,7 +2517,7 @@
     "id_correct": "a",
     "formal_explanation": "Una macchina di Turing universale può simulare il comportamento di qualsiasi altra macchina di Turing a partire dalla sua descrizione e dall'input.",
     "informal_explanation": "È una macchina generale capace di comportarsi come qualsiasi altra macchina di Turing.",
-    "question_response_explanation": "La risposta corretta è a. La macchina universale è un modello teorico generale, non una CPU fisica."
+    "question_response_explanation": "La risposta corretta è \"Simulare qualsiasi altra macchina di Turing\". Una macchina di Turing universale può simulare il comportamento di qualsiasi altra macchina di Turing a partire dalla sua descrizione e dall'input. La risposta \"Sostituire fisicamente la CPU\" non soddisfa la condizione richiesta, mentre \"Simulare qualsiasi altra macchina di Turing\" identifica la proprietà necessaria. La risposta \"Eseguire solo un tipo di calcolo\" non soddisfa la condizione richiesta, mentre \"Simulare qualsiasi altra macchina di Turing\" identifica la proprietà necessaria. La risposta \"Funzionare solo con numeri binari\" non soddisfa la condizione richiesta, mentre \"Simulare qualsiasi altra macchina di Turing\" identifica la proprietà necessaria."
   },
   {
     "id_question": "71",
@@ -2553,7 +2553,7 @@
     "id_correct": "d",
     "formal_explanation": "Il loader trasferisce il programma eseguibile in memoria centrale e ne prepara l'avvio.",
     "informal_explanation": "Prende il programma dal disco, lo mette in RAM e lo fa partire.",
-    "question_response_explanation": "La risposta corretta è d. Collegare i file oggetto è invece compito del linker."
+    "question_response_explanation": "La risposta corretta è \"Caricare il programma oggetto dalla memoria secondaria alla memoria centrale ed avviarne l'esecuzione\". Il loader trasferisce il programma eseguibile in memoria centrale e ne prepara l'avvio. La risposta \"Ottimizzare il codice assembly\" non soddisfa la condizione richiesta, mentre \"Caricare il programma oggetto dalla memoria secondaria alla memoria centrale ed avviarne l'esecuzione\" identifica la proprietà necessaria. La risposta \"Collegare più file oggetto in uno unico\" non soddisfa la condizione richiesta, mentre \"Caricare il programma oggetto dalla memoria secondaria alla memoria centrale ed avviarne l'esecuzione\" identifica la proprietà necessaria. La risposta \"Tradurre il codice sorgente in linguaggio assembly\" non soddisfa la condizione richiesta, mentre \"Caricare il programma oggetto dalla memoria secondaria alla memoria centrale ed avviarne l'esecuzione\" identifica la proprietà necessaria."
   },
   {
     "id_question": "72",
@@ -2589,7 +2589,7 @@
     "id_correct": "c",
     "formal_explanation": "La seconda istruzione presenta una dipendenza RAW su R2 e necessita del risultato prodotto dalla ADD prima che sia stato necessariamente scritto nel banco registri.",
     "informal_explanation": "La SUBTRACT ha bisogno del nuovo valore di R2 prodotto dalla ADD immediatamente precedente.",
-    "question_response_explanation": "La risposta corretta è c. Si tratta di una dipendenza Read After Write, non di un cache miss o di una dipendenza di memoria."
+    "question_response_explanation": "La risposta corretta è \"Entrambe usano R2: Subtract necessita del risultato di Add non ancora scritto nel banco registri (dipendenza di dato)\". La seconda istruzione presenta una dipendenza RAW su R2 e necessita del risultato prodotto dalla ADD prima che sia stato necessariamente scritto nel banco registri. La risposta \"Perché il bus è occupato da un cache miss\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Entrambe usano R2: Subtract necessita del risultato di Add non ancora scritto nel banco registri (dipendenza di dato)\". La risposta \"Perché entrambe sono istruzioni di salto\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Entrambe usano R2: Subtract necessita del risultato di Add non ancora scritto nel banco registri (dipendenza di dato)\". La risposta \"Perché occupano la stessa locazione di memoria\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Entrambe usano R2: Subtract necessita del risultato di Add non ancora scritto nel banco registri (dipendenza di dato)\"."
   },
   {
     "id_question": "73",
@@ -2625,7 +2625,7 @@
     "id_correct": "a",
     "formal_explanation": "Il bus di sistema comprende Address Bus, Data Bus e Control Bus.",
     "informal_explanation": "Un bus porta gli indirizzi, uno i dati e uno i segnali di controllo.",
-    "question_response_explanation": "La risposta corretta è a: ABus, DBus e CBus."
+    "question_response_explanation": "La risposta corretta è \"ABus, DBus, CBus\". Il bus di sistema comprende Address Bus, Data Bus e Control Bus. La risposta \"IF, ID, EX\" non soddisfa la condizione richiesta, mentre \"ABus, DBus, CBus\" identifica la proprietà necessaria. La risposta \"North Bridge, South Bridge, Chipset\" non soddisfa la condizione richiesta, mentre \"ABus, DBus, CBus\" identifica la proprietà necessaria. La risposta \"CPU, RAM, ROM\" non soddisfa la condizione richiesta, mentre \"ABus, DBus, CBus\" identifica la proprietà necessaria."
   },
   {
     "id_question": "74",
@@ -2661,7 +2661,7 @@
     "id_correct": "b",
     "formal_explanation": "La divisione con ripristino utilizza tipicamente due registri a scorrimento A e Q e un circuito aritmetico a n+1 bit.",
     "informal_explanation": "A contiene il resto parziale, Q il quoziente e il circuito aritmetico esegue sottrazioni e ripristini.",
-    "question_response_explanation": "La risposta corretta è b. Un singolo registro o un solo addizionatore non sono sufficienti per la struttura descritta."
+    "question_response_explanation": "La risposta corretta è \"Due shift register (A e Q) e un addizionatore a n+1 bit\". La divisione con ripristino utilizza tipicamente due registri a scorrimento A e Q e un circuito aritmetico a n+1 bit. La risposta \"Un solo registro a scorrimento\" non soddisfa la condizione richiesta, mentre \"Due shift register (A e Q) e un addizionatore a n+1 bit\" identifica la proprietà necessaria. La risposta \"Solo un addizionatore\" non soddisfa la condizione richiesta, mentre \"Due shift register (A e Q) e un addizionatore a n+1 bit\" identifica la proprietà necessaria. La risposta \"Una ALU dedicata separata dall'addizionatore\" non soddisfa la condizione richiesta, mentre \"Due shift register (A e Q) e un addizionatore a n+1 bit\" identifica la proprietà necessaria."
   },
   {
     "id_question": "75",
@@ -2697,7 +2697,7 @@
     "id_correct": "a",
     "formal_explanation": "Raccogliendo x̄1x̄2 si ottiene x̄1x̄2(x̄3+x3)=x̄1x̄2.",
     "informal_explanation": "I due termini differiscono soltanto per x3, che quindi può essere eliminato.",
-    "question_response_explanation": "La risposta corretta è a perché x̄3 + x3 = 1."
+    "question_response_explanation": "La risposta corretta è \"x̄1x̄2\". Raccogliendo x̄1x̄2 si ottiene x̄1x̄2(x̄3+x3)=x̄1x̄2. La risposta corretta è \"x̄1x̄2\" perché x̄3 + x3 = 1. La risposta \"x1x2\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"x̄1x̄2\". La risposta \"x1+x2\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"x̄1x̄2\"."
   },
   {
     "id_question": "76",
@@ -2733,7 +2733,7 @@
     "id_correct": "a",
     "formal_explanation": "Le funzioni parziali possono essere non definite per alcuni input e modellano quindi anche computazioni che non terminano.",
     "informal_explanation": "Se un programma gira per sempre non restituisce un risultato, e una funzione parziale permette di rappresentare anche questo caso.",
-    "question_response_explanation": "La risposta corretta è a. Le funzioni parziali non servono principalmente a ridurre memoria o aumentare velocità."
+    "question_response_explanation": "La risposta corretta è \"Perché permettono di rappresentare anche le computazioni che non termineranno mai, necessarie per simulare qualsiasi mdT\". Le funzioni parziali possono essere non definite per alcuni input e modellano quindi anche computazioni che non terminano. La risposta \"Perché riducono lo spazio di memoria necessario\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché permettono di rappresentare anche le computazioni che non termineranno mai, necessarie per simulare qualsiasi mdT\". La risposta \"Perché velocizzano il calcolo\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché permettono di rappresentare anche le computazioni che non termineranno mai, necessarie per simulare qualsiasi mdT\". La risposta \"Perché rappresentano solo le computazioni che terminano con successo\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"Perché permettono di rappresentare anche le computazioni che non termineranno mai, necessarie per simulare qualsiasi mdT\"."
   },
   {
     "id_question": "77",
@@ -2769,7 +2769,7 @@
     "id_correct": "a",
     "formal_explanation": "Dopo la decodifica dell'istruzione macchina, il generatore di indirizzi seleziona l'inizio della microroutine associata all'opcode e lo carica nel μPC.",
     "informal_explanation": "Ogni istruzione macchina fa partire la propria sequenza di microistruzioni.",
-    "question_response_explanation": "La risposta corretta è a. Il caricamento non avviene soltanto durante interrupt o boot."
+    "question_response_explanation": "La risposta corretta è \"All'inizio di ogni istruzione macchina, corrispondente all'istruzione letta su IR\". Dopo la decodifica dell'istruzione macchina, il generatore di indirizzi seleziona l'inizio della microroutine associata all'opcode e lo carica nel μPC. La risposta \"Solo in caso di interrupt\" non soddisfa la condizione richiesta, mentre \"All'inizio di ogni istruzione macchina, corrispondente all'istruzione letta su IR\" identifica la proprietà necessaria. La risposta \"Ad ogni ciclo di clock indipendentemente dall'istruzione\" non soddisfa la condizione richiesta, mentre \"All'inizio di ogni istruzione macchina, corrispondente all'istruzione letta su IR\" identifica la proprietà necessaria. La risposta \"Solo all'avvio del sistema (boot)\" non soddisfa la condizione richiesta, mentre \"All'inizio di ogni istruzione macchina, corrispondente all'istruzione letta su IR\" identifica la proprietà necessaria."
   },
   {
     "id_question": "78",
@@ -2805,6 +2805,6 @@
     "id_correct": "b",
     "formal_explanation": "L'ampiezza dell'Address Bus determina il numero di indirizzi rappresentabili; quella del Data Bus determina quanti bit possono essere trasferiti simultaneamente.",
     "informal_explanation": "Più bit nell'ABus significano più memoria indirizzabile; più bit nel DBus significano più dati trasferiti insieme.",
-    "question_response_explanation": "La risposta corretta è b. Address Bus e Data Bus svolgono funzioni differenti: il primo determina lo spazio di indirizzamento, il secondo il parallelismo del trasferimento."
+    "question_response_explanation": "La risposta corretta è \"ABus → spazio di indirizzamento; DBus → grado di parallelismo\". L'ampiezza dell'Address Bus determina il numero di indirizzi rappresentabili; quella del Data Bus determina quanti bit possono essere trasferiti simultaneamente. La risposta \"ABus → velocità di clock; DBus → consumo energetico\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"ABus → spazio di indirizzamento; DBus → grado di parallelismo\". La risposta \"ABus → numero di periferiche; DBus → numero di core\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"ABus → spazio di indirizzamento; DBus → grado di parallelismo\". La risposta \"Sono equivalenti e determinano la stessa cosa\" descrive un concetto o un comportamento diverso da quello richiesto dalla domanda; in particolare non realizza la proprietà espressa da \"ABus → spazio di indirizzamento; DBus → grado di parallelismo\"."
   }
 ]
