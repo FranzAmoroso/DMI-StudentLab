@@ -10,6 +10,7 @@ from email.message import (
 
 import hashlib
 import hmac
+import logging
 import secrets
 import smtplib
 import ssl
@@ -37,6 +38,8 @@ from models.user import (
     User,
 )
 
+
+logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(
     schemes=[
@@ -341,6 +344,16 @@ def send_email_verification_code(
             "Email sender not configured.",
         )
 
+    if _smtp_use_ssl() and _smtp_use_tls():
+        raise RuntimeError(
+            "SMTP SSL e STARTTLS non possono essere abilitati contemporaneamente.",
+        )
+
+    if smtp_username and not smtp_password:
+        raise RuntimeError(
+            "SMTP password not configured.",
+        )
+
     message = EmailMessage()
 
     message[
@@ -518,7 +531,16 @@ def begin_email_verification(
             code=code,
         )
 
-    except Exception:
+    except Exception as exception:
+        logger.exception(
+            "Invio email di verifica fallito: smtp_host=%s smtp_port=%s ssl=%s tls=%s error_type=%s",
+            settings.smtp_host,
+            _smtp_port(),
+            _smtp_use_ssl(),
+            _smtp_use_tls(),
+            type(exception).__name__,
+        )
+
         user.email_verification_code_hash = (
             None
         )
@@ -528,16 +550,26 @@ def begin_email_verification(
         )
 
         user.email_verification_attempts = 0
+        user.email_verification_last_sent_at = (
+            None
+        )
+        user.email_verification_resend_count = 0
 
         try:
             db.commit()
+            db.refresh(
+                user,
+            )
 
         except Exception:
             db.rollback()
+            logger.exception(
+                "Ripristino stato verifica email fallito dopo errore SMTP.",
+            )
 
         raise RuntimeError(
             "Non è stato possibile inviare il codice di verifica.",
-        )
+        ) from exception
 
     return (
         EMAIL_VERIFICATION_EXPIRE_MINUTES
@@ -874,7 +906,16 @@ def resend_email_verification(
             code=code,
         )
 
-    except Exception:
+    except Exception as exception:
+        logger.exception(
+            "Reinvio email di verifica fallito: smtp_host=%s smtp_port=%s ssl=%s tls=%s error_type=%s",
+            settings.smtp_host,
+            _smtp_port(),
+            _smtp_use_ssl(),
+            _smtp_use_tls(),
+            type(exception).__name__,
+        )
+
         user.email_verification_code_hash = (
             previous_code_hash
         )
@@ -904,10 +945,13 @@ def resend_email_verification(
 
         except Exception:
             db.rollback()
+            logger.exception(
+                "Ripristino stato reinvio verifica email fallito dopo errore SMTP.",
+            )
 
         raise RuntimeError(
             "Non è stato possibile inviare il codice di verifica.",
-        )
+        ) from exception
 
     return (
         user,
