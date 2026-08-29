@@ -18,9 +18,12 @@ import 'admin_academic_paths_page.dart';
 
 import 'admin_grades_page.dart';
 
+import 'admin_news_reports_page.dart';
+
 import 'admin_public_news_reports_page.dart';
 
 import 'admin_profile_error_reports_page.dart';
+import 'admin_community_reports_page.dart';
 
 import 'admin_reviews_page.dart';
 
@@ -592,17 +595,29 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
         ),
 
         _AdminModuleCard(
+          icon: Icons.forum_outlined,
+
+          title: 'Segnalazioni bacheche',
+
+          description:
+              'Gestisci avvisi, news di gruppo e messaggi privati segnalati, con apertura del contenuto consentita dal segnalante.',
+
+          onTap: () {
+            _openProtectedPage(const AdminNewsReportsPage());
+          },
+        ),
+
+        _AdminModuleCard(
           icon: Icons.groups_2_outlined,
 
           title: 'Segnalazioni gruppi',
 
           description:
-              'Gestisci segnalazioni relative a gruppi, news e contenuti social.',
+              'Gestisci gruppi segnalati, motivazioni e stato della moderazione.',
 
-          onTap: () =>
-              _showPending('La gestione globale delle segnalazioni gruppi'),
-
-          pending: true,
+          onTap: () {
+            _openProtectedPage(const AdminGroupReportsPage());
+          },
         ),
 
         _AdminModuleCard(
@@ -611,13 +626,11 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           title: 'Segnalazioni utenti',
 
           description:
-              'Gestisci profili segnalati, comportamenti scorretti e provvedimenti sugli account.',
+              'Gestisci profili segnalati, motivazioni e stato della moderazione.',
 
-          onTap: () => _showPending(
-            'La gestione centralizzata delle segnalazioni utenti',
-          ),
-
-          pending: true,
+          onTap: () {
+            _openProtectedPage(const AdminUserReportsPage());
+          },
         ),
 
         _AdminModuleCard(
@@ -626,12 +639,11 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           title: 'Segnalazioni contenuti',
 
           description:
-              'Raccogli in una vista unica segnalazioni di materiali, recensioni, news e altri contenuti.',
+              'Gestisci contenuti dei gruppi segnalati e applica azioni di moderazione.',
 
-          onTap: () =>
-              _showPending('La coda unificata delle segnalazioni contenuti'),
-
-          pending: true,
+          onTap: () {
+            _openProtectedPage(const AdminGroupContentReportsPage());
+          },
         ),
       ],
     );

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import '../../services/api_service.dart';
@@ -38,24 +37,20 @@ class PendingUploadService {
     String? mimeType,
     int? size,
   }) async {
-    final File sourceFile =
-        File(
-      sourcePath,
-    );
+    final bool sourceExists =
+        await _fileService.exists(sourcePath);
 
-    if (!await sourceFile.exists()) {
-      throw const FileSystemException(
-        'Il file selezionato non esiste.',
-      );
+    if (!sourceExists) {
+      throw StateError('Il file selezionato non esiste.');
     }
 
-    final int sourceSize =
-        await sourceFile.length();
+    final int? sourceSizeValue =
+        await _fileService.getFileSize(sourcePath);
+
+    final int sourceSize = sourceSizeValue ?? 0;
 
     if (sourceSize <= 0) {
-      throw const FileSystemException(
-        'Il file selezionato è vuoto.',
-      );
+      throw StateError('Il file selezionato è vuoto.');
     }
 
     final String normalizedName =
@@ -92,9 +87,7 @@ class PendingUploadService {
         localPath,
       );
 
-      throw const FileSystemException(
-        'Non è stato possibile preparare il file per il caricamento.',
-      );
+      throw StateError('Non è stato possibile preparare il file per il caricamento.');
     }
 
     if (
@@ -106,9 +99,7 @@ class PendingUploadService {
         localPath,
       );
 
-      throw const FileSystemException(
-        'La dimensione del file preparato non corrisponde al file selezionato.',
-      );
+      throw StateError('La dimensione del file preparato non corrisponde al file selezionato.');
     }
 
     final PendingUploadLocal upload =
@@ -199,9 +190,7 @@ class PendingUploadService {
         localPath,
       );
 
-      throw const FileSystemException(
-        'Non è stato possibile salvare correttamente il file da caricare.',
-      );
+      throw StateError('Non è stato possibile salvare correttamente il file da caricare.');
     }
 
     final PendingUploadLocal upload =
@@ -365,16 +354,19 @@ class PendingUploadService {
     );
 
     try {
+      final Uint8List? bytes =
+          await _fileService.readBytes(uploading.localPath);
+
+      if (bytes == null || bytes.isEmpty) {
+        throw StateError('Il file locale non è disponibile.');
+      }
+
       final Map<String, dynamic> result =
-          await _apiService.addGroupMaterial(
-        groupId:
-            uploading.groupId,
-        filePath:
-            uploading.localPath,
-        originalName:
-            uploading.originalName,
-        mimeType:
-            uploading.mimeType,
+          await _apiService.addGroupMaterialBytes(
+        groupId: uploading.groupId,
+        bytes: bytes,
+        originalName: uploading.originalName,
+        mimeType: uploading.mimeType,
       );
 
       final int serverMaterialId =
@@ -647,22 +639,14 @@ class PendingUploadService {
     );
   }
 
-  Future<File?> getFile(
+  Future<String?> getFile(
     PendingUploadLocal upload,
   ) async {
-    final bool exists =
-        await _fileService.exists(
-      upload.localPath,
-    );
-
-    if (!exists) {
-      return null;
-    }
-
-    return File(
-      upload.localPath,
-    );
+    return await _fileService.exists(upload.localPath)
+        ? upload.localPath
+        : null;
   }
+
 
   String _normalizeOriginalName(
     String originalName, {
@@ -705,10 +689,6 @@ class PendingUploadService {
   String _friendlyUploadError(
     Object error,
   ) {
-    if (error is FileSystemException) {
-      return 'Il file locale non è disponibile.';
-    }
-
     final String value =
         error.toString().toLowerCase();
 

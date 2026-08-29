@@ -1,7 +1,6 @@
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../services/api_service.dart';
 import '../database/app_database.dart';
@@ -468,7 +467,7 @@ class MaterialDownloadService {
     return material;
   }
 
-  Future<File?> getMaterialFile({
+  Future<String?> getMaterialFile({
     int? userId,
     required MaterialSourceLocal source,
     required int materialId,
@@ -487,12 +486,43 @@ class MaterialDownloadService {
 
     final MaterialFileLocal? file = await _getMaterialFile(material.fileId);
 
-    if (file == null) {
+    if (file == null || !await _fileService.exists(file.localPath)) {
       return null;
     }
 
-    return File(file.localPath);
+    return file.localPath;
   }
+
+  Future<void> openMaterial({
+    int? userId,
+    required MaterialSourceLocal source,
+    required int materialId,
+    String? expectedHash,
+  }) async {
+    final MaterialLocal? material = await getLocalMaterialV6(
+      userId: userId,
+      source: source,
+      materialId: materialId,
+      expectedHash: expectedHash,
+    );
+
+    if (material == null || material.fileId == null) {
+      throw StateError('Il materiale non è disponibile offline.');
+    }
+
+    final MaterialFileLocal? file = await _getMaterialFile(material.fileId);
+
+    if (file == null || !await _fileService.exists(file.localPath)) {
+      throw StateError('Il file locale non è disponibile.');
+    }
+
+    await _fileService.openStoredFile(
+      file.localPath,
+      fileName: material.originalName,
+      mimeType: file.mimeType,
+    );
+  }
+
 
   Future<void> removeMaterialDownload({
     int? userId,
@@ -563,7 +593,7 @@ class MaterialDownloadService {
     return entries;
   }
 
-  Future<File?> getFileForMaterial(MaterialLocal material) async {
+  Future<String?> getFileForMaterial(MaterialLocal material) async {
     if (material.fileId == null) {
       return null;
     }
@@ -581,20 +611,31 @@ class MaterialDownloadService {
 
     if (!exists) {
       await _markFileMissing(file);
-
       if (material.id != null) {
         await _materialRepository.detachFile(material.id!);
       }
-
       if (file.id != null) {
         await _deleteMaterialFileIfUnused(file.id!);
       }
-
       return null;
     }
 
-    return File(file.localPath);
+    return file.localPath;
   }
+
+  Future<void> openLocalMaterial(MaterialLocal material) async {
+    final String? path = await getFileForMaterial(material);
+    if (path == null) {
+      throw StateError('Il file locale non è disponibile.');
+    }
+    final MaterialFileLocal? file = await _getMaterialFile(material.fileId);
+    await _fileService.openStoredFile(
+      path,
+      fileName: material.originalName,
+      mimeType: file?.mimeType,
+    );
+  }
+
 
   Future<void> removeMaterialDownloadV6(MaterialLocal material) async {
     if (material.id == null || material.fileId == null) {

@@ -1,8 +1,6 @@
-import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
 import '../database/app_database.dart';
 import '../database/database_tables.dart';
@@ -37,22 +35,22 @@ class LocalMaterialImportService {
   }) async {
     final int resolvedUserId = LocalStorageIdentity.resolve(userId: userId);
 
-    final File sourceFile = File(sourcePath);
+    final Uint8List? sourceBytes = await _fileService.readBytes(sourcePath);
 
-    if (!await sourceFile.exists()) {
-      throw const FileSystemException('File non disponibile.');
+    if (sourceBytes == null) {
+      throw StateError('File non disponibile.');
     }
 
-    final int size = await sourceFile.length();
+    final int size = sourceBytes.length;
 
     if (size <= 0) {
-      throw const FileSystemException('File vuoto.');
+      throw StateError('File vuoto.');
     }
 
     final String resolvedName =
         originalName != null && originalName.trim().isNotEmpty
         ? originalName.trim()
-        : p.basename(sourcePath);
+        : _fileService.getFileName(sourcePath);
 
     final List<MaterialLocal> existing = await _materialRepository.getByUser(
       resolvedUserId,
@@ -202,37 +200,53 @@ class LocalMaterialImportService {
     required String sourcePath,
     required String fileName,
   }) async {
-    final File sourceFile = File(sourcePath);
+    final Uint8List? bytes = await _fileService.readBytes(sourcePath);
 
-    if (!await sourceFile.exists()) {
-      throw const FileSystemException('File non disponibile.');
+    if (bytes == null || bytes.isEmpty) {
+      throw StateError('File non disponibile.');
     }
 
-    final Directory root = await getApplicationDocumentsDirectory();
+    return _fileService.saveImportedMaterialBytes(
+      userId: userId,
+      fileName: fileName,
+      bytes: bytes,
+    );
+  }
 
-    final Directory directory = Directory(
-      p.join(
-        root.path,
-        'studentlab',
-        'users',
-        userId.toString(),
-        'library',
-        'imported',
-      ),
+  Future<MaterialLocal> importMaterialBytes({
+    int? userId,
+    required Uint8List bytes,
+    required String fileName,
+    String? university,
+    String? department,
+    String? course,
+    String? subjectName,
+    int? subjectId,
+  }) async {
+    if (bytes.isEmpty) {
+      throw ArgumentError('File vuoto.');
+    }
+
+    final String transientPath = await _fileService.saveTransientFile(
+      fileName: fileName,
+      bytes: bytes,
+      mimeType: _mimeType(fileName),
     );
 
-    if (!await directory.exists()) {
-      await directory.create(recursive: true);
+    try {
+      return await importMaterial(
+        userId: userId,
+        sourcePath: transientPath,
+        university: university,
+        department: department,
+        course: course,
+        subjectName: subjectName,
+        originalName: fileName,
+        subjectId: subjectId,
+      );
+    } finally {
+      await _fileService.delete(transientPath);
     }
-
-    final String safeName = _sanitizeFileName(fileName);
-    final String uniqueName =
-        '${DateTime.now().microsecondsSinceEpoch}_$safeName';
-    final String destinationPath = p.join(directory.path, uniqueName);
-
-    final File copied = await sourceFile.copy(destinationPath);
-
-    return copied.path;
   }
 
   Future<MaterialFileLocal?> _getMaterialFileByHash(String fileHash) async {

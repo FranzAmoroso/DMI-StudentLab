@@ -173,6 +173,7 @@ class NewsPrivateMessage {
   final String ciphertext;
   final Map<String, dynamic> metadata;
   final DateTime createdAt;
+  final String delivery;
   final bool canDelete;
   final String writeToken;
 
@@ -187,9 +188,12 @@ class NewsPrivateMessage {
     required this.ciphertext,
     required this.metadata,
     required this.createdAt,
+    this.delivery = 'delivered',
     required this.canDelete,
     required this.writeToken,
   });
+
+  bool get isPendingDelivery => delivery == 'pending';
 
   int counterpartId(int viewerId) =>
       senderId == viewerId ? recipientId : senderId;
@@ -217,6 +221,9 @@ class NewsPrivateMessage {
           ? Map<String, dynamic>.from(rawMetadata)
           : <String, dynamic>{},
       createdAt: _parseDate(json['created_at']),
+      delivery: json['delivery']?.toString().trim().isNotEmpty == true
+          ? json['delivery'].toString().trim()
+          : 'delivered',
       canDelete: json['can_delete'] == true,
       writeToken: json['write_token']?.toString().trim() ?? '',
     );

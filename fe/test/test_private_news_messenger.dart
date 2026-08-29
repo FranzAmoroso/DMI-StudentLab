@@ -315,21 +315,39 @@ void main() {
     );
   });
 
-  test('se il destinatario non ha dispositivi l’invio è rifiutato', () async {
-    await expectLater(
-      messengerWith(
+  test(
+    'il messaggio è in attesa',
+    () async {
+      await messengerWith(
         deviceKeys(
           recipientHasDevices: false,
         ),
       ).send(
         recipientId: 3,
         text: 'Messaggio',
-      ),
-      throwsA(isA<StateError>()),
-    );
+      );
 
-    expect(newsApi.stored, isEmpty);
-  });
+      expect(newsApi.stored, hasLength(1));
+
+      final Map<String, dynamic> wrapped = Map<String, dynamic>.from(
+        newsApi.lastMetadata!['wrapped_keys'] as Map,
+      );
+
+      expect(
+        wrapped.keys.any((String key) => key.startsWith('3:')),
+        isFalse,
+      );
+
+      expect(
+        wrapped.keys.any(
+          (String key) => key.startsWith(
+            PrivateNewsCryptoService.compliancePrefix,
+          ),
+        ),
+        isTrue,
+      );
+    },
+  );
 
   test('conversation decifra i propri messaggi', () async {
     final PrivateNewsMessenger messenger = messengerWith(deviceKeys());

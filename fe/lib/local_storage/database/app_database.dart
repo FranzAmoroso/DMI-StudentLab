@@ -1,5 +1,6 @@
-import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
+
+import '../backend/local_database_backend.dart';
 
 import 'database_migrations.dart';
 import 'database_tables.dart';
@@ -17,7 +18,10 @@ class AppDatabase {
 
 
   static const int _databaseVersion =
-      6;
+      8;
+
+  final LocalDatabaseBackend _backend =
+      createLocalDatabaseBackend();
 
 
   Future<Database> get database async {
@@ -33,29 +37,14 @@ class AppDatabase {
 
 
   Future<Database> _initDatabase() async {
-    final String databasePath =
-        await getDatabasesPath();
+    await _backend.initialize();
 
-    final String path =
-        join(
-      databasePath,
-      'studentlab.db',
-    );
-
-    return openDatabase(
-      path,
-
-      version:
-          _databaseVersion,
-
-      onCreate:
-          _onCreate,
-
-      onUpgrade:
-          DatabaseMigrations.onUpgrade,
-
-      onConfigure:
-          _onConfigure,
+    return _backend.open(
+      name: 'studentlab.db',
+      version: _databaseVersion,
+      onCreate: _onCreate,
+      onUpgrade: DatabaseMigrations.onUpgrade,
+      onConfigure: _onConfigure,
     );
   }
 
@@ -269,6 +258,28 @@ class AppDatabase {
 
     await db.execute(
       '''
+      CREATE TABLE ${DatabaseTables.localFileBlobs} (
+        path TEXT PRIMARY KEY,
+        file_name TEXT NOT NULL,
+        mime_type TEXT,
+        data BLOB NOT NULL,
+        size INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      ''',
+    );
+
+    await db.execute(
+      '''
+      CREATE INDEX
+      idx_local_file_blobs_updated
+      ON ${DatabaseTables.localFileBlobs}(updated_at)
+      ''',
+    );
+
+    await db.execute(
+      '''
       CREATE UNIQUE INDEX
       idx_material_files_hash
       ON ${DatabaseTables.materialFiles}(
@@ -403,6 +414,10 @@ class AppDatabase {
         group_id
       )
       ''',
+    );
+
+    await DatabaseMigrations.createQuizSchema(
+      db,
     );
   }
 

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../local_storage/local_storage.dart';
@@ -145,70 +143,40 @@ class _OnlineSubjectMaterialPageState
     StudyMaterial material,
   ) async {
     final int? materialId = int.tryParse(material.id);
-
     if (materialId == null) {
-      _showMessage(
-        'ID materiale non valido.',
-      );
+      _showMessage('ID materiale non valido.');
       return;
     }
 
     try {
-      File? localFile =
-          await _downloadService.getMaterialFile(
+      MaterialLocal? local = await _downloadService.getLocalMaterialV6(
         source: MaterialSourceLocal.group,
         materialId: materialId,
       );
 
-      if (localFile == null) {
-        final MaterialLocal localMaterial =
-            await _downloadService.getOrDownloadMaterial(
-          source: MaterialSourceLocal.group,
-          materialId: materialId,
-          groupId: widget.groupId,
-          subjectId: widget.subjectId,
-          subjectName: widget.subjectName,
-          course: widget.course,
-          department: widget.department,
-          originalName: material.name,
-          mimeType: _mimeTypeFromMaterial(material),
-        );
+      local ??= await _downloadService.getOrDownloadMaterial(
+        source: MaterialSourceLocal.group,
+        materialId: materialId,
+        groupId: widget.groupId,
+        subjectId: widget.subjectId,
+        subjectName: widget.subjectName,
+        course: widget.course,
+        department: widget.department,
+        originalName: material.name,
+        mimeType: _mimeTypeFromMaterial(material),
+      );
 
-        localFile =
-            await _downloadService.getMaterialFile(
-          source: localMaterial.source,
-          materialId: localMaterial.remoteId ?? materialId,
-        );
-      }
-
-      if (!mounted) {
-        return;
-      }
-
-      if (localFile == null) {
-        _showMessage(
-          'Il file locale non è disponibile.',
-        );
-        return;
-      }
-
+      await _downloadService.openLocalMaterial(local);
+      if (!mounted) return;
       setState(() {
         _downloadedIds.add(materialId);
       });
-
-      _showMessage(
-        'File locale: ${localFile.path}',
-      );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        _cleanError(error),
-      );
+      if (!mounted) return;
+      _showMessage(_cleanError(error));
     }
   }
+
 
   @override
   Widget build(

@@ -6,6 +6,8 @@ import 'api_service.dart';
 
 import 'auth_session.dart';
 
+import 'device_key_service.dart';
+
 import 'pending_registration_store.dart';
 
 class AuthRegistrationResult {
@@ -104,6 +106,10 @@ class AuthService {
 
       _pendingStore;
 
+  final DeviceKeyService
+
+      _deviceKeys;
+
   AuthService({
 
     ApiService? apiService,
@@ -113,6 +119,8 @@ class AuthService {
     LocalStorageService? localStorage,
 
     PendingRegistrationStore? pendingStore,
+
+    DeviceKeyService? deviceKeys,
 
   })  : _apiService =
 
@@ -136,7 +144,29 @@ class AuthService {
 
             pendingStore ??
 
-                PendingRegistrationStore();
+                PendingRegistrationStore(),
+
+        _deviceKeys =
+
+            deviceKeys ??
+
+                DeviceKeyService();
+
+  Future<void> _publishDeviceKey() async {
+
+    try {
+
+      await _deviceKeys
+
+          .publishDeviceKey();
+
+    } catch (_) {
+
+      return;
+
+    }
+
+  }
 
   Future<AuthRegistrationResult>
 
@@ -261,6 +291,8 @@ class AuthService {
       user.id,
 
     );
+
+    _publishDeviceKey();
 
     if (draft != null) {
 
@@ -570,6 +602,8 @@ class AuthService {
 
     );
 
+    _publishDeviceKey();
+
     return user;
 
   }
@@ -631,6 +665,8 @@ class AuthService {
         user.id,
 
       );
+
+      _publishDeviceKey();
 
       return user;
 

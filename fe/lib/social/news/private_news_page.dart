@@ -1,45 +1,63 @@
 import 'package:flutter/material.dart';
 
+import '../../services/api_service.dart';
 import '../../services/auth_session.dart';
-import '../../services/news_report_api_service.dart';
-import '../../services/private_news_crypto.dart';
 import '../../services/private_news_messenger.dart';
 import '../../theme/nightTheme.dart';
-import 'models/news_report.dart';
+import '../social_models.dart';
+import 'private_conversation_page.dart';
+import 'widgets/private_news_widgets.dart';
+
+typedef PrivateNewsRecipientsLoader = Future<List<SocialUser>> Function();
+
+class PrivateNewsConversation {
+  const PrivateNewsConversation({
+    required this.otherUserId,
+    required this.otherUserName,
+    required this.lastMessage,
+    required this.messageCount,
+  });
+
+  final int otherUserId;
+
+  final String otherUserName;
+
+  final PrivateConversationMessage lastMessage;
+
+  final int messageCount;
+}
 
 class PrivateNewsPage extends StatefulWidget {
   const PrivateNewsPage({
     super.key,
     this.messenger,
-    this.reportApi,
+    this.recipientsLoader,
   });
 
   final PrivateNewsMessenger? messenger;
 
-  final NewsReportApiService? reportApi;
+  final PrivateNewsRecipientsLoader? recipientsLoader;
 
   @override
   State<PrivateNewsPage> createState() => _PrivateNewsPageState();
 }
 
 class _PrivateNewsPageState extends State<PrivateNewsPage> {
+  static const int _limit = 50;
+
   late final PrivateNewsMessenger _messenger =
       widget.messenger ?? PrivateNewsMessenger();
 
-  late final NewsReportApiService _reportApi =
-      widget.reportApi ?? NewsReportApiService();
+  late final PrivateNewsRecipientsLoader _recipientsLoader =
+      widget.recipientsLoader ?? ApiService().getSocialUsers;
 
-  List<PrivateConversationMessage> _messages = <PrivateConversationMessage>[];
+  List<PrivateNewsConversation> _conversations = <PrivateNewsConversation>[];
 
   bool _loading = true;
 
-  bool _loadingMore = false;
+  bool _reachable = true;
 
   String? _error;
-
-  int _offset = 0;
-
-  static const int _limit = 30;
 
   int? get _currentUserId => AuthSession.instance.currentUserId;
 
@@ -58,8 +76,19 @@ class _PrivateNewsPageState extends State<PrivateNewsPage> {
     setState(() {
       _loading = true;
       _error = null;
-      _offset = 0;
     });
+
+    bool reachable = true;
+
+    try {
+      await _messenger.ensureReachable();
+    } catch (_) {
+      reachable = false;
+    }
+
+    await _messenger.flushPendingDeliveries().catchError(
+      (Object _) => 0,
+    );
 
     try {
       final List<PrivateConversationMessage> messages =
@@ -73,8 +102,8 @@ class _PrivateNewsPageState extends State<PrivateNewsPage> {
       }
 
       setState(() {
-        _messages = messages;
-        _offset = messages.length;
+        _conversations = _groupByCounterpart(messages);
+        _reachable = reachable;
         _loading = false;
       });
     } catch (error) {
@@ -83,313 +112,96 @@ class _PrivateNewsPageState extends State<PrivateNewsPage> {
       }
 
       setState(() {
-        _error = _friendlyMessage(error);
+        _reachable = reachable;
+        _error = privateNewsErrorMessage(error);
         _loading = false;
       });
     }
   }
 
-  Future<void> _loadMore() async {
-    if (_loadingMore || _loading || _messages.length < _offset) {
-      return;
+  List<PrivateNewsConversation> _groupByCounterpart(
+    List<PrivateConversationMessage> messages,
+  ) {
+    final int viewerId = _currentUserId ?? 0;
+
+    if (viewerId == 0) {
+      return <PrivateNewsConversation>[];
     }
 
-    setState(() {
-      _loadingMore = true;
-    });
+    final Map<int, List<PrivateConversationMessage>> grouped =
+        <int, List<PrivateConversationMessage>>{};
 
-    try {
-      final List<PrivateConversationMessage> more = await _messenger.inbox(
-        limit: _limit,
-        offset: _offset,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _messages = <PrivateConversationMessage>[..._messages, ...more];
-        _offset += more.length;
-        _loadingMore = false;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _loadingMore = false;
-      });
-
-      _showMessage(_friendlyMessage(error));
-    }
-  }
-
-  Future<void> _reply(PrivateConversationMessage message) async {
-    final int? viewerId = _currentUserId;
-
-    if (viewerId == null) {
-      return;
+    for (final PrivateConversationMessage message in messages) {
+      grouped
+          .putIfAbsent(
+            message.counterpartId(viewerId),
+            () => <PrivateConversationMessage>[],
+          )
+          .add(message);
     }
 
-    final String? text = await _askText(
-      title: 'Rispondi a ${message.counterpartName(viewerId)}',
-      hint: 'Scrivi il messaggio cifrato',
+    final List<PrivateNewsConversation> conversations = grouped.entries
+        .map(
+          (MapEntry<int, List<PrivateConversationMessage>> entry) =>
+              PrivateNewsConversation(
+            otherUserId: entry.key,
+            otherUserName: entry.value.first.counterpartName(viewerId),
+            lastMessage: entry.value.first,
+            messageCount: entry.value.length,
+          ),
+        )
+        .toList();
+
+    conversations.sort(
+      (PrivateNewsConversation a, PrivateNewsConversation b) =>
+          b.lastMessage.createdAt.compareTo(a.lastMessage.createdAt),
     );
 
-    if (text == null || text.trim().isEmpty) {
-      return;
-    }
-
-    try {
-      await _messenger.send(
-        recipientId: message.counterpartId(viewerId),
-        text: text,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage('Messaggio cifrato e inviato.');
-
-      await _load();
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(_friendlyMessage(error));
-    }
+    return conversations;
   }
 
-  Future<void> _delete(PrivateConversationMessage message) async {
-    final int? viewerId = _currentUserId;
-
-    if (viewerId == null) {
-      return;
-    }
-
-    final bool confirmed = await _confirm(
-      title: 'Eliminare il messaggio?',
-      message:
-          'Il messaggio verrà rimosso dal server. Le copie già scaricate su '
-          'altri dispositivi non sono recuperabili da qui.',
-      confirmLabel: 'Elimina',
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await _messenger.delete(
-        otherUserId: message.counterpartId(viewerId),
-        message: message,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _messages = _messages
-            .where(
-              (PrivateConversationMessage item) => item.id != message.id,
-            )
-            .toList();
-      });
-
-      _showMessage('Messaggio eliminato.');
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(_friendlyMessage(error));
-    }
-  }
-
-  Future<void> _report(PrivateConversationMessage message) async {
-    final int? viewerId = _currentUserId;
-
-    if (viewerId == null) {
-      return;
-    }
-
-    if (!message.isReadable) {
-      _showMessage(
-        'Puoi segnalare questo messaggio solo dal dispositivo su cui è '
-        'leggibile: serve la sua chiave per rendere la segnalazione '
-        'verificabile.',
-      );
-
-      return;
-    }
-
-    final _ReportRequest? request = await showDialog<_ReportRequest>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return const _ReportConsentDialog();
-      },
-    );
-
-    if (request == null) {
-      return;
-    }
-
-    try {
-      final String contentKey = await _messenger.discloseContentKey(message);
-
-      await _reportApi.reportPrivateMessage(
-        otherUserId: message.counterpartId(viewerId),
-        newsId: message.id,
-        reason: request.reason,
-        disclosedContentKey: contentKey,
-        description: request.description,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Segnalazione inviata. I moderatori possono leggere solo questo '
-        'messaggio.',
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(_friendlyMessage(error));
-    }
-  }
-
-  Future<String?> _askText({
-    required String title,
-    required String hint,
+  Future<void> _openConversation({
+    required int otherUserId,
+    required String otherUserName,
   }) async {
-    final TextEditingController controller = TextEditingController();
-
-    final String? result = await showDialog<String>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.eleganceDeepNavy,
-          title: Text(
-            title,
-            style: const TextStyle(color: AppColors.pureWhite),
-          ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            minLines: 3,
-            maxLines: 6,
-            style: const TextStyle(color: AppColors.pureWhite),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                color: AppColors.pureWhite.withValues(alpha: 0.42),
-              ),
-              filled: true,
-              fillColor: AppColors.brandNightBlue,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Annulla'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(
-                dialogContext,
-                controller.text,
-              ),
-              child: const Text(
-                'Invia',
-                style: TextStyle(color: AppColors.skyBlue),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-
-    return result;
-  }
-
-  Future<bool> _confirm({
-    required String title,
-    required String message,
-    required String confirmLabel,
-  }) async {
-    final bool? result = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.eleganceDeepNavy,
-          title: Text(
-            title,
-            style: const TextStyle(color: AppColors.pureWhite),
-          ),
-          content: Text(
-            message,
-            style: TextStyle(
-              color: AppColors.pureWhite.withValues(alpha: 0.62),
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Annulla'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text(
-                confirmLabel,
-                style: const TextStyle(color: Colors.redAccent),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    return result ?? false;
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.brandNightBlue,
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => PrivateConversationPage(
+          otherUserId: otherUserId,
+          otherUserName: otherUserName,
+          messenger: widget.messenger,
+        ),
       ),
     );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _load();
   }
 
-  String _friendlyMessage(Object error) {
-    if (error is PrivateNewsCryptoException) {
-      return error.message;
+  Future<void> _startConversation() async {
+    final SocialUser? recipient = await showModalBottomSheet<SocialUser>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.eleganceDeepNavy,
+      builder: (BuildContext sheetContext) {
+        return _RecipientPickerSheet(
+          loader: _recipientsLoader,
+          excludedUserId: _currentUserId ?? 0,
+        );
+      },
+    );
+
+    if (recipient == null || !mounted) {
+      return;
     }
 
-    if (error is StateError) {
-      return error.message;
-    }
-
-    if (error is ArgumentError) {
-      return error.message?.toString() ?? 'Richiesta non valida.';
-    }
-
-    return 'Operazione non riuscita. Riprova più tardi.';
+    await _openConversation(
+      otherUserId: recipient.id,
+      otherUserName: '${recipient.firstName} ${recipient.lastName}'.trim(),
+    );
   }
 
   @override
@@ -409,8 +221,61 @@ class _PrivateNewsPageState extends State<PrivateNewsPage> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _loading ? null : _startConversation,
+        backgroundColor: AppColors.socialBlue,
+        foregroundColor: AppColors.pureWhite,
+        icon: const Icon(Icons.edit_outlined),
+        label: const Text('Nuovo messaggio'),
+      ),
       body: SafeArea(
-        child: _buildBody(),
+        child: Column(
+          children: [
+            if (!_reachable && !_loading) _buildUnreachableBanner(),
+            Expanded(
+              child: _buildBody(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnreachableBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.orangeAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.orangeAccent.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.key_off_outlined,
+            color: Colors.orangeAccent,
+            size: 20,
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              'Non è stato possibile completare la configurazione dei '
+              'messaggi su questo dispositivo. Riprova.',
+              style: TextStyle(
+                color: AppColors.pureWhite.withValues(alpha: 0.78),
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _load,
+            child: const Text('Riprova'),
+          ),
+        ],
       ),
     );
   }
@@ -423,7 +288,7 @@ class _PrivateNewsPageState extends State<PrivateNewsPage> {
     }
 
     if (_error != null) {
-      return _StateView(
+      return PrivateNewsStateView(
         icon: Icons.error_outline_rounded,
         title: 'Impossibile caricare le comunicazioni',
         message: _error!,
@@ -432,19 +297,20 @@ class _PrivateNewsPageState extends State<PrivateNewsPage> {
       );
     }
 
-    if (_messages.isEmpty) {
+    if (_conversations.isEmpty) {
       return RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: const [
             SizedBox(height: 110),
-            _StateView(
+            PrivateNewsStateView(
               icon: Icons.lock_outline_rounded,
               title: 'Nessuna comunicazione privata',
               message:
-                  'I messaggi privati sono cifrati end-to-end: solo i tuoi '
-                  'dispositivi e quelli del destinatario possono leggerli.',
+                  'I messaggi sono cifrati end-to-end: solo tu e il '
+                  'destinatario potete leggerli. Usa “Nuovo messaggio” per '
+                  'iniziare una conversazione.',
             ),
           ],
         ),
@@ -455,498 +321,348 @@ class _PrivateNewsPageState extends State<PrivateNewsPage> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (ScrollNotification notification) {
-          if (notification.metrics.pixels >=
-              notification.metrics.maxScrollExtent - 220) {
-            _loadMore();
-          }
-
-          return false;
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _conversations.length,
+        separatorBuilder: (BuildContext context, int index) =>
+            const SizedBox(height: 12),
+        itemBuilder: (BuildContext context, int index) {
+          return _ConversationCard(
+            conversation: _conversations[index],
+            viewerId: viewerId,
+            onOpen: () => _openConversation(
+              otherUserId: _conversations[index].otherUserId,
+              otherUserName: _conversations[index].otherUserName,
+            ),
+          );
         },
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: _messages.length + 1,
-          separatorBuilder: (BuildContext context, int index) =>
-              const SizedBox(height: 12),
-          itemBuilder: (BuildContext context, int index) {
-            if (index == _messages.length) {
-              return _loadingMore
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 18),
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  : const SizedBox(height: 6);
-            }
-
-            final PrivateConversationMessage message = _messages[index];
-
-            return _PrivateMessageCard(
-              message: message,
-              viewerId: viewerId,
-              onReply: viewerId == 0 ? null : () => _reply(message),
-              onDelete: message.canDelete ? () => _delete(message) : null,
-              onReport: message.isMine(viewerId) || viewerId == 0
-                  ? null
-                  : () => _report(message),
-            );
-          },
-        ),
       ),
     );
   }
 }
 
-class _PrivateMessageCard extends StatelessWidget {
-  const _PrivateMessageCard({
-    required this.message,
+class _ConversationCard extends StatelessWidget {
+  const _ConversationCard({
+    required this.conversation,
     required this.viewerId,
-    required this.onReply,
-    required this.onDelete,
-    required this.onReport,
+    required this.onOpen,
   });
 
-  final PrivateConversationMessage message;
+  final PrivateNewsConversation conversation;
+
   final int viewerId;
-  final VoidCallback? onReply;
-  final VoidCallback? onDelete;
-  final VoidCallback? onReport;
+
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final bool mine = message.isMine(viewerId);
-    final String counterpart = message.counterpartName(viewerId);
+    final PrivateConversationMessage last = conversation.lastMessage;
 
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: mine
-            ? AppColors.socialBlue.withValues(alpha: 0.12)
-            : AppColors.eleganceMidnight,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: mine
-              ? AppColors.socialBlue.withValues(alpha: 0.30)
-              : AppColors.skyBlue.withValues(alpha: 0.12),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 19,
-                backgroundColor: AppColors.brandNightBlue,
-                child: Text(
-                  _initials(mine ? 'Tu' : counterpart),
-                  style: const TextStyle(
-                    color: AppColors.skyBlue,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      mine ? 'Tu → $counterpart' : counterpart,
-                      style: const TextStyle(
-                        color: AppColors.pureWhite,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _formatDate(message.createdAt),
-                      style: TextStyle(
-                        color: AppColors.pureWhite.withValues(alpha: 0.48),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const _EncryptedBadge(),
-            ],
+    final String preview = last.isReadable
+        ? last.text
+        : 'Messaggio non leggibile su questo dispositivo.';
+
+    return InkWell(
+      onTap: onOpen,
+      borderRadius: BorderRadius.circular(17),
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: AppColors.eleganceMidnight,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(
+            color: AppColors.skyBlue.withValues(alpha: 0.12),
           ),
-          const SizedBox(height: 13),
-          if (message.isReadable)
-            Text(
-              message.text,
-              style: TextStyle(
-                color: AppColors.pureWhite.withValues(alpha: 0.86),
-                fontSize: 13,
-                height: 1.45,
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 21,
+              backgroundColor: AppColors.brandNightBlue,
+              child: Text(
+                initialsFrom(conversation.otherUserName),
+                style: const TextStyle(
+                  color: AppColors.skyBlue,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
               ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.brandNightBlue,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.lock_person_outlined,
-                    size: 18,
-                    color: AppColors.pureWhite.withValues(alpha: 0.52),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Messaggio non leggibile su questo dispositivo: '
-                      'è stato cifrato per altri dispositivi.',
-                      style: TextStyle(
-                        color: AppColors.pureWhite.withValues(alpha: 0.58),
-                        fontSize: 12,
-                        height: 1.4,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          conversation.otherUserName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.pureWhite,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                      Text(
+                        formatPrivateNewsTimestamp(last.createdAt),
+                        style: TextStyle(
+                          color: AppColors.pureWhite.withValues(alpha: 0.44),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    last.isMine(viewerId) ? 'Tu: $preview' : preview,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.pureWhite.withValues(
+                        alpha: last.isReadable ? 0.70 : 0.42,
+                      ),
+                      fontSize: 12,
+                      height: 1.4,
                     ),
                   ),
                 ],
               ),
             ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (onReport != null)
-                TextButton.icon(
-                  onPressed: onReport,
-                  icon: const Icon(Icons.flag_outlined, size: 18),
-                  label: const Text('Segnala'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.pureWhite.withValues(
-                      alpha: 0.66,
-                    ),
-                  ),
-                ),
-              if (onReply != null)
-                TextButton.icon(
-                  onPressed: onReply,
-                  icon: const Icon(Icons.reply_rounded, size: 18),
-                  label: const Text('Rispondi'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.skyBlue,
-                  ),
-                ),
-              if (onDelete != null)
-                TextButton.icon(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  label: const Text('Elimina'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                  ),
-                ),
-            ],
-          ),
-        ],
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.skyBlue,
+            ),
+          ],
+        ),
       ),
     );
   }
-
-  static String _initials(String value) {
-    final List<String> parts = value
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((String part) => part.isNotEmpty)
-        .toList();
-
-    if (parts.isEmpty) {
-      return '?';
-    }
-
-    if (parts.length == 1) {
-      return parts.first.substring(0, 1).toUpperCase();
-    }
-
-    return (parts.first.substring(0, 1) + parts[1].substring(0, 1))
-        .toUpperCase();
-  }
-
-  static String _formatDate(DateTime value) {
-    final String day = value.day.toString().padLeft(2, '0');
-    final String month = value.month.toString().padLeft(2, '0');
-    final String hour = value.hour.toString().padLeft(2, '0');
-    final String minute = value.minute.toString().padLeft(2, '0');
-
-    return '$day/$month/${value.year} $hour:$minute';
-  }
 }
 
-class _ReportRequest {
-  const _ReportRequest({
-    required this.reason,
-    required this.description,
+class _RecipientPickerSheet extends StatefulWidget {
+  const _RecipientPickerSheet({
+    required this.loader,
+    required this.excludedUserId,
   });
 
-  final String reason;
-  final String description;
-}
+  final PrivateNewsRecipientsLoader loader;
 
-class _ReportConsentDialog extends StatefulWidget {
-  const _ReportConsentDialog();
+  final int excludedUserId;
 
   @override
-  State<_ReportConsentDialog> createState() => _ReportConsentDialogState();
+  State<_RecipientPickerSheet> createState() => _RecipientPickerSheetState();
 }
 
-class _ReportConsentDialogState extends State<_ReportConsentDialog> {
-  final TextEditingController _description = TextEditingController();
+class _RecipientPickerSheetState extends State<_RecipientPickerSheet> {
+  final TextEditingController _query = TextEditingController();
 
-  String _reason = 'harassment';
+  List<SocialUser> _users = <SocialUser>[];
 
-  bool _consent = false;
+  bool _loading = true;
+
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _load();
+  }
 
   @override
   void dispose() {
-    _description.dispose();
+    _query.dispose();
 
     super.dispose();
   }
 
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final List<SocialUser> users = await widget.loader();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _users = users
+            .where(
+              (SocialUser user) =>
+                  user.id != widget.excludedUserId && user.isActive,
+            )
+            .toList();
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = privateNewsErrorMessage(error);
+        _loading = false;
+      });
+    }
+  }
+
+  List<SocialUser> get _filtered {
+    final String needle = _query.text.trim().toLowerCase();
+
+    if (needle.isEmpty) {
+      return _users;
+    }
+
+    return _users.where((SocialUser user) {
+      final String haystack = <String>[
+        user.firstName,
+        user.lastName,
+        user.email,
+        user.course,
+        user.department,
+      ].join(' ').toLowerCase();
+
+      return haystack.contains(needle);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppColors.eleganceDeepNavy,
-      title: const Text(
-        'Segnala messaggio',
-        style: TextStyle(color: AppColors.pureWhite),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        18,
+        18,
+        18,
+        18 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      content: SingleChildScrollView(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.62,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.brandNightBlue,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Questo messaggio è cifrato: nessuno, nemmeno StudentLab, '
-                'può leggerlo. Segnalandolo, e solo se acconsenti qui '
-                'sotto, la chiave di questo singolo messaggio viene inviata '
-                'ai moderatori, che potranno leggerlo. Gli altri messaggi '
-                'della conversazione restano illeggibili.',
-                style: TextStyle(
-                  color: AppColors.pureWhite.withValues(alpha: 0.70),
-                  fontSize: 12,
-                  height: 1.45,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Motivo',
+            const Text(
+              'Nuovo messaggio privato',
               style: TextStyle(
-                color: AppColors.pureWhite.withValues(alpha: 0.62),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+                color: AppColors.pureWhite,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _reason,
-              dropdownColor: AppColors.brandNightBlue,
-              style: const TextStyle(color: AppColors.pureWhite),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.brandNightBlue,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              items: NewsReportReasons.labels.entries
-                  .map(
-                    (MapEntry<String, String> entry) =>
-                        DropdownMenuItem<String>(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (String? value) {
-                if (value == null) {
-                  return;
-                }
-
-                setState(() {
-                  _reason = value;
-                });
-              },
-            ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             TextField(
-              controller: _description,
-              minLines: 2,
-              maxLines: 5,
-              maxLength: NewsReportApiService.maxDescriptionLength,
+              controller: _query,
               style: const TextStyle(color: AppColors.pureWhite),
+              onChanged: (String _) => setState(() {}),
               decoration: InputDecoration(
-                hintText: 'Dettagli per i moderatori (facoltativo)',
+                hintText: 'Cerca per nome, corso o email',
                 hintStyle: TextStyle(
                   color: AppColors.pureWhite.withValues(alpha: 0.42),
                 ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.skyBlue,
+                ),
                 filled: true,
                 fillColor: AppColors.brandNightBlue,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
               ),
             ),
-            CheckboxListTile(
-              value: _consent,
-              onChanged: (bool? value) {
-                setState(() {
-                  _consent = value ?? false;
-                });
-              },
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              activeColor: AppColors.socialBlue,
-              title: Text(
-                'Acconsento a rendere leggibile ai moderatori il contenuto '
-                'di questo messaggio.',
-                style: TextStyle(
-                  color: AppColors.pureWhite.withValues(alpha: 0.78),
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _buildList(),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annulla'),
-        ),
-        TextButton(
-          onPressed: _consent
-              ? () => Navigator.pop(
-                    context,
-                    _ReportRequest(
-                      reason: _reason,
-                      description: _description.text,
-                    ),
-                  )
-              : null,
-          child: const Text(
-            'Invia segnalazione',
-            style: TextStyle(color: Colors.redAccent),
-          ),
-        ),
-      ],
     );
   }
-}
 
-class _EncryptedBadge extends StatelessWidget {
-  const _EncryptedBadge();
+  Widget _buildList() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.materialSky.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.lock_outline_rounded,
-            size: 12,
-            color: AppColors.materialSky,
-          ),
-          const SizedBox(width: 5),
-          const Text(
-            'E2E',
-            style: TextStyle(
-              color: AppColors.materialSky,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    if (_error != null) {
+      return PrivateNewsStateView(
+        icon: Icons.error_outline_rounded,
+        title: 'Impossibile caricare gli utenti',
+        message: _error!,
+        actionLabel: 'Riprova',
+        onAction: _load,
+      );
+    }
 
-class _StateView extends StatelessWidget {
-  const _StateView({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.actionLabel,
-    this.onAction,
-  });
+    final List<SocialUser> users = _filtered;
 
-  final IconData icon;
-  final String title;
-  final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
+    if (users.isEmpty) {
+      return const PrivateNewsStateView(
+        icon: Icons.person_search_outlined,
+        title: 'Nessun utente trovato',
+        message: 'Prova con un altro nome, corso o indirizzo email.',
+      );
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 46,
-              color: AppColors.skyBlue.withValues(alpha: 0.72),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
+    return ListView.separated(
+      itemCount: users.length,
+      separatorBuilder: (BuildContext context, int index) =>
+          const SizedBox(height: 8),
+      itemBuilder: (BuildContext context, int index) {
+        final SocialUser user = users[index];
+        final String name = '${user.firstName} ${user.lastName}'.trim();
+
+        return ListTile(
+          onTap: () => Navigator.pop(context, user),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          leading: CircleAvatar(
+            backgroundColor: AppColors.brandNightBlue,
+            child: Text(
+              initialsFrom(name),
               style: const TextStyle(
-                color: AppColors.pureWhite,
+                color: AppColors.skyBlue,
                 fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 9),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.pureWhite.withValues(alpha: 0.60),
                 fontSize: 13,
-                height: 1.45,
               ),
             ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+          title: Text(
+            name.isEmpty ? user.email : name,
+            style: const TextStyle(
+              color: AppColors.pureWhite,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            <String>[user.course, user.department]
+                .where((String value) => value.trim().isNotEmpty)
+                .join(' · '),
+            style: TextStyle(
+              color: AppColors.pureWhite.withValues(alpha: 0.52),
+              fontSize: 11,
+            ),
+          ),
+          trailing: const Icon(
+            Icons.chevron_right_rounded,
+            color: AppColors.skyBlue,
+          ),
+        );
+      },
     );
   }
 }

@@ -1,13 +1,12 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
 
 import 'package:fe/theme/nightTheme.dart';
 
 import 'package:fe/services/api_service.dart';
 import 'package:fe/services/auth_session.dart';
+import 'package:fe/services/picked_file_bridge.dart';
 
 import 'package:fe/social/social_models.dart';
 
@@ -1359,19 +1358,19 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       return;
     }
 
-    final File? file = await _downloadService.getFileForMaterial(material);
+    final String? filePath = await _downloadService.getFileForMaterial(material);
 
     if (!mounted) {
       return;
     }
 
-    if (file == null) {
+    if (filePath == null) {
       _showMessage('Il file non è più disponibile sul dispositivo.');
       return;
     }
 
     await _openPublicationPage(
-      initialFilePath: file.path,
+      initialFilePath: filePath,
       initialFileName: material.originalName,
       initialUniversity: material.university,
       initialDepartment: material.department,
@@ -1637,70 +1636,21 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
   Future<void> _openMaterial(MaterialLocal material) async {
     try {
-      final File? file = await _downloadService.getFileForMaterial(material);
-
-      if (!mounted) {
-        return;
-      }
-
-      if (file == null || !await file.exists()) {
-        await _loadMaterials();
-
-        if (!mounted) {
-          return;
-        }
-
-        if (material.source != MaterialSourceLocal.local &&
-            material.isAvailableRemote) {
-          _showMessage(
-            'Il materiale non è più offline. Puoi scaricarlo nuovamente.',
-          );
-        } else {
-          _showMessage('Il file non è più disponibile sul dispositivo.');
-        }
-        return;
-      }
-
-      final OpenResult result = await OpenFilex.open(file.path);
-
-      if (!mounted) {
-        return;
-      }
-
-      switch (result.type) {
-        case ResultType.done:
-          return;
-        case ResultType.noAppToOpen:
-          _showMessage(
-            'Nessuna applicazione installata può aprire questo tipo di file.',
-          );
-          return;
-        case ResultType.fileNotFound:
-          await _loadMaterials();
-
-          if (!mounted) {
-            return;
-          }
-
-          _showMessage('Il file non è stato trovato sul dispositivo.');
-          return;
-        case ResultType.permissionDenied:
-          _showMessage(
-            'StudentLab non ha i permessi necessari per aprire il file.',
-          );
-          return;
-        case ResultType.error:
-          _showMessage('Impossibile aprire il file.');
-          return;
-      }
+      await _downloadService.openLocalMaterial(material);
     } catch (error) {
-      if (!mounted) {
-        return;
+      await _loadMaterials();
+      if (!mounted) return;
+      if (material.source != MaterialSourceLocal.local &&
+          material.isAvailableRemote) {
+        _showMessage(
+          'Il materiale non è più offline. Puoi scaricarlo nuovamente.',
+        );
+      } else {
+        _showMessage(_friendlyMaterialError(error));
       }
-
-      _showMessage(_friendlyError(error));
     }
   }
+
 
   Widget _buildOfflineSyncBanner() {
     return Container(
@@ -2029,6 +1979,8 @@ class _LocalMaterialImportPage extends StatefulWidget {
 class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  final PickedFileBridge _fileBridge = PickedFileBridge();
+
   late final TextEditingController _universityController;
 
   late final TextEditingController _departmentController;
@@ -2098,6 +2050,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     try {
       final FilePickerResult? result = await FilePicker.pickFiles(
         allowMultiple: false,
+        withData: kIsWeb,
       );
 
       if (result == null || result.files.isEmpty || !mounted) {
@@ -2105,14 +2058,10 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
       }
 
       final PlatformFile file = result.files.single;
-
-      if (file.path == null || file.path!.trim().isEmpty) {
-        _showMessage('Il file selezionato non è disponibile sul dispositivo.');
-        return;
-      }
+      final String path = await _fileBridge.materialize(file);
 
       setState(() {
-        _filePath = file.path;
+        _filePath = path;
         _fileName = file.name;
         _error = null;
       });
@@ -2944,6 +2893,7 @@ class _MaterialPublicationPage extends StatefulWidget {
 }
 
 class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
+  final PickedFileBridge _fileBridge = PickedFileBridge();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _titleController = TextEditingController();
@@ -3342,6 +3292,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
     try {
       final FilePickerResult? result = await FilePicker.pickFiles(
         allowMultiple: false,
+        withData: kIsWeb,
       );
 
       if (result == null || result.files.isEmpty || !mounted) {
@@ -3349,13 +3300,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
       }
 
       final PlatformFile selected = result.files.single;
-
-      final String? path = selected.path;
-
-      if (path == null || path.trim().isEmpty) {
-        _showMessage('Il file selezionato non è disponibile sul dispositivo.');
-        return;
-      }
+      final String path = await _fileBridge.materialize(selected);
 
       setState(() {
         _selectedFilePath = path;

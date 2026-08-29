@@ -274,6 +274,50 @@ class NewsApiService {
     );
   }
 
+  Future<NewsPrivateMessageListResult> getPendingPrivateNews({
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    _requireAuthenticated();
+
+    final http.Response response = await _client.get(
+      _uri(
+        '/news/private/pending',
+        query: _pagination(limit, offset),
+      ),
+      headers: _headers,
+    );
+
+    return NewsPrivateMessageListResult.fromJson(
+      _decodeMap(response, 'Impossibile caricare i messaggi in attesa.'),
+    );
+  }
+
+  Future<NewsPrivateMessage> completePrivateDelivery({
+    required int otherUserId,
+    required String newsId,
+    required Map<String, dynamic> wrappedKeys,
+  }) async {
+    _requireAuthenticated();
+    _requirePositiveId(otherUserId);
+
+    if (wrappedKeys.isEmpty) {
+      throw ArgumentError('Nessuna chiave da aggiungere.');
+    }
+
+    final http.Response response = await _client.post(
+      _uri('/news/private/$otherUserId/${_requireId(newsId)}/wrap'),
+      headers: _headers,
+      body: jsonEncode({
+        'wrapped_keys': wrappedKeys,
+      }),
+    );
+
+    return NewsPrivateMessage.fromJson(
+      _decodeMap(response, 'Impossibile completare la consegna.'),
+    );
+  }
+
   Future<NewsPrivateMessage> sendPrivateNews({
     required int recipientId,
     required String ciphertext,

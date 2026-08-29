@@ -212,6 +212,36 @@ class PrivateNewsCryptoService {
     }
   }
 
+  Future<Map<String, dynamic>> wrapContentKeyForRecipients({
+    required String contentKeyBase64,
+    required List<PrivateNewsRecipient> recipients,
+  }) async {
+    if (recipients.isEmpty) {
+      throw const PrivateNewsCryptoException(
+        'Nessun destinatario disponibile per la cifratura.',
+      );
+    }
+
+    final List<int> contentKey = base64Decode(contentKeyBase64);
+
+    if (contentKey.length != _contentKeyLength) {
+      throw const PrivateNewsCryptoException(
+        'Chiave del messaggio non valida.',
+      );
+    }
+
+    final Map<String, dynamic> wrappedKeys = <String, dynamic>{};
+
+    for (final PrivateNewsRecipient recipient in recipients) {
+      wrappedKeys[recipient.wrapTarget] = await _wrapContentKey(
+        contentKey: contentKey,
+        recipient: recipient,
+      );
+    }
+
+    return wrappedKeys;
+  }
+
   Future<String> discloseContentKey({
     required Map<String, dynamic> metadata,
     required SimpleKeyPair keyPair,

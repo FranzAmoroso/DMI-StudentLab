@@ -21,4 +21,13 @@ class DatabaseTables {
 
   static const String materialCache =
       'material_cache';
+
+  static const String localFileBlobs =
+      'local_file_blobs';
+  static const String quizAttempts =
+      'quiz_attempts_local';
+
+  static const String quizAttemptAnswers =
+      'quiz_attempt_answers_local';
+
 }

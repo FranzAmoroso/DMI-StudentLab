@@ -31,6 +31,8 @@ class PrivateConversationMessage {
   int counterpartId(int viewerId) => raw.counterpartId(viewerId);
 
   String counterpartName(int viewerId) => raw.counterpartName(viewerId);
+
+  bool get isPendingDelivery => raw.isPendingDelivery;
 }
 
 class PrivateNewsMessenger {
@@ -54,6 +56,10 @@ class PrivateNewsMessenger {
 
   DeviceKeyMaterial? _material;
   bool _published = false;
+
+  Future<void> ensureReachable() async {
+    await _ensurePublishedMaterial();
+  }
 
   Future<PrivateConversationMessage> send({
     required int recipientId,
@@ -94,13 +100,6 @@ class PrivateNewsMessenger {
     final List<DevicePublicKey> recipientDevices =
         await _deviceKeys.recipientDevices(recipientId);
 
-    if (recipientDevices.isEmpty) {
-      throw StateError(
-        'Il destinatario non ha ancora un dispositivo registrato: '
-        'non è possibile inviare un messaggio cifrato.',
-      );
-    }
-
     for (final DevicePublicKey key in recipientDevices) {
       recipients.add(
         PrivateNewsRecipient.device(
@@ -122,9 +121,7 @@ class PrivateNewsMessenger {
       );
     } else if (requireComplianceWrap) {
       throw StateError(
-        'Chiave di conformità non disponibile: l’invio è bloccato perché '
-        'il messaggio non potrebbe essere reso leggibile su richiesta '
-        'dell’autorità.',
+        'Invio non disponibile in questo momento. Riprova più tardi.',
       );
     }
 
@@ -147,6 +144,105 @@ class PrivateNewsMessenger {
       text: text.trim(),
       isReadable: true,
     );
+  }
+
+  Future<int> flushPendingDeliveries({
+    int limit = 50,
+  }) async {
+    final NewsPrivateMessageListResult pending =
+        await _newsApi.getPendingPrivateNews(
+      limit: limit,
+    );
+
+    if (pending.items.isEmpty) {
+      return 0;
+    }
+
+    final DeviceKeyMaterial material = await _ensureMaterial();
+    final String wrapTarget = _wrapTarget(material);
+
+    int completed = 0;
+
+    for (final NewsPrivateMessage message in pending.items) {
+      try {
+        if (await _completeDelivery(
+          message: message,
+          material: material,
+          wrapTarget: wrapTarget,
+        )) {
+          completed += 1;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return completed;
+  }
+
+  Future<bool> _completeDelivery({
+    required NewsPrivateMessage message,
+    required DeviceKeyMaterial material,
+    required String wrapTarget,
+  }) async {
+    if (!_crypto.canDecrypt(
+      metadata: message.metadata,
+      wrapTarget: wrapTarget,
+    )) {
+      return false;
+    }
+
+    final List<DevicePublicKey> devices = await _deviceKeys.recipientDevices(
+      message.recipientId,
+    );
+
+    if (devices.isEmpty) {
+      return false;
+    }
+
+    final dynamic rawWrapped = message.metadata['wrapped_keys'];
+
+    final Map<String, dynamic> known = rawWrapped is Map
+        ? Map<String, dynamic>.from(rawWrapped)
+        : <String, dynamic>{};
+
+    final List<PrivateNewsRecipient> missing = devices
+        .map(
+          (DevicePublicKey key) => PrivateNewsRecipient.device(
+            userId: message.recipientId,
+            deviceId: key.deviceId,
+            publicKeyBase64: key.publicKey,
+          ),
+        )
+        .where(
+          (PrivateNewsRecipient recipient) =>
+              !known.containsKey(recipient.wrapTarget),
+        )
+        .toList();
+
+    if (missing.isEmpty) {
+      return false;
+    }
+
+    final String contentKey = await _crypto.discloseContentKey(
+      metadata: message.metadata,
+      keyPair: material.keyPair,
+      wrapTarget: wrapTarget,
+    );
+
+    final Map<String, dynamic> wrapped =
+        await _crypto.wrapContentKeyForRecipients(
+      contentKeyBase64: contentKey,
+      recipients: missing,
+    );
+
+    await _newsApi.completePrivateDelivery(
+      otherUserId: message.recipientId,
+      newsId: message.id,
+      wrappedKeys: wrapped,
+    );
+
+    return true;
   }
 
   Future<List<PrivateConversationMessage>> conversation({

@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/quiz_model.dart';
@@ -1780,6 +1778,21 @@ class ApiService {
     );
   }
 
+  Future<Map<String, dynamic>> addGroupMaterialBytes({
+    required int groupId,
+    required Uint8List bytes,
+    required String originalName,
+    String? mimeType,
+  }) async {
+    _requireCurrentUserId();
+    return StudentLabUploadService().uploadGroupMaterialBytes(
+      groupId: groupId,
+      bytes: bytes,
+      originalName: originalName,
+      mimeType: mimeType,
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getGroupMaterials(int groupId) async {
     final Uri url = Uri.parse(
       '$baseUrl/group_materials/'
@@ -2875,11 +2888,7 @@ class ApiService {
     );
   }
 
-  Future<String> _calculateFileSha256(File file) async {
-    final Digest digest = await sha256.bind(file.openRead()).first;
 
-    return digest.toString().toLowerCase();
-  }
 
   String _fileNameFromPath(String filePath) {
     final String normalized = filePath.replaceAll('\\', '/');
@@ -3570,6 +3579,25 @@ class ApiService {
     );
   }
 
+  Future<Map<String, dynamic>> uploadTeacherMaterialBytes({
+    required int subjectId,
+    required String title,
+    required String description,
+    required String visibility,
+    required Uint8List bytes,
+    required String originalName,
+  }) async {
+    _requireCurrentUserId();
+    return StudentLabUploadService().uploadTeacherMaterialBytes(
+      subjectId: subjectId,
+      title: title,
+      description: description,
+      visibility: visibility,
+      bytes: bytes,
+      originalName: originalName,
+    );
+  }
+
   Future<Map<String, dynamic>> requestMaterialPublicationUpload({
     required int subjectId,
     required String title,
@@ -3658,6 +3686,25 @@ class ApiService {
       title: title,
       description: description,
       filePath: filePath,
+      onPossibleDuplicate: onPossibleDuplicate,
+    );
+  }
+
+  Future<Map<String, dynamic>> uploadMaterialPublicationBytes({
+    required int subjectId,
+    required String title,
+    required String description,
+    required Uint8List bytes,
+    required String originalName,
+    Future<void> Function()? onPossibleDuplicate,
+  }) async {
+    _requireCurrentUserId();
+    return StudentLabUploadService().uploadMaterialPublicationBytes(
+      subjectId: subjectId,
+      title: title,
+      description: description,
+      bytes: bytes,
+      originalName: originalName,
       onPossibleDuplicate: onPossibleDuplicate,
     );
   }

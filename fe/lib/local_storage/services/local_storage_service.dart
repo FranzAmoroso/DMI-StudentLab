@@ -1,6 +1,4 @@
-import 'dart:io';
-
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
 import '../database/app_database.dart';
 
@@ -154,9 +152,7 @@ class LocalStorageService {
         continue;
       }
 
-      final File file = File(upload.localPath);
-
-      final bool exists = await file.exists();
+      final bool exists = await _fileService.exists(upload.localPath);
 
       if (exists) {
         continue;

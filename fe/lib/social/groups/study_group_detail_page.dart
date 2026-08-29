@@ -1,13 +1,11 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
-
 import '../../theme/nightTheme.dart';
 
 import '../../services/api_service.dart';
 import '../../services/auth_session.dart';
+import '../../services/picked_file_bridge.dart';
 
 import '../../local_storage/models/material_local.dart';
 import '../../local_storage/services/material_download_service.dart';
@@ -49,6 +47,8 @@ class _StudyGroupDetailPageState
   final MaterialDownloadService
       _downloadService =
       MaterialDownloadService();
+
+  final PickedFileBridge _fileBridge = PickedFileBridge();
 
   List<SocialUser> _participants =
       [];
@@ -1309,115 +1309,43 @@ class _StudyGroupDetailPageState
     _GroupMaterial material,
   ) async {
     try {
-      File? localFile =
-          await _downloadService.getMaterialFile(
+      MaterialLocal? local = await _downloadService.getLocalMaterialV6(
         source: MaterialSourceLocal.group,
         materialId: material.id,
       );
 
-      if (localFile == null) {
-        final MaterialLocal localMaterial =
-            await _downloadService.getOrDownloadMaterial(
-          source: MaterialSourceLocal.group,
-          materialId: material.id,
-          groupId: group.id,
-          subjectId: group.subjectId,
-          subjectName: group.subject,
-          course: group.course,
-          department: group.department,
-          originalName: material.originalName,
-          mimeType: material.mimeType,
-          size: material.size,
-        );
-
-        localFile =
-            await _downloadService.getFileForMaterial(
-          localMaterial,
-        );
-
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _downloadedMaterialIds.add(
-            material.id,
-          );
-        });
-      }
-
-      if (!mounted) {
-        return;
-      }
-
-      if (localFile == null || !await localFile.exists()) {
-        await _refreshDownloadedStates();
-
-        if (!mounted) {
-          return;
-        }
-
-        _showMessage(
-          'Il file locale non è più disponibile.',
-        );
-        return;
-      }
-
-      final OpenResult result =
-          await OpenFilex.open(
-        localFile.path,
+      local ??= await _downloadService.getOrDownloadMaterial(
+        source: MaterialSourceLocal.group,
+        materialId: material.id,
+        groupId: group.id,
+        subjectId: group.subjectId,
+        subjectName: group.subject,
+        course: group.course,
+        department: group.department,
+        originalName: material.originalName,
+        mimeType: material.mimeType,
+        size: material.size,
       );
 
-      if (!mounted) {
-        return;
-      }
+      await _downloadService.openLocalMaterial(local);
 
-      switch (result.type) {
-        case ResultType.done:
-          return;
-        case ResultType.noAppToOpen:
-          _showMessage(
-            'Nessuna applicazione installata può aprire questo file.',
-          );
-          return;
-        case ResultType.permissionDenied:
-          _showMessage(
-            'StudentLab non ha il permesso di aprire questo file.',
-          );
-          return;
-        case ResultType.fileNotFound:
-          await _refreshDownloadedStates();
-
-          if (!mounted) {
-            return;
-          }
-
-          _showMessage(
-            'Il file locale non è più disponibile.',
-          );
-          return;
-        case ResultType.error:
-          _showMessage(
-            result.message.isNotEmpty
-                ? result.message
-                : 'Impossibile aprire il file.',
-          );
-          return;
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
+      setState(() {
+        _downloadedMaterialIds.add(material.id);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      await _refreshDownloadedStates();
+      if (!mounted) return;
       _showMessage(
         _cleanError(
-          error,
-          fallback:
-              'Non è stato possibile aprire il materiale. Riprova.',
+          e,
+          fallback: 'Non è stato possibile aprire il materiale.',
         ),
       );
     }
   }
+
 
   Future<void> _downloadMaterial(
     _GroupMaterial material,
@@ -1525,6 +1453,7 @@ class _StudyGroupDetailPageState
           'docx',
           'pptx',
         ],
+        withData: kIsWeb,
       );
 
       if (result == null) {
@@ -1534,17 +1463,11 @@ class _StudyGroupDetailPageState
       final PlatformFile selectedFile =
           result.files.single;
 
-      final String? filePath =
-          selectedFile.path;
-
-      if (
-        filePath == null ||
-        filePath.trim().isEmpty
-      ) {
-        _showMessage(
-          'Impossibile ottenere il percorso del file.',
-        );
-
+      final String filePath;
+      try {
+        filePath = await _fileBridge.materialize(selectedFile);
+      } catch (error) {
+        _showMessage(_cleanError(error));
         return;
       }
 

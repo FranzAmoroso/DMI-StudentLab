@@ -10,6 +10,8 @@ import 'email_verification_page.dart';
 
 import 'forgot_password_page.dart';
 
+import 'registration_intro_page.dart';
+
 class LoginPage extends StatefulWidget {
 
   const LoginPage({super.key});
@@ -124,7 +126,6 @@ super.dispose();
 
                 expiresIn: result.expiresIn,
 
-                
               ),
 
             ),
@@ -178,6 +179,28 @@ super.dispose();
     );
 
   }
+
+  Future<void> _register() async {
+
+    if (_loading) return;
+
+    final SocialUser? user = await Navigator.of(context).push<SocialUser>(
+
+      MaterialPageRoute(
+
+        builder: (_) => const RegistrationIntroPage(),
+
+      ),
+
+    );
+
+    if (!mounted || user == null) return;
+
+    Navigator.pop(context, user);
+
+  }
+
+
 
   String _cleanErrorMessage(Object error) {
 
@@ -763,41 +786,147 @@ super.dispose();
 
                         const SizedBox(height: 18),
 
-                        Container(
+                        Material(
 
-                          padding: const EdgeInsets.all(14),
+                          color: Colors.transparent,
 
-                          decoration: BoxDecoration(
+                          child: InkWell(
 
-                            color: AppColors.eleganceMidnight,
+                            onTap: _loading ? null : _register,
 
                             borderRadius: BorderRadius.circular(14),
 
-                            border: Border.all(
+                            child: Container(
 
-                              color: AppColors.skyBlue.withValues(alpha: 0.10),
+                              padding: const EdgeInsets.all(14),
 
-                            ),
+                              decoration: BoxDecoration(
 
-                          ),
+                                color: AppColors.eleganceMidnight,
 
-                          child: Row(
+                                borderRadius: BorderRadius.circular(14),
 
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                                border: Border.all(
 
-                            children: [
+                                  color: AppColors.skyBlue.withValues(alpha: 0.14),
 
-                              const Icon(
-
-                                Icons.info_outline_rounded,
-
-                                color: AppColors.materialSky,
-
-                                size: 19,
+                                ),
 
                               ),
 
-                            ],
+                              child: Row(
+
+                                children: [
+
+                                  Container(
+
+                                    width: 42,
+
+                                    height: 42,
+
+                                    decoration: BoxDecoration(
+
+                                      color: AppColors.socialBlue.withValues(alpha: 0.10),
+
+                                      borderRadius: BorderRadius.circular(12),
+
+                                    ),
+
+                                    child: const Icon(
+
+                                      Icons.person_add_alt_1_rounded,
+
+                                      color: AppColors.materialSky,
+
+                                      size: 21,
+
+                                    ),
+
+                                  ),
+
+                                  const SizedBox(width: 12),
+
+                                  Expanded(
+
+                                    child: Column(
+
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                                      children: [
+
+                                        const Text(
+
+                                          'Non hai ancora un account?',
+
+                                          style: TextStyle(
+
+                                            color: AppColors.pureWhite,
+
+                                            fontSize: 12,
+
+                                            fontWeight: FontWeight.w600,
+
+                                          ),
+
+                                        ),
+
+                                        const SizedBox(height: 3),
+
+                                        Text(
+
+                                          'Crea il tuo profilo StudentLab',
+
+                                          style: TextStyle(
+
+                                            color: AppColors.pureWhite.withValues(alpha: 0.52),
+
+                                            fontSize: 10,
+
+                                          ),
+
+                                        ),
+
+                                      ],
+
+                                    ),
+
+                                  ),
+
+                                  const SizedBox(width: 8),
+
+                                  const Text(
+
+                                    'Registrati',
+
+                                    style: TextStyle(
+
+                                      color: AppColors.materialSky,
+
+                                      fontSize: 11,
+
+                                      fontWeight: FontWeight.w700,
+
+                                    ),
+
+                                  ),
+
+                                  const SizedBox(width: 4),
+
+                                  const Icon(
+
+                                    Icons.arrow_forward_ios_rounded,
+
+                                    color: AppColors.materialSky,
+
+                                    size: 13,
+
+                                  ),
+
+                                ],
+
+                              ),
+
+                            ),
 
                           ),
 

@@ -1,5 +1,5 @@
 
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
 import 'database_tables.dart';
 
@@ -29,6 +29,14 @@ class DatabaseMigrations {
 
     if (oldVersion < 6) {
       await _migrationToVersion6(db);
+    }
+
+    if (oldVersion < 7) {
+      await _migrationToVersion7(db);
+    }
+
+    if (oldVersion < 8) {
+      await _migrationToVersion8(db);
     }
   }
 
@@ -639,4 +647,86 @@ class DatabaseMigrations {
 
     return result.isNotEmpty;
   }
+  static Future<void> _migrationToVersion7(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.localFileBlobs} (
+        path TEXT PRIMARY KEY,
+        file_name TEXT NOT NULL,
+        mime_type TEXT,
+        data BLOB NOT NULL,
+        size INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS
+      idx_local_file_blobs_updated
+      ON ${DatabaseTables.localFileBlobs}(updated_at)
+      ''');
+  }
+
+
+  static Future<void> _migrationToVersion8(Database db) async {
+    await createQuizSchema(db);
+  }
+
+  static Future<void> createQuizSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.quizAttempts} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL DEFAULT 0,
+        mode TEXT NOT NULL DEFAULT 'free',
+        department TEXT NOT NULL,
+        course TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'in_progress',
+        total_questions INTEGER NOT NULL DEFAULT 0,
+        correct_count INTEGER NOT NULL DEFAULT 0,
+        wrong_count INTEGER NOT NULL DEFAULT 0,
+        unanswered_count INTEGER NOT NULL DEFAULT 0,
+        is_hidden_from_history INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT NOT NULL,
+        completed_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK(status IN ('in_progress','completed','abandoned')),
+        CHECK(is_hidden_from_history IN (0,1))
+      )
+      ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.quizAttemptAnswers} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        attempt_id INTEGER NOT NULL,
+        question_id TEXT NOT NULL,
+        argument TEXT,
+        question_text TEXT NOT NULL,
+        selected_option_id TEXT,
+        selected_option_text TEXT,
+        correct_option_id TEXT,
+        correct_option_text TEXT,
+        formal_explanation TEXT,
+        informal_explanation TEXT,
+        question_response_explanation TEXT,
+        selected_answer_explanation TEXT,
+        correct_answer_explanation TEXT,
+        is_correct INTEGER,
+        response_time_seconds INTEGER,
+        answered_at TEXT NOT NULL,
+        FOREIGN KEY(attempt_id) REFERENCES ${DatabaseTables.quizAttempts}(id) ON DELETE CASCADE,
+        CHECK(is_correct IS NULL OR is_correct IN (0,1)),
+        UNIQUE(attempt_id, question_id)
+      )
+      ''');
+
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_status ON ${DatabaseTables.quizAttempts}(user_id, status)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_history ON ${DatabaseTables.quizAttempts}(user_id, is_hidden_from_history, completed_at)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_attempts_subject ON ${DatabaseTables.quizAttempts}(user_id, department, course, subject)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_attempt ON ${DatabaseTables.quizAttemptAnswers}(attempt_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_question ON ${DatabaseTables.quizAttemptAnswers}(question_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_argument ON ${DatabaseTables.quizAttemptAnswers}(argument)');
+  }
+
 }
