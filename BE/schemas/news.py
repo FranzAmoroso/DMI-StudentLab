@@ -233,8 +233,67 @@ class PrivateNewsResponse(
     ciphertext: str
     metadata: dict = {}
     created_at: datetime
+    delivery: str = "delivered"
     can_delete: bool = False
     write_token: str | None = None
+
+
+class PrivateNewsWrapRequest(
+    BaseModel,
+):
+    wrapped_keys: dict = Field(
+        min_length=1,
+    )
+
+    @field_validator(
+        "wrapped_keys",
+    )
+    @classmethod
+    def validate_wrapped_keys(
+        cls,
+        value: dict,
+    ) -> dict:
+        if len(value) > 20:
+            raise ValueError(
+                "Troppe chiavi in un solo aggiornamento.",
+            )
+
+        for target, wrap in value.items():
+            if not isinstance(target, str) or not target.strip():
+                raise ValueError(
+                    "Destinatario della chiave non valido.",
+                )
+
+            if len(target) > 128:
+                raise ValueError(
+                    "Destinatario della chiave troppo lungo.",
+                )
+
+            if not isinstance(wrap, dict):
+                raise ValueError(
+                    f"Chiave non valida per {target}.",
+                )
+
+            for field in (
+                "epk",
+                "salt",
+                "nonce",
+                "ct",
+            ):
+                item = wrap.get(field)
+
+                if not isinstance(item, str) or not item.strip():
+                    raise ValueError(
+                        f"Campo {field} mancante nella chiave per {target}.",
+                    )
+
+                if len(item) > 512:
+                    raise ValueError(
+                        f"Campo {field} troppo lungo nella chiave per "
+                        f"{target}.",
+                    )
+
+        return value
 
 
 class PrivateNewsListResponse(

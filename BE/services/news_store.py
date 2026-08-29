@@ -153,8 +153,44 @@ MODERATION_STATUSES = (
 )
 
 
+DELIVERED = "delivered"
+
+PENDING_DELIVERY = "pending"
+
+
 def status_of(record: dict) -> str:
     return record.get("status") or ACTIVE_STATUS
+
+
+def _wrapped_keys(record: dict) -> dict:
+    metadata = record.get("metadata")
+
+    if not isinstance(metadata, dict):
+        return {}
+
+    wrapped = metadata.get("wrapped_keys")
+
+    return wrapped if isinstance(wrapped, dict) else {}
+
+
+def has_wrap_for_user(record: dict, user_id: int) -> bool:
+    prefix = f"{int(user_id)}:"
+
+    return any(
+        str(target).startswith(prefix)
+        for target in _wrapped_keys(record)
+    )
+
+
+def delivery_of(record: dict) -> str:
+    return record.get("delivery") or DELIVERED
+
+
+def is_pending_for(record: dict, viewer_id: int) -> bool:
+    return (
+        delivery_of(record) == PENDING_DELIVERY
+        and int(record.get("recipient_id", 0) or 0) == int(viewer_id)
+    )
 
 
 def _is_visible(record: dict) -> bool:
@@ -416,6 +452,12 @@ def create_private_news(
         "metadata": metadata or {},
     }
 
+    record["delivery"] = (
+        DELIVERED
+        if has_wrap_for_user(record, recipient_id)
+        else PENDING_DELIVERY
+    )
+
     with _LOCK:
         _write_record(
             _category_dir("private")
@@ -425,6 +467,104 @@ def create_private_news(
         )
 
     return record
+
+
+def add_wrapped_keys(
+    *,
+    conversation_id: str,
+    news_id: str,
+    sender_id: int,
+    wrapped_keys: dict,
+) -> dict:
+    if not wrapped_keys:
+        raise NewsStoreError("Nessuna chiave da aggiungere.")
+
+    path = _record_path(
+        "private",
+        news_id,
+        conversation_id=conversation_id,
+    )
+
+    with _LOCK:
+        record = _read(path)
+
+        if int(record.get("sender_id", -1)) != int(sender_id):
+            raise NewsPermissionDenied(
+                "Solo il mittente può completare la consegna di questo "
+                "messaggio."
+            )
+
+        metadata = record.get("metadata")
+
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        existing = metadata.get("wrapped_keys")
+
+        if not isinstance(existing, dict):
+            existing = {}
+
+        for target, wrap in wrapped_keys.items():
+            if target in existing:
+                raise NewsStoreError(
+                    f"La chiave per {target} è già presente: non può essere "
+                    "sostituita."
+                )
+
+            existing[target] = wrap
+
+        metadata["wrapped_keys"] = existing
+        record["metadata"] = metadata
+
+        record["delivery"] = (
+            DELIVERED
+            if has_wrap_for_user(
+                record,
+                record.get("recipient_id", 0),
+            )
+            else PENDING_DELIVERY
+        )
+
+        record["updated_at"] = _now()
+
+        _write_record(path, record)
+
+    return record
+
+
+def list_pending_for_sender(sender_id: int) -> list[dict]:
+    root = _category_dir("private")
+
+    if not root.exists():
+        return []
+
+    items = []
+
+    for conversation_dir in root.iterdir():
+        if not conversation_dir.is_dir():
+            continue
+
+        parts = conversation_dir.name.split("_")
+
+        if len(parts) != 2:
+            continue
+
+        if str(int(sender_id)) not in parts:
+            continue
+
+        for record in _list_dir(conversation_dir):
+            if int(record.get("sender_id", 0) or 0) != int(sender_id):
+                continue
+
+            if delivery_of(record) != PENDING_DELIVERY:
+                continue
+
+            items.append(record)
+
+    return _visible_only(
+        items,
+        False,
+    )
 
 
 def list_private_conversation(

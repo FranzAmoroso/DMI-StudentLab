@@ -38,6 +38,7 @@ from schemas.news import (
     PrivateNewsCreate,
     PrivateNewsListResponse,
     PrivateNewsResponse,
+    PrivateNewsWrapRequest,
 )
 
 from services import (
@@ -353,6 +354,9 @@ def _private_news_response(
         created_at=record.get(
             "created_at",
         ),
+        delivery=news_store.delivery_of(
+            record,
+        ),
         can_delete=_is_author(
             record,
             viewer_id,
@@ -365,6 +369,20 @@ def _private_news_response(
             else None
         ),
     )
+
+
+def _without_undelivered(
+    records: list[dict],
+    viewer_id: int,
+) -> list[dict]:
+    return [
+        record
+        for record in records
+        if not news_store.is_pending_for(
+            record,
+            viewer_id,
+        )
+    ]
 
 
 def _store_error(
@@ -972,7 +990,10 @@ def api_list_private_news(
     ),
 ):
     records = _sorted_recent_first(
-        news_store.list_private_for_user(
+        _without_undelivered(
+            news_store.list_private_for_user(
+                current_user.id,
+            ),
             current_user.id,
         ),
     )
@@ -999,6 +1020,129 @@ def api_list_private_news(
         ],
         total=len(
             records,
+        ),
+    )
+
+
+@router.get(
+    "/private/pending",
+    response_model=PrivateNewsListResponse,
+)
+def api_list_pending_private_news(
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=100,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+    current_user: User = Depends(
+        get_current_user,
+    ),
+):
+    records = _sorted_recent_first(
+        news_store.list_pending_for_sender(
+            current_user.id,
+        ),
+    )
+
+    page = _paginate(
+        records,
+        limit,
+        offset,
+    )
+
+    names = _participant_names(
+        db,
+        page,
+    )
+
+    return PrivateNewsListResponse(
+        items=[
+            _private_news_response(
+                record,
+                current_user.id,
+                names,
+            )
+            for record in page
+        ],
+        total=len(
+            records,
+        ),
+    )
+
+
+@router.post(
+    "/private/{other_user_id}/{news_id}/wrap",
+    response_model=PrivateNewsResponse,
+)
+def api_complete_private_delivery(
+    other_user_id: int,
+    news_id: str,
+    request: PrivateNewsWrapRequest,
+    db: Session = Depends(
+        get_db,
+    ),
+    current_user: User = Depends(
+        get_current_user,
+    ),
+):
+    if other_user_id <= 0 or other_user_id == current_user.id:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail="Utente non valido.",
+        )
+
+    if not can_send_private_content(
+        db,
+        current_user.id,
+        other_user_id,
+    ):
+        raise HTTPException(
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail="Non puoi inviare news private a questo utente.",
+        )
+
+    try:
+        record = news_store.add_wrapped_keys(
+            conversation_id=news_store.conversation_id(
+                current_user.id,
+                other_user_id,
+            ),
+            news_id=news_id,
+            sender_id=current_user.id,
+            wrapped_keys=request.wrapped_keys,
+        )
+    except news_store.NewsStoreError as exception:
+        raise _store_error(
+            exception,
+        )
+    except OSError:
+        raise HTTPException(
+            status_code=(
+                status
+                .HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail="Impossibile completare la consegna del messaggio.",
+        )
+
+    return _private_news_response(
+        record,
+        current_user.id,
+        _participant_names(
+            db,
+            [
+                record,
+            ],
         ),
     )
 
@@ -1034,9 +1178,12 @@ def api_list_private_conversation(
         )
 
     records = _sorted_recent_first(
-        news_store.list_private_conversation(
+        _without_undelivered(
+            news_store.list_private_conversation(
+                current_user.id,
+                other_user_id,
+            ),
             current_user.id,
-            other_user_id,
         ),
     )
 
