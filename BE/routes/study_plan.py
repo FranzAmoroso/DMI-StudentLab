@@ -20,31 +20,69 @@ from services.study_plan_service import (
 router = APIRouter(prefix="/study-plan", tags=["study-plan"])
 
 
-@router.get("/bootstrap", response_model=StudyPlanBootstrapResponse)
+def _internal_error(
+    db: Session,
+    message: str,
+) -> None:
+    db.rollback()
+    raise HTTPException(
+        status_code=500,
+        detail=message,
+    )
+
+
+@router.get(
+    "/bootstrap",
+    response_model=StudyPlanBootstrapResponse,
+)
 def api_study_plan_bootstrap(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return get_study_plan_bootstrap(db, current_user)
+    try:
+        return get_study_plan_bootstrap(
+            db,
+            current_user,
+        )
+    except Exception:
+        _internal_error(
+            db,
+            "Non è stato possibile aggiornare il piano di ripasso.",
+        )
 
 
-@router.post("/sync", response_model=StudyPlanSyncResponse)
+@router.post(
+    "/sync",
+    response_model=StudyPlanSyncResponse,
+)
 def api_study_plan_sync(
     request: StudyPlanSyncRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
-        return sync_study_plan(db, current_user, request)
+        return sync_study_plan(
+            db,
+            current_user,
+            request,
+        )
     except PermissionError as exc:
         db.rollback()
-        raise HTTPException(status_code=403, detail=str(exc))
+        raise HTTPException(
+            status_code=403,
+            detail=str(exc),
+        ) from exc
     except ValueError as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
     except Exception:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Non è stato possibile sincronizzare il piano di ripasso.")
+        _internal_error(
+            db,
+            "Non è stato possibile sincronizzare il piano di ripasso.",
+        )
 
 
 @router.patch(
@@ -57,13 +95,29 @@ def api_study_plan_session_association(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    normalized_uuid = session_uuid.strip()
+
+    if not normalized_uuid:
+        raise HTTPException(
+            status_code=400,
+            detail="Identificativo sessione non valido.",
+        )
+
     try:
         return set_session_contribution_enabled(
             db,
             current_user,
-            session_uuid.strip(),
+            normalized_uuid,
             request.contribution_enabled,
         )
     except ValueError as exc:
         db.rollback()
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+    except Exception:
+        _internal_error(
+            db,
+            "Non è stato possibile aggiornare la sessione del Ripasso.",
+        )
