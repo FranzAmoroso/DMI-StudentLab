@@ -54,7 +54,6 @@ class QuizAttempt(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
-
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
 
     answers = relationship(
@@ -67,7 +66,13 @@ class QuizAttempt(Base):
 
 class QuizAttemptAnswer(Base):
     __tablename__ = "quiz_attempt_answers"
-    __table_args__ = (UniqueConstraint("attempt_id", "question_id", name="uq_quiz_attempt_answer_question"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "attempt_id",
+            "question_id",
+            name="uq_quiz_attempt_answer_question",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     attempt_id = Column(Integer, ForeignKey("quiz_attempts.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -88,5 +93,6 @@ class QuizAttemptAnswer(Base):
     selected_answer_explanation = Column(Text, nullable=True)
     correct_answer_explanation = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
 
     attempt = relationship("QuizAttempt", back_populates="answers")
