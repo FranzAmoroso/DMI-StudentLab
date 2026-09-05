@@ -157,6 +157,30 @@ class Settings:
             default=False,
         )
 
+        self.hostinger_mail_api_token = (
+            self._env("HOSTINGER_MAIL_API_TOKEN")
+            or self._env("StudentLab_HOSTINGER_MAIL_API_TOKEN")
+            or ""
+        ).strip()
+
+        self.hostinger_mailbox_resource_id = (
+            self._env("HOSTINGER_MAILBOX_RESOURCE_ID")
+            or self._env("StudentLab_HOSTINGER_MAILBOX_RESOURCE_ID")
+            or ""
+        ).strip()
+
+        self.mail_from_email = (
+            self._env("STUDENTLAB_MAIL_FROM")
+            or self._env("StudentLab_MAIL_FROM")
+            or "uni@studentlab.net"
+        ).strip()
+
+        self.mail_from_name = (
+            self._env("STUDENTLAB_MAIL_FROM_NAME")
+            or self._env("StudentLab_MAIL_FROM_NAME")
+            or "StudentLab"
+        ).strip()
+
         self.compliance_key_id = (
             self._env("StudentLab_COMPLIANCE_KEY_ID")
             or self._env("COMPLIANCE_KEY_ID")
