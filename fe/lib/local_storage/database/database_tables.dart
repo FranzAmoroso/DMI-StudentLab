@@ -30,4 +30,16 @@ class DatabaseTables {
   static const String quizAttemptAnswers =
       'quiz_attempt_answers_local';
 
+  static const String studyPlanSources =
+      'study_plan_sources_local';
+
+  static const String studyPlanItems =
+      'study_plan_items_local';
+
+  static const String studyPlanContributions =
+      'study_plan_contributions_local';
+
+  static const String studyPlanProgress =
+      'study_plan_progress_local';
+
 }

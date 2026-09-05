@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/quiz_model.dart';
 import 'package:fe/theme/nightTheme.dart';
 import 'package:fe/quiz/quizResultLayer.dart';
+import 'package:fe/services/auth_session.dart';
 import 'services/free_quiz_api_service.dart';
 import 'services/quiz_attempt_api_service.dart';
 import 'teacher/widgets/quiz_execution_guard.dart';
@@ -64,6 +65,9 @@ final FreeQuizApiService
   List<QuizQuestionResult> results = [];
   final List<Map<String, dynamic>>
       _assignedAnswers = [];
+  final List<Map<String, dynamic>>
+      _freeServerAnswers = [];
+  int? _freeAttemptId;
   bool load = true;
   bool isLocked = false;
   bool modalIsOpen = false;
@@ -156,32 +160,61 @@ super.dispose();
       });
       return;
     }
+
     try {
-      final result =
-          await _freeQuizApiService.loadQuiz(
-        department: widget.department,
-        course: widget.course,
-        subject: widget.sub,
-        arguments: widget.arguments,
-        numberOfQuestions:
-            widget.numberOfQuestions,
-      );
+      List<QuizModel> result;
+
+      if (AuthSession.instance.isAuthenticated) {
+        final Map<String, dynamic> attempt =
+            await _attemptApiService.startFreeQuiz(
+          department: widget.department,
+          course: widget.course,
+          subject: widget.sub,
+          arguments: widget.arguments,
+          numberOfQuestions: widget.numberOfQuestions,
+        );
+
+        final dynamic rawAttemptId = attempt['attempt_id'];
+        _freeAttemptId = rawAttemptId is int
+            ? rawAttemptId
+            : int.tryParse(rawAttemptId?.toString() ?? '');
+
+        final dynamic rawQuestions = attempt['questions'];
+        if (_freeAttemptId == null || rawQuestions is! List) {
+          throw StateError('Tentativo quiz non valido.');
+        }
+
+        result = rawQuestions
+            .whereType<Map>()
+            .map((item) => QuizModel.fromJson(
+                  Map<String, dynamic>.from(item),
+                ))
+            .toList();
+      } else {
+        _freeAttemptId = null;
+        result = await _freeQuizApiService.loadQuiz(
+          department: widget.department,
+          course: widget.course,
+          subject: widget.sub,
+          arguments: widget.arguments,
+          numberOfQuestions: widget.numberOfQuestions,
+        );
+      }
+
       if (!mounted) return;
       setState(() {
         question = result;
         load = false;
+        _questionStartedAt = DateTime.now();
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         load = false;
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Errore nel caricamento delle domande.',
-          ),
+          content: Text('Errore nel caricamento delle domande.'),
         ),
       );
     }
@@ -208,81 +241,142 @@ super.dispose();
     setState(() {
       isLocked = true;
     });
-    final currentQuestion =
-        question[idx];
-    final idQuestion =
-        currentQuestion.idQuestion;
+
+    final QuizModel currentQuestion = question[idx];
+    final String idQuestion = currentQuestion.idQuestion;
+    final int responseSeconds = DateTime.now()
+        .difference(_questionStartedAt)
+        .inSeconds;
+
     try {
-      final FreeQuizAnswerValidation
-          validation =
-          await _freeQuizApiService
-              .validateAnswer(
+      final FreeQuizAnswerValidation validation =
+          await _freeQuizApiService.validateAnswer(
         questionId: idQuestion,
         optionId: idChoice,
         department: widget.department,
         course: widget.course,
         subject: widget.sub,
       );
-      final bool isCorrect =
-          validation.isCorrect;
+
       if (!mounted) return;
-      final selectedOption =
-          currentQuestion.option.firstWhere(
-        (option) =>
-            option.id == idChoice,
+
+      final selectedOption = currentQuestion.option.firstWhere(
+        (option) => option.id == idChoice,
       );
-      final correctOption =
-          currentQuestion.option.firstWhere(
-        (option) =>
-            option.id ==
-            currentQuestion.idCorrect,
+
+      final String correctId = validation.correctOptionId.trim().isNotEmpty
+          ? validation.correctOptionId.trim()
+          : currentQuestion.idCorrect.trim();
+
+      final correctOption = currentQuestion.option.firstWhere(
+        (option) => option.id == correctId,
       );
+
+      final int? serverAttemptId = _freeAttemptId;
+      if (serverAttemptId != null) {
+        _freeServerAnswers.removeWhere(
+          (answer) => answer['question_id']?.toString() == idQuestion,
+        );
+        _freeServerAnswers.add(<String, dynamic>{
+          'question_id': idQuestion,
+          'selected_option_id': idChoice,
+          'response_time_seconds': responseSeconds,
+        });
+      }
+
       results.add(
         QuizQuestionResult(
-          question:
-              currentQuestion.text,
-          givenAnswer:
-              selectedOption.text,
-          correctAnswer:
-              correctOption.text,
-          formalExplanation:
-              currentQuestion
-                  .formalExplanation,
-          informalExplanation:
-              currentQuestion
-                  .informalExplanation,
+          question: currentQuestion.text,
+          givenAnswer: selectedOption.text,
+          correctAnswer: correctOption.text,
+          formalExplanation: validation.formalExplanation.trim().isNotEmpty
+              ? validation.formalExplanation
+              : currentQuestion.formalExplanation,
+          informalExplanation: validation.informalExplanation.trim().isNotEmpty
+              ? validation.informalExplanation
+              : currentQuestion.informalExplanation,
           questionResponseExplanation:
-              currentQuestion
-                  .questionResponseExplanation,
-          answerExplanations: const {},
-          isCorrect: isCorrect,
+              validation.selectedAnswerExplanation.trim().isNotEmpty ||
+                      validation.correctAnswerExplanation.trim().isNotEmpty
+                  ? <String>[
+                      if (validation.selectedAnswerExplanation.trim().isNotEmpty)
+                        validation.selectedAnswerExplanation.trim(),
+                      if (validation.correctAnswerExplanation.trim().isNotEmpty &&
+                          validation.correctAnswerExplanation.trim() !=
+                              validation.selectedAnswerExplanation.trim())
+                        validation.correctAnswerExplanation.trim(),
+                    ].join('
+
+')
+                  : currentQuestion.questionResponseExplanation,
+          answerExplanations: validation.answerExplanations,
+          isCorrect: validation.isCorrect,
         ),
       );
-      _advanceOrFinishFree();
+
+      await _advanceOrFinishFree();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         isLocked = false;
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Impossibile verificare la risposta.',
-          ),
+          content: Text('Impossibile verificare la risposta.'),
         ),
       );
     }
   }
-  void _advanceOrFinishFree() {
+
+  Future<void> _advanceOrFinishFree() async {
     if (idx < question.length - 1) {
       setState(() {
         idx++;
         isLocked = false;
+        _questionStartedAt = DateTime.now();
       });
-    } else {
-      _showQuizResult();
+      return;
     }
+
+    final int? attemptId = _freeAttemptId;
+    if (attemptId != null) {
+      setState(() {
+        _completing = true;
+      });
+      try {
+        final Map<String, dynamic> completed =
+            await _attemptApiService.completeAttempt(
+          attemptId: attemptId,
+          answers: _freeServerAnswers,
+          elapsedSeconds: DateTime.now()
+              .difference(_quizStartedAt)
+              .inSeconds,
+          completionReason: 'completed',
+          interruptionCount: 0,
+        );
+        if (!mounted) return;
+        final List<QuizQuestionResult> serverResults =
+            _resultsFromCompletedAttempt(completed);
+        if (serverResults.isNotEmpty) {
+          results = serverResults;
+        }
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _completing = false;
+          isLocked = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossibile salvare il tentativo. Riprova.'),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    _showQuizResult();
   }
   Future<void> _answerAssigned(
     String idChoice,

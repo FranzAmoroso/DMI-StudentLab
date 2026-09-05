@@ -126,6 +126,16 @@ from models.quiz_attempt import (
     QuizAttemptAnswer,
 )
 
+from models.device_session import (
+    DeviceSession,
+)
+
+from models.study_plan import (
+    StudyPlanContribution,
+    StudyPlanItem,
+    StudyPlanProgress,
+)
+
 from schemas.app_config import (
     AppConfigResponse,
 )
@@ -454,6 +464,10 @@ from routes.user_public_key import (
     router as user_public_key_router,
 )
 
+from routes.study_plan import (
+    router as study_plan_router,
+)
+
 from routes.news_report import (
     router as news_report_router,
 )
@@ -568,6 +582,10 @@ app.include_router(
 
 app.include_router(
     user_public_key_router,
+)
+
+app.include_router(
+    study_plan_router,
 )
 
 app.include_router(

@@ -4,6 +4,7 @@ import '../../services/auth_session.dart';
 import '../../theme/nightTheme.dart';
 import '../quiz.dart';
 import 'services/student_quiz_review_service.dart';
+import 'study_plan_sessions_page.dart';
 
 class StudentQuizReviewPage extends StatefulWidget {
   const StudentQuizReviewPage({super.key});
@@ -250,6 +251,18 @@ class _StudentQuizReviewPageState
         title: const Text('Ripasso'),
         actions: [
           IconButton(
+            tooltip: 'Gestisci sessioni',
+            onPressed: () async {
+              await Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const StudyPlanSessionsPage(),
+                ),
+              );
+              if (mounted) await _loadInitial();
+            },
+            icon: const Icon(Icons.devices_rounded),
+          ),
+          IconButton(
             tooltip: 'Aggiorna',
             onPressed: _loading ? null : _loadInitial,
             icon: const Icon(Icons.refresh_rounded),
@@ -440,7 +453,7 @@ class _StudentQuizReviewPageState
                 const SizedBox(height: 5),
                 Text(
                   guest
-                      ? 'Il tuo storico resta sul dispositivo: errori, statistiche e lacune vengono calcolati dalla SQLite locale.'
+                      ? 'Il piano resta su questo dispositivo e continua tra Guest e account associati, mantenendo la provenienza dei progressi.'
                       : 'Rivedi errori reali, individua gli argomenti deboli e allenati in modo mirato.',
                   style: TextStyle(
                     color:
@@ -769,6 +782,22 @@ class _ReviewQuestionCard extends StatelessWidget {
         _toInt(data['unanswered_count']) ?? 0;
     final double accuracy =
         _toDouble(data['accuracy_percentage']) ?? 0;
+    final int sourceCount = _toInt(data['source_count']) ?? 1;
+    final String sourceTypes = data['source_types']?.toString() ?? '';
+    final String sourceUsers = data['source_users']?.toString() ?? '';
+    final int? currentUserId = AuthSession.instance.currentUserId;
+    final bool hasGuest = sourceTypes.split(',').contains('guest');
+    final bool hasCurrentUser = currentUserId != null &&
+        sourceUsers.split(',').contains(currentUserId.toString());
+    final String sourceBadge = sourceCount > 1
+        ? 'MISTO · $sourceCount SESSIONI'
+        : hasGuest && hasCurrentUser
+            ? 'GUEST → IMPORTATO'
+            : hasGuest
+                ? 'GUEST'
+                : hasCurrentUser
+                    ? 'TU'
+                    : 'ALTRA SESSIONE';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -796,6 +825,22 @@ class _ReviewQuestionCard extends StatelessWidget {
             ),
           if (argument.isNotEmpty)
             const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.brandNightBlue,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              sourceBadge,
+              style: const TextStyle(
+                color: AppColors.materialSky,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 7),
           Text(
             question,
             maxLines: 3,

@@ -54,9 +54,15 @@ class QuizAttempt(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
 
-    answers = relationship("QuizAttemptAnswer", cascade="all, delete-orphan", passive_deletes=True)
+    answers = relationship(
+        "QuizAttemptAnswer",
+        back_populates="attempt",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class QuizAttemptAnswer(Base):
@@ -82,3 +88,5 @@ class QuizAttemptAnswer(Base):
     selected_answer_explanation = Column(Text, nullable=True)
     correct_answer_explanation = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+    attempt = relationship("QuizAttempt", back_populates="answers")

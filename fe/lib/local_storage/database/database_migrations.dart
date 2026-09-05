@@ -38,6 +38,10 @@ class DatabaseMigrations {
     if (oldVersion < 8) {
       await _migrationToVersion8(db);
     }
+
+    if (oldVersion < 9) {
+      await _migrationToVersion9(db);
+    }
   }
 
   static Future<void> _migrationToVersion2(Database db) async {
@@ -687,6 +691,7 @@ class DatabaseMigrations {
         wrong_count INTEGER NOT NULL DEFAULT 0,
         unanswered_count INTEGER NOT NULL DEFAULT 0,
         is_hidden_from_history INTEGER NOT NULL DEFAULT 0,
+        study_source_key TEXT,
         started_at TEXT NOT NULL,
         completed_at TEXT,
         created_at TEXT NOT NULL,
@@ -727,6 +732,117 @@ class DatabaseMigrations {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_attempt ON ${DatabaseTables.quizAttemptAnswers}(attempt_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_question ON ${DatabaseTables.quizAttemptAnswers}(question_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_argument ON ${DatabaseTables.quizAttemptAnswers}(argument)');
+  }
+
+
+  static Future<void> _migrationToVersion9(Database db) async {
+    if (await _tableExists(db, DatabaseTables.quizAttempts) &&
+        !await _columnExists(db, DatabaseTables.quizAttempts, 'study_source_key')) {
+      await db.execute('''
+        ALTER TABLE ${DatabaseTables.quizAttempts}
+        ADD COLUMN study_source_key TEXT
+        ''');
+    }
+    await createStudyPlanSchema(db);
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quiz_attempts_study_source ON ${DatabaseTables.quizAttempts}(study_source_key)',
+    );
+  }
+
+  static Future<void> createStudyPlanSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.studyPlanSources} (
+        source_key TEXT PRIMARY KEY,
+        session_uuid TEXT NOT NULL UNIQUE,
+        device_id TEXT NOT NULL,
+        remote_user_id INTEGER,
+        source_type TEXT NOT NULL,
+        display_label TEXT,
+        contribution_enabled INTEGER NOT NULL DEFAULT 1,
+        claimed_by_user_id INTEGER,
+        is_current_device INTEGER NOT NULL DEFAULT 1,
+        sync_state TEXT NOT NULL DEFAULT 'local',
+        created_at TEXT NOT NULL,
+        last_activity_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK(source_type IN ('guest','authenticated')),
+        CHECK(contribution_enabled IN (0,1)),
+        CHECK(is_current_device IN (0,1)),
+        CHECK(sync_state IN ('local','pending','synced','error'))
+      )
+      ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.studyPlanItems} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_key TEXT NOT NULL UNIQUE,
+        department TEXT NOT NULL,
+        course TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        argument TEXT,
+        question_id TEXT NOT NULL,
+        question_text TEXT NOT NULL DEFAULT '',
+        correct_option_id TEXT,
+        correct_option_text TEXT,
+        formal_explanation TEXT,
+        informal_explanation TEXT,
+        correct_answer_explanation TEXT,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.studyPlanContributions} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contribution_uuid TEXT NOT NULL UNIQUE,
+        item_id INTEGER NOT NULL,
+        source_key TEXT NOT NULL,
+        correct_count INTEGER NOT NULL DEFAULT 0,
+        wrong_count INTEGER NOT NULL DEFAULT 0,
+        unanswered_count INTEGER NOT NULL DEFAULT 0,
+        review_count INTEGER NOT NULL DEFAULT 0,
+        last_is_correct INTEGER,
+        last_selected_option_id TEXT,
+        last_selected_option_text TEXT,
+        last_selected_answer_explanation TEXT,
+        first_seen_at TEXT NOT NULL,
+        last_answered_at TEXT,
+        client_revision INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(item_id) REFERENCES ${DatabaseTables.studyPlanItems}(id) ON DELETE CASCADE,
+        FOREIGN KEY(source_key) REFERENCES ${DatabaseTables.studyPlanSources}(source_key) ON DELETE CASCADE,
+        CHECK(last_is_correct IS NULL OR last_is_correct IN (0,1)),
+        UNIQUE(item_id, source_key)
+      )
+      ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.studyPlanProgress} (
+        item_id INTEGER PRIMARY KEY,
+        total_answers INTEGER NOT NULL DEFAULT 0,
+        correct_count INTEGER NOT NULL DEFAULT 0,
+        wrong_count INTEGER NOT NULL DEFAULT 0,
+        unanswered_count INTEGER NOT NULL DEFAULT 0,
+        review_count INTEGER NOT NULL DEFAULT 0,
+        source_count INTEGER NOT NULL DEFAULT 0,
+        mastery_percentage REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'review',
+        last_reviewed_at TEXT,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(item_id) REFERENCES ${DatabaseTables.studyPlanItems}(id) ON DELETE CASCADE,
+        CHECK(status IN ('review','improving','consolidated'))
+      )
+      ''');
+
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_sources_user ON ${DatabaseTables.studyPlanSources}(remote_user_id, contribution_enabled)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_sources_device ON ${DatabaseTables.studyPlanSources}(device_id, last_activity_at)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_items_subject ON ${DatabaseTables.studyPlanItems}(department, course, subject)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_items_argument ON ${DatabaseTables.studyPlanItems}(argument)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_contributions_item ON ${DatabaseTables.studyPlanContributions}(item_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_contributions_source ON ${DatabaseTables.studyPlanContributions}(source_key)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_progress_status ON ${DatabaseTables.studyPlanProgress}(status, mastery_percentage)');
   }
 
 }

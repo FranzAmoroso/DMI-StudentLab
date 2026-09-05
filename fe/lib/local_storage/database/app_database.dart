@@ -18,7 +18,7 @@ class AppDatabase {
 
 
   static const int _databaseVersion =
-      8;
+      9;
 
   final LocalDatabaseBackend _backend =
       createLocalDatabaseBackend();
@@ -417,6 +417,10 @@ class AppDatabase {
     );
 
     await DatabaseMigrations.createQuizSchema(
+      db,
+    );
+
+    await DatabaseMigrations.createStudyPlanSchema(
       db,
     );
   }

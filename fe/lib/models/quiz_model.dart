@@ -21,23 +21,23 @@ class QuizModel {
   });
 
   factory QuizModel.fromJson(Map<String, dynamic> json) {
-    final list = json['option'] as List;
-
-    final optionList = list
-        .map((i) => Option.fromJson(i))
-        .toList();
+    final dynamic rawOptions = json['option'];
+    final List<Option> optionList = rawOptions is List
+        ? rawOptions.whereType<Map>().map((i) => Option.fromJson(Map<String, dynamic>.from(i))).toList()
+        : <Option>[];
 
     return QuizModel(
       idQuestion: json['id_question'].toString(),
 
-      // NUOVO
-      idCorrect: json['id_correct'].toString(),
+      idCorrect: json['id_correct']?.toString() ?? '',
 
-      text: json['text'],
+      text: json['text']?.toString() ?? '',
 
       option: optionList,
 
-      metadata: json['metadata'],
+      metadata: json['metadata'] is Map
+          ? Map<String, dynamic>.from(json['metadata'] as Map)
+          : <String, dynamic>{},
 
       formalExplanation:
           json['formal_explanation'] ?? '',
