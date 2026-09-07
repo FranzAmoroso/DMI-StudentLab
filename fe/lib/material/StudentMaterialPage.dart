@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -2293,6 +2294,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
 
   String? _filePath;
   String? _fileName;
+  Uint8List? _fileBytes;
 
   List<AcademicUniversity> _catalogUniversities = [];
 
@@ -2360,11 +2362,25 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
       }
 
       final PlatformFile file = result.files.single;
-      final String path = await _fileBridge.materialize(file);
+
+      final Uint8List? bytes = file.bytes;
+
+      String? path;
+
+      if (kIsWeb) {
+        if (bytes == null || bytes.isEmpty) {
+          throw StateError(
+            'Il browser non ha reso disponibile il contenuto del file.',
+          );
+        }
+      } else {
+        path = await _fileBridge.materialize(file);
+      }
 
       setState(() {
         _filePath = path;
         _fileName = file.name;
+        _fileBytes = bytes;
         _error = null;
       });
     } catch (_) {
@@ -2386,8 +2402,13 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     }
 
     final String? filePath = _filePath;
+    final Uint8List? fileBytes = _fileBytes;
 
-    if (filePath == null || filePath.trim().isEmpty) {
+    final bool hasPath = filePath != null && filePath.trim().isNotEmpty;
+
+    final bool hasBytes = fileBytes != null && fileBytes.isNotEmpty;
+
+    if (!hasPath && !hasBytes) {
       _showMessage('Seleziona il file da aggiungere alle dispense.');
       return;
     }
@@ -2408,15 +2429,27 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
       final String subjectName = _subjectController.text.trim();
       final String? originalName = _fileName;
 
-      await widget.importService.importMaterial(
-        sourcePath: filePath,
-        university: university,
-        department: department,
-        course: course,
-        subjectName: subjectName,
-        originalName: originalName,
-        subjectId: catalogSubject?.id,
-      );
+      if (fileBytes != null && fileBytes.isNotEmpty) {
+        await widget.importService.importMaterialBytes(
+          bytes: fileBytes,
+          fileName: originalName ?? 'materiale',
+          university: university,
+          department: department,
+          course: course,
+          subjectName: subjectName,
+          subjectId: catalogSubject?.id,
+        );
+      } else {
+        await widget.importService.importMaterial(
+          sourcePath: filePath!,
+          university: university,
+          department: department,
+          course: course,
+          subjectName: subjectName,
+          originalName: originalName,
+          subjectId: catalogSubject?.id,
+        );
+      }
 
       if (!mounted) {
         return;
@@ -2424,7 +2457,13 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
 
       completed = true;
       Navigator.of(context).pop(true);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('OFFLINE MATERIAL IMPORT ERROR: $e');
+      debugPrintStack(
+        label: 'OFFLINE MATERIAL IMPORT STACK',
+        stackTrace: stackTrace,
+      );
+
       if (!mounted) {
         return;
       }
