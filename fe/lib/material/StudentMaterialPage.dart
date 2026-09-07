@@ -3277,6 +3277,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
   SocialSubject? _selectedSubject;
 
   String? _selectedFilePath;
+  Uint8List? _selectedFileBytes;
 
   String? _selectedFileName;
 
@@ -3660,10 +3661,25 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
       }
 
       final PlatformFile selected = result.files.single;
-      final String path = await _fileBridge.materialize(selected);
+
+      String? path;
+      Uint8List? bytes;
+
+      if (kIsWeb) {
+        bytes = selected.bytes;
+
+        if (bytes == null || bytes.isEmpty) {
+          throw StateError(
+            'Il browser non ha reso disponibile il contenuto del file.',
+          );
+        }
+      } else {
+        path = await _fileBridge.materialize(selected);
+      }
 
       setState(() {
         _selectedFilePath = path;
+        _selectedFileBytes = bytes;
         _selectedFileName = selected.name;
       });
     } catch (_) {
@@ -3688,14 +3704,22 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
     final SocialSubject? subject = _selectedSubject;
     final String? filePath = _selectedFilePath;
+    final Uint8List? fileBytes = _selectedFileBytes;
+    final String? fileName = _selectedFileName;
 
     if (subject == null) {
       _showMessage('Seleziona la materia del materiale.');
       return;
     }
 
-    if (filePath == null || filePath.trim().isEmpty) {
+    if ((fileBytes == null || fileBytes.isEmpty) &&
+        (filePath == null || filePath.trim().isEmpty)) {
       _showMessage('Seleziona il file da proporre.');
+      return;
+    }
+
+    if (fileName == null || fileName.trim().isEmpty) {
+      _showMessage('Nome del file non disponibile.');
       return;
     }
 
@@ -3710,23 +3734,37 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
     bool completed = false;
 
     try {
-      await widget.apiService.uploadMaterialPublication(
-        subjectId: subject.id,
-        title: title,
-        description: description,
-        filePath: filePath,
-        attributionMode: _attributionMode,
-        onPossibleDuplicate: () async {
-          if (!mounted) {
-            return;
-          }
+      Future<void> onPossibleDuplicate() async {
+        if (!mounted) {
+          return;
+        }
 
-          _showMessage(
-            'StudentLab ha rilevato un materiale simile. '
-            'La tua proposta verrà comunque inviata alla revisione.',
-          );
-        },
-      );
+        _showMessage(
+          'StudentLab ha rilevato un materiale simile. '
+          'La tua proposta verrà comunque inviata alla revisione.',
+        );
+      }
+
+      if (fileBytes != null && fileBytes.isNotEmpty) {
+        await widget.apiService.uploadMaterialPublicationBytes(
+          subjectId: subject.id,
+          title: title,
+          description: description,
+          bytes: fileBytes,
+          originalName: fileName,
+          attributionMode: _attributionMode,
+          onPossibleDuplicate: onPossibleDuplicate,
+        );
+      } else {
+        await widget.apiService.uploadMaterialPublication(
+          subjectId: subject.id,
+          title: title,
+          description: description,
+          filePath: filePath!,
+          attributionMode: _attributionMode,
+          onPossibleDuplicate: onPossibleDuplicate,
+        );
+      }
 
       if (!mounted) {
         return;
