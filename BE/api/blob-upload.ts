@@ -224,13 +224,65 @@ export default async function handler(
   request: VercelRequest,
   response: VercelResponse,
 ) {
+  const origin =
+    typeof request.headers.origin === 'string'
+      ? request.headers.origin
+      : '';
+
+  const allowedOrigins = new Set([
+    'https://studentlab.net',
+    'https://www.studentlab.net',
+    'https://studentlab-487da.web.app',
+    'https://studentlab-487da.firebaseapp.com',
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'http://localhost:8080',
+  ]);
+
+  if (origin && allowedOrigins.has(origin)) {
+    response.setHeader(
+      'Access-Control-Allow-Origin',
+      origin,
+    );
+  }
+
+  response.setHeader(
+    'Vary',
+    'Origin',
+  );
+
+  response.setHeader(
+    'Access-Control-Allow-Methods',
+    'POST, OPTIONS',
+  );
+
+  response.setHeader(
+    'Access-Control-Allow-Headers',
+    'Authorization, Content-Type, Accept',
+  );
+
+  response.setHeader(
+    'Access-Control-Max-Age',
+    '86400',
+  );
+
+  if (request.method === 'OPTIONS') {
+    if (origin && !allowedOrigins.has(origin)) {
+      return response.status(403).json({
+        error: 'Origine non autorizzata.',
+      });
+    }
+
+    return response.status(204).end();
+  }
+
   if (
     request.method !==
     'POST'
   ) {
     response.setHeader(
       'Allow',
-      'POST',
+      'POST, OPTIONS',
     );
 
     return response
