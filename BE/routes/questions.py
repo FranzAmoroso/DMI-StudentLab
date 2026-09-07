@@ -26,6 +26,10 @@ from schemas.question import (
     QuestionUpdate,
 )
 
+from services.private_blob import (
+    delete_private_blob_sync,
+)
+
 from services.question_service import (
     create_question,
     delete_question,
@@ -723,6 +727,47 @@ def api_delete_question(
     )
 
     try:
+        question = get_question(
+            department=department,
+            course=course,
+            subject=subject,
+            question_id=question_id,
+            include_hidden=True,
+        )
+
+        if question is None:
+            raise ValueError(
+                "Domanda non trovata."
+            )
+
+        attachments = question.get(
+            "attachments",
+            [],
+        )
+
+        if isinstance(
+            attachments,
+            list,
+        ):
+            for attachment in attachments:
+                if not isinstance(
+                    attachment,
+                    dict,
+                ):
+                    continue
+
+                stored_name = str(
+                    attachment.get(
+                        "stored_name",
+                        "",
+                    )
+                ).strip()
+
+                if stored_name:
+                    delete_private_blob_sync(
+                        stored_name
+                    )
+
         delete_question(
             department=department,
             course=course,
@@ -771,7 +816,7 @@ async def api_import_questions(
         )
     )
 
-    _require_question_manager(
+    subject_record = _require_question_manager(
         db,
         current_user,
         department,
@@ -884,6 +929,11 @@ async def api_import_questions(
             subject=subject,
             raw_questions=raw_questions,
             skip_duplicates=skip_duplicates,
+            default_university=(
+                subject_record.university
+                if subject_record is not None
+                else None
+            ),
         )
 
     except ValueError as exception:

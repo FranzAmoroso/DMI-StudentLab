@@ -15,6 +15,10 @@ from models.subject import Subject
 from models.teacher_assignment import TeacherAssignment
 from models.user import User
 
+from schemas.question import (
+    QuestionUpdate,
+)
+
 from schemas.question_attachment import (
     QuestionAttachmentCompleteRequest,
     QuestionAttachmentCompleteResponse,
@@ -22,6 +26,11 @@ from schemas.question_attachment import (
     QuestionAttachmentUploadResponse,
     QuestionAttachmentVerifyRequest,
     QuestionAttachmentVerifyResponse,
+)
+
+from services.private_blob import (
+    delete_private_blob,
+    private_blob_response,
 )
 
 from services.question_attachment import (
@@ -32,6 +41,7 @@ from services.question_attachment import (
 
 from services.question_service import (
     get_question,
+    update_question,
 )
 
 
@@ -233,20 +243,34 @@ def api_question_attachment_upload_request(
         get_db
     ),
 ):
-    _require_attachment_manager(
-        db,
-        current_user,
-        request.department,
-        request.course,
-        request.subject,
-    )
+    if request.question_id is None:
+        subject_record = _get_subject(
+            db,
+            request.department,
+            request.course,
+            request.subject,
+        )
 
-    _require_existing_question(
-        request.department,
-        request.course,
-        request.subject,
-        request.question_id,
-    )
+        if subject_record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Materia non trovata.",
+            )
+    else:
+        _require_attachment_manager(
+            db,
+            current_user,
+            request.department,
+            request.course,
+            request.subject,
+        )
+
+        _require_existing_question(
+            request.department,
+            request.course,
+            request.subject,
+            request.question_id,
+        )
 
     try:
         return (
@@ -305,13 +329,18 @@ def api_question_attachment_complete(
         get_db
     ),
 ):
-    _require_attachment_manager(
+    subject_record = _get_subject(
         db,
-        current_user,
         request.department,
         request.course,
         request.subject,
     )
+
+    if subject_record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Materia non trovata.",
+        )
 
     try:
         return (
@@ -328,3 +357,217 @@ def api_question_attachment_complete(
         _raise_attachment_error(
             exception
         )
+
+@router.get(
+    "/content/{department}/{course}/{subject}/{question_id}/{attachment_id}",
+)
+async def api_question_attachment_content(
+    department: str,
+    course: str,
+    subject: str,
+    question_id: str,
+    attachment_id: str,
+):
+    question = get_question(
+        department=department,
+        course=course,
+        subject=subject,
+        question_id=question_id,
+        include_hidden=False,
+    )
+
+    if question is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Domanda non trovata.",
+        )
+
+    attachments = question.get(
+        "attachments",
+        [],
+    )
+
+    if not isinstance(
+        attachments,
+        list,
+    ):
+        attachments = []
+
+    target = None
+
+    for attachment in attachments:
+        if not isinstance(
+            attachment,
+            dict,
+        ):
+            continue
+
+        if str(
+            attachment.get(
+                "id",
+                "",
+            )
+        ).strip() == attachment_id.strip():
+            target = attachment
+            break
+
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Allegato non trovato.",
+        )
+
+    stored_name = str(
+        target.get(
+            "stored_name",
+            "",
+        )
+    ).strip()
+
+    original_name = str(
+        target.get(
+            "original_name",
+            "",
+        )
+    ).strip()
+
+    mime_type = str(
+        target.get(
+            "mime_type",
+            "",
+        )
+    ).strip()
+
+    if (
+        not stored_name
+        or not original_name
+        or not mime_type
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Allegato non disponibile.",
+        )
+
+    return await private_blob_response(
+        stored_name=stored_name,
+        original_name=original_name,
+        mime_type=mime_type,
+        inline=True,
+    )
+
+
+@router.delete(
+    "/{department}/{course}/{subject}/{question_id}/{attachment_id}",
+)
+async def api_delete_question_attachment(
+    department: str,
+    course: str,
+    subject: str,
+    question_id: str,
+    attachment_id: str,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(
+        get_db
+    ),
+):
+    _require_attachment_manager(
+        db,
+        current_user,
+        department,
+        course,
+        subject,
+    )
+
+    question = get_question(
+        department=department,
+        course=course,
+        subject=subject,
+        question_id=question_id,
+        include_hidden=True,
+    )
+
+    if question is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Domanda non trovata.",
+        )
+
+    attachments = question.get(
+        "attachments",
+        [],
+    )
+
+    if not isinstance(
+        attachments,
+        list,
+    ):
+        attachments = []
+
+    target = None
+    remaining = []
+
+    for attachment in attachments:
+        if not isinstance(
+            attachment,
+            dict,
+        ):
+            continue
+
+        if (
+            target is None
+            and str(
+                attachment.get(
+                    "id",
+                    "",
+                )
+            ).strip()
+            == attachment_id.strip()
+        ):
+            target = attachment
+            continue
+
+        remaining.append(
+            attachment
+        )
+
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Allegato non trovato.",
+        )
+
+    stored_name = str(
+        target.get(
+            "stored_name",
+            "",
+        )
+    ).strip()
+
+    if stored_name:
+        await delete_private_blob(
+            stored_name
+        )
+
+    try:
+        updated = update_question(
+            department=department,
+            course=course,
+            subject=subject,
+            question_id=question_id,
+            data=QuestionUpdate(
+                attachments=remaining
+            ),
+        )
+    except ValueError as exception:
+        _raise_attachment_error(
+            exception
+        )
+
+    return {
+        "success":
+            True,
+        "question":
+            updated,
+    }

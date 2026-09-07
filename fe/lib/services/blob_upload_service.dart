@@ -18,7 +18,7 @@ class StudentLabUploadService {
   final LocalFileService _files;
 
   StudentLabUploadService({LocalFileService? files})
-      : _files = files ?? LocalFileService();
+    : _files = files ?? LocalFileService();
 
   Uri _uri(String path) {
     final Uri base = Uri.parse(_baseUrl);
@@ -68,7 +68,8 @@ class StudentLabUploadService {
       throw Exception('$fallback: risposta non valida.');
     }
     if (decoded is Map) {
-      final String detail = (decoded['detail'] ?? decoded['error'])?.toString().trim() ?? '';
+      final String detail =
+          (decoded['detail'] ?? decoded['error'])?.toString().trim() ?? '';
       if (detail.isNotEmpty) throw Exception(detail);
     }
     throw Exception(fallback);
@@ -87,7 +88,8 @@ class StudentLabUploadService {
     return _UploadFile(name: name, bytes: bytes, mimeType: mimeType);
   }
 
-  String _sha256(Uint8List bytes) => sha256.convert(bytes).toString().toLowerCase();
+  String _sha256(Uint8List bytes) =>
+      sha256.convert(bytes).toString().toLowerCase();
 
   Future<void> _putBytes({
     required Uint8List bytes,
@@ -119,21 +121,17 @@ class StudentLabUploadService {
     int? subjectId,
     String? attachmentId,
   }) {
-    return _postJson(
-      '/api/blob-upload',
-      <String, dynamic>{
-        'upload_kind': uploadKind,
-        'pathname': pathname,
-        'content_type': mimeType,
-        'size': size,
-        'file_hash': fileHash,
-        'upload_token': uploadToken,
-        if (groupId != null) 'group_id': groupId,
-        if (subjectId != null) 'subject_id': subjectId,
-        if (attachmentId != null) 'attachment_id': attachmentId,
-      },
-      'Non è stato possibile autorizzare il caricamento.',
-    );
+    return _postJson('/api/blob-upload', <String, dynamic>{
+      'upload_kind': uploadKind,
+      'pathname': pathname,
+      'content_type': mimeType,
+      'size': size,
+      'file_hash': fileHash,
+      'upload_token': uploadToken,
+      if (groupId != null) 'group_id': groupId,
+      if (subjectId != null) 'subject_id': subjectId,
+      if (attachmentId != null) 'attachment_id': attachmentId,
+    }, 'Non è stato possibile autorizzare il caricamento.');
   }
 
   Future<Map<String, dynamic>> uploadGroupMaterial({
@@ -183,8 +181,10 @@ class StudentLabUploadService {
     }
     final String pathname = _requiredString(authorization, 'pathname');
     final String token = _requiredString(authorization, 'upload_token');
-    final int maxSize = _positiveInt(authorization['max_file_size']) ?? groupMaterialMaxSize;
-    if (bytes.length > maxSize) throw Exception('Il file supera la dimensione massima consentita.');
+    final int maxSize =
+        _positiveInt(authorization['max_file_size']) ?? groupMaterialMaxSize;
+    if (bytes.length > maxSize)
+      throw Exception('Il file supera la dimensione massima consentita.');
     final Map<String, dynamic> blob = await _requestBlobUpload(
       uploadKind: 'group_material',
       pathname: pathname,
@@ -242,7 +242,8 @@ class StudentLabUploadService {
   }) async {
     if (subjectId <= 0) throw Exception('Materia non valida.');
     final String normalizedTitle = title.trim();
-    if (normalizedTitle.isEmpty) throw Exception('Titolo del materiale obbligatorio.');
+    if (normalizedTitle.isEmpty)
+      throw Exception('Titolo del materiale obbligatorio.');
     final String normalizedVisibility = visibility.trim().toLowerCase();
     if (!{'students', 'private'}.contains(normalizedVisibility)) {
       throw Exception('Visibilità materiale non valida.');
@@ -262,7 +263,10 @@ class StudentLabUploadService {
       },
       'Non è stato possibile autorizzare il materiale docente.',
     );
-    if (authorization['allowed'] != true) throw Exception('Il caricamento del materiale docente non è autorizzato.');
+    if (authorization['allowed'] != true)
+      throw Exception(
+        'Il caricamento del materiale docente non è autorizzato.',
+      );
     final String pathname = _requiredString(authorization, 'pathname');
     final String token = _requiredString(authorization, 'upload_token');
     final Map<String, dynamic> blob = await _requestBlobUpload(
@@ -274,7 +278,11 @@ class StudentLabUploadService {
       uploadToken: token,
       subjectId: subjectId,
     );
-    await _putBytes(bytes: bytes, mimeType: type, presignedUrl: _requiredString(blob, 'presigned_url'));
+    await _putBytes(
+      bytes: bytes,
+      mimeType: type,
+      presignedUrl: _requiredString(blob, 'presigned_url'),
+    );
     return _postJson(
       '/teacher/materials/complete',
       <String, dynamic>{
@@ -299,7 +307,7 @@ class StudentLabUploadService {
     required String course,
     required String subject,
     required String filePath,
-    required String questionId,
+    String? questionId,
   }) async {
     final _UploadFile file = await _fromPath(filePath);
     return uploadQuestionAttachmentBytes(
@@ -316,16 +324,18 @@ class StudentLabUploadService {
     required String department,
     required String course,
     required String subject,
-    required String questionId,
+    String? questionId,
     required Uint8List bytes,
     required String originalName,
   }) async {
     final String dep = department.trim();
     final String courseValue = course.trim();
     final String subjectValue = subject.trim();
-    final String question = questionId.trim();
-    if (dep.isEmpty || courseValue.isEmpty || subjectValue.isEmpty) throw Exception('Dati della materia non validi.');
-    if (question.isEmpty) throw Exception('La domanda deve essere salvata prima di aggiungere allegati.');
+    final String? question = questionId?.trim().isEmpty == true
+        ? null
+        : questionId?.trim();
+    if (dep.isEmpty || courseValue.isEmpty || subjectValue.isEmpty)
+      throw Exception('Dati della materia non validi.');
     _validateSize(bytes, questionAttachmentMaxSize, 50);
     final String name = _requiredName(originalName);
     final String type = _questionMimeType(name);
@@ -344,7 +354,8 @@ class StudentLabUploadService {
       },
       'Non è stato possibile autorizzare l’allegato.',
     );
-    if (authorization['allowed'] != true) throw Exception('Il caricamento dell’allegato non è autorizzato.');
+    if (authorization['allowed'] != true)
+      throw Exception('Il caricamento dell’allegato non è autorizzato.');
     final String attachmentId = _requiredString(authorization, 'attachment_id');
     final String pathname = _requiredString(authorization, 'pathname');
     final String token = _requiredString(authorization, 'upload_token');
@@ -357,7 +368,11 @@ class StudentLabUploadService {
       uploadToken: token,
       attachmentId: attachmentId,
     );
-    await _putBytes(bytes: bytes, mimeType: type, presignedUrl: _requiredString(blob, 'presigned_url'));
+    await _putBytes(
+      bytes: bytes,
+      mimeType: type,
+      presignedUrl: _requiredString(blob, 'presigned_url'),
+    );
     return _postJson(
       '/question-attachments/complete',
       <String, dynamic>{
@@ -404,7 +419,8 @@ class StudentLabUploadService {
   }) async {
     if (subjectId <= 0) throw Exception('Materia non valida.');
     final String normalizedTitle = title.trim();
-    if (normalizedTitle.isEmpty) throw Exception('Titolo del materiale obbligatorio.');
+    if (normalizedTitle.isEmpty)
+      throw Exception('Titolo del materiale obbligatorio.');
     _validateSize(bytes, materialPublicationMaxSize, 250);
     final String name = _requiredName(originalName);
     final String type = _groupMimeType(name);
@@ -422,9 +438,12 @@ class StudentLabUploadService {
       },
       'Non è stato possibile autorizzare la condivisione del materiale.',
     );
-    if (authorization['allowed'] != true) throw Exception('La condivisione del materiale non è autorizzata.');
+    if (authorization['allowed'] != true)
+      throw Exception('La condivisione del materiale non è autorizzata.');
     final bool duplicate = authorization['possible_duplicate'] == true;
-    final int? duplicateId = _positiveInt(authorization['possible_duplicate_material_id']);
+    final int? duplicateId = _positiveInt(
+      authorization['possible_duplicate_material_id'],
+    );
     if (duplicate && onPossibleDuplicate != null) await onPossibleDuplicate();
     final String pathname = _requiredString(authorization, 'pathname');
     final String token = _requiredString(authorization, 'upload_token');
@@ -437,7 +456,11 @@ class StudentLabUploadService {
       uploadToken: token,
       subjectId: subjectId,
     );
-    await _putBytes(bytes: bytes, mimeType: type, presignedUrl: _requiredString(blob, 'presigned_url'));
+    await _putBytes(
+      bytes: bytes,
+      mimeType: type,
+      presignedUrl: _requiredString(blob, 'presigned_url'),
+    );
     final Map<String, dynamic> result = await _postJson(
       '/material_publication/complete',
       <String, dynamic>{
@@ -462,12 +485,16 @@ class StudentLabUploadService {
 
   void _validateSize(Uint8List bytes, int max, int maxMb) {
     if (bytes.isEmpty) throw Exception('Il file è vuoto.');
-    if (bytes.length > max) throw Exception('Il file supera la dimensione massima consentita di $maxMb MB.');
+    if (bytes.length > max)
+      throw Exception(
+        'Il file supera la dimensione massima consentita di $maxMb MB.',
+      );
   }
 
   String _requiredName(String value) {
     final String name = value.trim();
-    if (name.isEmpty || name == '.' || name == '..') throw Exception('Nome del file non valido.');
+    if (name.isEmpty || name == '.' || name == '..')
+      throw Exception('Nome del file non valido.');
     return name;
   }
 
@@ -481,8 +508,8 @@ class StudentLabUploadService {
     final int? parsed = value is int
         ? value
         : value is num
-            ? value.toInt()
-            : int.tryParse(value?.toString() ?? '');
+        ? value.toInt()
+        : int.tryParse(value?.toString() ?? '');
     return parsed != null && parsed > 0 ? parsed : null;
   }
 
@@ -491,8 +518,10 @@ class StudentLabUploadService {
     if (lower.endsWith('.pdf')) return 'application/pdf';
     if (lower.endsWith('.txt')) return 'text/plain';
     if (lower.endsWith('.zip')) return 'application/zip';
-    if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    if (lower.endsWith('.pptx')) return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    if (lower.endsWith('.docx'))
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (lower.endsWith('.pptx'))
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
     throw Exception('Tipo di file non supportato.');
   }
 
@@ -500,11 +529,14 @@ class StudentLabUploadService {
     final String lower = name.toLowerCase();
     if (lower.endsWith('.pdf')) return 'application/pdf';
     if (lower.endsWith('.zip')) return 'application/zip';
-    if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (lower.endsWith('.docx'))
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     if (lower.endsWith('.doc')) return 'application/msword';
-    if (lower.endsWith('.pptx')) return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    if (lower.endsWith('.pptx'))
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
     if (lower.endsWith('.ppt')) return 'application/vnd.ms-powerpoint';
-    if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (lower.endsWith('.xlsx'))
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     if (lower.endsWith('.xls')) return 'application/vnd.ms-excel';
     if (lower.endsWith('.csv')) return 'text/csv';
     if (lower.endsWith('.txt')) return 'text/plain';
@@ -521,8 +553,10 @@ class StudentLabUploadService {
     if (lower.endsWith('.webp')) return 'image/webp';
     if (lower.endsWith('.pdf')) return 'application/pdf';
     if (lower.endsWith('.txt')) return 'text/plain';
-    if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    if (lower.endsWith('.pptx')) return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    if (lower.endsWith('.docx'))
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (lower.endsWith('.pptx'))
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
     throw Exception('Tipo di allegato non supportato.');
   }
 }
@@ -532,9 +566,5 @@ class _UploadFile {
   final Uint8List bytes;
   final String? mimeType;
 
-  const _UploadFile({
-    required this.name,
-    required this.bytes,
-    this.mimeType,
-  });
+  const _UploadFile({required this.name, required this.bytes, this.mimeType});
 }

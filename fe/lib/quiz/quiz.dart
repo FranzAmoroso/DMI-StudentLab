@@ -10,7 +10,9 @@ import 'package:fe/services/auth_session.dart';
 import '../local_storage/services/study_plan_sync_service.dart';
 import 'services/free_quiz_api_service.dart';
 import 'services/quiz_attempt_api_service.dart';
+import 'services/question_moderation_service.dart';
 import 'teacher/widgets/quiz_execution_guard.dart';
+import 'widgets/question_attachment_image.dart';
 
 class QuizPage extends StatefulWidget {
   final String department;
@@ -63,6 +65,8 @@ class _QuizPageState extends State<QuizPage> {
   final FreeQuizApiService _freeQuizApiService = FreeQuizApiService();
   final QuizAttemptApiService _attemptApiService = QuizAttemptApiService();
   final StudyPlanSyncService _studyPlanSync = StudyPlanSyncService();
+  final QuestionModerationService _questionModerationService =
+      QuestionModerationService();
 
   List<QuizModel> question = <QuizModel>[];
   List<QuizQuestionResult> results = <QuizQuestionResult>[];
@@ -76,6 +80,7 @@ class _QuizPageState extends State<QuizPage> {
   bool isLocked = false;
   bool modalIsOpen = false;
   bool _completing = false;
+  bool _reportingQuestion = false;
   int idx = 0;
 
   late DateTime _quizStartedAt;
@@ -139,10 +144,7 @@ class _QuizPageState extends State<QuizPage> {
   Future<void> _refreshStudyPlanAfterQuiz() async {
     try {
       await _studyPlanSync.refreshAfterQuizCompletion();
-    } catch (_) {
-      // Il salvataggio del quiz è già riuscito: una temporanea indisponibilità
-      // del Ripasso non deve bloccare la schermata dei risultati.
-    }
+    } catch (_) {}
   }
 
   void _showQuizResult() {
@@ -384,7 +386,6 @@ class _QuizPageState extends State<QuizPage> {
       }
     }
 
-    // Vale sia per Guest (SQLite) sia per account (bootstrap server).
     await _refreshStudyPlanAfterQuiz();
 
     if (!mounted) return;
@@ -575,6 +576,32 @@ class _QuizPageState extends State<QuizPage> {
     return widget.assignedQuestions![idx]['text']?.toString() ?? '';
   }
 
+  List<Map<String, dynamic>> get _currentAttachments {
+    if (!widget.isAssigned) {
+      return question[idx].attachments;
+    }
+
+    final dynamic raw = widget.assignedQuestions![idx]['attachments'];
+
+    if (raw is! List) {
+      return <Map<String, dynamic>>[];
+    }
+
+    return raw
+        .whereType<Map>()
+        .map((Map item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  String get _currentQuestionId {
+    if (!widget.isAssigned) {
+      return question[idx].idQuestion;
+    }
+
+    return widget.assignedQuestions![idx]['id_question']?.toString().trim() ??
+        '';
+  }
+
   Map<String, dynamic> get _currentMetadata {
     if (!widget.isAssigned) {
       return Map<String, dynamic>.from(question[idx].metadata);
@@ -715,6 +742,179 @@ class _QuizPageState extends State<QuizPage> {
     });
   }
 
+  Future<void> _reportCurrentQuestion() async {
+    if (widget.isAssigned || _reportingQuestion) return;
+    if (!AuthSession.instance.isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Accedi a StudentLab per segnalare una domanda.'),
+        ),
+      );
+      return;
+    }
+    const List<MapEntry<String, String>> reasons = <MapEntry<String, String>>[
+      MapEntry<String, String>(
+        'wrong_correct_answer',
+        'Risposta corretta errata',
+      ),
+      MapEntry<String, String>('unclear_question', 'Domanda poco chiara'),
+      MapEntry<String, String>('wrong_explanation', 'Spiegazione errata'),
+      MapEntry<String, String>('wrong_feedback', 'Feedback errato'),
+      MapEntry<String, String>('duplicate_question', 'Domanda duplicata'),
+      MapEntry<String, String>('text_error', 'Errore nel testo'),
+      MapEntry<String, String>('not_relevant', 'Contenuto non pertinente'),
+      MapEntry<String, String>('other', 'Altro'),
+    ];
+    String selected = reasons.first.key;
+    final TextEditingController messageController = TextEditingController();
+    final Map<String, String>? result =
+        await showModalBottomSheet<Map<String, String>>(
+          context: context,
+          backgroundColor: AppColors.secondaryNightBlue,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (BuildContext modalContext) {
+            return StatefulBuilder(
+              builder: (BuildContext context, StateSetter setModalState) {
+                return SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      14,
+                      20,
+                      20 + MediaQuery.of(modalContext).viewInsets.bottom,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              const Icon(
+                                Icons.flag_outlined,
+                                color: Colors.redAccent,
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Text(
+                                  'Segnala domanda',
+                                  style: TextStyle(
+                                    color: AppColors.pureWhite,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.pop(modalContext),
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  color: AppColors.pureWhite,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          for (final MapEntry<String, String> reason in reasons)
+                            RadioListTile<String>(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              value: reason.key,
+                              groupValue: selected,
+                              activeColor: AppColors.skyBlue,
+                              title: Text(
+                                reason.value,
+                                style: const TextStyle(
+                                  color: AppColors.pureWhite,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              onChanged: (String? value) {
+                                if (value != null)
+                                  setModalState(() => selected = value);
+                              },
+                            ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: messageController,
+                            minLines: 3,
+                            maxLines: 6,
+                            maxLength: 2000,
+                            style: const TextStyle(color: AppColors.pureWhite),
+                            decoration: InputDecoration(
+                              labelText: 'Dettagli facoltativi',
+                              labelStyle: const TextStyle(
+                                color: Colors.white70,
+                              ),
+                              filled: true,
+                              fillColor: AppColors.brandNightBlue.withValues(
+                                alpha: 0.45,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () =>
+                                  Navigator.pop(modalContext, <String, String>{
+                                    'reason': selected,
+                                    'message': messageController.text.trim(),
+                                  }),
+                              icon: const Icon(Icons.flag_outlined),
+                              label: const Text('Invia segnalazione'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+    messageController.dispose();
+    if (result == null || !mounted) return;
+    setState(() => _reportingQuestion = true);
+    try {
+      await _questionModerationService.reportQuestion(
+        department: widget.department,
+        course: widget.course,
+        subject: widget.sub,
+        questionId: _currentQuestionId,
+        reason: result['reason'] ?? 'other',
+        message: result['message'],
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Segnalazione inviata. Grazie.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      String message = error.toString();
+      if (message.startsWith('Exception: ')) message = message.substring(11);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message.trim().isEmpty
+                ? 'Non è stato possibile inviare la segnalazione.'
+                : message.trim(),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _reportingQuestion = false);
+    }
+  }
+
   String _formatRemaining(int seconds) {
     final int minutes = seconds ~/ 60;
     final int remaining = seconds % 60;
@@ -789,6 +989,18 @@ class _QuizPageState extends State<QuizPage> {
                 _showExplanation(context, question[idx]);
               },
             ),
+          if (!widget.isAssigned)
+            IconButton(
+              icon: _reportingQuestion
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.flag_outlined),
+              tooltip: 'Segnala domanda',
+              onPressed: _reportingQuestion ? null : _reportCurrentQuestion,
+            ),
         ],
       ),
       body: SafeArea(
@@ -848,6 +1060,27 @@ class _QuizPageState extends State<QuizPage> {
                         ),
                       ],
                     ),
+                    if (_currentAttachments.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 18),
+                      for (final Map<String, dynamic> attachment
+                          in _currentAttachments)
+                        if (attachment['type']
+                                    ?.toString()
+                                    .trim()
+                                    .toLowerCase() ==
+                                'image' &&
+                            _currentQuestionId.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: QuestionAttachmentImage(
+                              department: widget.department,
+                              course: widget.course,
+                              subject: widget.sub,
+                              questionId: _currentQuestionId,
+                              attachment: attachment,
+                            ),
+                          ),
+                    ],
                     const SizedBox(height: 35),
                     ...options.map(
                       (_QuizOptionView option) => Padding(

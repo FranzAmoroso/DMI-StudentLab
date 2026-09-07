@@ -4,6 +4,8 @@ import '../../developer/pages/developer_entry_page.dart';
 
 import '../../material/admin/admin_material_storage_page.dart';
 
+import '../../quiz/teacher/question_moderation_page.dart';
+
 import '../../services/api_service.dart';
 
 import '../../theme/nightTheme.dart';
@@ -579,6 +581,18 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
           onTap: () {
             _openProtectedPage(const AdminTeacherAssignmentsPage());
+          },
+        ),
+        _AdminModuleCard(
+          icon: Icons.quiz_outlined,
+
+          title: 'Domande quiz',
+
+          description:
+              'Revisiona proposte degli studenti e domande segnalate, modificandole, approvandole o rifiutandole.',
+
+          onTap: () {
+            _openProtectedPage(const QuestionModerationPage.admin());
           },
         ),
 

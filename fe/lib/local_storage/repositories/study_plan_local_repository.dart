@@ -207,7 +207,7 @@ class StudyPlanLocalRepository {
             wrong: _int(contribution['wrong_count']),
             unanswered: _int(contribution['unanswered_count']),
             reviewCount: _int(contribution['review_count']),
-            lastIsCorrect: contribution['last_is_correct'] as bool?,
+            lastIsCorrect: _boolOrNull(contribution['last_is_correct']),
             lastSelectedOptionId: contribution['last_selected_option_id']?.toString(),
             lastSelectedOptionText: contribution['last_selected_option_text']?.toString(),
             lastSelectedAnswerExplanation: contribution['last_selected_answer_explanation']?.toString(),
@@ -314,7 +314,7 @@ class StudyPlanLocalRepository {
     filter('i.department', department); filter('i.course', course); filter('i.subject', subject);
     final String group = groupByArgument ? 'i.department, i.course, i.subject, COALESCE(NULLIF(TRIM(i.argument),\'\'),\'Senza argomento\')' : 'i.department, i.course, i.subject';
     final String argumentSelect = groupByArgument ? ", COALESCE(NULLIF(TRIM(i.argument),''),'Senza argomento') AS argument" : '';
-    final List<Map<String, dynamic>> rows = await db.rawQuery('''
+    final List<Map<String, dynamic>> queryRows = await db.rawQuery('''
       SELECT i.department, i.course, i.subject $argumentSelect,
              COUNT(DISTINCT i.id) AS item_count,
              SUM(c.correct_count + c.wrong_count + c.unanswered_count) AS total_questions,
@@ -327,11 +327,23 @@ class StudyPlanLocalRepository {
       JOIN ${DatabaseTables.studyPlanSources} s ON s.source_key = c.source_key
       WHERE ${where.join(' AND ')} GROUP BY $group
     ''', args);
+
+    final List<Map<String, dynamic>> rows = queryRows
+        .map((Map<String, dynamic> row) => Map<String, dynamic>.from(row))
+        .toList();
+
     for (final Map<String, dynamic> row in rows) {
       final int total = _int(row['total_questions']);
-      row['accuracy_percentage'] = total == 0 ? 0.0 : _int(row['correct_count']) / total * 100.0;
+      row['accuracy_percentage'] =
+          total == 0 ? 0.0 : _int(row['correct_count']) / total * 100.0;
     }
-    rows.sort((a,b) => _double(a['accuracy_percentage']).compareTo(_double(b['accuracy_percentage'])));
+
+    rows.sort(
+      (Map<String, dynamic> a, Map<String, dynamic> b) =>
+          _double(a['accuracy_percentage']).compareTo(
+            _double(b['accuracy_percentage']),
+          ),
+    );
     return rows;
   }
 
@@ -429,8 +441,24 @@ class StudyPlanLocalRepository {
   String _randomHex(int bytes) => List<int>.generate(bytes, (_) => _random.nextInt(256)).map((int value) => value.toRadixString(16).padLeft(2, '0')).join();
   static String _itemKey(String d, String c, String s, String q) => '$d\u0001$c\u0001$s\u0001$q';
   static String _sessionUuidFromSource(String sourceKey) => sourceKey.startsWith('guest:') ? sourceKey.substring(6) : sourceKey;
-  static int _int(dynamic value) => value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
-  static double _double(dynamic value) => value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0.0;
+  static int _int(dynamic value) =>
+      value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
+
+  static double _double(dynamic value) =>
+      value is num
+          ? value.toDouble()
+          : double.tryParse(value?.toString() ?? '') ?? 0.0;
+
+  static bool? _boolOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value;
+    if (value is num) return value.toInt() != 0;
+
+    final String normalized = value.toString().trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') return true;
+    if (normalized == 'false' || normalized == '0') return false;
+    return null;
+  }
 }
 
 class _Aggregate {

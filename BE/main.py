@@ -372,6 +372,10 @@ from routes.question_attachment import (
     router as question_attachment_router,
 )
 
+from routes.question_moderation import (
+    router as question_moderation_router,
+)
+
 from routes.quiz_attempts import (
     router as quiz_attempts_router,
 )
@@ -490,6 +494,10 @@ app.include_router(
 
 app.include_router(
     question_attachment_router,
+)
+
+app.include_router(
+    question_moderation_router,
 )
 
 app.include_router(
