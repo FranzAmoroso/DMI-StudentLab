@@ -208,9 +208,33 @@ class _StudentQuestionProposalPageState
     });
 
     final Map<String, String> mergedSubjects = <String, String>{};
-    bool catalogLoaded = false;
-    bool quizSubjectsLoaded = false;
+    Object? quizError;
+    Object? catalogError;
 
+    // 1. PRIMA le materie già presenti nei quiz.
+    // Queste sono canoniche e hanno precedenza sul catalogo.
+    try {
+      final List<String> existingQuizSubjects = await _quizApiService
+          .getAvailableSubjects(
+            department: department.code,
+            course: value.code,
+          );
+
+      for (final String subject in existingQuizSubjects) {
+        final String label = _displaySubject(subject);
+        final String key = _subjectKey(label);
+
+        if (label.isNotEmpty && key.isNotEmpty) {
+          mergedSubjects[key] = label;
+        }
+      }
+    } catch (error) {
+      quizError = error;
+    }
+
+    // 2. POI completiamo con tutte le materie del catalogo.
+    // putIfAbsent garantisce che una materia quiz esistente vinca
+    // su una voce equivalente del catalogo.
     try {
       final List<SocialSubject> catalogSubjects = await _apiService
           .getCatalogSubjects(
@@ -224,37 +248,11 @@ class _StudentQuestionProposalPageState
         final String key = _subjectKey(label);
 
         if (label.isNotEmpty && key.isNotEmpty) {
-          mergedSubjects[key] = label;
-        }
-      }
-
-      catalogLoaded = true;
-    } catch (_) {
-      catalogLoaded = false;
-    }
-
-    try {
-      final List<String> existingQuizSubjects = await _quizApiService
-          .getAvailableSubjects(
-            department: department.code,
-            course: value.code,
-          );
-
-      for (final String subject in existingQuizSubjects) {
-        final String label = _displaySubject(subject);
-        final String key = _subjectKey(label);
-
-        if (label.isNotEmpty && key.isNotEmpty) {
-          // Il nome del catalogo ha priorità quando la materia esiste in
-          // entrambe le sorgenti. Se esiste solo nei JSON, viene comunque
-          // mostrata nel form.
           mergedSubjects.putIfAbsent(key, () => label);
         }
       }
-
-      quizSubjectsLoaded = true;
-    } catch (_) {
-      quizSubjectsLoaded = false;
+    } catch (error) {
+      catalogError = error;
     }
 
     if (!mounted ||
@@ -275,13 +273,19 @@ class _StudentQuestionProposalPageState
     });
 
     if (subjects.isEmpty) {
-      if (!catalogLoaded && !quizSubjectsLoaded) {
-        _message('Non è stato possibile caricare le materie.');
-      } else {
+      if (quizError != null && catalogError != null) {
         _message(
-          'Non sono state trovate materie nel catalogo o nei quiz esistenti.',
+          'Non è stato possibile caricare le materie dal catalogo e dai quiz.',
         );
+      } else {
+        _message('Non sono state trovate materie per il corso selezionato.');
       }
+    } else if (catalogError != null) {
+      // Utile durante il collaudo: non nascondiamo più il problema
+      // del catalogo dietro alle materie JSON.
+      _message(
+        'Materie quiz caricate, ma il catalogo accademico non è disponibile.',
+      );
     }
   }
 

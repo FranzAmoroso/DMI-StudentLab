@@ -17,6 +17,8 @@ from fastapi.middleware.cors import (
     CORSMiddleware,
 )
 
+from sqlalchemy import func
+
 from sqlalchemy.exc import (
     IntegrityError,
 )
@@ -945,17 +947,21 @@ def api_catalog_subjects(
         get_db,
     ),
 ):
+    normalized_university_code = university_code.strip().lower()
+    normalized_department_code = department_code.strip().lower()
+    normalized_course_code = course_code.strip().lower()
+
     query = (
         db.query(
             Subject,
         )
         .filter(
-            Subject.university_code ==
-            university_code,
-            Subject.department_code ==
-            department_code,
-            Subject.course_code ==
-            course_code,
+            func.lower(Subject.university_code) ==
+            normalized_university_code,
+            func.lower(Subject.department_code) ==
+            normalized_department_code,
+            func.lower(Subject.course_code) ==
+            normalized_course_code,
             Subject.is_active.is_(
                 True,
             ),
