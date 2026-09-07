@@ -1,580 +1,200 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
-from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from models.notification import Notification
-from models.user import User
+from core.database import Base
 
+class Notification(Base):
+    __tablename__ = "notifications"
 
-VALID_ACTION_STATUSES = {
-    "none",
-    "pending",
-    "accepted",
-    "rejected",
-    "expired",
-    "completed",
-    "cancelled",
-}
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _validate_action_status(
-    action_status: str,
-) -> None:
-    if action_status not in VALID_ACTION_STATUSES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Stato azione della notifica non valido.",
-        )
-
-
-def create_notification(
-    db: Session,
-    user_id: int,
-    notification_type: str,
-    title: str,
-    message: str = "",
-    actor_user_id: int | None = None,
-    resource_type: str | None = None,
-    resource_id: int | None = None,
-    action_type: str | None = None,
-    action_resource_id: int | None = None,
-    action_status: str = "none",
-    expires_at: datetime | None = None,
-    commit: bool = True,
-) -> Notification:
-    _validate_action_status(
-        action_status,
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
     )
 
-    user = (
-        db.query(User)
-        .filter(
-            User.id == user_id,
-            User.is_active.is_(True),
-        )
-        .first()
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
     )
 
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Utente destinatario della notifica non trovato.",
-        )
-
-    notification = Notification(
-        user_id=user_id,
-        actor_user_id=actor_user_id,
-        type=notification_type,
-        title=title,
-        message=message,
-        resource_type=resource_type,
-        resource_id=resource_id,
-        action_type=action_type,
-        action_resource_id=action_resource_id,
-        action_status=action_status,
-        is_read=False,
-        read_at=None,
-        expires_at=expires_at,
+    actor_user_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
     )
 
-    db.add(notification)
-
-    if commit:
-        db.commit()
-        db.refresh(notification)
-    else:
-        db.flush()
-
-    return notification
-
-
-def get_my_notifications(
-    db: Session,
-    current_user: User,
-    unread_only: bool = False,
-    limit: int = 50,
-    offset: int = 0,
-) -> list[Notification]:
-    limit = max(
-        1,
-        min(limit, 100),
-    )
-    offset = max(
-        0,
-        offset,
+    type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
     )
 
-    query = (
-        db.query(Notification)
-        .filter(
-            Notification.user_id == current_user.id,
-        )
+    title: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
     )
 
-    if unread_only:
-        query = query.filter(
-            Notification.is_read.is_(False),
-        )
-
-    return (
-        query
-        .order_by(
-            Notification.created_at.desc(),
-        )
-        .offset(offset)
-        .limit(limit)
-        .all()
+    message: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="",
     )
 
-
-def get_notification_by_id(
-    db: Session,
-    notification_id: int,
-    current_user: User,
-) -> Notification:
-    notification = (
-        db.query(Notification)
-        .filter(
-            Notification.id == notification_id,
-            Notification.user_id == current_user.id,
-        )
-        .first()
+    resource_type: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
     )
 
-    if notification is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notifica non trovata.",
-        )
-
-    return notification
-
-
-def get_unread_notification_count(
-    db: Session,
-    current_user: User,
-) -> int:
-    return (
-        db.query(Notification)
-        .filter(
-            Notification.user_id == current_user.id,
-            Notification.is_read.is_(False),
-        )
-        .count()
+    resource_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
     )
 
-
-def mark_notification_as_read(
-    db: Session,
-    notification_id: int,
-    current_user: User,
-) -> Notification:
-    notification = get_notification_by_id(
-        db,
-        notification_id,
-        current_user,
+    action_type: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
     )
 
-    if notification.is_read:
-        return notification
-
-    now = _now()
-
-    notification.is_read = True
-    notification.read_at = now
-    notification.updated_at = now
-
-    db.commit()
-    db.refresh(notification)
-
-    return notification
-
-
-def mark_notification_as_unread(
-    db: Session,
-    notification_id: int,
-    current_user: User,
-) -> Notification:
-    notification = get_notification_by_id(
-        db,
-        notification_id,
-        current_user,
+    action_resource_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
     )
 
-    if not notification.is_read:
-        return notification
-
-    notification.is_read = False
-    notification.read_at = None
-    notification.updated_at = _now()
-
-    db.commit()
-    db.refresh(notification)
-
-    return notification
-
-
-def mark_all_notifications_as_read(
-    db: Session,
-    current_user: User,
-) -> int:
-    notifications = (
-        db.query(Notification)
-        .filter(
-            Notification.user_id == current_user.id,
-            Notification.is_read.is_(False),
-        )
-        .all()
+    action_status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="none",
+        index=True,
     )
 
-    if not notifications:
-        return 0
-
-    now = _now()
-
-    for notification in notifications:
-        notification.is_read = True
-        notification.read_at = now
-        notification.updated_at = now
-
-    db.commit()
-
-    return len(notifications)
-
-
-def update_notification_action_status(
-    db: Session,
-    notification_id: int,
-    action_status: str,
-    mark_as_read: bool = True,
-    commit: bool = True,
-) -> Notification:
-    _validate_action_status(
-        action_status,
+    is_read: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        index=True,
     )
 
-    notification = (
-        db.query(Notification)
-        .filter(
-            Notification.id == notification_id,
-        )
-        .first()
+    read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
-    if notification is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notifica non trovata.",
-        )
-
-    now = _now()
-
-    notification.action_status = action_status
-    notification.updated_at = now
-
-    if mark_as_read:
-        notification.is_read = True
-        notification.read_at = now
-
-    if commit:
-        db.commit()
-        db.refresh(notification)
-    else:
-        db.flush()
-
-    return notification
-
-
-def update_notification_action_status_by_resource(
-    db: Session,
-    action_type: str,
-    action_resource_id: int,
-    action_status: str,
-    mark_as_read: bool = True,
-    commit: bool = True,
-) -> Notification | None:
-    _validate_action_status(
-        action_status,
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
     )
 
-    notification = (
-        db.query(Notification)
-        .filter(
-            Notification.action_type == action_type,
-            Notification.action_resource_id == action_resource_id,
-        )
-        .order_by(
-            Notification.created_at.desc(),
-        )
-        .first()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
+        index=True,
     )
 
-    if notification is None:
-        return None
-
-    now = _now()
-
-    notification.action_status = action_status
-    notification.updated_at = now
-
-    if mark_as_read:
-        notification.is_read = True
-        notification.read_at = now
-
-    if commit:
-        db.commit()
-        db.refresh(notification)
-    else:
-        db.flush()
-
-    return notification
-
-
-def update_notifications_action_status_by_resource(
-    db: Session,
-    action_type: str,
-    action_resource_id: int,
-    action_status: str,
-    *,
-    current_statuses: set[str] | None = None,
-    mark_as_read: bool = False,
-    commit: bool = True,
-) -> int:
-    _validate_action_status(
-        action_status,
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
-    query = (
-        db.query(Notification)
-        .filter(
-            Notification.action_type == action_type,
-            Notification.action_resource_id == action_resource_id,
-        )
+    user = relationship(
+        "User",
+        back_populates="notifications",
+        foreign_keys=[
+            user_id,
+        ],
     )
 
-    if current_statuses:
-        query = query.filter(
-            Notification.action_status.in_(
-                current_statuses
-            )
-        )
-
-    notifications = query.all()
-
-    if not notifications:
-        return 0
-
-    now = _now()
-
-    for notification in notifications:
-        notification.action_status = action_status
-        notification.updated_at = now
-
-        if mark_as_read:
-            notification.is_read = True
-            notification.read_at = now
-
-    if commit:
-        db.commit()
-    else:
-        db.flush()
-
-    return len(notifications)
-
-
-def update_user_notification_action_status_by_resource(
-    db: Session,
-    user_id: int,
-    action_type: str,
-    action_resource_id: int,
-    action_status: str,
-    *,
-    current_statuses: set[str] | None = None,
-    mark_as_read: bool = True,
-    commit: bool = True,
-) -> Notification | None:
-    _validate_action_status(
-        action_status,
+    actor = relationship(
+        "User",
+        back_populates="notification_actions",
+        foreign_keys=[
+            actor_user_id,
+        ],
     )
 
-    query = (
-        db.query(Notification)
-        .filter(
-            Notification.user_id == user_id,
-            Notification.action_type == action_type,
-            Notification.action_resource_id == action_resource_id,
-        )
+    __table_args__ = (
+        CheckConstraint(
+            "type IN ("
+            "'group_ownership_transfer', "
+            "'group_join_request', "
+            "'group_join_accepted', "
+            "'group_join_rejected', "
+            "'group_deleted', "
+            "'group_report_update', "
+            "'profile_report_update', "
+            "'profile_error_update', "
+            "'teacher_verification_update', "
+            "'teacher_assignment_update', "
+            "'academic_path_verification_update', "
+            "'grade_verification_update', "
+            "'material_publication_request', "
+            "'material_publication_approved', "
+            "'material_publication_rejected', "
+            "'system'"
+            ")",
+            name="chk_notification_type",
+        ),
+        CheckConstraint(
+            "resource_type IS NULL OR resource_type IN ("
+            "'user', "
+            "'group', "
+            "'group_join_request', "
+            "'group_ownership_transfer', "
+            "'teacher_assignment', "
+            "'academic_path', "
+            "'subject', "
+            "'material', "
+            "'profile_report', "
+            "'profile_error_report'"
+            ")",
+            name="chk_notification_resource_type",
+        ),
+        CheckConstraint(
+            "action_type IS NULL OR action_type IN ("
+            "'accept_reject_group_ownership', "
+            "'accept_reject_group_join', "
+            "'open_profile', "
+            "'open_group', "
+            "'open_material', "
+            "'open_admin_review'"
+            ")",
+            name="chk_notification_action_type",
+        ),
+        CheckConstraint(
+            "action_status IN ("
+            "'none', "
+            "'pending', "
+            "'accepted', "
+            "'rejected', "
+            "'expired', "
+            "'completed', "
+            "'cancelled'"
+            ")",
+            name="chk_notification_action_status",
+        ),
     )
-
-    if current_statuses:
-        query = query.filter(
-            Notification.action_status.in_(
-                current_statuses
-            )
-        )
-
-    notification = (
-        query
-        .order_by(
-            Notification.created_at.desc(),
-        )
-        .first()
-    )
-
-    if notification is None:
-        return None
-
-    now = _now()
-
-    notification.action_status = action_status
-    notification.updated_at = now
-
-    if mark_as_read:
-        notification.is_read = True
-        notification.read_at = now
-
-    if commit:
-        db.commit()
-        db.refresh(notification)
-    else:
-        db.flush()
-
-    return notification
-
-
-def update_notifications_expiration_by_resource(
-    db: Session,
-    action_type: str,
-    action_resource_id: int,
-    expires_at: datetime | None,
-    *,
-    only_pending: bool = True,
-    commit: bool = True,
-) -> int:
-    query = (
-        db.query(Notification)
-        .filter(
-            Notification.action_type == action_type,
-            Notification.action_resource_id == action_resource_id,
-        )
-    )
-
-    if only_pending:
-        query = query.filter(
-            Notification.action_status == "pending",
-        )
-
-    notifications = query.all()
-
-    if not notifications:
-        return 0
-
-    now = _now()
-
-    for notification in notifications:
-        notification.expires_at = expires_at
-        notification.updated_at = now
-
-    if commit:
-        db.commit()
-    else:
-        db.flush()
-
-    return len(notifications)
-
-
-def expire_notification_if_needed(
-    db: Session,
-    notification: Notification,
-    commit: bool = True,
-) -> bool:
-    if notification.expires_at is None:
-        return False
-
-    if notification.action_status != "pending":
-        return False
-
-    now = _now()
-
-    if notification.expires_at > now:
-        return False
-
-    notification.action_status = "expired"
-    notification.updated_at = now
-
-    if commit:
-        db.commit()
-        db.refresh(notification)
-    else:
-        db.flush()
-
-    return True
-
-
-def process_expired_notifications(
-    db: Session,
-) -> int:
-    now = _now()
-
-    notifications = (
-        db.query(Notification)
-        .filter(
-            Notification.action_status == "pending",
-            Notification.expires_at.isnot(None),
-            Notification.expires_at <= now,
-        )
-        .all()
-    )
-
-    if not notifications:
-        return 0
-
-    for notification in notifications:
-        notification.action_status = "expired"
-        notification.updated_at = now
-
-    db.commit()
-
-    return len(notifications)
-
-
-def delete_notification(
-    db: Session,
-    notification_id: int,
-    current_user: User,
-) -> None:
-    notification = get_notification_by_id(
-        db,
-        notification_id,
-        current_user,
-    )
-
-    db.delete(notification)
-    db.commit()
-
-
-def delete_all_my_notifications(
-    db: Session,
-    current_user: User,
-) -> int:
-    notifications = (
-        db.query(Notification)
-        .filter(
-            Notification.user_id == current_user.id,
-        )
-        .all()
-    )
-
-    count = len(notifications)
-
-    for notification in notifications:
-        db.delete(notification)
-
-    db.commit()
-
-    return count

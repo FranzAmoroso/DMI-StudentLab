@@ -1,200 +1,264 @@
-from datetime import datetime
-
-from sqlalchemy import (
-    Boolean,
-    CheckConstraint,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
+from fastapi import (
+    APIRouter,
+    Depends,
+    Response,
+    status,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from core.database import Base
+from sqlalchemy.orm import Session
 
-class Notification(Base):
-    __tablename__ = "notifications"
+from core.database import get_db
+from core.security import get_current_user
 
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        index=True,
+from models.user import User
+
+from schemas.notification import (
+    NotificationDetailResponse,
+    NotificationListResponse,
+    NotificationMarkAllReadResponse,
+    NotificationMarkReadResponse,
+    NotificationResponse,
+    NotificationUnreadCountResponse,
+)
+
+from services.notification import (
+    delete_all_my_notifications,
+    delete_notification,
+    get_my_notifications,
+    get_notification_by_id,
+    get_unread_notification_count,
+    mark_all_notifications_as_read,
+    mark_notification_as_read,
+    mark_notification_as_unread,
+    process_expired_notifications,
+)
+
+
+router = APIRouter(
+    tags=[
+        "Notifications",
+    ],
+)
+
+
+@router.get(
+    "/notifications",
+    response_model=NotificationListResponse,
+)
+def api_get_my_notifications(
+    unread_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    process_expired_notifications(
+        db,
     )
 
-    user_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey(
-            "users.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    notifications = get_my_notifications(
+        db,
+        current_user=current_user,
+        unread_only=unread_only,
+        limit=limit,
+        offset=offset,
     )
 
-    actor_user_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey(
-            "users.id",
-            ondelete="SET NULL",
-        ),
-        nullable=True,
-        index=True,
+    unread_count = get_unread_notification_count(
+        db,
+        current_user=current_user,
     )
 
-    type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-        index=True,
-    )
-
-    title: Mapped[str] = mapped_column(
-        String(150),
-        nullable=False,
-    )
-
-    message: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-        default="",
-    )
-
-    resource_type: Mapped[str | None] = mapped_column(
-        String(50),
-        nullable=True,
-        index=True,
-    )
-
-    resource_id: Mapped[int | None] = mapped_column(
-        Integer,
-        nullable=True,
-        index=True,
-    )
-
-    action_type: Mapped[str | None] = mapped_column(
-        String(50),
-        nullable=True,
-    )
-
-    action_resource_id: Mapped[int | None] = mapped_column(
-        Integer,
-        nullable=True,
-        index=True,
-    )
-
-    action_status: Mapped[str] = mapped_column(
-        String(30),
-        nullable=False,
-        default="none",
-        index=True,
-    )
-
-    is_read: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-        index=True,
-    )
-
-    read_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
-
-    expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        index=True,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=datetime.utcnow,
-        index=True,
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-    )
-
-    user = relationship(
-        "User",
-        back_populates="notifications",
-        foreign_keys=[
-            user_id,
+    return NotificationListResponse(
+        notifications=[
+            NotificationResponse.model_validate(
+                notification
+            )
+            for notification in notifications
         ],
+        unread_count=unread_count,
     )
 
-    actor = relationship(
-        "User",
-        back_populates="notification_actions",
-        foreign_keys=[
-            actor_user_id,
-        ],
+
+@router.get(
+    "/notifications/unread-count",
+    response_model=NotificationUnreadCountResponse,
+)
+def api_get_unread_notification_count(
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    process_expired_notifications(
+        db,
     )
 
-    __table_args__ = (
-        CheckConstraint(
-            "type IN ("
-            "'group_ownership_transfer', "
-            "'group_join_request', "
-            "'group_join_accepted', "
-            "'group_join_rejected', "
-            "'group_deleted', "
-            "'group_report_update', "
-            "'profile_report_update', "
-            "'profile_error_update', "
-            "'teacher_verification_update', "
-            "'teacher_assignment_update', "
-            "'academic_path_verification_update', "
-            "'grade_verification_update', "
-            "'material_publication_request', "
-            "'material_publication_approved', "
-            "'material_publication_rejected', "
-            "'system'"
-            ")",
-            name="chk_notification_type",
-        ),
-        CheckConstraint(
-            "resource_type IS NULL OR resource_type IN ("
-            "'user', "
-            "'group', "
-            "'group_join_request', "
-            "'group_ownership_transfer', "
-            "'teacher_assignment', "
-            "'academic_path', "
-            "'subject', "
-            "'material', "
-            "'profile_report', "
-            "'profile_error_report'"
-            ")",
-            name="chk_notification_resource_type",
-        ),
-        CheckConstraint(
-            "action_type IS NULL OR action_type IN ("
-            "'accept_reject_group_ownership', "
-            "'accept_reject_group_join', "
-            "'open_profile', "
-            "'open_group', "
-            "'open_material', "
-            "'open_admin_review'"
-            ")",
-            name="chk_notification_action_type",
-        ),
-        CheckConstraint(
-            "action_status IN ("
-            "'none', "
-            "'pending', "
-            "'accepted', "
-            "'rejected', "
-            "'expired', "
-            "'completed', "
-            "'cancelled'"
-            ")",
-            name="chk_notification_action_status",
-        ),
+    unread_count = get_unread_notification_count(
+        db,
+        current_user=current_user,
+    )
+
+    return NotificationUnreadCountResponse(
+        unread_count=unread_count,
+    )
+
+
+@router.get(
+    "/notifications/{notification_id}",
+    response_model=NotificationDetailResponse,
+)
+def api_get_notification(
+    notification_id: int,
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    process_expired_notifications(
+        db,
+    )
+
+    return get_notification_by_id(
+        db,
+        notification_id=notification_id,
+        current_user=current_user,
+    )
+
+
+@router.post(
+    "/notifications/{notification_id}/read",
+    response_model=NotificationMarkReadResponse,
+)
+def api_mark_notification_as_read(
+    notification_id: int,
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    notification = mark_notification_as_read(
+        db,
+        notification_id=notification_id,
+        current_user=current_user,
+    )
+
+    return NotificationMarkReadResponse(
+        id=notification.id,
+        is_read=notification.is_read,
+        read_at=notification.read_at,
+    )
+
+
+@router.post(
+    "/notifications/{notification_id}/unread",
+    response_model=NotificationMarkReadResponse,
+)
+def api_mark_notification_as_unread(
+    notification_id: int,
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    notification = mark_notification_as_unread(
+        db,
+        notification_id=notification_id,
+        current_user=current_user,
+    )
+
+    return NotificationMarkReadResponse(
+        id=notification.id,
+        is_read=notification.is_read,
+        read_at=notification.read_at,
+    )
+
+
+@router.post(
+    "/notifications/read-all",
+    response_model=NotificationMarkAllReadResponse,
+)
+def api_mark_all_notifications_as_read(
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    process_expired_notifications(
+        db,
+    )
+
+    updated_count = mark_all_notifications_as_read(
+        db,
+        current_user=current_user,
+    )
+
+    unread_count = get_unread_notification_count(
+        db,
+        current_user=current_user,
+    )
+
+    return NotificationMarkAllReadResponse(
+        updated_count=updated_count,
+        unread_count=unread_count,
+    )
+
+
+@router.delete(
+    "/notifications/{notification_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def api_delete_notification(
+    notification_id: int,
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    delete_notification(
+        db,
+        notification_id=notification_id,
+        current_user=current_user,
+    )
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+
+
+@router.delete(
+    "/notifications",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def api_delete_all_notifications(
+    current_user: User = Depends(
+        get_current_user,
+    ),
+    db: Session = Depends(
+        get_db,
+    ),
+):
+    delete_all_my_notifications(
+        db,
+        current_user=current_user,
+    )
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
     )
