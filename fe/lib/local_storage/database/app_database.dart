@@ -12,7 +12,7 @@ class AppDatabase {
 
   static Database? _database;
 
-  static const int _databaseVersion = 10;
+  static const int _databaseVersion = 12;
 
   final LocalDatabaseBackend _backend = createLocalDatabaseBackend();
 

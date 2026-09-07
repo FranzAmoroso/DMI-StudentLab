@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
+import 'package:fe/material/material_requests_page.dart';
 import 'package:fe/theme/nightTheme.dart';
 
 import 'package:fe/services/api_service.dart';
@@ -759,10 +759,28 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               if (_authSession.isAuthenticated &&
                   subject.subjectId != null) ...[
                 const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => _requestTeacherMaterial(subject),
-                  icon: const Icon(Icons.notification_add_outlined),
-                  label: const Text('Richiedi materiale a un docente'),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _requestTeacherMaterial(subject),
+                      icon: const Icon(Icons.school_outlined),
+                      label: const Text('Chiedi a un docente'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => MaterialRequestsPage(
+                            initialSubjectId: subject.subjectId,
+                            initialSubjectName: subject.name,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.people_outline_rounded),
+                      label: const Text('Richieste materiali'),
+                    ),
+                  ],
                 ),
               ],
               const SizedBox(height: 24),

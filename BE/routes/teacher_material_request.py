@@ -32,6 +32,22 @@ def teacher(current_user:User=Depends(get_verified_teacher_user),db:Session=Depe
     return db.query(TeacherMaterialRequest).filter(TeacherMaterialRequest.subject_id.in_(subject_ids)).order_by(TeacherMaterialRequest.created_at.desc()).all() if subject_ids else []
 
 
+@router.post("/{request_id}/cancel",response_model=TeacherMaterialRequestResponse)
+def cancel(request_id:int,current_user:User=Depends(get_current_user),db:Session=Depends(get_db)):
+    record=db.query(TeacherMaterialRequest).filter(TeacherMaterialRequest.id==request_id,TeacherMaterialRequest.student_user_id==current_user.id).first()
+    if record is None:
+        raise HTTPException(status_code=404,detail="Richiesta non trovata.")
+    if record.status!="pending":
+        raise HTTPException(status_code=400,detail="Puoi annullare solo una richiesta ancora in attesa.")
+    from datetime import datetime, timezone
+    record.status="cancelled"
+    record.resolved_at=datetime.now(timezone.utc)
+    record.updated_at=record.resolved_at
+    db.commit()
+    db.refresh(record)
+    return record
+
+
 @router.post("/{request_id}/resolve",response_model=TeacherMaterialRequestResponse)
 def resolve(request_id:int,request:TeacherMaterialRequestResolve,current_user:User=Depends(get_verified_teacher_user),db:Session=Depends(get_db)):
     try:

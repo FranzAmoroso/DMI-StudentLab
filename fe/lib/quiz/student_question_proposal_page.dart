@@ -168,37 +168,119 @@ class _StudentQuestionProposalPageState
     }
   }
 
+  String _subjectKey(String value) {
+    return value
+        .trim()
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .replaceAll(RegExp(r'\\s+'), ' ')
+        .trim()
+        .toLowerCase();
+  }
+
+  String _displaySubject(String value) {
+    final String normalized = value
+        .trim()
+        .replaceAll('_', ' ')
+        .replaceAll(RegExp(r'\\s+'), ' ')
+        .trim();
+
+    if (normalized.isEmpty) {
+      return normalized;
+    }
+
+    return normalized[0].toUpperCase() + normalized.substring(1);
+  }
+
   Future<void> _changeCourse(AcademicCourse? value) async {
-    if (value == null || _department == null) {
+    final AcademicUniversity? university = _university;
+    final AcademicDepartment? department = _department;
+
+    if (value == null || university == null || department == null) {
       return;
     }
+
     setState(() {
       _course = value;
       _subject = null;
       _subjects = <String>[];
       _loadingSubjects = true;
     });
+
+    final Map<String, String> mergedSubjects = <String, String>{};
+    bool catalogLoaded = false;
+    bool quizSubjectsLoaded = false;
+
     try {
-      final List<String> subjects = await _quizApiService.getAvailableSubjects(
-        department: _department!.code,
-        course: value.code,
-      );
-      subjects.sort(
+      final List<SocialSubject> catalogSubjects = await _apiService
+          .getCatalogSubjects(
+            universityCode: university.code,
+            departmentCode: department.code,
+            courseCode: value.code,
+          );
+
+      for (final SocialSubject subject in catalogSubjects) {
+        final String label = _displaySubject(subject.name);
+        final String key = _subjectKey(label);
+
+        if (label.isNotEmpty && key.isNotEmpty) {
+          mergedSubjects[key] = label;
+        }
+      }
+
+      catalogLoaded = true;
+    } catch (_) {
+      catalogLoaded = false;
+    }
+
+    try {
+      final List<String> existingQuizSubjects = await _quizApiService
+          .getAvailableSubjects(
+            department: department.code,
+            course: value.code,
+          );
+
+      for (final String subject in existingQuizSubjects) {
+        final String label = _displaySubject(subject);
+        final String key = _subjectKey(label);
+
+        if (label.isNotEmpty && key.isNotEmpty) {
+          // Il nome del catalogo ha priorità quando la materia esiste in
+          // entrambe le sorgenti. Se esiste solo nei JSON, viene comunque
+          // mostrata nel form.
+          mergedSubjects.putIfAbsent(key, () => label);
+        }
+      }
+
+      quizSubjectsLoaded = true;
+    } catch (_) {
+      quizSubjectsLoaded = false;
+    }
+
+    if (!mounted ||
+        _course?.code != value.code ||
+        _department?.code != department.code ||
+        _university?.code != university.code) {
+      return;
+    }
+
+    final List<String> subjects = mergedSubjects.values.toList()
+      ..sort(
         (String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()),
       );
-      if (!mounted || _course?.code != value.code) {
-        return;
-      }
-      setState(() {
-        _subjects = subjects.toSet().toList();
-      });
-    } catch (_) {
-      _message('Non è stato possibile caricare le materie.');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loadingSubjects = false;
-        });
+
+    setState(() {
+      _subjects = subjects;
+      _loadingSubjects = false;
+    });
+
+    if (subjects.isEmpty) {
+      if (!catalogLoaded && !quizSubjectsLoaded) {
+        _message('Non è stato possibile caricare le materie.');
+      } else {
+        _message(
+          'Non sono state trovate materie nel catalogo o nei quiz esistenti.',
+        );
       }
     }
   }

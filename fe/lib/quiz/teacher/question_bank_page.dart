@@ -1,7 +1,9 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/nightTheme.dart';
+import '../../services/picked_file_bridge.dart';
 import 'question_editor_page.dart';
 import 'services/question_management_service.dart';
 
@@ -25,6 +27,7 @@ class QuestionBankPage extends StatefulWidget {
 
 class _QuestionBankPageState extends State<QuestionBankPage> {
   final QuestionManagementService _service = QuestionManagementService();
+  final PickedFileBridge _pickedFileBridge = PickedFileBridge();
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -443,16 +446,23 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
       allowMultiple: false,
       type: FileType.custom,
       allowedExtensions: const <String>['json'],
+      withData: kIsWeb,
     );
 
     if (jsonResult == null || jsonResult.files.isEmpty) {
       return;
     }
 
-    final String? jsonPath = jsonResult.files.first.path;
+    final PlatformFile jsonFile = jsonResult.files.first;
+    late final String jsonPath;
 
-    if (jsonPath == null || jsonPath.trim().isEmpty) {
-      _showMessage('Il file selezionato non è accessibile.');
+    try {
+      jsonPath = await _pickedFileBridge.materialize(
+        jsonFile,
+        mimeType: 'application/json',
+      );
+    } catch (error) {
+      _showMessage(_friendlyError(error));
       return;
     }
 
@@ -527,6 +537,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
           'docx',
           'pptx',
         ],
+        withData: kIsWeb,
       );
 
       if (attachmentsResult == null || attachmentsResult.files.isEmpty) {
@@ -536,13 +547,13 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
       final Map<String, String> selectedByName = <String, String>{};
 
       for (final PlatformFile file in attachmentsResult.files) {
-        final String? path = file.path;
-
-        if (path == null || path.trim().isEmpty) {
-          continue;
+        try {
+          final String path = await _pickedFileBridge.materialize(file);
+          selectedByName[file.name.toLowerCase()] = path;
+        } catch (error) {
+          _showMessage(_friendlyError(error));
+          return;
         }
-
-        selectedByName[file.name.toLowerCase()] = path;
       }
 
       final List<String> missing = attachmentNames

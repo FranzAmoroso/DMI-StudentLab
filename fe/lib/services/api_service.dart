@@ -4264,6 +4264,98 @@ class ApiService {
     return _decodeMapResponse(response, 'Errore rifiuto condivisione');
   }
 
+  Future<List<Map<String, dynamic>>> getMyTeacherMaterialRequests() async {
+    final http.Response response = await http.get(
+      _apiUri('/teacher-material-requests/mine'),
+      headers: _jsonHeaders,
+    );
+    return _decodeListResponse(
+      response,
+      'Errore caricamento delle tue richieste ai docenti',
+    );
+  }
+
+  Future<Map<String, dynamic>> cancelTeacherMaterialRequest(
+    int requestId,
+  ) async {
+    final http.Response response = await http.post(
+      _apiUri('/teacher-material-requests/$requestId/cancel'),
+      headers: _jsonHeaders,
+    );
+    return _decodeMapResponse(
+      response,
+      'Errore annullamento richiesta materiale',
+    );
+  }
+
+  Future<Map<String, dynamic>> createStudentMaterialRequest({
+    required int recipientUserId,
+    int? subjectId,
+    String? topic,
+    required String message,
+  }) async {
+    final http.Response response = await http.post(
+      _apiUri('/student-material-requests'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'recipient_user_id': recipientUserId,
+        'subject_id': subjectId,
+        'topic': topic,
+        'message': message,
+      }),
+    );
+    return _decodeMapResponse(response, 'Errore invio richiesta allo studente');
+  }
+
+  Future<List<Map<String, dynamic>>> getMyStudentMaterialRequests() async {
+    final http.Response response = await http.get(
+      _apiUri('/student-material-requests/mine'),
+      headers: _jsonHeaders,
+    );
+    return _decodeListResponse(
+      response,
+      'Errore caricamento richieste inviate',
+    );
+  }
+
+  Future<List<Map<String, dynamic>>>
+  getReceivedStudentMaterialRequests() async {
+    final http.Response response = await http.get(
+      _apiUri('/student-material-requests/received'),
+      headers: _jsonHeaders,
+    );
+    return _decodeListResponse(
+      response,
+      'Errore caricamento richieste ricevute',
+    );
+  }
+
+  Future<Map<String, dynamic>> cancelStudentMaterialRequest(
+    int requestId,
+  ) async {
+    final http.Response response = await http.post(
+      _apiUri('/student-material-requests/$requestId/cancel'),
+      headers: _jsonHeaders,
+    );
+    return _decodeMapResponse(response, 'Errore annullamento richiesta');
+  }
+
+  Future<Map<String, dynamic>> resolveStudentMaterialRequest({
+    required int requestId,
+    required String action,
+    int? fulfilledShareId,
+  }) async {
+    final http.Response response = await http.post(
+      _apiUri('/student-material-requests/$requestId/resolve'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'action': action,
+        'fulfilled_share_id': fulfilledShareId,
+      }),
+    );
+    return _decodeMapResponse(response, 'Errore gestione richiesta ricevuta');
+  }
+
   Future<List<Map<String, dynamic>>> getTeacherMaterialRequests() async {
     final http.Response response = await http.get(
       _apiUri('/teacher-material-requests/teacher'),

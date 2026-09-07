@@ -1,8 +1,10 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/nightTheme.dart';
 import '../../services/blob_upload_service.dart';
+import '../../services/picked_file_bridge.dart';
 import 'services/question_management_service.dart';
 
 class QuestionEditorPage extends StatefulWidget {
@@ -40,6 +42,7 @@ class QuestionEditorPage extends StatefulWidget {
 class _QuestionEditorPageState extends State<QuestionEditorPage> {
   final QuestionManagementService _service = QuestionManagementService();
   final StudentLabUploadService _uploadService = StudentLabUploadService();
+  final PickedFileBridge _pickedFileBridge = PickedFileBridge();
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -662,6 +665,7 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
         'docx',
         'pptx',
       ],
+      withData: kIsWeb,
     );
 
     if (result == null) {
@@ -671,9 +675,14 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
     final List<_PendingAttachment> selected = [];
 
     for (final PlatformFile file in result.files) {
-      final String? path = file.path;
+      if (file.size <= 0) {
+        if (!mounted) {
+          return;
+        }
 
-      if (path == null || path.trim().isEmpty) {
+        setState(() {
+          _error = '${file.name} è vuoto.';
+        });
         continue;
       }
 
@@ -686,6 +695,19 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
           _error = '${file.name} supera il limite di 50 MB.';
         });
 
+        continue;
+      }
+
+      String path;
+      try {
+        path = await _pickedFileBridge.materialize(file);
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _error = _friendlyError(error);
+        });
         continue;
       }
 

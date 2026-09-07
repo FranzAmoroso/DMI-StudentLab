@@ -45,6 +45,14 @@ class DatabaseMigrations {
     if (oldVersion < 10) {
       await _migrationToVersion10(db);
     }
+
+    if (oldVersion < 11) {
+      await _migrationToVersion11(db);
+    }
+
+    if (oldVersion < 12) {
+      await _migrationToVersion12(db);
+    }
   }
 
   static Future<void> _migrationToVersion2(Database db) async {
@@ -916,5 +924,85 @@ class DatabaseMigrations {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_materials_retention_status ON ${DatabaseTables.materials}(retention_status)',
     );
+  }
+
+  static Future<void> _migrationToVersion11(Database db) async {
+    await _ensureLocalFileBlobSchema(db);
+  }
+
+  static Future<void> _migrationToVersion12(Database db) async {
+    // Version 12 is a non-destructive consolidation migration.
+    // Development databases may already report version 11 even if the
+    // corresponding migration was not executed. These idempotent checks
+    // repair that state without deleting local user data.
+    await _ensureLocalFileBlobSchema(db);
+
+    if (await _tableExists(db, DatabaseTables.materials)) {
+      if (!await _columnExists(db, DatabaseTables.materials, 'cloud_policy')) {
+        await db.execute(
+          'ALTER TABLE ${DatabaseTables.materials} ADD COLUMN cloud_policy TEXT',
+        );
+      }
+
+      if (!await _columnExists(
+        db,
+        DatabaseTables.materials,
+        'cloud_expires_at',
+      )) {
+        await db.execute(
+          'ALTER TABLE ${DatabaseTables.materials} ADD COLUMN cloud_expires_at TEXT',
+        );
+      }
+
+      if (!await _columnExists(
+        db,
+        DatabaseTables.materials,
+        'retention_status',
+      )) {
+        await db.execute(
+          'ALTER TABLE ${DatabaseTables.materials} ADD COLUMN retention_status TEXT',
+        );
+      }
+
+      if (!await _columnExists(
+        db,
+        DatabaseTables.materials,
+        'shared_by_user_id',
+      )) {
+        await db.execute(
+          'ALTER TABLE ${DatabaseTables.materials} ADD COLUMN shared_by_user_id INTEGER',
+        );
+      }
+
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_materials_cloud_expiry ON ${DatabaseTables.materials}(cloud_expires_at)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_materials_retention_status ON ${DatabaseTables.materials}(retention_status)',
+      );
+    }
+
+    await createQuizSchema(db);
+    await createStudyPlanSchema(db);
+  }
+
+  static Future<void> _ensureLocalFileBlobSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.localFileBlobs} (
+        path TEXT PRIMARY KEY,
+        file_name TEXT NOT NULL,
+        mime_type TEXT,
+        data BLOB NOT NULL,
+        size INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS
+      idx_local_file_blobs_updated
+      ON ${DatabaseTables.localFileBlobs}(updated_at)
+      ''');
   }
 }

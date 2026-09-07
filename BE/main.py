@@ -438,6 +438,7 @@ from routes.material_sync import (
 
 from routes.personal_material import router as personal_material_router
 from routes.material_share import router as material_share_router
+from routes.student_material_request import router as student_material_request_router
 from routes.teacher_material_request import router as teacher_material_request_router
 from routes.material_lifecycle import router as material_lifecycle_router
 
@@ -567,6 +568,7 @@ app.include_router(
 
 app.include_router(personal_material_router)
 app.include_router(material_share_router)
+app.include_router(student_material_request_router)
 app.include_router(teacher_material_request_router)
 app.include_router(material_lifecycle_router)
 
@@ -4775,3 +4777,41 @@ async def api_admin_group_material_download(
         ),
         inline=False,
     )
+
+# ============================================================================
+# ROUTER MATERIALI - VERIFICA FINALE DI REGISTRAZIONE
+# ============================================================================
+#
+# Mantiene idempotente la registrazione dei router materiali anche in caso di
+# refactoring dell'ordine di inizializzazione di main.py.
+#
+def _ensure_router_registered(router, expected_prefix: str) -> None:
+    existing_paths = {
+        getattr(route, "path", "")
+        for route in app.routes
+    }
+
+    if not any(
+        path == expected_prefix or path.startswith(f"{expected_prefix}/")
+        for path in existing_paths
+    ):
+        app.include_router(router)
+
+
+_ensure_router_registered(
+    personal_material_router,
+    "/personal-materials",
+)
+_ensure_router_registered(
+    material_share_router,
+    "/material-shares",
+)
+_ensure_router_registered(
+    student_material_request_router,
+    "/student-material-requests",
+)
+_ensure_router_registered(
+    teacher_material_request_router,
+    "/teacher-material-requests",
+)
+

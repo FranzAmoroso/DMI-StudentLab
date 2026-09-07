@@ -1,8 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
-
 import 'package:http/http.dart' as http;
 
+import '../../../local_storage/services/local_file_service.dart';
 import '../../../services/auth_session.dart';
 import '../../../services/blob_upload_service.dart';
 
@@ -10,6 +9,7 @@ class QuestionManagementService {
   static const String _baseUrl = 'https://dmi-student-lab.vercel.app';
 
   final StudentLabUploadService _uploadService = StudentLabUploadService();
+  final LocalFileService _files = LocalFileService();
 
   Uri _uri(String path, {Map<String, String>? queryParameters}) {
     final Uri base = Uri.parse(_baseUrl);
@@ -387,16 +387,16 @@ class QuestionManagementService {
   Future<List<String>> getImportAttachmentNames({
     required String filePath,
   }) async {
-    final File file = File(filePath);
+    final bytes = await _files.readBytes(filePath);
 
-    if (!await file.exists()) {
-      throw Exception('Il file selezionato non esiste.');
+    if (bytes == null || bytes.isEmpty) {
+      throw Exception('Il file selezionato non esiste o è vuoto.');
     }
 
     dynamic decoded;
 
     try {
-      decoded = jsonDecode(await file.readAsString());
+      decoded = jsonDecode(utf8.decode(bytes));
     } catch (_) {
       throw Exception('Il contenuto del file JSON non è valido.');
     }
@@ -556,17 +556,13 @@ class QuestionManagementService {
     required String filePath,
     bool skipDuplicates = true,
   }) async {
-    final File file = File(filePath);
+    final bytes = await _files.readBytes(filePath);
 
-    if (!await file.exists()) {
-      throw Exception('Il file selezionato non esiste.');
+    if (bytes == null || bytes.isEmpty) {
+      throw Exception('Il file JSON è vuoto o non disponibile.');
     }
 
-    final int size = await file.length();
-
-    if (size <= 0) {
-      throw Exception('Il file JSON è vuoto.');
-    }
+    final int size = bytes.length;
 
     if (size > 10 * 1024 * 1024) {
       throw Exception(
@@ -574,7 +570,7 @@ class QuestionManagementService {
       );
     }
 
-    final String fileName = file.path.replaceAll('\\', '/').split('/').last;
+    final String fileName = _files.getFileName(filePath);
 
     if (!fileName.toLowerCase().endsWith('.json')) {
       throw Exception('Seleziona un file JSON.');
@@ -598,7 +594,7 @@ class QuestionManagementService {
     request.headers['Authorization'] = 'Bearer ${token.trim()}';
 
     request.files.add(
-      await http.MultipartFile.fromPath('file', file.path, filename: fileName),
+      http.MultipartFile.fromBytes('file', bytes, filename: fileName),
     );
 
     final http.StreamedResponse streamed = await request.send();

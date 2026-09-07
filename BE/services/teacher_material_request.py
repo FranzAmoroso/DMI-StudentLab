@@ -47,6 +47,8 @@ def resolve_request(db:Session,teacher:User,request_id:int,data:TeacherMaterialR
     assignment=db.query(TeacherAssignment).filter(TeacherAssignment.user_id==teacher.id,TeacherAssignment.subject_id==record.subject_id,TeacherAssignment.verification_status=="verified",TeacherAssignment.is_current.is_(True)).first()
     if assignment is None:
         raise PermissionError("Non puoi gestire questa richiesta.")
+    if record.teacher_user_id is not None and record.teacher_user_id != teacher.id:
+        raise PermissionError("Questa richiesta è indirizzata a un altro docente.")
     if record.status!="pending":
         return record
     if data.action=="fulfilled":
