@@ -5,6 +5,7 @@ from datetime import (
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -221,6 +222,20 @@ class MaterialPublicationRequest(Base):
         ),
         nullable=True,
         index=True,
+    )
+
+    attribution_mode = Column(
+        String(20),
+        nullable=False,
+        default="anonymous",
+        server_default="anonymous",
+    )
+
+    admin_force_anonymous = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
     )
 
     proposed_title = Column(

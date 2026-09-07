@@ -766,6 +766,8 @@ def create_material_publication_request(
 
     publication_request = (
         MaterialPublicationRequest(
+            attribution_mode=(getattr(data, "attribution_mode", "anonymous") or "anonymous"),
+            admin_force_anonymous=False,
             user_id=(
                 current_user.id
             ),
@@ -1010,6 +1012,8 @@ def review_material_duplicate(
         )
     )
 
+    publication_request.admin_force_anonymous = bool(getattr(data, "force_anonymous", False))
+
     try:
         db.commit()
 
@@ -1069,6 +1073,8 @@ def create_public_material_from_request(
             publication_request_id=(
                 publication_request.id
             ),
+            contributor_mode=("anonymous" if publication_request.admin_force_anonymous or publication_request.attribution_mode != "named" else "named"),
+            contributor_display_name=(None if publication_request.admin_force_anonymous or publication_request.attribution_mode != "named" else f"{publication_request.user.first_name} {publication_request.user.last_name}".strip()),
             university=(
                 publication_request.university
             ),

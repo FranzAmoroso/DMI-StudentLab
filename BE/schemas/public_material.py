@@ -18,6 +18,8 @@ PublicMaterialStatus = Literal[
 class PublicMaterialResponse(
     BaseModel,
 ):
+    contributor_mode: str = "anonymous"
+    contributor_display_name: str | None = None
     model_config = ConfigDict(
         from_attributes=True,
     )
@@ -65,7 +67,6 @@ class PublicMaterialResponse(
     created_at: datetime
 
     updated_at: datetime
-
 
 class PublicMaterialAdminResponse(
     PublicMaterialResponse,

@@ -17,6 +17,7 @@ import 'package:fe/local_storage/models/material_local.dart';
 import 'package:fe/local_storage/models/material_offline_entry.dart';
 import 'package:fe/local_storage/repositories/material_repository.dart';
 import 'package:fe/local_storage/services/local_material_import_service.dart';
+import 'package:fe/local_storage/services/local_storage_identity.dart';
 import 'package:fe/local_storage/services/material_download_service.dart';
 import 'package:fe/local_storage/services/material_sync_service.dart';
 
@@ -95,9 +96,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
     if (_authSession.isAuthenticated) {
       final int? currentUserId = _authSession.currentUserId;
-
       if (currentUserId != null) {
         try {
+          await _materialRepository.claimGuestLocalMaterials(currentUserId);
           await _syncService.syncMaterials(
             userId: currentUserId,
             forceFull: true,
@@ -106,11 +107,20 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           syncFailed = true;
         }
       }
+    } else {
+      try {
+        await _syncService.syncMaterials(
+          userId: LocalStorageIdentity.guestUserId,
+          forceFull: true,
+        );
+      } catch (_) {
+        syncFailed = true;
+      }
     }
 
     try {
-      final List<MaterialLocal> availableMaterials =
-          await _materialRepository.getAvailableByUser(localUserId);
+      final List<MaterialLocal> availableMaterials = await _materialRepository
+          .getAvailableByUser(localUserId);
 
       final List<MaterialLocal> materials = availableMaterials
           .where(_isDisplayableMaterial)
@@ -149,7 +159,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     final String course = material.course?.trim() ?? '';
     final String subjectName = material.subjectName?.trim() ?? '';
 
-    final bool hasSubject = material.subjectId != null || subjectName.isNotEmpty;
+    final bool hasSubject =
+        material.subjectId != null || subjectName.isNotEmpty;
 
     return university.isNotEmpty &&
         department.isNotEmpty &&
@@ -744,6 +755,15 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               _buildSubjectHeader(subject),
               const SizedBox(height: 14),
               _buildSourceSummary(materials),
+              if (_authSession.isAuthenticated &&
+                  subject.subjectId != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _requestTeacherMaterial(subject),
+                  icon: const Icon(Icons.notification_add_outlined),
+                  label: const Text('Richiedi materiale a un docente'),
+                ),
+              ],
               const SizedBox(height: 24),
               const Text(
                 'Materiali',
@@ -777,6 +797,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     final MaterialOfflineEntry? offline = _offlineEntryFor(material);
     final bool isOffline = offline != null;
     final bool isLocal = material.source == MaterialSourceLocal.local;
+    final bool personalSynced =
+        material.source == MaterialSourceLocal.personalSync;
+    final bool shared = material.source == MaterialSourceLocal.sharedUser;
     final bool processing =
         material.id != null && _processingMaterialIds.contains(material.id);
 
@@ -867,6 +890,18 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                   ),
                 ),
               ],
+              if (isLocal && _authSession.isAuthenticated) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: processing
+                        ? null
+                        : () => _syncPersonalMaterial(material),
+                    icon: const Icon(Icons.cloud_sync_outlined, size: 16),
+                    label: const Text('Sincronizza'),
+                  ),
+                ),
+              ],
               if (!isLocal && isOffline) ...[
                 const SizedBox(width: 8),
                 Expanded(
@@ -883,6 +918,30 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               ],
             ],
           ),
+          if (isLocal && _authSession.isAuthenticated) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: processing ? null : () => _shareMaterial(material),
+                icon: const Icon(Icons.share_outlined, size: 16),
+                label: const Text('Condividi con uno studente'),
+              ),
+            ),
+          ],
+          if (shared && material.remoteStatus == 'pending') ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: processing
+                    ? null
+                    : () => _acceptSharedMaterial(material),
+                icon: const Icon(Icons.download_done_outlined, size: 16),
+                label: const Text('Accetta e scarica'),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -922,6 +981,17 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
             style: TextStyle(
               color: AppColors.pureWhite.withValues(alpha: 0.36),
               fontSize: 9,
+            ),
+          ),
+        ],
+        if (material.cloudExpiresAt != null) ...[
+          const SizedBox(width: 8),
+          Text(
+            '• ${_cloudExpiryLabel(material.cloudExpiresAt!)}',
+            style: TextStyle(
+              color: AppColors.pureWhite.withValues(alpha: 0.52),
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1358,7 +1428,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       return;
     }
 
-    final String? filePath = await _downloadService.getFileForMaterial(material);
+    final String? filePath = await _downloadService.getFileForMaterial(
+      material,
+    );
 
     if (!mounted) {
       return;
@@ -1519,6 +1591,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         return 'Docente';
       case MaterialSourceLocal.group:
         return 'Gruppo';
+      case MaterialSourceLocal.personalSync:
+        return 'Personale sincronizzato';
+      case MaterialSourceLocal.sharedUser:
+        return 'Condiviso';
     }
   }
 
@@ -1557,6 +1633,18 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       case MaterialSourceLocal.group:
         return const Icon(
           Icons.groups_rounded,
+          size: 15,
+          color: AppColors.materialSky,
+        );
+      case MaterialSourceLocal.personalSync:
+        return const Icon(
+          Icons.cloud_done_outlined,
+          size: 15,
+          color: AppColors.materialSky,
+        );
+      case MaterialSourceLocal.sharedUser:
+        return const Icon(
+          Icons.share_outlined,
           size: 15,
           color: AppColors.materialSky,
         );
@@ -1650,7 +1738,6 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       }
     }
   }
-
 
   Widget _buildOfflineSyncBanner() {
     return Container(
@@ -1949,6 +2036,221 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     }
 
     return 'Non è stato possibile completare l’operazione. Riprova.';
+  }
+
+  String _cloudExpiryLabel(DateTime value) {
+    final Duration remaining = value.toLocal().difference(DateTime.now());
+    final int days = remaining.inDays < 0 ? 0 : remaining.inDays + 1;
+    return days == 1 ? 'Cloud: 1 giorno' : 'Cloud: $days giorni';
+  }
+
+  Future<void> _syncPersonalMaterial(MaterialLocal material) async {
+    if (material.id == null) return;
+    final String? path = await _downloadService.getFileForMaterial(material);
+    if (path == null) {
+      _showMessage('Il file locale non è disponibile.');
+      return;
+    }
+    _setMaterialProcessing(material, true);
+    try {
+      final Map<String, dynamic> remote = await _apiService
+          .syncPersonalMaterial(
+            filePath: path,
+            subjectId: material.subjectId,
+            university: material.university,
+            department: material.department,
+            course: material.course,
+            subjectName: material.subjectName,
+          );
+      final int? remoteId = _toIntMaterial(remote['id']);
+      if (remoteId == null)
+        throw StateError('Identificativo remoto non valido.');
+      await _materialRepository.save(
+        material.copyWith(
+          source: MaterialSourceLocal.personalSync,
+          remoteKey: 'personal_sync:$remoteId',
+          remoteId: remoteId,
+          remoteVersion: _toIntMaterial(remote['version']) ?? 1,
+          remoteStatus: remote['status']?.toString() ?? 'active',
+          isAvailableRemote: true,
+          isPersonal: true,
+          cloudPolicy: 'my_devices',
+          retentionStatus: remote['retention_status']?.toString(),
+          cloudExpiresAt: DateTime.tryParse(
+            remote['retention_expires_at']?.toString() ?? '',
+          ),
+          updatedAt: DateTime.now().toUtc(),
+          lastSyncedAt: DateTime.now().toUtc(),
+        ),
+      );
+      await _loadMaterials();
+      _showMessage('Materiale sincronizzato sui tuoi dispositivi.');
+    } catch (e) {
+      _showMessage(_friendlyError(e));
+    } finally {
+      _setMaterialProcessing(material, false);
+    }
+  }
+
+  Future<void> _shareMaterial(MaterialLocal material) async {
+    final String? path = await _downloadService.getFileForMaterial(material);
+    if (path == null) {
+      _showMessage('Il file locale non è disponibile.');
+      return;
+    }
+    List<SocialUser> users;
+    try {
+      users = await _apiService.getSocialUsers();
+    } catch (e) {
+      _showMessage('Non è stato possibile caricare gli utenti.');
+      return;
+    }
+    if (!mounted) return;
+    final SocialUser? recipient = await showModalBottomSheet<SocialUser>(
+      context: context,
+      backgroundColor: AppColors.eleganceDeepNavy,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const Text(
+                'Condividi con',
+                style: TextStyle(
+                  color: AppColors.pureWhite,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...users
+                  .where((u) => u.id != _authSession.currentUserId)
+                  .map(
+                    (SocialUser user) => ListTile(
+                      leading: const Icon(
+                        Icons.person_outline,
+                        color: AppColors.skyBlue,
+                      ),
+                      title: Text(
+                        '${user.firstName} ${user.lastName}'.trim(),
+                        style: const TextStyle(color: AppColors.pureWhite),
+                      ),
+                      onTap: () => Navigator.pop(sheetContext, user),
+                    ),
+                  ),
+            ],
+          ),
+        );
+      },
+    );
+    if (recipient == null || !mounted) return;
+    _setMaterialProcessing(material, true);
+    try {
+      await _apiService.shareMaterialWithUser(
+        filePath: path,
+        recipientUserId: recipient.id,
+        subjectId: material.subjectId,
+      );
+      _showMessage(
+        'Condivisione inviata. Il file resta nel cloud per massimo 8 giorni.',
+      );
+    } catch (e) {
+      _showMessage(_friendlyError(e));
+    } finally {
+      _setMaterialProcessing(material, false);
+    }
+  }
+
+  Future<void> _acceptSharedMaterial(MaterialLocal material) async {
+    final int? shareId = material.remoteId;
+    if (shareId == null) return;
+    _setMaterialProcessing(material, true);
+    try {
+      await _apiService.acceptMaterialShare(shareId);
+      await _downloadRemoteMaterial(
+        material.copyWith(remoteStatus: 'accepted'),
+      );
+      await _apiService.markMaterialShareDelivered(shareId);
+      await _loadMaterials();
+      _showMessage('Materiale ricevuto e salvato offline.');
+    } catch (e) {
+      _showMessage(_friendlyError(e));
+    } finally {
+      _setMaterialProcessing(material, false);
+    }
+  }
+
+  Future<void> _requestTeacherMaterial(_LocalSubject subject) async {
+    final TextEditingController topic = TextEditingController();
+    final TextEditingController message = TextEditingController();
+    final bool? send = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        backgroundColor: AppColors.eleganceDeepNavy,
+        title: const Text(
+          'Richiedi materiale',
+          style: TextStyle(color: AppColors.pureWhite),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: topic,
+              style: const TextStyle(color: AppColors.pureWhite),
+              decoration: const InputDecoration(
+                labelText: 'Argomento facoltativo',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: message,
+              minLines: 3,
+              maxLines: 6,
+              style: const TextStyle(color: AppColors.pureWhite),
+              decoration: const InputDecoration(
+                labelText: 'Di quale materiale hai bisogno?',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Invia'),
+          ),
+        ],
+      ),
+    );
+    if (send != true ||
+        message.text.trim().isEmpty ||
+        subject.subjectId == null) {
+      topic.dispose();
+      message.dispose();
+      return;
+    }
+    try {
+      await _apiService.createTeacherMaterialRequest(
+        subjectId: subject.subjectId!,
+        topic: topic.text.trim(),
+        message: message.text.trim(),
+      );
+      _showMessage('Richiesta inviata ai docenti verificati della materia.');
+    } catch (e) {
+      _showMessage(_friendlyError(e));
+    } finally {
+      topic.dispose();
+      message.dispose();
+    }
+  }
+
+  int? _toIntMaterial(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
   }
 }
 
@@ -2893,6 +3195,7 @@ class _MaterialPublicationPage extends StatefulWidget {
 }
 
 class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
+  String _attributionMode = 'anonymous';
   final PickedFileBridge _fileBridge = PickedFileBridge();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -3355,6 +3658,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
         title: title,
         description: description,
         filePath: filePath,
+        attributionMode: _attributionMode,
         onPossibleDuplicate: () async {
           if (!mounted) {
             return;
@@ -3495,6 +3799,63 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
                         ),
 
                         const SizedBox(height: 8),
+
+                        Container(
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: AppColors.eleganceMidnight,
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(
+                              color: AppColors.skyBlue.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Attribuzione pubblica',
+                                style: TextStyle(
+                                  color: AppColors.pureWhite,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SegmentedButton<String>(
+                                segments: const [
+                                  ButtonSegment(
+                                    value: 'anonymous',
+                                    icon: Icon(Icons.visibility_off_outlined),
+                                    label: Text('Anonimo'),
+                                  ),
+                                  ButtonSegment(
+                                    value: 'named',
+                                    icon: Icon(Icons.badge_outlined),
+                                    label: Text('Nome e cognome'),
+                                  ),
+                                ],
+                                selected: {_attributionMode},
+                                onSelectionChanged: _submitting
+                                    ? null
+                                    : (Set<String> values) {
+                                        setState(() {
+                                          _attributionMode = values.first;
+                                        });
+                                      },
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'L’amministratore può forzare la pubblicazione anonima durante la moderazione.',
+                                style: TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 9,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
 
                         _buildFilePicker(),
 

@@ -88,6 +88,10 @@ from models.notification import (
     Notification,
 )
 
+from models.personal_material import PersonalSyncedMaterial
+from models.material_share import MaterialShare
+from models.teacher_material_request import TeacherMaterialRequest
+
 from models.profile_error_report import (
     ProfileErrorReport,
 )
@@ -432,6 +436,11 @@ from routes.material_sync import (
     router as material_sync_router,
 )
 
+from routes.personal_material import router as personal_material_router
+from routes.material_share import router as material_share_router
+from routes.teacher_material_request import router as teacher_material_request_router
+from routes.material_lifecycle import router as material_lifecycle_router
+
 from routes.admin_material_storage import (
     router as admin_material_storage_router,
 )
@@ -555,6 +564,11 @@ app.include_router(
 app.include_router(
     material_sync_router,
 )
+
+app.include_router(personal_material_router)
+app.include_router(material_share_router)
+app.include_router(teacher_material_request_router)
+app.include_router(material_lifecycle_router)
 
 app.include_router(
     admin_material_storage_router,

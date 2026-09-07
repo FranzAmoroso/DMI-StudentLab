@@ -220,6 +220,7 @@ class StudentLabUploadService {
     required String description,
     required String filePath,
     String visibility = 'students',
+    String distributionMode = 'persistent',
   }) async {
     final _UploadFile file = await _fromPath(filePath);
     return uploadTeacherMaterialBytes(
@@ -229,6 +230,7 @@ class StudentLabUploadService {
       bytes: file.bytes,
       originalName: file.name,
       visibility: visibility,
+      distributionMode: distributionMode,
     );
   }
 
@@ -239,8 +241,13 @@ class StudentLabUploadService {
     required Uint8List bytes,
     required String originalName,
     String visibility = 'students',
+    String distributionMode = 'persistent',
   }) async {
     if (subjectId <= 0) throw Exception('Materia non valida.');
+    final String normalizedDistribution = distributionMode.trim().toLowerCase();
+    if (!{'persistent', 'temporary'}.contains(normalizedDistribution)) {
+      throw Exception('Disponibilità cloud non valida.');
+    }
     final String normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty)
       throw Exception('Titolo del materiale obbligatorio.');
@@ -296,9 +303,130 @@ class StudentLabUploadService {
         'size': bytes.length,
         'file_hash': hash,
         'visibility': normalizedVisibility,
+        'distribution_mode': normalizedDistribution,
         'upload_token': token,
       },
       'Non è stato possibile registrare il materiale docente.',
+    );
+  }
+
+  Future<Map<String, dynamic>> uploadPersonalMaterial({
+    required String filePath,
+    int? subjectId,
+    String? university,
+    String? department,
+    String? course,
+    String? subjectName,
+  }) async {
+    final _UploadFile file = await _fromPath(filePath);
+    final String name = _requiredName(file.name);
+    final String type = _teacherMimeType(name);
+    _validateSize(file.bytes, teacherMaterialMaxSize, 250);
+    final String hash = _sha256(file.bytes);
+    final Map<String, dynamic> authorization = await _postJson(
+      '/personal-materials/upload-request',
+      <String, dynamic>{
+        'subject_id': subjectId,
+        'university': university,
+        'department': department,
+        'course': course,
+        'subject_name': subjectName,
+        'original_name': name,
+        'mime_type': type,
+        'size': file.bytes.length,
+        'file_hash': hash,
+      },
+      'Non è stato possibile autorizzare la sincronizzazione personale.',
+    );
+    final String pathname = _requiredString(authorization, 'pathname');
+    final String token = _requiredString(authorization, 'upload_token');
+    final Map<String, dynamic> blob = await _requestBlobUpload(
+      uploadKind: 'personal_material',
+      pathname: pathname,
+      mimeType: type,
+      size: file.bytes.length,
+      fileHash: hash,
+      uploadToken: token,
+      subjectId: subjectId,
+    );
+    await _putBytes(
+      bytes: file.bytes,
+      mimeType: type,
+      presignedUrl: _requiredString(blob, 'presigned_url'),
+    );
+    return _postJson(
+      '/personal-materials/complete',
+      <String, dynamic>{
+        'subject_id': subjectId,
+        'university': university,
+        'department': department,
+        'course': course,
+        'subject_name': subjectName,
+        'original_name': name,
+        'mime_type': type,
+        'size': file.bytes.length,
+        'file_hash': hash,
+        'pathname': pathname,
+        'upload_token': token,
+      },
+      'Non è stato possibile completare la sincronizzazione personale.',
+    );
+  }
+
+  Future<Map<String, dynamic>> shareMaterial({
+    required String filePath,
+    required int recipientUserId,
+    int? subjectId,
+    String? message,
+  }) async {
+    final _UploadFile file = await _fromPath(filePath);
+    final String name = _requiredName(file.name);
+    final String type = _teacherMimeType(name);
+    _validateSize(file.bytes, teacherMaterialMaxSize, 250);
+    final String hash = _sha256(file.bytes);
+    final Map<String, dynamic> authorization = await _postJson(
+      '/material-shares/upload-request',
+      <String, dynamic>{
+        'recipient_user_id': recipientUserId,
+        'subject_id': subjectId,
+        'original_name': name,
+        'mime_type': type,
+        'size': file.bytes.length,
+        'file_hash': hash,
+        'message': message?.trim(),
+      },
+      'Non è stato possibile autorizzare la condivisione.',
+    );
+    final String pathname = _requiredString(authorization, 'pathname');
+    final String token = _requiredString(authorization, 'upload_token');
+    final Map<String, dynamic> blob = await _requestBlobUpload(
+      uploadKind: 'material_share',
+      pathname: pathname,
+      mimeType: type,
+      size: file.bytes.length,
+      fileHash: hash,
+      uploadToken: token,
+      subjectId: subjectId,
+    );
+    await _putBytes(
+      bytes: file.bytes,
+      mimeType: type,
+      presignedUrl: _requiredString(blob, 'presigned_url'),
+    );
+    return _postJson(
+      '/material-shares/complete',
+      <String, dynamic>{
+        'recipient_user_id': recipientUserId,
+        'subject_id': subjectId,
+        'original_name': name,
+        'mime_type': type,
+        'size': file.bytes.length,
+        'file_hash': hash,
+        'message': message?.trim(),
+        'pathname': pathname,
+        'upload_token': token,
+      },
+      'Non è stato possibile completare la condivisione.',
     );
   }
 
@@ -331,9 +459,7 @@ class StudentLabUploadService {
     final String dep = department.trim();
     final String courseValue = course.trim();
     final String subjectValue = subject.trim();
-    final String? question = questionId?.trim().isEmpty == true
-        ? null
-        : questionId?.trim();
+    final String question = questionId?.trim() ?? '';
     if (dep.isEmpty || courseValue.isEmpty || subjectValue.isEmpty)
       throw Exception('Dati della materia non validi.');
     _validateSize(bytes, questionAttachmentMaxSize, 50);
@@ -346,7 +472,7 @@ class StudentLabUploadService {
         'department': dep,
         'course': courseValue,
         'subject': subjectValue,
-        'question_id': question,
+        'question_id': question.isEmpty ? null : question,
         'original_name': name,
         'mime_type': type,
         'size': bytes.length,
@@ -396,6 +522,7 @@ class StudentLabUploadService {
     required String title,
     required String description,
     required String filePath,
+    String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
   }) async {
     final _UploadFile file = await _fromPath(filePath);
@@ -415,6 +542,7 @@ class StudentLabUploadService {
     required String description,
     required Uint8List bytes,
     required String originalName,
+    String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
   }) async {
     if (subjectId <= 0) throw Exception('Materia non valida.');
@@ -431,6 +559,9 @@ class StudentLabUploadService {
         'subject_id': subjectId,
         'title': normalizedTitle,
         'description': description.trim(),
+        'attribution_mode': attributionMode.trim().toLowerCase() == 'named'
+            ? 'named'
+            : 'anonymous',
         'original_name': name,
         'mime_type': type,
         'size': bytes.length,

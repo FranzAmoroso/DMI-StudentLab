@@ -9,6 +9,8 @@ MaterialStorageSource = Literal[
     "public",
     "teacher",
     "group",
+    "personal_sync",
+    "shared_user",
 ]
 
 

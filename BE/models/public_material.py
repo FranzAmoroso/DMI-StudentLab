@@ -143,6 +143,18 @@ class PublicMaterial(Base):
         index=True,
     )
 
+    contributor_mode = Column(
+        String(20),
+        nullable=False,
+        default="anonymous",
+        server_default="anonymous",
+    )
+
+    contributor_display_name = Column(
+        String(255),
+        nullable=True,
+    )
+
     version = Column(
         Integer,
         nullable=False,

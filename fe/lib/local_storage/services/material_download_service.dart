@@ -55,7 +55,7 @@ class MaterialDownloadService {
     }
 
     final int resolvedUserId = LocalStorageIdentity.resolve(userId: userId);
-    final String remoteKey = '${source.name}:$materialId';
+    final String remoteKey = '${source.storageValue}:$materialId';
     final DateTime now = DateTime.now().toUtc();
 
     MaterialLocal? material = await _materialRepository.getByRemoteKey(
@@ -181,7 +181,7 @@ class MaterialDownloadService {
 
       temporaryPath = await _fileService.saveTemporaryDownload(
         userId: resolvedUserId,
-        source: source.name,
+        source: source.storageValue,
         remoteId: materialId,
         fileName: originalName,
         bytes: bytes,
@@ -232,7 +232,7 @@ class MaterialDownloadService {
           final String localPath = await _fileService.moveTemporaryDownload(
             temporaryPath: temporaryPath,
             userId: resolvedUserId,
-            source: source.name,
+            source: source.storageValue,
             remoteId: materialId,
             groupId: groupId,
             fileName: originalName,
@@ -257,7 +257,7 @@ class MaterialDownloadService {
         final String localPath = await _fileService.moveTemporaryDownload(
           temporaryPath: temporaryPath,
           userId: resolvedUserId,
-          source: source.name,
+          source: source.storageValue,
           remoteId: materialId,
           groupId: groupId,
           fileName: originalName,
@@ -419,7 +419,7 @@ class MaterialDownloadService {
 
     final MaterialLocal? material = await _materialRepository.getByRemoteKey(
       userId: resolvedUserId,
-      remoteKey: '${source.name}:$materialId',
+      remoteKey: '${source.storageValue}:$materialId',
     );
 
     if (material == null || material.fileId == null) {
@@ -523,7 +523,6 @@ class MaterialDownloadService {
     );
   }
 
-
   Future<void> removeMaterialDownload({
     int? userId,
     required MaterialSourceLocal source,
@@ -533,7 +532,7 @@ class MaterialDownloadService {
 
     final MaterialLocal? material = await _materialRepository.getByRemoteKey(
       userId: resolvedUserId,
-      remoteKey: '${source.name}:$materialId',
+      remoteKey: '${source.storageValue}:$materialId',
     );
 
     if (material == null || material.fileId == null) {
@@ -636,7 +635,6 @@ class MaterialDownloadService {
     );
   }
 
-
   Future<void> removeMaterialDownloadV6(MaterialLocal material) async {
     if (material.id == null || material.fileId == null) {
       return;
@@ -689,7 +687,7 @@ class MaterialDownloadService {
     }
 
     return _apiService.downloadMaterial(
-      source: source.name,
+      source: source.storageValue,
       materialId: materialId,
     );
   }

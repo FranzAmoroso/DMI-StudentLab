@@ -70,9 +70,8 @@ def _require_active_public_material(
     )
 
     if (
-        status != "active"
+        status not in {"published", "active"}
         or not is_visible
-        or not is_active
     ):
         raise ValueError(
             "Materiale non trovato.",
@@ -85,7 +84,7 @@ def _require_accessible_teacher_material(
     db: Session,
     *,
     material_id: int,
-    user_id: int,
+    user_id: int | None,
 ):
     material = (
         db.query(

@@ -1638,7 +1638,11 @@ class ApiService {
       },
     );
 
-    final http.Response response = await http.get(url, headers: _jsonHeaders);
+    final Map<String, String> headers = AuthSession.instance.isAuthenticated
+        ? _jsonHeaders
+        : const <String, String>{'Accept': 'application/json'};
+
+    final http.Response response = await http.get(url, headers: headers);
 
     return _decodeMapResponse(response, 'Errore sincronizzazione materiali');
   }
@@ -1655,7 +1659,9 @@ class ApiService {
 
     if (normalizedSource != 'public' &&
         normalizedSource != 'teacher' &&
-        normalizedSource != 'group') {
+        normalizedSource != 'group' &&
+        normalizedSource != 'personal_sync' &&
+        normalizedSource != 'shared_user') {
       throw ArgumentError('Sorgente materiale non valida.');
     }
 
@@ -1666,7 +1672,12 @@ class ApiService {
       'download',
     );
 
-    final http.Response response = await http.get(url, headers: _jsonHeaders);
+    final Map<String, String> headers =
+        normalizedSource == 'public' && !AuthSession.instance.isAuthenticated
+        ? const <String, String>{'Accept': 'application/octet-stream'}
+        : _jsonHeaders;
+
+    final http.Response response = await http.get(url, headers: headers);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return response.bodyBytes;
@@ -2888,8 +2899,6 @@ class ApiService {
     );
   }
 
-
-
   String _fileNameFromPath(String filePath) {
     final String normalized = filePath.replaceAll('\\', '/');
 
@@ -3535,6 +3544,7 @@ class ApiService {
     required int size,
     String? fileHash,
     String visibility = 'students',
+    String distributionMode = 'persistent',
   }) async {
     final Uri url = _apiUri('/teacher/materials/complete');
 
@@ -3552,6 +3562,7 @@ class ApiService {
         'size': size,
         'file_hash': fileHash,
         'visibility': visibility,
+        'distribution_mode': distributionMode,
       }),
     );
 
@@ -3566,6 +3577,7 @@ class ApiService {
     required String title,
     required String description,
     required String visibility,
+    String distributionMode = 'persistent',
     required String filePath,
   }) async {
     _requireCurrentUserId();
@@ -3575,6 +3587,7 @@ class ApiService {
       title: title,
       description: description,
       visibility: visibility,
+      distributionMode: distributionMode,
       filePath: filePath,
     );
   }
@@ -3584,6 +3597,7 @@ class ApiService {
     required String title,
     required String description,
     required String visibility,
+    String distributionMode = 'persistent',
     required Uint8List bytes,
     required String originalName,
   }) async {
@@ -3593,6 +3607,7 @@ class ApiService {
       title: title,
       description: description,
       visibility: visibility,
+      distributionMode: distributionMode,
       bytes: bytes,
       originalName: originalName,
     );
@@ -3677,6 +3692,7 @@ class ApiService {
     required String title,
     required String description,
     required String filePath,
+    String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
   }) async {
     _requireCurrentUserId();
@@ -3686,6 +3702,7 @@ class ApiService {
       title: title,
       description: description,
       filePath: filePath,
+      attributionMode: attributionMode,
       onPossibleDuplicate: onPossibleDuplicate,
     );
   }
@@ -3696,6 +3713,7 @@ class ApiService {
     required String description,
     required Uint8List bytes,
     required String originalName,
+    String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
   }) async {
     _requireCurrentUserId();
@@ -3705,6 +3723,7 @@ class ApiService {
       description: description,
       bytes: bytes,
       originalName: originalName,
+      attributionMode: attributionMode,
       onPossibleDuplicate: onPossibleDuplicate,
     );
   }
@@ -4128,5 +4147,147 @@ class ApiService {
     );
 
     return _decodeMapResponse(response, 'Errore invio richiesta');
+  }
+
+  Future<List<Map<String, dynamic>>> getMaterialSyncManifestPublic({
+    DateTime? since,
+  }) async {
+    final Uri url = _apiUri(
+      '/materials/sync-manifest',
+      queryParameters: {
+        if (since != null) 'since': since.toUtc().toIso8601String(),
+      },
+    );
+    final http.Response response = await http.get(
+      url,
+      headers: {'Accept': 'application/json'},
+    );
+    final Map<String, dynamic> data = _decodeMapResponse(
+      response,
+      'Errore sincronizzazione materiali',
+    );
+    final dynamic items = data['items'];
+    return items is List
+        ? items
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+        : <Map<String, dynamic>>[];
+  }
+
+  Future<Map<String, dynamic>> createTeacherMaterialRequest({
+    required int subjectId,
+    int? teacherUserId,
+    String? topic,
+    required String message,
+  }) async {
+    final http.Response response = await http.post(
+      _apiUri('/teacher-material-requests'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'subject_id': subjectId,
+        'teacher_user_id': teacherUserId,
+        'topic': topic,
+        'message': message,
+      }),
+    );
+    return _decodeMapResponse(response, 'Errore invio richiesta materiale');
+  }
+
+  Future<Map<String, dynamic>> personalRetentionAction({
+    required int materialId,
+    required String action,
+  }) async {
+    final http.Response response = await http.post(
+      _apiUri('/personal-materials/$materialId/retention'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'action': action}),
+    );
+    return _decodeMapResponse(response, 'Errore aggiornamento conservazione');
+  }
+
+  Future<Map<String, dynamic>> syncPersonalMaterial({
+    required String filePath,
+    int? subjectId,
+    String? university,
+    String? department,
+    String? course,
+    String? subjectName,
+  }) {
+    _requireCurrentUserId();
+    return StudentLabUploadService().uploadPersonalMaterial(
+      filePath: filePath,
+      subjectId: subjectId,
+      university: university,
+      department: department,
+      course: course,
+      subjectName: subjectName,
+    );
+  }
+
+  Future<Map<String, dynamic>> shareMaterialWithUser({
+    required String filePath,
+    required int recipientUserId,
+    int? subjectId,
+    String? message,
+  }) {
+    _requireCurrentUserId();
+    return StudentLabUploadService().shareMaterial(
+      filePath: filePath,
+      recipientUserId: recipientUserId,
+      subjectId: subjectId,
+      message: message,
+    );
+  }
+
+  Future<Map<String, dynamic>> acceptMaterialShare(int shareId) async {
+    final http.Response response = await http.post(
+      _apiUri('/material-shares/$shareId/accept'),
+      headers: _jsonHeaders,
+    );
+    return _decodeMapResponse(response, 'Errore accettazione materiale');
+  }
+
+  Future<Map<String, dynamic>> markMaterialShareDelivered(int shareId) async {
+    final http.Response response = await http.post(
+      _apiUri('/material-shares/$shareId/delivered'),
+      headers: _jsonHeaders,
+    );
+    return _decodeMapResponse(response, 'Errore completamento condivisione');
+  }
+
+  Future<Map<String, dynamic>> rejectMaterialShare(int shareId) async {
+    final http.Response response = await http.post(
+      _apiUri('/material-shares/$shareId/reject'),
+      headers: _jsonHeaders,
+    );
+    return _decodeMapResponse(response, 'Errore rifiuto condivisione');
+  }
+
+  Future<List<Map<String, dynamic>>> getTeacherMaterialRequests() async {
+    final http.Response response = await http.get(
+      _apiUri('/teacher-material-requests/teacher'),
+      headers: _jsonHeaders,
+    );
+    return _decodeListResponse(
+      response,
+      'Errore caricamento richieste materiale',
+    );
+  }
+
+  Future<Map<String, dynamic>> resolveTeacherMaterialRequest({
+    required int requestId,
+    required String action,
+    int? fulfilledMaterialId,
+  }) async {
+    final http.Response response = await http.post(
+      _apiUri('/teacher-material-requests/$requestId/resolve'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'action': action,
+        'fulfilled_material_id': fulfilledMaterialId,
+      }),
+    );
+    return _decodeMapResponse(response, 'Errore gestione richiesta materiale');
   }
 }

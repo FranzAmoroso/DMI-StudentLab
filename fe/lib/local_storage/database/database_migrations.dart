@@ -1,4 +1,3 @@
-
 import 'package:sqflite_common/sqlite_api.dart';
 
 import 'database_tables.dart';
@@ -41,6 +40,10 @@ class DatabaseMigrations {
 
     if (oldVersion < 9) {
       await _migrationToVersion9(db);
+    }
+
+    if (oldVersion < 10) {
+      await _migrationToVersion10(db);
     }
   }
 
@@ -651,6 +654,7 @@ class DatabaseMigrations {
 
     return result.isNotEmpty;
   }
+
   static Future<void> _migrationToVersion7(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS ${DatabaseTables.localFileBlobs} (
@@ -670,7 +674,6 @@ class DatabaseMigrations {
       ON ${DatabaseTables.localFileBlobs}(updated_at)
       ''');
   }
-
 
   static Future<void> _migrationToVersion8(Database db) async {
     await createQuizSchema(db);
@@ -726,18 +729,33 @@ class DatabaseMigrations {
       )
       ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_status ON ${DatabaseTables.quizAttempts}(user_id, status)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_history ON ${DatabaseTables.quizAttempts}(user_id, is_hidden_from_history, completed_at)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_attempts_subject ON ${DatabaseTables.quizAttempts}(user_id, department, course, subject)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_attempt ON ${DatabaseTables.quizAttemptAnswers}(attempt_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_question ON ${DatabaseTables.quizAttemptAnswers}(question_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_answers_argument ON ${DatabaseTables.quizAttemptAnswers}(argument)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_status ON ${DatabaseTables.quizAttempts}(user_id, status)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_history ON ${DatabaseTables.quizAttempts}(user_id, is_hidden_from_history, completed_at)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quiz_attempts_subject ON ${DatabaseTables.quizAttempts}(user_id, department, course, subject)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quiz_answers_attempt ON ${DatabaseTables.quizAttemptAnswers}(attempt_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quiz_answers_question ON ${DatabaseTables.quizAttemptAnswers}(question_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quiz_answers_argument ON ${DatabaseTables.quizAttemptAnswers}(argument)',
+    );
   }
-
 
   static Future<void> _migrationToVersion9(Database db) async {
     if (await _tableExists(db, DatabaseTables.quizAttempts) &&
-        !await _columnExists(db, DatabaseTables.quizAttempts, 'study_source_key')) {
+        !await _columnExists(
+          db,
+          DatabaseTables.quizAttempts,
+          'study_source_key',
+        )) {
       await db.execute('''
         ALTER TABLE ${DatabaseTables.quizAttempts}
         ADD COLUMN study_source_key TEXT
@@ -836,13 +854,67 @@ class DatabaseMigrations {
       )
       ''');
 
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_sources_user ON ${DatabaseTables.studyPlanSources}(remote_user_id, contribution_enabled)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_sources_device ON ${DatabaseTables.studyPlanSources}(device_id, last_activity_at)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_items_subject ON ${DatabaseTables.studyPlanItems}(department, course, subject)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_items_argument ON ${DatabaseTables.studyPlanItems}(argument)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_contributions_item ON ${DatabaseTables.studyPlanContributions}(item_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_contributions_source ON ${DatabaseTables.studyPlanContributions}(source_key)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_study_progress_status ON ${DatabaseTables.studyPlanProgress}(status, mastery_percentage)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_study_sources_user ON ${DatabaseTables.studyPlanSources}(remote_user_id, contribution_enabled)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_study_sources_device ON ${DatabaseTables.studyPlanSources}(device_id, last_activity_at)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_study_items_subject ON ${DatabaseTables.studyPlanItems}(department, course, subject)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_study_items_argument ON ${DatabaseTables.studyPlanItems}(argument)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_study_contributions_item ON ${DatabaseTables.studyPlanContributions}(item_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_study_contributions_source ON ${DatabaseTables.studyPlanContributions}(source_key)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_study_progress_status ON ${DatabaseTables.studyPlanProgress}(status, mastery_percentage)',
+    );
   }
 
+  static Future<void> _migrationToVersion10(Database db) async {
+    if (!await _columnExists(db, DatabaseTables.materials, 'cloud_policy')) {
+      await db.execute(
+        'ALTER TABLE ${DatabaseTables.materials} ADD COLUMN cloud_policy TEXT',
+      );
+    }
+    if (!await _columnExists(
+      db,
+      DatabaseTables.materials,
+      'cloud_expires_at',
+    )) {
+      await db.execute(
+        'ALTER TABLE ${DatabaseTables.materials} ADD COLUMN cloud_expires_at TEXT',
+      );
+    }
+    if (!await _columnExists(
+      db,
+      DatabaseTables.materials,
+      'retention_status',
+    )) {
+      await db.execute(
+        'ALTER TABLE ${DatabaseTables.materials} ADD COLUMN retention_status TEXT',
+      );
+    }
+    if (!await _columnExists(
+      db,
+      DatabaseTables.materials,
+      'shared_by_user_id',
+    )) {
+      await db.execute(
+        'ALTER TABLE ${DatabaseTables.materials} ADD COLUMN shared_by_user_id INTEGER',
+      );
+    }
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_materials_cloud_expiry ON ${DatabaseTables.materials}(cloud_expires_at)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_materials_retention_status ON ${DatabaseTables.materials}(retention_status)',
+    );
+  }
 }

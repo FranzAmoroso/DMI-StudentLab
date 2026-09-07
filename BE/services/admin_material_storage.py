@@ -9,6 +9,9 @@ from models.material_storage_event import MaterialStorageEvent
 from models.public_material import PublicMaterial
 from models.teacher_material import TeacherMaterial
 from models.user import User
+from models.personal_material import PersonalSyncedMaterial
+from models.material_share import MaterialShare
+from services.personal_material import storage_owner_ref
 from services.private_blob import delete_private_blob, list_private_blobs
 
 
@@ -17,6 +20,8 @@ SOURCES = {
     "public",
     "teacher",
     "group",
+    "personal_sync",
+    "shared_user",
 }
 
 ORPHAN_MIN_AGE = timedelta(hours=2)
@@ -153,6 +158,57 @@ def _group_item(record):
     }
 
 
+
+def _personal_item(record):
+    return {
+        "source":"personal_sync",
+        "id":record.id,
+        "status":record.status,
+        "title":"Materiale personale",
+        "original_name":None,
+        "stored_name":record.stored_name,
+        "size":record.size,
+        "mime_type":record.mime_type,
+        "user_id":None,
+        "owner_ref":storage_owner_ref(record.owner_user_id),
+        "subject_id":record.subject_id,
+        "group_id":None,
+        "updated_at":record.updated_at,
+        "created_at":record.created_at,
+        "cloud_expires_at":record.retention_expires_at,
+        "retention_status":record.retention_status,
+        "safe_to_delete_blob":record.status=="removed" or record.retention_status=="deleted",
+        "expects_blob":record.status=="active",
+        "can_retire":False,
+        "can_rename":False,
+        "private_content":True,
+    }
+
+
+def _share_item(record):
+    return {
+        "source":"shared_user",
+        "id":record.id,
+        "status":record.status,
+        "title":"Condivisione privata",
+        "original_name":None,
+        "stored_name":record.stored_name,
+        "size":record.size,
+        "mime_type":record.mime_type,
+        "user_id":None,
+        "owner_ref":storage_owner_ref(record.sender_user_id),
+        "subject_id":record.subject_id,
+        "group_id":None,
+        "updated_at":record.updated_at,
+        "created_at":record.created_at,
+        "cloud_expires_at":record.cloud_expires_at,
+        "safe_to_delete_blob":record.status in {"delivered","rejected","expired"},
+        "expects_blob":record.status in {"pending","accepted"},
+        "can_retire":False,
+        "can_rename":False,
+        "private_content":True,
+    }
+
 def get_storage_record(db: Session, source: str, material_id: int):
     if source == "publication_request":
         return (
@@ -170,6 +226,10 @@ def get_storage_record(db: Session, source: str, material_id: int):
         )
     if source == "group":
         return db.query(GroupMaterial).filter(GroupMaterial.id == material_id).first()
+    if source == "personal_sync":
+        return db.query(PersonalSyncedMaterial).filter(PersonalSyncedMaterial.id == material_id).first()
+    if source == "shared_user":
+        return db.query(MaterialShare).filter(MaterialShare.id == material_id).first()
     raise ValueError("Sorgente materiale non valida.")
 
 
@@ -182,6 +242,10 @@ def serialize_storage_record(source: str, record):
         return _teacher_item(record)
     if source == "group":
         return _group_item(record)
+    if source == "personal_sync":
+        return _personal_item(record)
+    if source == "shared_user":
+        return _share_item(record)
     raise ValueError("Sorgente materiale non valida.")
 
 
@@ -232,6 +296,18 @@ def get_admin_material_items(
             for item in query.order_by(GroupMaterial.updated_at.desc()).all()
         )
 
+    if source in {None, "personal_sync"}:
+        query = db.query(PersonalSyncedMaterial)
+        if status:
+            query = query.filter(PersonalSyncedMaterial.status == status)
+        items.extend(_personal_item(item) for item in query.order_by(PersonalSyncedMaterial.updated_at.desc()).all())
+
+    if source in {None, "shared_user"}:
+        query = db.query(MaterialShare)
+        if status:
+            query = query.filter(MaterialShare.status == status)
+        items.extend(_share_item(item) for item in query.order_by(MaterialShare.updated_at.desc()).all())
+
     items.sort(
         key=lambda value: value.get("updated_at") or datetime.min.replace(tzinfo=timezone.utc),
         reverse=True,
@@ -247,6 +323,8 @@ def get_all_referenced_blob_paths(db: Session):
         PublicMaterial,
         TeacherMaterial,
         GroupMaterial,
+        PersonalSyncedMaterial,
+        MaterialShare,
     ):
         rows = db.query(model.stored_name).all()
         for row in rows:

@@ -9,20 +9,19 @@ import '../../theme/nightTheme.dart';
 class TeacherMaterialFormPage extends StatefulWidget {
   final List<Map<String, dynamic>> initialSubjects;
 
-  const TeacherMaterialFormPage({
-    super.key,
-    this.initialSubjects = const [],
-  });
+  const TeacherMaterialFormPage({super.key, this.initialSubjects = const []});
 
   @override
-  State<TeacherMaterialFormPage> createState() => _TeacherMaterialFormPageState();
+  State<TeacherMaterialFormPage> createState() =>
+      _TeacherMaterialFormPageState();
 }
 
 class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
   final ApiService _apiService = ApiService();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _subjectSearchController = TextEditingController();
+  final TextEditingController _subjectSearchController =
+      TextEditingController();
 
   bool _loading = true;
   bool _authorized = false;
@@ -31,6 +30,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
   List<Map<String, dynamic>> _subjects = [];
   int? _selectedSubjectId;
   String _visibility = 'students';
+  String _distributionMode = 'persistent';
   PlatformFile? _selectedFile;
   String? _selectedFilePath;
 
@@ -88,7 +88,10 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
         _authorized = true;
         _subjects = subjects;
         if (_selectedSubjectId != null &&
-            !_subjects.any((Map<String, dynamic> item) => _toInt(item['id']) == _selectedSubjectId)) {
+            !_subjects.any(
+              (Map<String, dynamic> item) =>
+                  _toInt(item['id']) == _selectedSubjectId,
+            )) {
           _selectedSubjectId = null;
           _subjectSearchController.clear();
         }
@@ -108,7 +111,9 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
     }
   }
 
-  List<Map<String, dynamic>> _normalizeSubjects(List<Map<String, dynamic>> values) {
+  List<Map<String, dynamic>> _normalizeSubjects(
+    List<Map<String, dynamic>> values,
+  ) {
     final Map<int, Map<String, dynamic>> result = {};
     for (final Map<String, dynamic> value in values) {
       final int? id = _toInt(value['id'] ?? value['subject_id']);
@@ -116,7 +121,11 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
       result[id] = Map<String, dynamic>.from(value)..['id'] = id;
     }
     final List<Map<String, dynamic>> subjects = result.values.toList()
-      ..sort((a, b) => _subjectLabel(a).toLowerCase().compareTo(_subjectLabel(b).toLowerCase()));
+      ..sort(
+        (a, b) => _subjectLabel(
+          a,
+        ).toLowerCase().compareTo(_subjectLabel(b).toLowerCase()),
+      );
     return subjects;
   }
 
@@ -135,7 +144,9 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
             final String normalized = query.trim().toLowerCase();
-            final List<Map<String, dynamic>> visible = _subjects.where((subject) {
+            final List<Map<String, dynamic>> visible = _subjects.where((
+              subject,
+            ) {
               if (normalized.isEmpty) return true;
               return [
                 subject['code'],
@@ -192,9 +203,13 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                               )
                             : ListView.separated(
                                 itemCount: visible.length,
-                                separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.white10),
+                                separatorBuilder: (_, __) => const Divider(
+                                  height: 1,
+                                  color: Colors.white10,
+                                ),
                                 itemBuilder: (BuildContext context, int index) {
-                                  final Map<String, dynamic> subject = visible[index];
+                                  final Map<String, dynamic> subject =
+                                      visible[index];
                                   final int id = _toInt(subject['id'])!;
                                   return ListTile(
                                     leading: const Icon(
@@ -203,7 +218,9 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                                     ),
                                     title: Text(
                                       _subjectLabel(subject),
-                                      style: const TextStyle(color: AppColors.pureWhite),
+                                      style: const TextStyle(
+                                        color: AppColors.pureWhite,
+                                      ),
                                     ),
                                     subtitle: Text(
                                       _subjectContext(subject),
@@ -213,9 +230,13 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                                       ),
                                     ),
                                     trailing: _selectedSubjectId == id
-                                        ? const Icon(Icons.check_rounded, color: Colors.greenAccent)
+                                        ? const Icon(
+                                            Icons.check_rounded,
+                                            color: Colors.greenAccent,
+                                          )
                                         : null,
-                                    onTap: () => Navigator.pop(sheetContext, id),
+                                    onTap: () =>
+                                        Navigator.pop(sheetContext, id),
                                   );
                                 },
                               ),
@@ -234,7 +255,9 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
     final Map<String, dynamic>? subject = _subjectById(selected);
     setState(() {
       _selectedSubjectId = selected;
-      _subjectSearchController.text = subject == null ? 'Materia #$selected' : _subjectLabel(subject);
+      _subjectSearchController.text = subject == null
+          ? 'Materia #$selected'
+          : _subjectLabel(subject);
     });
   }
 
@@ -262,7 +285,9 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
         return;
       }
       if (file.size > ApiService.maxMaterialFileSize) {
-        _showMessage('Il file supera la dimensione massima consentita di 250 MB.');
+        _showMessage(
+          'Il file supera la dimensione massima consentita di 250 MB.',
+        );
         return;
       }
 
@@ -330,6 +355,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
         title: title,
         description: description,
         visibility: _visibility,
+        distributionMode: _distributionMode,
         filePath: filePath,
       );
 
@@ -379,7 +405,8 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                 icon: Icons.gpp_bad_outlined,
                 iconColor: Colors.redAccent,
                 title: 'Accesso non autorizzato',
-                message: _error ??
+                message:
+                    _error ??
                     'Solo un docente verificato e attivo può caricare materiale didattico.',
                 actionLabel: 'Riprova',
                 onAction: _initialize,
@@ -477,6 +504,33 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                           },
                   ),
                 ),
+                const SizedBox(height: 14),
+                _section(
+                  title: 'Disponibilità cloud',
+                  icon: Icons.schedule_outlined,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'persistent',
+                        icon: Icon(Icons.cloud_done_outlined),
+                        label: Text('Persistente'),
+                      ),
+                      ButtonSegment(
+                        value: 'temporary',
+                        icon: Icon(Icons.timer_outlined),
+                        label: Text('8 giorni'),
+                      ),
+                    ],
+                    selected: {_distributionMode},
+                    onSelectionChanged: _uploading
+                        ? null
+                        : (values) {
+                            setState(() {
+                              _distributionMode = values.first;
+                            });
+                          },
+                  ),
+                ),
                 if (_error != null) ...[
                   const SizedBox(height: 14),
                   _buildError(),
@@ -501,7 +555,9 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                           )
                         : const Icon(Icons.cloud_upload_outlined),
                     label: Text(
-                      _uploading ? 'Caricamento in corso...' : 'Carica materiale',
+                      _uploading
+                          ? 'Caricamento in corso...'
+                          : 'Carica materiale',
                     ),
                   ),
                 ),
@@ -693,9 +749,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
       decoration: BoxDecoration(
         color: AppColors.eleganceMidnight,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: AppColors.pureWhite.withValues(alpha: 0.06),
-        ),
+        border: Border.all(color: AppColors.pureWhite.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -759,10 +813,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
             ),
           ),
           const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: onAction,
-            child: Text(actionLabel),
-          ),
+          OutlinedButton(onPressed: onAction, child: Text(actionLabel)),
         ],
       ),
     );
@@ -774,9 +825,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
       decoration: BoxDecoration(
         color: Colors.redAccent.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.redAccent.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.16)),
       ),
       child: Row(
         children: [
@@ -811,11 +860,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
   }
 
   String _subjectContext(Map<String, dynamic> subject) {
-    return [
-      subject['university'],
-      subject['department'],
-      subject['course'],
-    ]
+    return [subject['university'], subject['department'], subject['course']]
         .map((value) => value?.toString().trim() ?? '')
         .where((String value) => value.isNotEmpty)
         .join(' • ');
@@ -843,8 +888,10 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
 
   String _friendlyError(Object error) {
     final String value = error.toString().toLowerCase();
-    if (value.contains('401')) return 'La sessione non è più valida. Accedi nuovamente.';
-    if (value.contains('403')) return 'Il tuo account non dispone dei permessi docente richiesti.';
+    if (value.contains('401'))
+      return 'La sessione non è più valida. Accedi nuovamente.';
+    if (value.contains('403'))
+      return 'Il tuo account non dispone dei permessi docente richiesti.';
     if (value.contains('socket') ||
         value.contains('network') ||
         value.contains('connection') ||
@@ -865,12 +912,18 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
 
   String _friendlyUploadError(Object error) {
     final String value = error.toString().toLowerCase();
-    if (value.contains('409') || value.contains('già presente') || value.contains('duplicat')) {
+    if (value.contains('409') ||
+        value.contains('già presente') ||
+        value.contains('duplicat')) {
       return 'Questo materiale risulta già presente per la materia selezionata.';
     }
-    if (value.contains('401')) return 'La sessione non è più valida. Accedi nuovamente.';
-    if (value.contains('403')) return 'Non hai i permessi per pubblicare materiale in questa materia.';
-    if (value.contains('mime') || value.contains('tipo') || value.contains('formato')) {
+    if (value.contains('401'))
+      return 'La sessione non è più valida. Accedi nuovamente.';
+    if (value.contains('403'))
+      return 'Non hai i permessi per pubblicare materiale in questa materia.';
+    if (value.contains('mime') ||
+        value.contains('tipo') ||
+        value.contains('formato')) {
       return 'Il formato del file non è supportato.';
     }
     if (value.contains('socket') ||
@@ -884,6 +937,8 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
