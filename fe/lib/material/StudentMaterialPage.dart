@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fe/material/material_requests_page.dart';
 import 'package:fe/developer/theme/developer_ui_style.dart';
-import 'package:fe/social/auth/login_page.dart';
-import 'package:fe/social/auth/registration_intro_page.dart';
 import 'package:fe/theme/nightTheme.dart';
 
 import 'package:fe/services/api_service.dart';
@@ -368,7 +366,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           return _LocalSubject(
             id: entry.key,
             subjectId: first.subjectId,
-            name: key == 'course:direct'
+            name: entry.key == 'course:direct'
                 ? 'Materiali del corso'
                 : first.displaySubjectName,
             university: university,
@@ -1485,17 +1483,6 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     ));
   }
 
-  Future<void> _openGuestAccount({required bool register}) async {
-    if (register) {
-      await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const RegistrationIntroPage()));
-    } else {
-      await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const LoginPage()));
-    }
-    if (mounted) await _loadMaterials();
-  }
-
   Widget _buildMaterialActions() {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1504,30 +1491,42 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         const Text('La tua biblioteca', style: TextStyle(
           color: AppColors.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 5),
-        Text('I materiali del catalogo e i tuoi file sono nello stesso percorso. I badge indicano origine e disponibilità.',
-          style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 12)),
+        Text(
+          'Aggiungi e organizza i tuoi materiali sul dispositivo e consulta quelli disponibili nel catalogo StudentLab.',
+          style: TextStyle(
+            color: AppColors.pureWhite.withValues(alpha: 0.60),
+            fontSize: 12,
+          ),
+        ),
         const SizedBox(height: 16),
         Wrap(spacing: 10, runSpacing: 10, children: [
-          FilledButton.icon(onPressed: _openingOfflineForm ? null : _openOfflineMaterial,
-            icon: const Icon(Icons.add_rounded), label: const Text('Aggiungi materiale')),
+          FilledButton.icon(
+            onPressed: _openingOfflineForm ? null : _openOfflineMaterial,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Aggiungi materiale'),
+          ),
           if (_authSession.isAuthenticated) ...[
-            OutlinedButton.icon(onPressed: _openingPublicationForm ? null : _openPublication,
-              icon: const Icon(Icons.publish_outlined), label: const Text('Pubblica materiale')),
-            OutlinedButton.icon(onPressed: _openRequests,
-              icon: const Icon(Icons.people_outline_rounded), label: const Text('Richieste e condivisione')),
+            OutlinedButton.icon(
+              onPressed: _openingPublicationForm ? null : _openPublication,
+              icon: const Icon(Icons.publish_outlined),
+              label: const Text('Pubblica materiale'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _openRequests,
+              icon: const Icon(Icons.people_outline_rounded),
+              label: const Text('Richieste e condivisione'),
+            ),
           ],
         ]),
         if (!_authSession.isAuthenticated) ...[
           const SizedBox(height: 14),
-          Text('Registrati o accedi per proporre un materiale a StudentLab, condividerlo con altri studenti e richiedere materiali. Puoi già aggiungere file offline.',
-            style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.72), fontSize: 12)),
-          const SizedBox(height: 10),
-          Wrap(spacing: 10, runSpacing: 8, children: [
-            FilledButton(onPressed: () => _openGuestAccount(register: true),
-              child: const Text('Registrati')),
-            OutlinedButton(onPressed: () => _openGuestAccount(register: false),
-              child: const Text('Accedi')),
-          ]),
+          Text(
+            'Accedendo a StudentLab potrai proporre e pubblicare materiali, condividerli con altri studenti, inviare richieste di materiale e utilizzare le funzioni disponibili per il tuo percorso di studi. Puoi continuare ad aggiungere e consultare i tuoi file locali anche senza effettuare l’accesso.',
+            style: TextStyle(
+              color: AppColors.pureWhite.withValues(alpha: 0.72),
+              fontSize: 12,
+            ),
+          ),
         ],
       ]),
     );
