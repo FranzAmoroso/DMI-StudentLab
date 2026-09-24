@@ -444,6 +444,10 @@ from routes.student_material_request import router as student_material_request_r
 from routes.teacher_material_request import router as teacher_material_request_router
 from routes.material_lifecycle import router as material_lifecycle_router
 
+from routes.material_path_suggestions import router as material_path_suggestions_router
+from routes.material_course_proposals import router as material_course_proposals_router
+from routes.material_drive_retry import router as material_drive_retry_router
+
 from routes.admin_material_storage import (
     router as admin_material_storage_router,
 )
@@ -568,6 +572,9 @@ app.include_router(
     material_sync_router,
 )
 
+app.include_router(material_path_suggestions_router)
+app.include_router(material_course_proposals_router)
+app.include_router(material_drive_retry_router)
 app.include_router(personal_material_router)
 app.include_router(material_share_router)
 app.include_router(student_material_request_router)
@@ -4820,4 +4827,3 @@ _ensure_router_registered(
     teacher_material_request_router,
     "/teacher-material-requests",
 )
-

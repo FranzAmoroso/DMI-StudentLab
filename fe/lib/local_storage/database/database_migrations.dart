@@ -53,6 +53,9 @@ class DatabaseMigrations {
     if (oldVersion < 12) {
       await _migrationToVersion12(db);
     }
+    if (oldVersion < 13) {
+      await _migrationToVersion13(db);
+    }
   }
 
   static Future<void> _migrationToVersion2(Database db) async {
@@ -984,6 +987,30 @@ class DatabaseMigrations {
 
     await createQuizSchema(db);
     await createStudyPlanSchema(db);
+  }
+
+  // Additive: legacy materials stay in the degree course with no folders.
+  // Never rebuild or clear materials/material_files during this migration.
+  static Future<void> _migrationToVersion13(Database db) async {
+    if (!await _columnExists(db, DatabaseTables.materials, 'course_scope')) {
+      await db.execute("ALTER TABLE ${DatabaseTables.materials} ADD COLUMN course_scope TEXT NOT NULL DEFAULT 'degree'");
+    }
+    if (!await _columnExists(db, DatabaseTables.materials, 'path_segments_json')) {
+      await db.execute('ALTER TABLE ${DatabaseTables.materials} ADD COLUMN path_segments_json TEXT');
+    }
+    if (!await _columnExists(db, DatabaseTables.materials, 'remote_file_hash')) {
+      await db.execute('ALTER TABLE ${DatabaseTables.materials} ADD COLUMN remote_file_hash TEXT');
+    }
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS material_duplicate_preferences (
+        user_id INTEGER NOT NULL,
+        file_hash TEXT NOT NULL,
+        material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(user_id, file_hash)
+      )
+    ''');
+
   }
 
   static Future<void> _ensureLocalFileBlobSchema(Database db) async {

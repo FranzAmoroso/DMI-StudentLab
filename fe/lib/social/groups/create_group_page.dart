@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1483,40 +1482,59 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       _creating = true;
     });
 
+    Map<String, dynamic>? createdGroup;
+    int? groupId;
+
     try {
-      final Map<String, dynamic> createdGroup = await _apiService.createGroup(
+      createdGroup = await _apiService.createGroup(
         name: name,
-
         description: description,
-
         subjectId: _selectedSubjectId,
-
         university: university,
-
         department: _department,
-
         course: _course,
-
         isPrivate: _isPrivate,
       );
 
-      final int? groupId = _toInt(createdGroup['id']);
+      groupId = _toInt(createdGroup['id']);
 
       if (groupId == null) {
         throw Exception('Il backend non ha restituito l\'ID del gruppo.');
       }
-
-      for (final _InvitedUser user in _invitedUsers) {
-        await _apiService.addGroupMember(
-          groupId: groupId,
-
-          userId: user.id,
-
-          role: 'member',
-        );
+    } catch (e) {
+      if (!mounted) {
+        return;
       }
 
-      for (final _SelectedMaterial material in _materials) {
+      _showMessage(
+        _cleanError(
+          e,
+          fallback: 'Non è stato possibile creare il gruppo. Riprova.',
+        ),
+      );
+
+      return;
+    }
+
+    int failedInvites = 0;
+    int failedMaterials = 0;
+
+    final List<String> materialErrors = <String>[];
+
+    for (final _InvitedUser user in _invitedUsers) {
+      try {
+        await _apiService.addGroupMember(
+          groupId: groupId,
+          userId: user.id,
+          role: 'member',
+        );
+      } catch (_) {
+        failedInvites++;
+      }
+    }
+
+    for (final _SelectedMaterial material in _materials) {
+      try {
         final Uint8List? bytes = material.bytes;
 
         if (bytes != null) {
@@ -1525,6 +1543,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
             bytes: bytes,
             originalName: material.name,
           );
+
           continue;
         }
 
@@ -1539,33 +1558,58 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
           filePath: path,
           originalName: material.name,
         );
-      }
+      } catch (e) {
+        failedMaterials++;
 
-      if (!mounted) {
-        return;
-      }
+        materialErrors.add('${material.name}: $e');
 
-      _showMessage('Gruppo "$name" creato correttamente.');
-
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        _cleanError(
-          e,
-          fallback: 'Non è stato possibile creare il gruppo. Riprova.',
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _creating = false;
-        });
+        debugPrint(
+          '[StudentLab][CreateGroup]'
+          '[material-upload]'
+          ' groupId=$groupId'
+          ' file=${material.name}'
+          ' error=$e',
+        );
       }
     }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (failedInvites == 0 && failedMaterials == 0) {
+      _showMessage('Gruppo "$name" creato correttamente.');
+    } else {
+      final List<String> warnings = <String>[];
+
+      if (failedInvites > 0) {
+        warnings.add(
+          failedInvites == 1
+              ? '1 invito non è stato inviato'
+              : '$failedInvites inviti non sono stati inviati',
+        );
+      }
+
+      if (failedMaterials > 0) {
+        warnings.add(
+          failedMaterials == 1
+              ? '1 materiale non è stato caricato'
+              : '$failedMaterials materiali non sono stati caricati',
+        );
+      }
+
+      _showMessage('Gruppo "$name" creato, ma ${warnings.join(' e ')}.');
+
+      if (materialErrors.isNotEmpty) {
+        debugPrint(
+          '[StudentLab][CreateGroup]'
+          ' errori materiali: '
+          '${materialErrors.join(' | ')}',
+        );
+      }
+    }
+
+    Navigator.of(context).pop(true);
   }
 
   String _resolvedGroupName(SocialSubject? selectedSubject) {

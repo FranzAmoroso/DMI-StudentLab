@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -45,6 +46,55 @@ class AdminMaterialStorageApiService {
     return _map(response, 'Errore caricamento storage');
   }
 
+  Future<Map<String, dynamic>> getDriveStatus() async {
+    final response = await http.get(_uri('/admin/material-storage/drive/status'),
+      headers: _headers);
+    return _map(response, 'Impossibile leggere lo stato di Google Drive');
+  }
+
+  Future<Map<String, dynamic>> previewPublicDrive(int materialId,
+      {List<String>? path}) async {
+    final response = await http.post(
+      _uri('/admin/material-storage/public/$materialId/drive-preview'),
+      headers: _headers, body: jsonEncode({'path': path}));
+    return _map(response, 'Impossibile controllare le cartelle Drive');
+  }
+
+  Future<Uint8List> downloadDriveFilePreview(String fileId) async {
+    final response = await http.get(_uri(
+      '/admin/material-storage/drive/file/${Uri.encodeComponent(fileId)}/preview'),
+      headers: _headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Anteprima Drive non disponibile');
+    }
+    return response.bodyBytes;
+  }
+
+  Future<Uint8List> downloadPublicMaterialPreview(int materialId) async {
+    final response = await http.get(_uri('/admin/public_materials/$materialId/file'),
+      headers: _headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('File proposto non disponibile');
+    }
+    return response.bodyBytes;
+  }
+
+  Future<Map<String, dynamic>> copyPublicToDrive(int materialId,
+      {List<String>? path, bool allowDuplicate = false}) async {
+    final response = await http.post(
+      _uri('/admin/material-storage/public/$materialId/drive-copy'),
+      headers: _headers,
+      body: jsonEncode({'path': path, 'allow_duplicate': allowDuplicate}));
+    return _map(response, 'Impossibile copiare il materiale su Google Drive');
+  }
+
+  Future<Map<String, dynamic>> deletePublicDriveCopy(int materialId) async {
+    final response = await http.delete(
+      _uri('/admin/material-storage/public/$materialId/drive-copy',
+        query: const {'confirmation': 'ELIMINA'}), headers: _headers);
+    return _map(response, 'Impossibile eliminare la copia Drive');
+  }
+
   Future<List<Map<String, dynamic>>> getItems({
     String? source,
     String? status,
@@ -68,6 +118,66 @@ class AdminMaterialStorageApiService {
     );
 
     return _list(response, 'Errore caricamento materiali');
+  }
+
+  Future<Map<String, dynamic>> setPublicVisibility({
+    required int materialId,
+    required String state,
+  }) async {
+    final response = await http.patch(
+      _uri('/admin/material-storage/public/$materialId/visibility'),
+      headers: _headers,
+      body: jsonEncode(<String, dynamic>{'state': state}),
+    );
+    return _map(response, 'Impossibile cambiare la visibilità');
+  }
+
+  Future<Map<String, dynamic>> setPublicAudience({
+    required int materialId, required String audienceType, int? audienceId,
+  }) async {
+    final response = await http.patch(
+      _uri('/admin/material-storage/public/$materialId/audience'),
+      headers: _headers,
+      body: jsonEncode(<String, dynamic>{
+        'audience_type': audienceType,
+        'audience_id': audienceId,
+      }),
+    );
+    return _map(response, 'Impossibile modificare i destinatari');
+  }
+
+  Future<Map<String, dynamic>> placePublicFile({
+    required int materialId,
+    required int subjectId,
+    required List<String> pathSegments,
+  }) async {
+    final response = await http.patch(
+      _uri('/admin/material-storage/public/$materialId/placement'),
+      headers: _headers,
+      body: jsonEncode(<String, dynamic>{
+        'subject_id': subjectId,
+        'path_segments': pathSegments,
+      }),
+    );
+    return _map(response, 'Impossibile modificare il percorso');
+  }
+
+  Future<Map<String, dynamic>> movePublicFolder({
+    required int sourceSubjectId,
+    required List<String> sourcePath,
+    required int destinationSubjectId,
+    required List<String> destinationPath,
+  }) async {
+    final response = await http.post(_uri('/admin/material-storage/folders/move'),
+      headers: _headers,
+      body: jsonEncode(<String, dynamic>{
+        'source_subject_id': sourceSubjectId,
+        'source_path': sourcePath,
+        'destination_subject_id': destinationSubjectId,
+        'destination_path': destinationPath,
+      }),
+    );
+    return _map(response, 'Impossibile spostare la cartella');
   }
 
   Future<Map<String, dynamic>> rename({

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../services/api_service.dart';
@@ -490,6 +491,9 @@ class MaterialSyncService {
           'cloud_expires_at': _nullableString(item['cloud_expires_at']),
           'retention_status': _nullableString(item['retention_status']),
           'shared_by_user_id': _asInt(item['shared_by_user_id']),
+          'course_scope': _nullableString(item['course_scope']) ?? 'degree',
+          'path_segments_json': jsonEncode(item['path_segments'] is List ? item['path_segments'] : <String>[]),
+          'remote_file_hash': _nullableString(item['file_hash']),
 
           'updated_at':
               (removedAt != null && !available ? removedAt : updatedAt)

@@ -24,6 +24,8 @@ class MaterialSyncItem(BaseModel):
     department: str | None = None
     course: str | None = None
     subject_name: str | None = None
+    course_scope: str = 'degree'
+    path_segments: list[str] = Field(default_factory=list)
     mime_type: str | None = None
     size: int | None = None
     file_hash: str | None = None

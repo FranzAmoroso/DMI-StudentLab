@@ -12,7 +12,7 @@ class AppDatabase {
 
   static Database? _database;
 
-  static const int _databaseVersion = 12;
+  static const int _databaseVersion = 13;
 
   final LocalDatabaseBackend _backend = createLocalDatabaseBackend();
 
@@ -89,6 +89,12 @@ class AppDatabase {
 
         subject_name TEXT,
 
+        course_scope TEXT NOT NULL DEFAULT 'degree',
+
+        path_segments_json TEXT,
+
+        remote_file_hash TEXT,
+
         original_name TEXT NOT NULL,
 
         file_id INTEGER,
@@ -150,6 +156,16 @@ class AppDatabase {
         )
       )
       ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS material_duplicate_preferences (
+        user_id INTEGER NOT NULL,
+        file_hash TEXT NOT NULL,
+        material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(user_id, file_hash)
+      )
+    ''');
 
     await db.execute('''
       CREATE TABLE ${DatabaseTables.materialDownloads} (

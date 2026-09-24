@@ -215,6 +215,7 @@ class MaterialDownloadService {
 
       final MaterialFileLocal? duplicate = await _getMaterialFileByHash(
         actualHash,
+        resolvedUserId,
       );
 
       int fileId;
@@ -747,14 +748,15 @@ class MaterialDownloadService {
     return MaterialFileLocal.fromMap(result.first);
   }
 
-  Future<MaterialFileLocal?> _getMaterialFileByHash(String fileHash) async {
+  Future<MaterialFileLocal?> _getMaterialFileByHash(String fileHash, int userId) async {
     final Database db = await _database.database;
-    final List<Map<String, Object?>> result = await db.query(
-      DatabaseTables.materialFiles,
-      where: 'file_hash = ?',
-      whereArgs: <Object?>[fileHash.trim().toLowerCase()],
-      limit: 1,
-    );
+    // Never point a user's offline entry at another account's private file.
+    final List<Map<String, Object?>> result = await db.rawQuery('''
+      SELECT f.* FROM ${DatabaseTables.materialFiles} f
+      INNER JOIN ${DatabaseTables.materials} m ON m.file_id = f.id
+      WHERE f.file_hash = ? AND m.user_id = ?
+      LIMIT 1
+    ''', <Object?>[fileHash.trim().toLowerCase(), userId]);
 
     if (result.isEmpty) {
       return null;

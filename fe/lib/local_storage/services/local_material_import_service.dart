@@ -34,8 +34,11 @@ class LocalMaterialImportService {
     String? subjectName,
     String? originalName,
     int? subjectId,
+    String courseScope = 'degree',
+    List<String> pathSegments = const <String>[],
   }) async {
     final int resolvedUserId = LocalStorageIdentity.resolve(userId: userId);
+    final List<String> validatedPath = _validatedPath(pathSegments);
 
     final Uint8List? sourceBytes = await _fileService.readBytes(sourcePath);
 
@@ -61,7 +64,7 @@ class LocalMaterialImportService {
     final String rawUniversity = _requiredValue(university, 'Ateneo');
     final String rawDepartment = _requiredValue(department, 'Dipartimento');
     final String rawCourse = _requiredValue(course, 'Corso');
-    final String rawSubjectName = _requiredValue(subjectName, 'Materia');
+    final String? rawSubjectName = subjectName?.trim().isNotEmpty == true ? _cleanText(subjectName!) : null;
 
     final String? canonicalUniversity = _canonicalOptionalValue(
       rawUniversity,
@@ -109,8 +112,7 @@ class LocalMaterialImportService {
     final bool completeCatalogHierarchy =
         canonicalUniversity != null &&
         canonicalDepartment != null &&
-        canonicalCourse != null &&
-        canonicalSubject != null;
+        canonicalCourse != null;
 
     if (!completeCatalogHierarchy) {
       throw ArgumentError('Gerarchia accademica non valida.');
@@ -124,7 +126,7 @@ class LocalMaterialImportService {
 
     final MaterialFileLocal? existingPhysicalFile = fileHash == null
         ? null
-        : await _getMaterialFileByHash(fileHash);
+        : await _getMaterialFileByHash(fileHash, resolvedUserId);
 
     final int fileId;
 
@@ -181,6 +183,8 @@ class LocalMaterialImportService {
       department: canonicalDepartment,
       course: canonicalCourse,
       subjectName: canonicalSubject,
+      courseScope: courseScope == 'additional' ? 'additional' : 'degree',
+      pathSegments: validatedPath,
       originalName: resolvedName,
       fileId: fileId,
       remoteVersion: null,
@@ -224,12 +228,15 @@ class LocalMaterialImportService {
     String? course,
     String? subjectName,
     int? subjectId,
+    String courseScope = 'degree',
+    List<String> pathSegments = const <String>[],
   }) async {
     if (bytes.isEmpty) {
       throw ArgumentError('File vuoto.');
     }
 
     final int resolvedUserId = LocalStorageIdentity.resolve(userId: userId);
+    final List<String> validatedPath = _validatedPath(pathSegments);
 
     final String resolvedName = _sanitizeFileName(fileName);
 
@@ -243,7 +250,7 @@ class LocalMaterialImportService {
 
     final String rawCourse = _requiredValue(course, 'Corso');
 
-    final String rawSubjectName = _requiredValue(subjectName, 'Materia');
+    final String? rawSubjectName = subjectName?.trim().isNotEmpty == true ? _cleanText(subjectName!) : null;
 
     final String? canonicalUniversity = _canonicalOptionalValue(
       rawUniversity,
@@ -291,8 +298,7 @@ class LocalMaterialImportService {
     final bool completeCatalogHierarchy =
         canonicalUniversity != null &&
         canonicalDepartment != null &&
-        canonicalCourse != null &&
-        canonicalSubject != null;
+        canonicalCourse != null;
 
     if (!completeCatalogHierarchy) {
       throw ArgumentError('Gerarchia accademica non valida.');
@@ -303,7 +309,7 @@ class LocalMaterialImportService {
     final String fileHash = sha256.convert(bytes).toString().toLowerCase();
 
     final MaterialFileLocal? existingPhysicalFile =
-        await _getMaterialFileByHash(fileHash);
+        await _getMaterialFileByHash(fileHash, resolvedUserId);
 
     final int fileId;
 
@@ -360,6 +366,8 @@ class LocalMaterialImportService {
       department: canonicalDepartment,
       course: canonicalCourse,
       subjectName: canonicalSubject,
+      courseScope: courseScope == 'additional' ? 'additional' : 'degree',
+      pathSegments: validatedPath,
       originalName: resolvedName,
       fileId: fileId,
       remoteVersion: null,
@@ -376,15 +384,28 @@ class LocalMaterialImportService {
     return material.copyWith(id: id);
   }
 
-  Future<MaterialFileLocal?> _getMaterialFileByHash(String fileHash) async {
+  List<String> _validatedPath(List<String> segments) {
+    if (segments.length > 8) throw ArgumentError('Troppe cartelle nel percorso.');
+    return segments.map((value) => _cleanText(value)).map((value) {
+      if (value.isEmpty || value == '.' || value == '..' ||
+          value.length > 80 || value.contains('/') || value.contains('\\')) {
+        throw ArgumentError('Nome della cartella non valido.');
+      }
+      return value;
+    }).toList();
+  }
+
+  Future<MaterialFileLocal?> _getMaterialFileByHash(String fileHash, int userId) async {
     final Database db = await _database.database;
 
-    final List<Map<String, Object?>> rows = await db.query(
-      DatabaseTables.materialFiles,
-      where: 'file_hash = ?',
-      whereArgs: <Object?>[fileHash.trim().toLowerCase()],
-      limit: 1,
-    );
+    // A matching hash belonging to another account must never share its
+    // physical file: account cleanup may remove that user's directory.
+    final List<Map<String, Object?>> rows = await db.rawQuery('''
+      SELECT f.* FROM ${DatabaseTables.materialFiles} f
+      INNER JOIN ${DatabaseTables.materials} m ON m.file_id = f.id
+      WHERE f.file_hash = ? AND m.user_id = ? AND m.source = 'local'
+      LIMIT 1
+    ''', <Object?>[fileHash.trim().toLowerCase(), userId]);
 
     if (rows.isEmpty) {
       return null;

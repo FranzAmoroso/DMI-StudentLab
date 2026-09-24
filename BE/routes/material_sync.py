@@ -14,6 +14,7 @@ from schemas.material_sync import MaterialSyncManifestResponse
 from services.material_download import get_downloadable_material
 from services.material_sync import build_material_sync_manifest
 from services.private_blob import private_blob_response
+from services.drive_material_storage import public_drive_response
 
 MaterialDownloadSource=Literal["public","teacher","group","personal_sync","shared_user"]
 router=APIRouter(prefix="/materials",tags=["materials-sync"])
@@ -33,7 +34,10 @@ def manifest(since:datetime|None=Query(default=None),current_user:User|None=Depe
 @router.get("/{source}/{material_id}/download")
 async def download(source:MaterialDownloadSource,material_id:int=Path(gt=0),current_user:User|None=Depends(get_optional_current_user),db:Session=Depends(get_db)):
     if source=="public":
-        material=get_downloadable_material(db,source="public",material_id=material_id,user_id=(current_user.id if current_user else None))
+        try:
+            material=get_downloadable_material(db,source="public",material_id=material_id,user_id=(current_user.id if current_user else None))
+        except (PermissionError,ValueError):
+            raise HTTPException(status_code=404,detail="Materiale non trovato.")
     elif current_user is None:
         raise HTTPException(status_code=404,detail="Materiale non trovato.")
     elif source=="personal_sync":
@@ -51,4 +55,7 @@ async def download(source:MaterialDownloadSource,material_id:int=Path(gt=0),curr
             material=get_downloadable_material(db,source=source,material_id=material_id,user_id=current_user.id)
         except (PermissionError,ValueError):
             raise HTTPException(status_code=404,detail="Materiale non trovato.")
+    if source == 'public' and material.get('drive_file_id'):
+        return await public_drive_response(drive_file_id=material['drive_file_id'],
+            original_name=material['original_name'], mime_type=material['mime_type'])
     return await private_blob_response(stored_name=material["stored_name"],original_name=material["original_name"],mime_type=material["mime_type"],inline=False)

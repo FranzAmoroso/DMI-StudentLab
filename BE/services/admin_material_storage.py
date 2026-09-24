@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
+from core.config import settings
 
 from models.material import GroupMaterial
 from models.material_publication_request import MaterialPublicationRequest
@@ -100,6 +101,15 @@ def _public_item(record):
         "source": "public",
         "id": record.id,
         "status": record.status,
+        "visibility_state": record.visibility_state,
+        "drive_copied": bool(record.drive_file_id),
+        "drive_copied_at": record.drive_copied_at,
+        "drive_activation_pending": bool(record.drive_activation_pending),
+        "drive_retry_after": record.drive_retry_after,
+        "drive_retry_attempts": record.drive_retry_attempts,
+        "drive_path_segments": json.loads(record.drive_path_json) if record.drive_path_json else None,
+        "audience_type": record.audience_type,
+        "audience_id": record.audience_id,
         "title": record.title,
         "original_name": record.original_name,
         "stored_name": record.stored_name,
@@ -107,6 +117,7 @@ def _public_item(record):
         "mime_type": record.mime_type,
         "user_id": record.uploaded_by,
         "subject_id": record.subject_id,
+        "path_segments": json.loads(record.catalog_path_json or '[]'),
         "group_id": None,
         "updated_at": record.updated_at,
         "safe_to_delete_blob": record.status == "removed",
@@ -646,3 +657,189 @@ async def execute_cleanup(
         "failed_count": len(failed),
         "failed": failed,
     }
+
+
+def move_public_folder(
+    db: Session, *, source_subject_id: int, source_path: list[str],
+    destination_subject_id: int, destination_path: list[str],
+    actor: User,
+):
+    """Move one logical folder and all descendants; never move Blob bytes."""
+    from models.subject import Subject
+
+    def validate(path, allow_empty=False):
+        if (not allow_empty and not path) or len(path) > 8:
+            raise ValueError('Percorso della cartella non valido.')
+        for segment in path:
+            if (not isinstance(segment, str) or not segment.strip() or
+                len(segment.strip()) > 80 or segment in {'.', '..'} or
+                '/' in segment or '\\' in segment):
+                raise ValueError('Nome della cartella non valido.')
+        return [segment.strip() for segment in path]
+
+    source = validate(source_path)
+    target = validate(destination_path, allow_empty=True)
+    if source_subject_id == destination_subject_id and target[:len(source)] == source:
+        raise ValueError('Non puoi spostare una cartella dentro sé stessa.')
+    subject = db.query(Subject).filter(Subject.id == destination_subject_id,
+                                       Subject.is_active.is_(True)).first()
+    if subject is None:
+        raise ValueError('Materia di destinazione non trovata.')
+
+    rows = db.query(PublicMaterial).filter(
+        PublicMaterial.subject_id == source_subject_id,
+    ).with_for_update().all()
+    affected = []
+    for row in rows:
+        current = json.loads(row.catalog_path_json or '[]')
+        if current[:len(source)] != source:
+            continue
+        if row.audience_type == 'group' and destination_subject_id != source_subject_id:
+            raise ValueError('Modifica i destinatari del gruppo prima di spostare la cartella in un’altra materia.')
+        next_path = target + source[-1:] + current[len(source):]
+        if len(next_path) > 8:
+            raise ValueError('Il percorso risultante è troppo profondo.')
+        affected.append((row, next_path))
+    if not affected:
+        raise ValueError('Nessun file nella cartella indicata.')
+
+    now = utc_now()
+    for row, path in affected:
+        row.catalog_path_json = json.dumps(path, ensure_ascii=False)
+        row.subject_id = subject.id
+        row.university = subject.university
+        row.university_code = subject.university_code
+        row.department = subject.department
+        row.department_code = subject.department_code or ''
+        row.course = subject.course
+        row.course_code = subject.course_code or ''
+        row.version = (row.version or 1) + 1
+        row.updated_at = now
+        record_storage_event(db, source='public', material_id=row.id,
+            action='folder_moved', actor_id=actor.id, blob_path=row.stored_name,
+            original_name=row.original_name, size=row.size,
+            details={'source_subject_id': source_subject_id, 'source_path': source,
+                     'destination_subject_id': destination_subject_id,
+                     'destination_path': path}, commit=False)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {'moved_files': len(affected), 'destination_subject_id': subject.id}
+
+
+def place_public_file(db: Session, *, material_id: int, subject_id: int,
+                      path: list[str], actor: User):
+    """Reclassify one published file without altering its physical storage."""
+    from models.subject import Subject
+
+    if len(path) > 8 or any(
+        not isinstance(part, str) or not part.strip() or len(part.strip()) > 80
+        or part in {'.', '..'} or '/' in part or '\\' in part
+        for part in path
+    ):
+        raise ValueError('Percorso non valido.')
+    subject = db.query(Subject).filter(Subject.id == subject_id,
+                                       Subject.is_active.is_(True)).first()
+    if subject is None:
+        raise ValueError('Materia non trovata.')
+    material = db.query(PublicMaterial).filter(PublicMaterial.id == material_id).with_for_update().first()
+    if material is None or material.status == 'removed':
+        raise ValueError('Materiale non trovato o ritirato.')
+    if material.audience_type == 'group' and material.subject_id != subject.id:
+        raise ValueError('Modifica i destinatari del gruppo prima di cambiare materia.')
+    material.subject_id = subject.id
+    material.university, material.university_code = subject.university, subject.university_code
+    material.department, material.department_code = subject.department, subject.department_code or ''
+    material.course, material.course_code = subject.course, subject.course_code or ''
+    material.catalog_path_json = json.dumps([part.strip() for part in path], ensure_ascii=False)
+    material.version = (material.version or 1) + 1
+    material.updated_at = utc_now()
+    record_storage_event(db, source='public', material_id=material.id,
+        action='reclassified', actor_id=actor.id, blob_path=material.stored_name,
+        original_name=material.original_name, size=material.size,
+        details={'subject_id': subject.id, 'path_segments': path}, commit=False)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {'id': material.id, 'subject_id': subject.id, 'path_segments': path}
+
+
+def set_public_visibility(db: Session, *, material_id: int, state: str, actor: User):
+    if state not in {'visible', 'hidden', 'in_review', 'archived'}:
+        raise ValueError('Visibilità non valida.')
+    material = db.query(PublicMaterial).filter(PublicMaterial.id == material_id).with_for_update().first()
+    if material is None or material.status == 'removed':
+        raise ValueError('Materiale non trovato o ritirato.')
+    if state == 'visible' and not material.drive_file_id and (
+        material.drive_activation_pending or (
+            settings.drive_client_id and settings.drive_client_secret and settings.drive_refresh_token
+        )
+    ):
+        raise ValueError('Completa prima il caricamento su Drive.')
+    if state != 'visible':
+        material.drive_activation_pending = False
+    material.visibility_state = state
+    material.status = 'published' if state == 'visible' else 'hidden'
+    material.is_visible = state == 'visible'
+    material.version = (material.version or 1) + 1
+    material.updated_at = utc_now()
+    record_storage_event(db, source='public', material_id=material.id,
+        action='visibility_changed', actor_id=actor.id, blob_path=material.stored_name,
+        original_name=material.original_name, size=material.size,
+        details={'visibility_state': state}, commit=False)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {'id': material.id, 'visibility_state': state,
+            'is_visible': material.is_visible}
+
+
+def set_public_audience(db: Session, *, material_id: int, audience_type: str,
+                        audience_id: int | None, actor: User):
+    from models.group import StudyGroup
+    from models.subject import Subject
+
+    material = db.query(PublicMaterial).filter(PublicMaterial.id == material_id).with_for_update().first()
+    if material is None or material.status == 'removed':
+        raise ValueError('Materiale non trovato o ritirato.')
+    if audience_type in {'public', 'course', 'subject'}:
+        if audience_id is not None:
+            raise ValueError('Questo destinatario non richiede un ID.')
+    elif audience_type == 'group':
+        group = db.query(StudyGroup).filter(StudyGroup.id == audience_id,
+                                           StudyGroup.status == 'active').first()
+        if group is None or group.subject_id != material.subject_id:
+            raise ValueError('Il gruppo deve essere attivo e appartenere alla stessa materia.')
+    elif audience_type == 'user':
+        if audience_id is None or db.query(User.id).filter(User.id == audience_id,
+                                                         User.is_active.is_(True)).first() is None:
+            raise ValueError('Studente destinatario non trovato.')
+    else:
+        raise ValueError('Destinatario non valido.')
+    if audience_type == 'subject':
+        subject = db.query(Subject).filter(Subject.id == material.subject_id,
+                                           Subject.is_active.is_(True)).first()
+        if subject is None:
+            raise ValueError('Materia non più disponibile.')
+    material.audience_type = audience_type
+    material.audience_id = audience_id
+    material.version = (material.version or 1) + 1
+    material.updated_at = utc_now()
+    record_storage_event(db, source='public', material_id=material.id,
+        action='audience_changed', actor_id=actor.id,
+        blob_path=material.stored_name, original_name=material.original_name,
+        size=material.size, details={'type': audience_type, 'id': audience_id},
+        commit=False)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {'id': material.id, 'audience_type': audience_type,
+            'audience_id': audience_id}

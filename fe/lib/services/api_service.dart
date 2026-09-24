@@ -454,6 +454,43 @@ class ApiService {
     );
   }
 
+  Future<List<Map<String, dynamic>>> getMaterialPathSuggestions({
+    required String university,
+    required String department,
+    required String course,
+    String? subject,
+  }) async {
+    final response = await http.post(
+      _apiUri('/materials/path-suggestions'),
+      headers: _jsonHeaders,
+      body: jsonEncode(<String, dynamic>{
+        'university': university,
+        'department': department,
+        'course': course,
+        if (subject != null && subject.trim().isNotEmpty) 'subject': subject,
+      }),
+    );
+    return _decodeListResponse(response, 'Percorso non disponibile');
+  }
+
+  Future<Map<String, dynamic>> proposeMaterialCourse({
+    required String university,
+    required String department,
+    required String course,
+  }) async {
+    final response = await http.post(_apiUri('/materials/course-proposals'),
+      headers: _jsonHeaders, body: jsonEncode({
+        'university': university, 'department': department, 'course': course,
+      }));
+    return _decodeMapResponse(response, 'Impossibile proporre il corso');
+  }
+
+  Future<List<Map<String, dynamic>>> myMaterialCourseProposals() async {
+    final response = await http.get(_apiUri('/materials/course-proposals/mine'),
+      headers: _jsonHeaders);
+    return _decodeListResponse(response, 'Impossibile leggere le proposte');
+  }
+
   Future<List<AcademicUniversity>> getUniversities() async {
     final Uri url = Uri.parse('$baseUrl/universities');
 
@@ -3851,6 +3888,15 @@ class ApiService {
     );
 
     return _decodeMapResponse(response, 'Errore approvazione materiale');
+  }
+
+  Future<Map<String, dynamic>> previewAdminPublicationDrive({
+    required int requestId, List<String>? path,
+  }) async {
+    final response = await http.post(
+      _apiUri('/admin/material_publications/$requestId/drive-preview'),
+      headers: _jsonHeaders, body: jsonEncode({'path': path}));
+    return _decodeMapResponse(response, 'Controllo Drive non disponibile');
   }
 
   Future<Map<String, dynamic>> rejectAdminMaterialPublication({

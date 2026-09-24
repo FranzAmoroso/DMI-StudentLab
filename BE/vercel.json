@@ -10,6 +10,7 @@
       "use": "@vercel/node"
     }
   ],
+  "crons": [{"path": "/internal/materials/drive-retry", "schedule": "0 3 * * *"}],
   "routes": [
     {
       "src": "/api/blob-upload",

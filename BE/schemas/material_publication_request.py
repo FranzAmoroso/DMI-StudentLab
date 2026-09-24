@@ -280,6 +280,8 @@ class MaterialPublicationApproveRequest(
     )
 
     admin_note: str | None = None
+    drive_path_segments: list[str] | None = None
+    allow_drive_duplicate: bool = False
 
 class MaterialPublicationRejectRequest(
     BaseModel,

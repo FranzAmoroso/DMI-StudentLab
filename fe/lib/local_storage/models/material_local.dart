@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 enum MaterialSourceLocal {
   local,
   public,
@@ -49,6 +51,9 @@ class MaterialLocal {
   final String? department;
   final String? course;
   final String? subjectName;
+  final String courseScope;
+  final List<String> pathSegments;
+  final String? remoteFileHash;
   final String originalName;
   final int? fileId;
   final int? remoteVersion;
@@ -75,6 +80,9 @@ class MaterialLocal {
     this.department,
     this.course,
     this.subjectName,
+    this.courseScope = 'degree',
+    this.pathSegments = const <String>[],
+    this.remoteFileHash,
     required this.originalName,
     this.fileId,
     this.remoteVersion,
@@ -116,6 +124,9 @@ class MaterialLocal {
     String? department,
     String? course,
     String? subjectName,
+    String? courseScope,
+    List<String>? pathSegments,
+    String? remoteFileHash,
     String? originalName,
     int? fileId,
     int? remoteVersion,
@@ -143,6 +154,9 @@ class MaterialLocal {
       department: department ?? this.department,
       course: course ?? this.course,
       subjectName: subjectName ?? this.subjectName,
+      courseScope: courseScope ?? this.courseScope,
+      pathSegments: pathSegments ?? this.pathSegments,
+      remoteFileHash: remoteFileHash ?? this.remoteFileHash,
       originalName: originalName ?? this.originalName,
       fileId: clearFileId ? null : fileId ?? this.fileId,
       remoteVersion: remoteVersion ?? this.remoteVersion,
@@ -172,6 +186,9 @@ class MaterialLocal {
       'department': department,
       'course': course,
       'subject_name': subjectName,
+      'course_scope': courseScope,
+      'path_segments_json': jsonEncode(pathSegments),
+      'remote_file_hash': remoteFileHash,
       'original_name': originalName,
       'file_id': fileId,
       'remote_version': remoteVersion,
@@ -186,6 +203,15 @@ class MaterialLocal {
       'updated_at': updatedAt.toUtc().toIso8601String(),
       'last_synced_at': lastSyncedAt?.toUtc().toIso8601String(),
     };
+  }
+
+  static List<String> _readPathSegments(Object? value) {
+    if (value == null) return const <String>[];
+    try {
+      final dynamic decoded = jsonDecode(value.toString());
+      if (decoded is List) return decoded.whereType<String>().toList();
+    } catch (_) { /* Rows created before v13 have no path. */ }
+    return const <String>[];
   }
 
   factory MaterialLocal.fromMap(Map<String, Object?> map) {
@@ -216,6 +242,9 @@ class MaterialLocal {
       department: map['department']?.toString(),
       course: map['course']?.toString(),
       subjectName: map['subject_name']?.toString(),
+      courseScope: map['course_scope']?.toString() == 'additional' ? 'additional' : 'degree',
+      pathSegments: _readPathSegments(map['path_segments_json']),
+      remoteFileHash: map['remote_file_hash']?.toString(),
       originalName: map['original_name']?.toString() ?? 'Materiale',
       fileId: asInt(map['file_id']),
       remoteVersion: asInt(map['remote_version']),

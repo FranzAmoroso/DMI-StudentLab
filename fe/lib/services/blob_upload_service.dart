@@ -2,12 +2,41 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../local_storage/services/local_file_service.dart';
 import 'auth_session.dart';
 
 class StudentLabUploadService {
+  static void _uploadLog(
+    String stage, {
+    int? groupId,
+    String? fileName,
+    int? statusCode,
+    Object? error,
+  }) {
+    final StringBuffer message = StringBuffer('[StudentLab][Upload][$stage]');
+
+    if (groupId != null) {
+      message.write(' groupId=$groupId');
+    }
+
+    if (fileName != null && fileName.trim().isNotEmpty) {
+      message.write(' file=${fileName.trim()}');
+    }
+
+    if (statusCode != null) {
+      message.write(' status=$statusCode');
+    }
+
+    if (error != null) {
+      message.write(' error=${error.runtimeType}');
+    }
+
+    debugPrint(message.toString());
+  }
+
   static const String _baseUrl = 'https://dmi-student-lab.vercel.app';
   static const String _host = 'dmi-student-lab.vercel.app';
   static const int groupMaterialMaxSize = 250 * 1024 * 1024;
@@ -108,8 +137,12 @@ class StudentLabUploadService {
       body: bytes,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      _uploadLog('blob-put-failed', statusCode: response.statusCode);
+
       throw Exception('Non è stato possibile caricare il file.');
     }
+
+    _uploadLog('blob-put-ok', statusCode: response.statusCode);
   }
 
   Future<Map<String, dynamic>> _requestBlobUpload({
@@ -163,60 +196,110 @@ class StudentLabUploadService {
     required String originalName,
     String? mimeType,
   }) async {
-    if (groupId <= 0) throw Exception('Gruppo non valido.');
-    _validateSize(bytes, groupMaterialMaxSize, 250);
-    final String name = _requiredName(originalName);
-    final String type = mimeType?.trim().isNotEmpty == true
-        ? mimeType!.trim().toLowerCase()
-        : _groupMimeType(name);
-    final String hash = _sha256(bytes);
-    final Map<String, dynamic> authorization = await _postJson(
-      '/group_material_upload_request/$groupId',
-      <String, dynamic>{
-        'original_name': name,
-        'mime_type': type,
-        'size': bytes.length,
-        'file_hash': hash,
-      },
-      'Non è stato possibile autorizzare il materiale.',
-    );
-    if (authorization['allowed'] != true) {
-      throw Exception('Il caricamento del materiale non è autorizzato.');
+    _uploadLog('group-start', groupId: groupId, fileName: originalName);
+
+    try {
+      if (groupId <= 0) {
+        throw Exception('Gruppo non valido.');
+      }
+
+      _validateSize(bytes, groupMaterialMaxSize, 250);
+
+      final String name = _requiredName(originalName);
+
+      final String type = mimeType?.trim().isNotEmpty == true
+          ? mimeType!.trim().toLowerCase()
+          : _groupMimeType(name);
+
+      final String hash = _sha256(bytes);
+
+      _uploadLog(
+        'group-upload-request-start',
+        groupId: groupId,
+        fileName: name,
+      );
+
+      final Map<String, dynamic> authorization = await _postJson(
+        '/group_material_upload_request/$groupId',
+        <String, dynamic>{
+          'original_name': name,
+          'mime_type': type,
+          'size': bytes.length,
+          'file_hash': hash,
+        },
+        'Non è stato possibile autorizzare il materiale.',
+      );
+
+      _uploadLog('group-upload-request-ok', groupId: groupId, fileName: name);
+
+      if (authorization['allowed'] != true) {
+        throw Exception('Il caricamento del materiale non è autorizzato.');
+      }
+
+      final String pathname = _requiredString(authorization, 'pathname');
+
+      final String token = _requiredString(authorization, 'upload_token');
+
+      final int maxSize =
+          _positiveInt(authorization['max_file_size']) ?? groupMaterialMaxSize;
+
+      if (bytes.length > maxSize) {
+        throw Exception('Il file supera la dimensione massima consentita.');
+      }
+
+      _uploadLog('group-blob-request-start', groupId: groupId, fileName: name);
+
+      final Map<String, dynamic> blob = await _requestBlobUpload(
+        uploadKind: 'group_material',
+        pathname: pathname,
+        mimeType: type,
+        size: bytes.length,
+        fileHash: hash,
+        uploadToken: token,
+        groupId: groupId,
+      );
+
+      _uploadLog('group-blob-request-ok', groupId: groupId, fileName: name);
+
+      _uploadLog('group-put-start', groupId: groupId, fileName: name);
+
+      await _putBytes(
+        bytes: bytes,
+        mimeType: type,
+        presignedUrl: _requiredString(blob, 'presigned_url'),
+      );
+
+      _uploadLog('group-put-ok', groupId: groupId, fileName: name);
+
+      _uploadLog('group-complete-start', groupId: groupId, fileName: name);
+
+      final Map<String, dynamic> result = await _postJson(
+        '/group_material_complete/$groupId',
+        <String, dynamic>{
+          'original_name': name,
+          'stored_name': pathname,
+          'file_path': pathname,
+          'mime_type': type,
+          'size': bytes.length,
+          'file_hash': hash,
+          'upload_token': token,
+        },
+        'Non è stato possibile registrare il materiale.',
+      );
+
+      _uploadLog('group-complete-ok', groupId: groupId, fileName: name);
+
+      return result;
+    } catch (error) {
+      _uploadLog(
+        'group-failed',
+        groupId: groupId,
+        fileName: originalName,
+        error: error,
+      );
+
+      rethrow;
     }
-    final String pathname = _requiredString(authorization, 'pathname');
-    final String token = _requiredString(authorization, 'upload_token');
-    final int maxSize =
-        _positiveInt(authorization['max_file_size']) ?? groupMaterialMaxSize;
-    if (bytes.length > maxSize) {
-      throw Exception('Il file supera la dimensione massima consentita.');
-    }
-    final Map<String, dynamic> blob = await _requestBlobUpload(
-      uploadKind: 'group_material',
-      pathname: pathname,
-      mimeType: type,
-      size: bytes.length,
-      fileHash: hash,
-      uploadToken: token,
-      groupId: groupId,
-    );
-    await _putBytes(
-      bytes: bytes,
-      mimeType: type,
-      presignedUrl: _requiredString(blob, 'presigned_url'),
-    );
-    return _postJson(
-      '/group_material_complete/$groupId',
-      <String, dynamic>{
-        'original_name': name,
-        'stored_name': pathname,
-        'file_path': pathname,
-        'mime_type': type,
-        'size': bytes.length,
-        'file_hash': hash,
-        'upload_token': token,
-      },
-      'Non è stato possibile registrare il materiale.',
-    );
   }
 
   Future<Map<String, dynamic>> uploadTeacherMaterial({

@@ -5,15 +5,19 @@ import '../services/api_service.dart';
 import '../services/picked_file_bridge.dart';
 import '../social/social_models.dart';
 import '../theme/nightTheme.dart';
+import '../developer/theme/developer_ui_style.dart';
+import '../developer/widgets/developer_section_card.dart';
 
 class MaterialRequestsPage extends StatefulWidget {
   final int? initialSubjectId;
   final String? initialSubjectName;
+  final bool hasTeacherMaterials;
 
   const MaterialRequestsPage({
     super.key,
     this.initialSubjectId,
     this.initialSubjectName,
+    this.hasTeacherMaterials = false,
   });
 
   @override
@@ -107,21 +111,33 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
           ),
         ],
       ),
-      floatingActionButton: widget.initialSubjectId == null
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _busy ? null : _createStudentRequest,
-              icon: const Icon(Icons.person_search_rounded),
-              label: const Text('Chiedi a uno studente'),
-            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? _ErrorState(message: _error!, onRetry: _load)
-          : TabBarView(
-              controller: _tabs,
-              children: [_buildSent(), _buildReceived()],
-            ),
+          : Center(child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: DeveloperUiStyle.maxContentWidth),
+              child: Column(children: [
+                Padding(padding: const EdgeInsets.all(16),
+                  child: DeveloperSectionCard(
+                    title: 'Richiedi e condividi',
+                    subtitle: widget.initialSubjectId == null
+                        ? 'Apri prima una materia nel catalogo per inviare una richiesta. Qui trovi sempre quelle ricevute.'
+                        : 'Invia una richiesta per ${widget.initialSubjectName ?? 'questa materia'} oppure consulta quelle ricevute.',
+                    icon: Icons.people_outline_rounded,
+                    child: Wrap(spacing: 8, runSpacing: 8, children: [
+                      FilledButton.icon(onPressed: widget.initialSubjectId == null || _busy
+                          ? null : _createTeacherRequest,
+                        icon: const Icon(Icons.school_outlined),
+                        label: const Text('Chiedi a un docente')),
+                      OutlinedButton.icon(onPressed: widget.initialSubjectId == null || _busy
+                          ? null : _createStudentRequest,
+                        icon: const Icon(Icons.person_search_rounded),
+                        label: const Text('Chiedi a uno studente')),
+                    ]))),
+                Expanded(child: TabBarView(controller: _tabs,
+                  children: [_buildSent(), _buildReceived()])),
+              ]))),
     );
   }
 
@@ -328,6 +344,62 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     message.dispose();
   }
 
+  Future<void> _createTeacherRequest() async {
+    final subjectId = widget.initialSubjectId;
+    if (subjectId == null) return;
+    if (widget.hasTeacherMaterials) {
+      final proceed = await showDialog<bool>(context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppColors.eleganceDeepNavy,
+          title: const Text('Materiale docente già disponibile',
+            style: TextStyle(color: AppColors.pureWhite)),
+          content: const Text('Per questa materia ci sono già materiali del docente. Controlla la cartella prima di richiederne altri.',
+            style: TextStyle(color: Colors.white70)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Vedi materiali')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Richiedi comunque')),
+          ]));
+      if (proceed != true || !mounted) return;
+    }
+    final topic = TextEditingController();
+    final message = TextEditingController();
+    final send = await showDialog<bool>(context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.eleganceDeepNavy,
+        title: const Text('Richiedi materiale al docente',
+          style: TextStyle(color: AppColors.pureWhite)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (widget.initialSubjectName != null) Text(widget.initialSubjectName!,
+            style: const TextStyle(color: Colors.white70)),
+          TextField(controller: topic, decoration: const InputDecoration(
+            labelText: 'Argomento (facoltativo)')),
+          TextField(controller: message, minLines: 3, maxLines: 5,
+            decoration: const InputDecoration(labelText: 'Materiale richiesto')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annulla')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Invia richiesta')),
+        ]));
+    final topicText = topic.text.trim();
+    final messageText = message.text.trim();
+    topic.dispose(); message.dispose();
+    if (send != true) return;
+    if (messageText.isEmpty) {
+      _message('Descrivi il materiale che vuoi richiedere.');
+      return;
+    }
+    await _run(() async {
+      await _api.createTeacherMaterialRequest(subjectId: subjectId,
+        topic: topicText, message: messageText);
+      _message('Richiesta inviata ai docenti verificati.');
+      await _load();
+    });
+  }
+
   Future<void> _cancel(_RequestViewItem item) async {
     final id = _toInt(item.data['id']);
     if (id == null) return;
@@ -474,9 +546,9 @@ class _RequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      color: AppColors.eleganceDeepNavy,
+      decoration: DeveloperUiStyle.panelDecoration(),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

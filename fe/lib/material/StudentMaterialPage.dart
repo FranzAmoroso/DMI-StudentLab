@@ -3,6 +3,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fe/material/material_requests_page.dart';
+import 'package:fe/developer/theme/developer_ui_style.dart';
+import 'package:fe/social/auth/login_page.dart';
+import 'package:fe/social/auth/registration_intro_page.dart';
 import 'package:fe/theme/nightTheme.dart';
 
 import 'package:fe/services/api_service.dart';
@@ -21,6 +24,7 @@ import 'package:fe/local_storage/services/local_material_import_service.dart';
 import 'package:fe/local_storage/services/local_storage_identity.dart';
 import 'package:fe/local_storage/services/material_download_service.dart';
 import 'package:fe/local_storage/services/material_sync_service.dart';
+import 'package:fe/local_storage/services/material_preference_service.dart';
 
 class StudentMaterialPage extends StatefulWidget {
   const StudentMaterialPage({super.key});
@@ -35,11 +39,13 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       LocalMaterialImportService();
   final MaterialRepository _materialRepository = MaterialRepository();
   final MaterialSyncService _syncService = MaterialSyncService();
+  final MaterialPreferenceService _preferenceService = MaterialPreferenceService();
   final ApiService _apiService = ApiService();
   final AuthSession _authSession = AuthSession.instance;
 
   List<MaterialLocal> _materials = [];
   List<MaterialOfflineEntry> _offlineMaterials = [];
+  Map<String, int> _preferredByHash = <String, int>{};
   final Set<int> _processingMaterialIds = <int>{};
   bool _usingOfflineCache = false;
 
@@ -50,6 +56,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   String? _selectedCourse;
 
   _LocalSubject? _selectedSubject;
+  String _selectedCourseScope = 'degree';
+  final List<String> _selectedFolders = <String>[];
 
   bool _loading = true;
 
@@ -76,11 +84,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   }
 
   void _onAuthChanged() {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
+    if (!mounted) return;
+    _loadMaterials();
   }
 
   Future<void> _loadMaterials() async {
@@ -100,6 +105,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       if (currentUserId != null) {
         try {
           await _materialRepository.claimGuestLocalMaterials(currentUserId);
+          await _preferenceService.claimGuest(currentUserId);
           await _syncService.syncMaterials(
             userId: currentUserId,
             forceFull: true,
@@ -120,6 +126,11 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     }
 
     try {
+      if (_authSession.isAuthenticated) {
+        try { await _linkApprovedCourses(localUserId); } catch (_) {
+          // Catalog lookup never prevents access to locally saved files.
+        }
+      }
       final List<MaterialLocal> availableMaterials = await _materialRepository
           .getAvailableByUser(localUserId);
 
@@ -129,6 +140,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
       final List<MaterialOfflineEntry> offline = await _downloadService
           .getDownloadedMaterialEntries(userId: localUserId);
+      final Map<String, int> preferred = await _preferenceService.byUser(localUserId);
 
       if (!mounted) {
         return;
@@ -137,6 +149,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       setState(() {
         _materials = materials;
         _offlineMaterials = offline;
+        _preferredByHash = preferred;
         _usingOfflineCache = syncFailed;
         _loading = false;
       });
@@ -154,19 +167,40 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     }
   }
 
+  String _courseKey(String? university, String? department, String? course) =>
+      '${university?.trim().toLowerCase() ?? ''}\u0000'
+      '${department?.trim().toLowerCase() ?? ''}\u0000'
+      '${course?.trim().toLowerCase() ?? ''}';
+
+  Future<void> _linkApprovedCourses(int userId) async {
+    final approved = await _apiService.myMaterialCourseProposals();
+    final ids = <String, int>{};
+    for (final proposal in approved) {
+      if (proposal['status'] != 'approved') continue;
+      final id = int.tryParse(proposal['subject_id']?.toString() ?? '');
+      if (id == null) continue;
+      ids[_courseKey(proposal['university']?.toString(),
+        proposal['department']?.toString(), proposal['course']?.toString())] = id;
+    }
+    if (ids.isEmpty) return;
+    final local = await _materialRepository.getAvailableByUser(userId);
+    final updates = <MaterialLocal>[];
+    for (final material in local) {
+      if (material.source != MaterialSourceLocal.local ||
+          material.courseScope != 'additional' || material.subjectId != null ||
+          (material.subjectName?.trim().isNotEmpty ?? false)) continue;
+      final id = ids[_courseKey(material.university, material.department, material.course)];
+      if (id == null) continue;
+      updates.add(material.copyWith(subjectId: id,
+        subjectName: 'Materiali del corso', updatedAt: DateTime.now().toUtc()));
+    }
+    if (updates.isNotEmpty) await _materialRepository.saveAll(updates);
+  }
+
   bool _isDisplayableMaterial(MaterialLocal material) {
-    final String university = material.university?.trim() ?? '';
-    final String department = material.department?.trim() ?? '';
-    final String course = material.course?.trim() ?? '';
-    final String subjectName = material.subjectName?.trim() ?? '';
-
-    final bool hasSubject =
-        material.subjectId != null || subjectName.isNotEmpty;
-
-    return university.isNotEmpty &&
-        department.isNotEmpty &&
-        course.isNotEmpty &&
-        hasSubject;
+    // Legacy and directly shared files can lack one or more catalog fields.
+    // Show them under "Altro" instead of making personal files disappear.
+    return material.originalName.trim().isNotEmpty;
   }
 
   void _validateSelection() {
@@ -313,19 +347,16 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     for (final MaterialLocal material in _materials) {
       if (material.displayUniversity != university ||
           material.displayDepartment != department ||
-          material.displayCourse != course) {
+          material.displayCourse != course ||
+          material.courseScope != _selectedCourseScope) {
         continue;
       }
 
       final String name = material.subjectName?.trim() ?? '';
 
-      if (material.subjectId == null && name.isEmpty) {
-        continue;
-      }
-
       final String key = material.subjectId != null
           ? 'id:${material.subjectId}'
-          : 'name:${name.toLowerCase()}';
+          : name.isEmpty ? 'course:direct' : 'name:${name.toLowerCase()}';
 
       grouped.putIfAbsent(key, () => <MaterialLocal>[]).add(material);
     }
@@ -337,7 +368,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           return _LocalSubject(
             id: entry.key,
             subjectId: first.subjectId,
-            name: first.displaySubjectName,
+            name: key == 'course:direct'
+                ? 'Materiali del corso'
+                : first.displaySubjectName,
             university: university,
             department: department,
             course: course,
@@ -370,7 +403,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     final List<MaterialLocal> result = _materials.where((material) {
       if (material.displayUniversity != university ||
           material.displayDepartment != department ||
-          material.displayCourse != course) {
+          material.displayCourse != course ||
+          material.courseScope != _selectedCourseScope) {
         return false;
       }
 
@@ -378,12 +412,28 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         return material.subjectId == subject.subjectId;
       }
 
+      if (subject.id == 'course:direct') {
+        return material.subjectId == null &&
+            (material.subjectName?.trim().isEmpty ?? true);
+      }
       return material.displaySubjectName.toLowerCase() ==
           subject.name.toLowerCase();
     }).toList();
 
-    result.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    result.sort((a, b) {
+      final aPreferred = _isPreferredMaterial(a) ? 1 : 0;
+      final bPreferred = _isPreferredMaterial(b) ? 1 : 0;
+      if (aPreferred != bPreferred) return bPreferred.compareTo(aPreferred);
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
     return result;
+  }
+
+  bool _isPreferredMaterial(MaterialLocal material) {
+    final hash = (material.remoteFileHash ?? _offlineEntryFor(material)?.fileHash)
+        ?.toLowerCase();
+    return hash != null && material.id != null &&
+        _preferredByHash[hash] == material.id;
   }
 
   int _countUniversity(String university) {
@@ -408,7 +458,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         .length;
   }
 
-  int _countCourse(String course) {
+  int _countCourse(String course, String scope) {
     final String? university = _selectedUniversity;
     final String? department = _selectedDepartment;
 
@@ -421,19 +471,21 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           (material) =>
               _sameText(material.displayUniversity, university) &&
               _sameText(material.displayDepartment, department) &&
-              _sameText(material.displayCourse, course),
+              _sameText(material.displayCourse, course) &&
+              material.courseScope == scope,
         )
         .length;
   }
 
   bool get _hasSelection {
-    return _selectedUniversity != null ||
+    return _selectedFolders.isNotEmpty || _selectedUniversity != null ||
         _selectedDepartment != null ||
         _selectedCourse != null ||
         _selectedSubject != null;
   }
 
   String get _pageTitle {
+    if (_selectedFolders.isNotEmpty) return _selectedFolders.last;
     if (_selectedSubject != null) {
       return _selectedSubject!.name;
     }
@@ -455,6 +507,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
   void _goBack() {
     setState(() {
+      if (_selectedFolders.isNotEmpty) {
+        _selectedFolders.removeLast();
+        return;
+      }
       if (_selectedSubject != null) {
         _selectedSubject = null;
 
@@ -642,25 +698,25 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   }
 
   Widget _buildCoursePage() {
-    return _buildHierarchyList(
-      children: _courses.map((String course) {
-        return _HierarchyCard(
-          icon: Icons.school_rounded,
-
+    final cards = <Widget>[];
+    for (final scope in const <String>['degree', 'additional']) {
+      for (final course in _courses) {
+        final count = _countCourse(course, scope);
+        if (count == 0) continue;
+        cards.add(_HierarchyCard(
+          icon: scope == 'degree' ? Icons.school_rounded : Icons.auto_stories_outlined,
           title: course,
-
-          subtitle: _materialCountText(_countCourse(course)),
-
-          onTap: () {
-            setState(() {
-              _selectedCourse = course;
-
-              _selectedSubject = null;
-            });
-          },
-        );
-      }).toList(),
-    );
+          subtitle: '${scope == 'degree' ? 'Corso di laurea' : 'Corso aggiuntivo'} · ${_materialCountText(count)}',
+          onTap: () => setState(() {
+            _selectedCourse = course;
+            _selectedCourseScope = scope;
+            _selectedSubject = null;
+            _selectedFolders.clear();
+          }),
+        ));
+      }
+    }
+    return _buildHierarchyList(children: cards);
   }
 
   Widget _buildSubjectPage() {
@@ -684,6 +740,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           onTap: () {
             setState(() {
               _selectedSubject = subject;
+              _selectedFolders.clear();
             });
           },
         );
@@ -743,6 +800,17 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   Widget _buildMaterialPage() {
     final _LocalSubject subject = _selectedSubject!;
     final List<MaterialLocal> materials = _selectedMaterials;
+    final int depth = _selectedFolders.length;
+    final matching = materials.where((material) {
+      if (material.pathSegments.length < depth) return false;
+      for (int i = 0; i < depth; i++) {
+        if (material.pathSegments[i] != _selectedFolders[i]) return false;
+      }
+      return true;
+    }).toList();
+    final folders = matching.where((material) => material.pathSegments.length > depth)
+        .map((material) => material.pathSegments[depth]).toSet().toList()..sort();
+    final visibleFiles = matching.where((material) => material.pathSegments.length == depth).toList();
 
     return Center(
       child: ConstrainedBox(
@@ -756,6 +824,20 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               _buildSubjectHeader(subject),
               const SizedBox(height: 14),
               _buildSourceSummary(materials),
+              if (_selectedFolders.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(_selectedFolders.join(' / '),
+                  style: const TextStyle(color: AppColors.materialSky, fontSize: 12)),
+              ],
+              if (folders.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                ...folders.map((folder) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _HierarchyCard(icon: Icons.folder_outlined,
+                    title: folder, subtitle: 'Apri cartella',
+                    onTap: () => setState(() => _selectedFolders.add(folder))),
+                )),
+              ],
               if (_authSession.isAuthenticated &&
                   subject.subjectId != null) ...[
                 const SizedBox(height: 12),
@@ -794,17 +876,17 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                _materialCountText(materials.length),
+                _materialCountText(visibleFiles.length),
                 style: TextStyle(
                   color: AppColors.pureWhite.withValues(alpha: 0.48),
                   fontSize: 11,
                 ),
               ),
               const SizedBox(height: 16),
-              if (materials.isEmpty)
+              if (visibleFiles.isEmpty && folders.isEmpty)
                 _buildEmptyMaterials()
               else
-                ...materials.map(_buildMaterialEntry),
+                ...visibleFiles.map(_buildMaterialEntry),
             ],
           ),
         ),
@@ -840,11 +922,16 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               if (isOffline) {
                 _openMaterial(material);
               } else if (!isLocal) {
-                _downloadRemoteMaterial(material);
+                _downloadWithDuplicateChoice(material);
               }
             },
           ),
           const SizedBox(height: 7),
+          if (_isPreferredMaterial(material)) ...[
+            const Align(alignment: Alignment.centerLeft,
+              child: Chip(label: Text('Materiale principale'))),
+            const SizedBox(height: 5),
+          ],
           _buildAvailabilityRow(material: material, offline: isOffline),
           const SizedBox(height: 8),
           Row(
@@ -881,7 +968,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                         onPressed: processing
                             ? null
                             : () {
-                                _downloadRemoteMaterial(material);
+                                _downloadWithDuplicateChoice(material);
                               },
                         icon: processing
                             ? const SizedBox(
@@ -947,6 +1034,23 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                 label: const Text('Condividi con uno studente'),
               ),
             ),
+          ],
+          if (isLocal && material.subjectId == null &&
+              (material.subjectName?.trim().isNotEmpty ?? false)) ...[
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: processing ? null : () => _reconcileLocalPath(material),
+              icon: const Icon(Icons.route_outlined, size: 16),
+              label: const Text('Cerca materia nel catalogo'))),
+          ],
+          if (isLocal && _authSession.isAuthenticated &&
+              material.courseScope == 'additional' &&
+              material.subjectId == null) ...[
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: processing ? null : () => _proposeCourse(material),
+              icon: const Icon(Icons.school_outlined, size: 16),
+              label: const Text('Proponi il corso per la pubblicazione'))),
           ],
           if (shared && material.remoteStatus == 'pending') ...[
             const SizedBox(height: 8),
@@ -1098,21 +1202,25 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   }
 
   Future<void> _confirmDeleteMaterial(MaterialLocal material) async {
+    final TextEditingController confirmation = TextEditingController();
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
+        return StatefulBuilder(builder: (context, updateDialog) => AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
           title: const Text(
             'Elimina materiale',
             style: TextStyle(color: AppColors.pureWhite),
           ),
-          content: Text(
-            material.source == MaterialSourceLocal.local
-                ? 'Vuoi eliminare "${material.originalName}" dalla libreria locale?'
-                : 'Vuoi rimuovere "${material.originalName}" dai materiali disponibili offline?',
-            style: const TextStyle(color: Colors.white70),
-          ),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Vuoi eliminare "${material.originalName}" dalla libreria locale? Scrivi ELIMINA per confermare.',
+              style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 12),
+            TextField(controller: confirmation,
+              onChanged: (_) => updateDialog(() {}),
+              style: const TextStyle(color: AppColors.pureWhite),
+              decoration: const InputDecoration(labelText: 'ELIMINA')),
+          ]),
           actions: [
             TextButton(
               onPressed: () {
@@ -1121,18 +1229,19 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               child: const Text('Annulla'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: confirmation.text == 'ELIMINA' ? () {
                 Navigator.of(dialogContext).pop(true);
-              },
+              } : null,
               child: const Text(
                 'Elimina',
                 style: TextStyle(color: Colors.redAccent),
               ),
             ),
           ],
-        );
+        ));
       },
     );
+    confirmation.dispose();
 
     if (confirmed != true || material.id == null) {
       return;
@@ -1206,6 +1315,104 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     }
   }
 
+  Future<void> _downloadWithDuplicateChoice(MaterialLocal remote) async {
+    final hash = remote.remoteFileHash?.toLowerCase();
+    if (hash == null || hash.isEmpty) {
+      await _downloadRemoteMaterial(remote);
+      return;
+    }
+    MaterialOfflineEntry? existing;
+    for (final entry in _offlineMaterials) {
+      if (entry.material.source == MaterialSourceLocal.local &&
+          entry.fileHash?.toLowerCase() == hash) {
+        existing = entry;
+        break;
+      }
+    }
+    if (existing == null || !mounted) {
+      await _downloadRemoteMaterial(remote);
+      return;
+    }
+    final local = existing.material;
+    final String? choice = await showDialog<String>(context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.eleganceDeepNavy,
+        title: const Text('Possibile duplicato',
+          style: TextStyle(color: AppColors.pureWhite)),
+        content: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Il contenuto dei due file ha lo stesso hash SHA-256.',
+              style: TextStyle(color: Colors.white70)),
+            const SizedBox(height: 12),
+            Text('IL TUO FILE: ${local.originalName}',
+              style: const TextStyle(color: AppColors.pureWhite)),
+            Text('Offline · ${existing!.size ?? 0} byte · ${existing.mimeType ?? 'File'}',
+              style: const TextStyle(color: Colors.white60)),
+            TextButton.icon(onPressed: () => Navigator.pop(dialogContext, 'openLocal'),
+              icon: const Icon(Icons.open_in_new), label: const Text('Apri il mio')),
+            const SizedBox(height: 12),
+            Text('STUDENTLAB: ${remote.originalName}',
+              style: const TextStyle(color: AppColors.pureWhite)),
+            const Text('Online · puoi scaricarlo e aprirlo',
+              style: TextStyle(color: Colors.white60)),
+            TextButton.icon(onPressed: () => Navigator.pop(dialogContext, 'openRemote'),
+              icon: const Icon(Icons.open_in_new), label: const Text('Apri StudentLab')),
+          ],
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, 'mine'),
+            child: const Text('Usa il mio')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, 'both'),
+            child: const Text('Conserva entrambi')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, 'remote'),
+            child: const Text('Usa StudentLab')),
+        ],
+      ));
+    if (!mounted) return;
+    if (choice == 'mine' || choice == 'openLocal') {
+      if (choice == 'mine' && local.id != null) {
+        await _preferenceService.choose(userId: _downloadService.currentLocalUserId,
+          hash: hash, materialId: local.id!);
+        if (mounted) setState(() => _preferredByHash[hash] = local.id!);
+      }
+      _showMessage('La copia StudentLab resta disponibile online nel catalogo.');
+      await _openMaterial(local);
+      return;
+    }
+    if (choice == 'both' || choice == 'remote' || choice == 'openRemote') {
+      await _downloadRemoteMaterial(remote);
+      if (!mounted) return;
+      if (choice == 'both') {
+        await _preferenceService.keepBoth(
+          userId: _downloadService.currentLocalUserId, hash: hash);
+        if (mounted) setState(() => _preferredByHash.remove(hash));
+      } else if (choice == 'remote' && remote.id != null) {
+        await _preferenceService.choose(userId: _downloadService.currentLocalUserId,
+          hash: hash, materialId: remote.id!);
+        if (mounted) setState(() => _preferredByHash[hash] = remote.id!);
+      }
+      if (choice == 'remote' && mounted) {
+        final bool? deleteLocal = await showDialog<bool>(context: context,
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: AppColors.eleganceDeepNavy,
+            title: const Text('Conservare il tuo file?',
+              style: TextStyle(color: AppColors.pureWhite)),
+            content: Text('Il file "${local.originalName}" resta nella tua libreria. Vuoi eliminarlo?',
+              style: const TextStyle(color: Colors.white70)),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Conserva')),
+              TextButton(onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Continua con eliminazione')),
+            ],
+          ));
+        if (deleteLocal == true && mounted) await _confirmDeleteMaterial(local);
+      }
+    }
+  }
+
   Future<void> _downloadRemoteMaterial(MaterialLocal material) async {
     if (material.source == MaterialSourceLocal.local ||
         material.remoteId == null ||
@@ -1266,58 +1473,63 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     });
   }
 
+  void _openRequests() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => MaterialRequestsPage(
+        initialSubjectId: _selectedSubject?.subjectId,
+        initialSubjectName: _selectedSubject?.name,
+        hasTeacherMaterials: _selectedSubject?.subjectId != null && _materials.any(
+          (material) => material.subjectId == _selectedSubject!.subjectId &&
+            material.source == MaterialSourceLocal.teacher && material.isAvailableRemote),
+      ),
+    ));
+  }
+
+  Future<void> _openGuestAccount({required bool register}) async {
+    if (register) {
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => const RegistrationIntroPage()));
+    } else {
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => const LoginPage()));
+    }
+    if (mounted) await _loadMaterials();
+  }
+
   Widget _buildMaterialActions() {
-    return Column(
-      children: [
-        _buildActionCard(
-          icon: Icons.create_new_folder_outlined,
-          title: 'Aggiungi offline',
-          description: 'Salva un tuo file nelle dispense locali di StudentLab.',
-          loading: _openingOfflineForm,
-          onTap: _openingOfflineForm ? null : _openOfflineMaterial,
-        ),
-        if (_authSession.isAuthenticated) ...[
-          const SizedBox(height: 12),
-          _buildActionCard(
-            icon: Icons.publish_outlined,
-            title: 'Proponi a StudentLab',
-            description:
-                'Invia un materiale alla revisione prima della pubblicazione.',
-            loading: _openingPublicationForm,
-            onTap: _openingPublicationForm ? null : _openPublication,
-          ),
-        ] else ...[
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: DeveloperUiStyle.panelDecoration(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('La tua biblioteca', style: TextStyle(
+          color: AppColors.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 5),
+        Text('I materiali del catalogo e i tuoi file sono nello stesso percorso. I badge indicano origine e disponibilità.',
+          style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 12)),
+        const SizedBox(height: 16),
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          FilledButton.icon(onPressed: _openingOfflineForm ? null : _openOfflineMaterial,
+            icon: const Icon(Icons.add_rounded), label: const Text('Aggiungi materiale')),
+          if (_authSession.isAuthenticated) ...[
+            OutlinedButton.icon(onPressed: _openingPublicationForm ? null : _openPublication,
+              icon: const Icon(Icons.publish_outlined), label: const Text('Pubblica materiale')),
+            OutlinedButton.icon(onPressed: _openRequests,
+              icon: const Icon(Icons.people_outline_rounded), label: const Text('Richieste e condivisione')),
+          ],
+        ]),
+        if (!_authSession.isAuthenticated) ...[
+          const SizedBox(height: 14),
+          Text('Registrati o accedi per proporre un materiale a StudentLab, condividerlo con altri studenti e richiedere materiali. Puoi già aggiungere file offline.',
+            style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.72), fontSize: 12)),
           const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: AppColors.brandNightBlue.withValues(alpha: 0.45),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.lock_outline_rounded,
-                  color: AppColors.materialSky,
-                  size: 18,
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    'Accedi o registrati quando vuoi proporre uno dei tuoi materiali alla community.',
-                    style: TextStyle(
-                      color: AppColors.pureWhite.withValues(alpha: 0.52),
-                      fontSize: 10,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Wrap(spacing: 10, runSpacing: 8, children: [
+            FilledButton(onPressed: () => _openGuestAccount(register: true),
+              child: const Text('Registrati')),
+            OutlinedButton(onPressed: () => _openGuestAccount(register: false),
+              child: const Text('Accedi')),
+          ]),
         ],
-      ],
+      ]),
     );
   }
 
@@ -1334,11 +1546,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.eleganceMidnight,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.30)),
-        ),
+        decoration: DeveloperUiStyle.panelDecoration(),
         child: Row(
           children: [
             Container(
@@ -2200,6 +2408,27 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   }
 
   Future<void> _requestTeacherMaterial(_LocalSubject subject) async {
+    final existing = _materials.where((material) =>
+      material.subjectId == subject.subjectId &&
+      material.source == MaterialSourceLocal.teacher &&
+      material.isAvailableRemote).toList();
+    if (existing.isNotEmpty && mounted) {
+      final continueRequest = await showDialog<bool>(context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppColors.eleganceDeepNavy,
+          title: const Text('Materiale docente già disponibile',
+            style: TextStyle(color: AppColors.pureWhite)),
+          content: Text('Per questa materia ci sono già ${existing.length} materiali dei docenti. Controlla la cartella della materia prima di inviare una nuova richiesta.',
+            style: const TextStyle(color: Colors.white70)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Vedi materiali')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Richiedi comunque')),
+          ],
+        ));
+      if (continueRequest != true || !mounted) return;
+    }
     final TextEditingController topic = TextEditingController();
     final TextEditingController message = TextEditingController();
     final bool? send = await showDialog<bool>(
@@ -2266,6 +2495,77 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     }
   }
 
+  Future<void> _reconcileLocalPath(MaterialLocal material) async {
+    if (material.id == null || material.subjectId != null || !mounted) return;
+    _setMaterialProcessing(material, true);
+    try {
+      final matches = await _apiService.getMaterialPathSuggestions(
+        university: material.university ?? '',
+        department: material.department ?? '',
+        course: material.course ?? '', subject: material.subjectName);
+      if (!mounted) return;
+      final candidates = matches.where((match) =>
+        match['subject_id'] != null &&
+        ((match['confidence'] as num?)?.toDouble() ?? 0) >= 0.70).toList();
+      if (candidates.isEmpty) {
+        _showMessage('Non ho trovato una materia corrispondente. Il tuo percorso resta invariato.');
+        return;
+      }
+      final selected = await showDialog<Map<String, dynamic>>(context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppColors.eleganceDeepNavy,
+          title: const Text('Associa al catalogo',
+            style: TextStyle(color: AppColors.pureWhite)),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min,
+            children: [const Text('Scegli una materia. Il file resta sul tuo dispositivo.',
+              style: TextStyle(color: Colors.white70)),
+              for (final match in candidates) ListTile(
+                title: Text('${match['course']} / ${match['subject']}',
+                  style: const TextStyle(color: AppColors.pureWhite)),
+                subtitle: Text('${match['university']} / ${match['department']}',
+                  style: const TextStyle(color: Colors.white60)),
+                onTap: () => Navigator.pop(dialogContext, match))])),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Lascia invariato'))]));
+      if (selected == null || !mounted) return;
+      final subjectId = int.tryParse(selected['subject_id'].toString());
+      if (subjectId == null) return;
+      await _materialRepository.save(material.copyWith(subjectId: subjectId,
+        university: selected['university']?.toString(),
+        department: selected['department']?.toString(),
+        course: selected['course']?.toString(),
+        subjectName: selected['subject']?.toString(),
+        updatedAt: DateTime.now().toUtc()));
+      await _loadMaterials();
+      if (mounted) _showMessage('Percorso associato al catalogo. Il file non è stato caricato.');
+    } catch (_) {
+      if (mounted) _showMessage('Catalogo non disponibile. Il percorso locale resta invariato.');
+    } finally {
+      _setMaterialProcessing(material, false);
+    }
+  }
+
+  Future<void> _proposeCourse(MaterialLocal material) async {
+    final university = material.university?.trim() ?? '';
+    final department = material.department?.trim() ?? '';
+    final course = material.course?.trim() ?? '';
+    if (university.isEmpty || department.isEmpty || course.isEmpty) {
+      _showMessage('Completa ateneo, dipartimento e corso prima di proporlo.');
+      return;
+    }
+    try {
+      final result = await _apiService.proposeMaterialCourse(
+        university: university, department: department, course: course);
+      if (!mounted) return;
+      final status = result['status']?.toString();
+      _showMessage(status == 'pending'
+        ? 'Corso inviato per approvazione. I file restano sul dispositivo.'
+        : 'Proposta registrata.');
+    } catch (e) {
+      if (mounted) _showMessage(_friendlyError(e));
+    }
+  }
+
   int? _toIntMaterial(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -2309,6 +2609,8 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
   late final TextEditingController _courseController;
 
   late final TextEditingController _subjectController;
+  final TextEditingController _foldersController = TextEditingController();
+  bool _additionalCourse = false;
 
   String? _filePath;
   String? _fileName;
@@ -2361,6 +2663,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     _departmentController.dispose();
     _courseController.dispose();
     _subjectController.dispose();
+    _foldersController.dispose();
     super.dispose();
   }
 
@@ -2410,6 +2713,62 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     }
   }
 
+  List<String> get _folderSegments => _foldersController.text.split('/')
+      .map((segment) => segment.trim()).where((segment) => segment.isNotEmpty).toList();
+
+  Future<int?> _resolveManualPath() async {
+    final university = _universityController.text.trim();
+    final department = _departmentController.text.trim();
+    final course = _courseController.text.trim();
+    final subject = _subjectController.text.trim();
+    if (university.isEmpty || department.isEmpty || course.isEmpty) return null;
+    try {
+      final matches = await widget.apiService.getMaterialPathSuggestions(
+        university: university, department: department, course: course,
+        subject: subject.isEmpty ? null : subject,
+      );
+      if (!mounted || matches.isEmpty) return null;
+      Map<String, dynamic>? selected;
+      final first = matches.first;
+      final confidence = (first['confidence'] as num?)?.toDouble() ?? 0;
+      if (matches.length == 1 && confidence >= 0.98) {
+        selected = first;
+      } else {
+        selected = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: AppColors.eleganceDeepNavy,
+            title: const Text('Possibili percorsi',
+              style: TextStyle(color: AppColors.pureWhite)),
+            content: SingleChildScrollView(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [for (final match in matches)
+                ListTile(
+                  title: Text('${match['course']} · ${match['subject'] ?? 'Materiali del corso'}',
+                    style: const TextStyle(color: AppColors.pureWhite)),
+                  subtitle: Text('${match['university']} / ${match['department']}',
+                    style: const TextStyle(color: Colors.white60)),
+                  onTap: () => Navigator.pop(dialogContext, match),
+                ),
+              ],
+            )),
+            actions: [TextButton(onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Mantieni il percorso inserito'))],
+          ),
+        );
+      }
+      if (selected == null || !mounted) return null;
+      _universityController.text = selected['university']?.toString() ?? university;
+      _departmentController.text = selected['department']?.toString() ?? department;
+      _courseController.text = selected['course']?.toString() ?? course;
+      _subjectController.text = selected['subject']?.toString() ?? subject;
+      return int.tryParse(selected['subject_id']?.toString() ?? '');
+    } catch (_) {
+      // Offline import must remain available when catalog matching fails.
+      return null;
+    }
+  }
+
   Future<void> _save() async {
     if (_saving) {
       return;
@@ -2420,6 +2779,10 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     }
 
     final String? filePath = _filePath;
+    if (_folderSegments.length > 8 || _folderSegments.any((v) => v.length > 80 || v == '.' || v == '..')) {
+      _showMessage('Percorso troppo lungo o nome della cartella non valido.');
+      return;
+    }
     final Uint8List? fileBytes = _fileBytes;
 
     final bool hasPath = filePath != null && filePath.trim().isNotEmpty;
@@ -2439,8 +2802,13 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     bool completed = false;
 
     try {
-      final SocialSubject? catalogSubject = _resolvedCatalogSubject;
-
+      int? resolvedSubjectId = _resolvedCatalogSubject?.id;
+      // An explicitly selected catalog subject is authoritative; manual paths
+      // may be matched when online, and remain exactly as entered offline.
+      if (resolvedSubjectId == null) {
+        resolvedSubjectId = await _resolveManualPath();
+        if (!mounted) return;
+      }
       final String university = _universityController.text.trim();
       final String department = _departmentController.text.trim();
       final String course = _courseController.text.trim();
@@ -2455,7 +2823,9 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
           department: department,
           course: course,
           subjectName: subjectName,
-          subjectId: catalogSubject?.id,
+          subjectId: resolvedSubjectId,
+          courseScope: _additionalCourse ? 'additional' : 'degree',
+          pathSegments: _folderSegments,
         );
       } else {
         await widget.importService.importMaterial(
@@ -2465,7 +2835,9 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
           course: course,
           subjectName: subjectName,
           originalName: originalName,
-          subjectId: catalogSubject?.id,
+          subjectId: resolvedSubjectId,
+          courseScope: _additionalCourse ? 'additional' : 'degree',
+          pathSegments: _folderSegments,
         );
       }
 
@@ -2524,8 +2896,8 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                     ),
                     child: Text(
                       'Il file resterà sul tuo dispositivo e non viene inviato a StudentLab. '
-                      'Ateneo, dipartimento, corso e materia sono obbligatori per organizzare correttamente '
-                      'le dispense e permettere il collegamento automatico alle card.',
+                      'Scegli il percorso dal catalogo oppure scrivilo manualmente, anche senza connessione. '
+                      'La materia è facoltativa: i file senza materia compaiono in Materiali del corso.',
                       style: TextStyle(
                         color: AppColors.pureWhite.withValues(alpha: 0.58),
                         fontSize: 11,
@@ -2563,16 +2935,32 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                     onOptionSelected: _selectCourseOption,
                     requiredField: true,
                   ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    value: _additionalCourse,
+                    onChanged: _saving ? null : (value) => setState(() => _additionalCourse = value),
+                    title: const Text('Corso aggiuntivo, separato da L-31',
+                      style: TextStyle(color: AppColors.pureWhite)),
+                    subtitle: const Text('Resta un percorso accademico nella stessa biblioteca.',
+                      style: TextStyle(color: Colors.white60)),
+                  ),
                   const SizedBox(height: 13),
                   _hybridField(
                     controller: _subjectController,
-                    label: 'Materia *',
+                    label: 'Materia (facoltativa)',
                     icon: Icons.menu_book_outlined,
                     options: _subjectOptions,
                     loading: _loadingSubjects,
                     onOptionSelected: _selectSubjectOption,
-                    requiredField: true,
                   ),
+                  const SizedBox(height: 13),
+                  TextFormField(controller: _foldersController,
+                    enabled: !_saving,
+                    style: const TextStyle(color: AppColors.pureWhite),
+                    decoration: const InputDecoration(
+                      labelText: 'Cartelle / argomenti (facoltativi)',
+                      helperText: 'Esempio: Fondamenti / Reti / TCP',
+                      prefixIcon: Icon(Icons.folder_outlined))),
                   const SizedBox(height: 18),
                   InkWell(
                     onTap: _saving ? null : _pickFile,

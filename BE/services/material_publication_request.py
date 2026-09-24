@@ -18,6 +18,7 @@ from models.material_publication_request import (
 from models.public_material import (
     PublicMaterial,
 )
+from core.config import settings
 
 from models.material_storage_event import (
     MaterialStorageEvent,
@@ -1117,9 +1118,13 @@ def create_public_material_from_request(
             file_hash=(
                 publication_request.file_hash
             ),
+            drive_path_json=None,
+            drive_allow_duplicate=False,
             version=1,
-            status="published",
-            is_visible=True,
+            status=('hidden' if settings.drive_client_id and settings.drive_client_secret and settings.drive_refresh_token else 'published'),
+            is_visible=not bool(settings.drive_client_id and settings.drive_client_secret and settings.drive_refresh_token),
+            visibility_state=('in_review' if settings.drive_client_id and settings.drive_client_secret and settings.drive_refresh_token else 'visible'),
+            drive_activation_pending=bool(settings.drive_client_id and settings.drive_client_secret and settings.drive_refresh_token),
             approved_by=(
                 current_admin.id
             ),
