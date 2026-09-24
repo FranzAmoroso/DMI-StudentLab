@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_admin_user, get_current_user
-from models.material_course_proposal import MaterialCourseProposal
+from core.material_course_proposal import MaterialCourseProposal
 from models.subject import Subject
 from models.user import User
 
