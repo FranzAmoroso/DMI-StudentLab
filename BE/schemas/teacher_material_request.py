@@ -1,5 +1,5 @@
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,10 +16,20 @@ class TeacherMaterialRequestCreate(BaseModel):
     recipient_kind: str | None = Field(default=None, pattern="^(auto|teachers|studentlab)$")
 
 
+class AdminTeacherRequestCreate(BaseModel):
+    """Richiesta dell'admin a uno o più docenti di una materia."""
+    subject_id: int
+    teacher_user_ids: list[int] = Field(min_length=1, max_length=20)
+    topic: str | None = Field(default=None, max_length=255)
+    message: str = Field(min_length=1, max_length=3000)
+    due_date: date | None = None
+    # Richiesta degli studenti a StudentLab da cui nasce, se c'è.
+    parent_request_id: int | None = None
+
+
 class TeacherMaterialRequestResolve(BaseModel):
     action: str = Field(pattern="^(fulfilled|rejected)$")
     fulfilled_material_id: int | None = None
-    fulfilled_share_id: int | None = None
 
 
 class TeacherMaterialRequestResponse(BaseModel):
@@ -30,13 +40,14 @@ class TeacherMaterialRequestResponse(BaseModel):
     teacher_user_id: int | None
     recipient_kind: str = 'teachers'
     staff_response: str | None = None
+    parent_request_id: int | None = None
+    requested_by_admin: bool = False
+    due_date: date | None = None
+    fulfilled_public_material_id: int | None = None
     topic: str | None
     message: str
     status: str
     fulfilled_material_id: int | None
-    fulfilled_share_id: int | None = None
-    public_material_id: int | None = None
-    teacher_declined_at: datetime | None = None
     resolved_by: int | None
     resolved_at: datetime | None
     created_at: datetime

@@ -13,6 +13,8 @@ import 'admin_material_publications_page.dart';
 import 'admin_material_course_proposals_page.dart';
 import 'admin_drive_catalog_page.dart';
 import 'admin_studentlab_material_requests_page.dart';
+import 'admin_material_upload_page.dart';
+import 'admin_teacher_request_dialog.dart';
 import 'drive_file_preview.dart';
 import 'drive_placement_dialog.dart';
 
@@ -238,6 +240,8 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
                           _buildHeader(),
                           const SizedBox(height: 22),
                           _buildMetrics(summary, wide),
+                          const SizedBox(height: 16),
+                          _buildQuickActions(wide),
                           const SizedBox(height: 28),
                           _buildQueues(summary, wide),
                           const SizedBox(height: 22),
@@ -328,6 +332,51 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
     if (count == null) return null;
     if (count == 0) return 'Nessuna';
     return '$count ${count == 1 ? singular : plural}';
+  }
+
+  /// Azioni rapide sotto le metriche (canvas: Punti di ingresso).
+  Widget _buildQuickActions(bool wide) {
+    Widget action(IconData icon, SlTone tone, String title, String description, VoidCallback onTap) {
+      final p = context.palette;
+      return Material(
+        color: p.eleganceMidnight,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: tone.resolve(p).withValues(alpha: 0.18)),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              SlIconTile(icon: icon, tone: tone),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: TextStyle(color: p.pureWhite, fontSize: 15, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(description, style: SlText.muted(p)),
+                ]),
+              ),
+              Icon(Icons.chevron_right_rounded, color: p.pureWhite.withValues(alpha: 0.4)),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    return _grid(columns: wide ? 3 : 1, children: <Widget>[
+      action(Icons.upload_file_rounded, SlTone.info, 'Carica materiale', 'Nelle Dispense o solo su Drive',
+          () => _open(const AdminMaterialUploadPage())),
+      action(Icons.school_outlined, SlTone.blue, 'Richiedi a un docente', 'Per una materia, con scadenza',
+          () async {
+        final sent = await showAdminTeacherRequestDialog(context);
+        if (sent && mounted) await _load();
+      }),
+      action(Icons.account_tree_outlined, SlTone.cyan, 'Catalogo Drive', 'Struttura per gli studenti',
+          () => _open(const AdminDriveCatalogPage())),
+    ]);
   }
 
   Widget _buildQueues(Map<String, dynamic> summary, bool wide) {

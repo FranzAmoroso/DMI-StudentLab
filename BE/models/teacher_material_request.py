@@ -1,7 +1,7 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Text, false
 from sqlalchemy.orm import relationship
 
 from core.database import Base
@@ -24,11 +24,13 @@ class TeacherMaterialRequest(Base):
     message = Column(Text, nullable=False)
     status = Column(String(30), nullable=False, default="pending", server_default="pending", index=True)
     fulfilled_material_id = Column(Integer, ForeignKey("teacher_materials.id", ondelete="SET NULL"), nullable=True, index=True)
-    public_material_id = Column(Integer, ForeignKey("public_materials.id", ondelete="SET NULL"), nullable=True, index=True)
-    fulfilled_share_id = Column(Integer, ForeignKey("material_shares.id", ondelete="SET NULL"), nullable=True)
-    teacher_declined_at = Column(DateTime(timezone=True), nullable=True)
     resolved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
+    # Inoltro ai docenti e richieste dell'admin (migrazione b934).
+    parent_request_id = Column(Integer, ForeignKey("teacher_material_requests.id", ondelete="SET NULL"), nullable=True, index=True)
+    requested_by_admin = Column(Boolean, nullable=False, default=False, server_default=false())
+    due_date = Column(Date, nullable=True)
+    fulfilled_public_material_id = Column(Integer, ForeignKey("public_materials.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now, index=True)
 

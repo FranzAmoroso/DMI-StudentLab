@@ -6,10 +6,9 @@ from sqlalchemy.orm import Session
 from models.subject import Subject
 from models.teacher_assignment import TeacherAssignment
 from models.teacher_material import TeacherMaterial
-from models.material_share import MaterialShare
 from models.teacher_material_request import TeacherMaterialRequest
 from models.user import User, UserAcademicPath
-from schemas.teacher_material_request import TeacherMaterialRequestCreate, TeacherMaterialRequestResolve
+from schemas.teacher_material_request import AdminTeacherRequestCreate, TeacherMaterialRequestCreate, TeacherMaterialRequestResolve
 from services.notification import create_notification
 
 
@@ -97,11 +96,6 @@ def create_request(db:Session,student:User,data:TeacherMaterialRequestCreate):
     if recipient_kind == 'studentlab':
         target_ids=[row[0] for row in db.query(User.id).filter(User.role.in_(['admin', 'creator']),
             User.is_active.is_(True)).all()]
-    # StudentLab receives every teacher request as a fallback, even while a teacher is working on it.
-    if recipient_kind == 'teachers':
-        admins=[row[0] for row in db.query(User.id).filter(
-            User.role.in_(['admin','creator']), User.is_active.is_(True)).all()]
-        target_ids=list(set(target_ids + admins))
     for target in target_ids:
         create_notification(db,user_id=target,notification_type="teacher_material_request",title="Nuova richiesta di materiale",message=f"Uno studente ha richiesto materiale per {subject.name}.",actor_user_id=student.id,resource_type="teacher_material_request",resource_id=record.id,action_type="teacher_material_request",action_resource_id=record.id,action_status="pending",commit=False)
     db.commit()
@@ -110,7 +104,7 @@ def create_request(db:Session,student:User,data:TeacherMaterialRequestCreate):
 
 
 def resolve_request(db:Session,teacher:User,request_id:int,data:TeacherMaterialRequestResolve):
-    record=db.query(TeacherMaterialRequest).filter(TeacherMaterialRequest.id==request_id).with_for_update().first()
+    record=db.query(TeacherMaterialRequest).filter(TeacherMaterialRequest.id==request_id).first()
     if record is None:
         raise ValueError("Richiesta non trovata.")
     if record.recipient_kind != 'teachers':
@@ -122,45 +116,102 @@ def resolve_request(db:Session,teacher:User,request_id:int,data:TeacherMaterialR
         raise PermissionError("Questa richiesta è indirizzata a un altro docente.")
     if record.status!="pending":
         return record
-    if record.teacher_declined_at is not None:
-        raise PermissionError("StudentLab ha preso in carico questa richiesta.")
     if data.action=="fulfilled":
-        if data.fulfilled_share_id is None:
-            raise ValueError("Condividi privatamente il file con lo studente prima di soddisfare la richiesta.")
-        share = db.query(MaterialShare).filter(
-            MaterialShare.id == data.fulfilled_share_id,
-            MaterialShare.sender_user_id == teacher.id,
-            MaterialShare.recipient_user_id == record.student_user_id,
-            MaterialShare.subject_id == record.subject_id,
-            MaterialShare.status.in_(["pending", "accepted", "delivered"]),
-        ).first()
-        if share is None:
-            raise ValueError("Questa condivisione privata non appartiene alla richiesta.")
+        if data.fulfilled_material_id is None:
+            raise ValueError("Seleziona il materiale pubblicato.")
+        material=db.query(TeacherMaterial).filter(TeacherMaterial.id==data.fulfilled_material_id,TeacherMaterial.uploaded_by==teacher.id,TeacherMaterial.subject_id==record.subject_id,TeacherMaterial.status=="active").first()
+        if material is None:
+            raise ValueError("Materiale docente non trovato.")
         record.status="fulfilled"
-        record.fulfilled_share_id=share.id
+        record.fulfilled_material_id=material.id
     else:
-        record.teacher_declined_at=utc_now()
-        record.updated_at=record.teacher_declined_at
-        admin_ids=[row[0] for row in db.query(User.id).filter(
-            User.role.in_(['admin','creator']), User.is_active.is_(True)).all()]
-        for admin_id in admin_ids:
-            create_notification(db,user_id=admin_id,notification_type="teacher_material_request",
-                title="Richiesta da prendere in carico",message=f"Il docente non può fornire materiale per {record.subject.name}.",
-                actor_user_id=teacher.id,resource_type="teacher_material_request",
-                resource_id=record.id,commit=False)
-        create_notification(db,user_id=record.student_user_id,
-            notification_type="teacher_material_request_update",
-            title="StudentLab sta seguendo la tua richiesta",
-            message="Il docente non può fornire il materiale; StudentLab può intervenire per il tuo corso.",
-            actor_user_id=teacher.id,resource_type="teacher_material_request",
-            resource_id=record.id,commit=False)
-        db.commit()
-        db.refresh(record)
-        return record
+        record.status="rejected"
     record.resolved_by=teacher.id
     record.resolved_at=utc_now()
     record.updated_at=utc_now()
-    create_notification(db,user_id=record.student_user_id,notification_type="teacher_material_request_resolved",title="Richiesta materiale aggiornata",message=("Il docente ha condiviso privatamente il materiale che avevi richiesto." if record.status=="fulfilled" else "La richiesta di materiale è stata chiusa dal docente."),actor_user_id=teacher.id,resource_type="teacher_material_request",resource_id=record.id,action_type=None,action_resource_id=None,action_status="none",commit=False)
+    create_notification(db,user_id=record.student_user_id,notification_type="teacher_material_request_resolved",title="Richiesta materiale aggiornata",message=("Il docente ha pubblicato un materiale per la tua richiesta." if record.status=="fulfilled" else "La richiesta di materiale è stata chiusa dal docente."),actor_user_id=teacher.id,resource_type="teacher_material_request",resource_id=record.id,action_type=None,action_resource_id=None,action_status="none",commit=False)
+    _propagate_to_parent(db, record, teacher)
     db.commit()
     db.refresh(record)
     return record
+
+
+
+def teachers_for_subject(db: Session, subject_id: int):
+    """Docenti verificati e attuali di una materia (per il modulo dell'admin)."""
+    return [{'id': t.id, 'name': f'{t.first_name} {t.last_name}'.strip() or t.email}
+            for t in _teachers_for_subject(db, subject_id)]
+
+
+def create_admin_request(db: Session, admin: User, data: AdminTeacherRequestCreate):
+    """L'admin chiede materiale ai docenti scelti. Una richiesta per docente,
+    così ognuno la vede e la chiude nella sua area. Se nasce da una richiesta
+    degli studenti a StudentLab, resta collegata: quando un docente la
+    soddisfa, gli studenti vengono avvisati."""
+    subject = db.query(Subject).filter(Subject.id == data.subject_id, Subject.is_active.is_(True)).first()
+    if subject is None:
+        raise ValueError('Materia non trovata.')
+    valid = {t.id: t for t in _teachers_for_subject(db, subject.id)}
+    chosen = list(dict.fromkeys(data.teacher_user_ids))
+    if not chosen or any(tid not in valid for tid in chosen):
+        raise ValueError('Scegli docenti verificati di questa materia.')
+    parent = None
+    if data.parent_request_id is not None:
+        parent = db.query(TeacherMaterialRequest).filter(
+            TeacherMaterialRequest.id == data.parent_request_id,
+            TeacherMaterialRequest.recipient_kind == 'studentlab').with_for_update().first()
+        if parent is None or parent.status != 'pending':
+            raise ValueError('La richiesta degli studenti non è più aperta.')
+        if parent.subject_id != subject.id:
+            raise ValueError('La richiesta degli studenti riguarda un’altra materia.')
+    created = []
+    for teacher_id in chosen:
+        record = TeacherMaterialRequest(student_user_id=admin.id, subject_id=subject.id,
+            teacher_user_id=teacher_id, recipient_kind='teachers', requested_by_admin=True,
+            parent_request_id=parent.id if parent else None, due_date=data.due_date,
+            topic=(data.topic.strip() if data.topic else None), message=data.message.strip(),
+            status='pending')
+        db.add(record)
+        db.flush()
+        create_notification(db, user_id=teacher_id, notification_type='teacher_material_request',
+            title='Richiesta di materiale da StudentLab',
+            message=f'La redazione StudentLab chiede materiale per {subject.name}.',
+            actor_user_id=admin.id, resource_type='teacher_material_request', resource_id=record.id,
+            action_type='teacher_material_request', action_resource_id=record.id,
+            action_status='pending', commit=False)
+        created.append(record)
+    if parent is not None:
+        parent.updated_at = utc_now()
+        create_notification(db, user_id=parent.student_user_id,
+            notification_type='teacher_material_request_resolved',
+            title='Richiesta di materiale in lavorazione',
+            message=f'StudentLab ha chiesto il materiale ai docenti di {subject.name}.',
+            actor_user_id=admin.id, resource_type='teacher_material_request', resource_id=parent.id,
+            commit=False)
+    db.commit()
+    for record in created:
+        db.refresh(record)
+    return created
+
+
+def _propagate_to_parent(db: Session, record, teacher: User):
+    """Una richiesta al docente soddisfatta chiude anche la richiesta degli
+    studenti da cui è nata, e li avvisa. Un rifiuto non la chiude: resta
+    all'admin decidere se chiedere ad altri o rispondere."""
+    if record.parent_request_id is None or record.status != 'fulfilled':
+        return
+    parent = db.query(TeacherMaterialRequest).filter(
+        TeacherMaterialRequest.id == record.parent_request_id).with_for_update().first()
+    if parent is None or parent.status != 'pending':
+        return
+    parent.status = 'fulfilled'
+    parent.fulfilled_material_id = record.fulfilled_material_id
+    parent.staff_response = 'Il docente ha pubblicato il materiale richiesto: lo trovi nelle Dispense della materia.'
+    parent.resolved_by = teacher.id
+    parent.resolved_at = utc_now()
+    parent.updated_at = parent.resolved_at
+    create_notification(db, user_id=parent.student_user_id,
+        notification_type='teacher_material_request_resolved',
+        title='Richiesta di materiale soddisfatta', message=parent.staff_response,
+        actor_user_id=teacher.id, resource_type='teacher_material_request', resource_id=parent.id,
+        commit=False)

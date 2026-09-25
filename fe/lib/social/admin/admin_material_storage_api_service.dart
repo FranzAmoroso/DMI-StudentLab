@@ -38,6 +38,36 @@ class AdminMaterialStorageApiService {
     );
   }
 
+  /// Pubblica un file caricato dall'admin: destinazione 'dispense' o
+  /// 'drive_only', percorso, destinatari ed eventuale richiesta da chiudere.
+  Future<Map<String, dynamic>> publishAdminUpload({
+    required int requestId,
+    required String destination,
+    required List<String> pathSegments,
+    required String audienceType,
+    int? audienceId,
+    String? title,
+    int? answerRequestId,
+    String? answerMessage,
+    bool allowDriveDuplicate = false,
+  }) async {
+    final response = await http.post(
+      _uri('/admin/material-storage/uploads/$requestId/publish'),
+      headers: _headers,
+      body: jsonEncode(<String, dynamic>{
+        'destination': destination,
+        'path_segments': pathSegments,
+        'audience_type': audienceType,
+        if (audienceId != null) 'audience_id': audienceId,
+        if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+        if (answerRequestId != null) 'answer_request_id': answerRequestId,
+        if (answerMessage != null && answerMessage.trim().isNotEmpty) 'answer_message': answerMessage.trim(),
+        'allow_drive_duplicate': allowDriveDuplicate,
+      }),
+    );
+    return _map(response, 'Pubblicazione non riuscita');
+  }
+
   Future<Map<String, dynamic>> getOverview() async {
     final http.Response response = await http.get(
       _uri('/admin/material-storage/overview'),

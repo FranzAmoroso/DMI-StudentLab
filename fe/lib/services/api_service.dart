@@ -4285,20 +4285,61 @@ class ApiService {
     return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getAdminPublishedMaterials() async {
-    final response = await http.get(_apiUri('/admin/public_materials?status=published'),
+  Future<Map<String, dynamic>> replyStudentLabMaterialRequest(int id,
+      {required String message, required String action, int? fulfilledPublicMaterialId}) async {
+    final response = await http.post(_apiUri('/teacher-material-requests/studentlab/$id/reply'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'message': message,
+        'action': action,
+        if (fulfilledPublicMaterialId != null) 'fulfilled_public_material_id': fulfilledPublicMaterialId,
+      }));
+    return _decodeMapResponse(response, 'Impossibile rispondere alla richiesta');
+  }
+
+  /// Docenti verificati della materia (admin).
+  Future<List<Map<String, dynamic>>> getAdminSubjectTeachers(int subjectId) async {
+    final response = await http.get(
+      _apiUri('/teacher-material-requests/admin/teachers', queryParameters: {'subject_id': '$subjectId'}),
       headers: _jsonHeaders);
-    final values = _decodeListResponse(response, 'Impossibile caricare i materiali pubblicati');
+    final values = _decodeListResponse(response, 'Impossibile caricare i docenti della materia');
     return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
-  Future<Map<String, dynamic>> replyStudentLabMaterialRequest(int id,
-      {required String message, required String action, int? publicMaterialId}) async {
-    final response = await http.post(_apiUri('/teacher-material-requests/studentlab/$id/reply'),
+  /// Materiali StudentLab della materia da collegare a una richiesta (admin).
+  Future<List<Map<String, dynamic>>> getAdminSubjectMaterials(int subjectId, {String query = ''}) async {
+    final response = await http.get(
+      _apiUri('/teacher-material-requests/admin/materials', queryParameters: {
+        'subject_id': '$subjectId',
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+      }),
+      headers: _jsonHeaders);
+    final values = _decodeListResponse(response, 'Impossibile cercare i materiali della materia');
+    return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  /// L'admin chiede materiale ai docenti scelti (una richiesta per docente).
+  Future<List<Map<String, dynamic>>> createAdminTeacherRequest({
+    required int subjectId,
+    required List<int> teacherIds,
+    required String message,
+    String? topic,
+    DateTime? dueDate,
+    int? parentRequestId,
+  }) async {
+    final response = await http.post(_apiUri('/teacher-material-requests/admin'),
       headers: _jsonHeaders,
-      body: jsonEncode({'message': message, 'action': action,
-        if (publicMaterialId != null) 'public_material_id': publicMaterialId}));
-    return _decodeMapResponse(response, 'Impossibile rispondere alla richiesta');
+      body: jsonEncode({
+        'subject_id': subjectId,
+        'teacher_user_ids': teacherIds,
+        'message': message,
+        if (topic != null && topic.trim().isNotEmpty) 'topic': topic.trim(),
+        if (dueDate != null)
+          'due_date': '${dueDate.year.toString().padLeft(4, '0')}-${dueDate.month.toString().padLeft(2, '0')}-${dueDate.day.toString().padLeft(2, '0')}',
+        if (parentRequestId != null) 'parent_request_id': parentRequestId,
+      }));
+    final values = _decodeListResponse(response, 'Impossibile inviare la richiesta ai docenti');
+    return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
   Future<Map<String, dynamic>> personalRetentionAction({

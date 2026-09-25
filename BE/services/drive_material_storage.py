@@ -1,6 +1,7 @@
 """Copy approved public material to Drive, keeping private Blob as staging."""
 import hashlib
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
@@ -17,6 +18,7 @@ API = 'https://www.googleapis.com/drive/v3'
 UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files'
 TOKEN = 'https://oauth2.googleapis.com/token'
 CHUNK = 8 * 1024 * 1024  # Drive resumable chunks must be multiples of 256 KiB.
+logger = logging.getLogger(__name__)
 
 
 def _configured():
@@ -126,6 +128,20 @@ async def _put(client, url, headers, payload, start, total):
     raise HTTPException(503, 'Copia Drive interrotta; riprova dalla pagina Storage.')
 
 
+async def _blob_chunks(result):
+    """Support both the installed SDK (content) and the streaming SDK (stream)."""
+    stream = getattr(result, 'stream', None)
+    if stream is not None:
+        async for piece in stream:
+            yield piece
+        return
+    content = getattr(result, 'content', None)
+    if not isinstance(content, (bytes, bytearray, memoryview)):
+        raise HTTPException(503, 'Il contenuto del Blob non è disponibile.')
+    for start in range(0, len(content), CHUNK):
+        yield memoryview(content)[start:start + CHUNK]
+
+
 async def copy_public_material(material):
     if material.drive_file_id:
         return material.drive_file_id
@@ -178,27 +194,39 @@ async def copy_public_material(material):
         offset = 0
         buffer = bytearray()
         file_id = None
+        stage = 'lettura_blob'
         try:
             async with AsyncBlobClient(token=settings.blob_read_write_token) as blob:
                 result = await blob.get(material.stored_name, access='private')
-                if result is None or result.status_code != 200 or result.stream is None:
+                if result is None or result.status_code != 200:
                     raise HTTPException(503, 'Il file sorgente non è disponibile nello storage Blob.')
-                async for piece in result.stream:
+                async for piece in _blob_chunks(result):
+                    if not isinstance(piece, (bytes, bytearray, memoryview)):
+                        raise HTTPException(503, 'Il file sorgente non è leggibile.')
                     digest.update(piece)
                     buffer.extend(piece)
                     if offset + len(buffer) > material.size:
                         raise HTTPException(503, 'La dimensione del Blob non corrisponde al database.')
                     while len(buffer) >= CHUNK:
                         part = bytes(buffer[:CHUNK]); del buffer[:CHUNK]
+                        stage = 'invio_blocco_drive'
                         file_id = await _put(client, session_url, headers, part,
                                              offset, material.size) or file_id
                         offset += len(part)
+                        stage = 'lettura_blob'
                 if buffer:
+                    stage = 'invio_ultimo_blocco_drive'
                     file_id = await _put(client, session_url, headers,
                         bytes(buffer), offset, material.size) or file_id
                     offset += len(buffer)
-        except httpx.HTTPError as exc:
-            raise HTTPException(503, 'Copia Drive interrotta; il file Blob è rimasto invariato.') from exc
+        except Exception as exc:
+            # Do not log signed Blob/Drive URLs or OAuth credentials.
+            code = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+            logger.error('drive_copy_failed material_id=%s stage=%s error_type=%s upstream_status=%s offset=%s size=%s',
+                         material.id, stage, type(exc).__name__, code, offset, material.size)
+            if isinstance(exc, HTTPException):
+                raise
+            raise HTTPException(503, 'Copia Drive interrotta. Il file originale è conservato; riprova dalla pagina Storage.') from exc
         if offset != material.size or digest.hexdigest().lower() != material.file_hash.lower():
             if file_id:
                 try:

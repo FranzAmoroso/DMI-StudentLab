@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
 import httpx
 from pydantic import BaseModel, Field
@@ -43,6 +44,17 @@ from services.material_catalog_draft import (
     list_drafts, list_folders, list_imports, stage, stage_folder,
     stage_drive_import, discard, publish, preview,
 )
+
+from services.drive_material_catalog import default_path
+from services.material_publication_request import (
+    approve_material_publication_request, get_publication_request_by_id,
+)
+from schemas.material_publication_request import MaterialPublicationApproveRequest
+from models.teacher_material_request import TeacherMaterialRequest
+from services.notification import create_notification
+from services.material_catalog_draft import _path as catalog_path
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/admin/material-storage",
@@ -363,12 +375,17 @@ async def admin_copy_public_to_drive(
         drive_id = await copy_public_material(material)
     except Exception as exc:
         db.rollback()
+        logger.error('admin_drive_copy_failed material_id=%s error_type=%s http_status=%s',
+                     material_id, type(exc).__name__,
+                     exc.status_code if isinstance(exc, HTTPException) else None)
         if material.drive_activation_pending:
             state = mark_retry(material, exc)
             record_storage_event(db, source='public', material_id=material.id,
                 action='drive_copy_pending', actor_id=current_user.id,
                 details={'state': state}, commit=True)
-        raise
+        if isinstance(exc, HTTPException):
+            raise
+        raise HTTPException(503, 'Non è stato possibile completare la copia Drive. Il file originale è conservato.') from exc
     material.drive_file_id = drive_id
     material.drive_copied_at = utc_now()
     material.drive_retry_after = None
@@ -615,3 +632,157 @@ async def admin_material_storage_cleanup_execute(
         removed_materials=request.removed_materials,
         orphan_blobs=request.orphan_blobs,
     )
+
+
+class AdminUploadPublishRequest(BaseModel):
+    """Pubblicazione di un file caricato dall'admin (vedi "Carica materiale")."""
+    destination: str = Field(pattern='^(dispense|drive_only)$')
+    title: str | None = Field(default=None, max_length=250)
+    path_segments: list[str] = Field(default_factory=list)
+    audience_type: str = 'course'
+    audience_id: int | None = None
+    drive_path_segments: list[str] | None = None
+    allow_drive_duplicate: bool = False
+    # Richiesta degli studenti a StudentLab da chiudere con questo file.
+    answer_request_id: int | None = None
+    answer_message: str | None = Field(default=None, max_length=3000)
+
+
+@router.post('/uploads/{request_id}/publish')
+async def publish_admin_upload(request_id: int, request: AdminUploadPublishRequest,
+        current_user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    """Pubblica un file che l'admin ha caricato con il flusso di proposta
+    (verifica hash e duplicati già fatte al caricamento).
+
+    - "dispense": visibile agli studenti scelti, nella cartella indicata;
+    - "drive_only": copiato su Drive ma nascosto agli studenti finché non lo
+      si mostra dal Catalogo Drive.
+    Posizione, destinatari e visibilità vengono impostati prima che il file
+    diventi visibile: con Drive attivo il materiale resta nascosto fino al
+    termine della copia.
+    """
+    publication = get_publication_request_by_id(db, request_id)
+    if publication is None or publication.status != 'pending' or publication.user_id != current_user.id:
+        raise HTTPException(404, 'Caricamento non trovato o già pubblicato.')
+    subject = db.query(Subject).filter(Subject.id == publication.subject_id).first()
+    if subject is None or not subject.is_active:
+        raise HTTPException(400, 'Materia non disponibile.')
+    try:
+        path = catalog_path(request.path_segments)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    audience = request.audience_type
+    if audience in {'public', 'course', 'subject'}:
+        audience_id = None
+    elif audience == 'user':
+        if request.audience_id is None or not db.query(User.id).filter(
+                User.id == request.audience_id, User.is_active.is_(True)).first():
+            raise HTTPException(400, 'Studente destinatario non trovato.')
+        audience_id = request.audience_id
+    elif audience == 'group':
+        if request.audience_id is None or not db.query(StudyGroup.id).filter(
+                StudyGroup.id == request.audience_id, StudyGroup.subject_id == subject.id,
+                StudyGroup.status == 'active').first():
+            raise HTTPException(400, 'Gruppo destinatario non valido per questa materia.')
+        audience_id = request.audience_id
+    else:
+        raise HTTPException(400, 'Destinatari non validi.')
+    answer = None
+    if request.answer_request_id is not None:
+        answer = db.query(TeacherMaterialRequest).filter(
+            TeacherMaterialRequest.id == request.answer_request_id,
+            TeacherMaterialRequest.recipient_kind == 'studentlab').first()
+        if answer is None or answer.status != 'pending':
+            raise HTTPException(409, 'La richiesta da chiudere non è più aperta.')
+        if answer.subject_id != subject.id:
+            raise HTTPException(400, 'La richiesta riguarda un’altra materia.')
+
+    drive_enabled = all((settings.drive_folder_id, settings.drive_client_id,
+        settings.drive_client_secret, settings.drive_refresh_token))
+    drive_path = clean_path(request.drive_path_segments if request.drive_path_segments
+        is not None else default_path(publication))
+    if drive_enabled:
+        inspection = await preview_public_material(publication, drive_path)
+        if any(item['same_folder'] and item['name'].casefold() ==
+                publication.original_name.casefold() for item in inspection['conflicts']):
+            raise HTTPException(409, 'Esiste un file omonimo nella cartella Drive scelta: scegli un altro percorso.')
+        if inspection['conflicts'] and not request.allow_drive_duplicate:
+            raise HTTPException(409, 'Possibile duplicato su Drive: controlla i file prima di pubblicare.')
+
+    visible = request.destination == 'dispense'
+    try:
+        approved = approve_material_publication_request(db, publication_request=publication,
+            current_admin=current_user, data=MaterialPublicationApproveRequest(
+                approved_action='publish_new', force_anonymous=True,
+                proposed_title=(request.title or None), admin_note='Caricato da StudentLab',
+                drive_path_segments=drive_path, allow_drive_duplicate=request.allow_drive_duplicate))
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(400, str(exc)) from exc
+
+    def apply_state(material):
+        material.catalog_path_json = json.dumps(path, ensure_ascii=False)
+        material.audience_type, material.audience_id = audience, audience_id
+        if request.title:
+            material.title = request.title.strip()[:250]
+        if not material.drive_activation_pending:
+            material.status = 'published' if visible else 'hidden'
+            material.is_visible = visible
+            material.visibility_state = 'visible' if visible else 'hidden'
+        material.updated_at = utc_now()
+
+    apply_state(approved)
+    if approved.drive_activation_pending:
+        approved.drive_path_json = json.dumps(drive_path, ensure_ascii=False)
+        approved.drive_allow_duplicate = bool(request.allow_drive_duplicate)
+    db.commit()
+
+    drive_pending = bool(approved.drive_activation_pending)
+    if drive_pending:
+        try:
+            drive_id = await copy_public_material(approved)
+            approved.drive_file_id = drive_id
+            approved.drive_copied_at = utc_now()
+            approved.drive_activation_pending = False
+            approved.drive_retry_after = None
+            approved.status = 'published' if visible else 'hidden'
+            approved.is_visible = visible
+            approved.visibility_state = 'visible' if visible else 'hidden'
+            approved.version = (approved.version or 1) + 1
+            approved.updated_at = utc_now()
+            record_storage_event(db, source='public', material_id=approved.id,
+                action='drive_copied', actor_id=current_user.id, blob_path=approved.stored_name,
+                original_name=approved.original_name, size=approved.size,
+                details={'source': 'admin_upload', 'destination': request.destination}, commit=False)
+            db.commit()
+            drive_pending = False
+        except Exception as exc:
+            db.rollback()
+            # Resta nascosto finché la copia su Drive non riesce (nuovo tentativo automatico).
+            state = mark_retry(approved, exc)
+            record_storage_event(db, source='public', material_id=approved.id,
+                action='drive_copy_pending', actor_id=current_user.id,
+                details={'state': state}, commit=True)
+
+    if answer is not None:
+        answer = db.query(TeacherMaterialRequest).filter(
+            TeacherMaterialRequest.id == answer.id).with_for_update().first()
+        if answer is not None and answer.status == 'pending':
+            answer.status = 'fulfilled'
+            answer.fulfilled_public_material_id = approved.id
+            answer.staff_response = (request.answer_message or '').strip() or (
+                'Abbiamo pubblicato il materiale richiesto: lo trovi nelle Dispense della materia.')
+            answer.resolved_by = current_user.id
+            answer.resolved_at = utc_now()
+            answer.updated_at = answer.resolved_at
+            create_notification(db, user_id=answer.student_user_id,
+                notification_type='teacher_material_request_resolved',
+                title='Richiesta di materiale soddisfatta', message=answer.staff_response,
+                actor_user_id=current_user.id, resource_type='teacher_material_request',
+                resource_id=answer.id, commit=False)
+            db.commit()
+
+    db.refresh(approved)
+    return {'material_id': approved.id, 'visible': bool(approved.is_visible),
+        'drive_file_id': approved.drive_file_id, 'drive_pending': drive_pending,
+        'answered_request_id': answer.id if answer is not None else None}
