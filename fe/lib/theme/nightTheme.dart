@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_palette.dart';
+
 class AppColors {
   static const Color brandNightBlue = Color(0xFF1C2841);
   static const Color secondaryNightBlue = Color(0xFF1B263B);
@@ -165,6 +167,7 @@ class AppColors {
   static ThemeData get nightTheme => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+        extensions: const <ThemeExtension<dynamic>>[AppPalette.night],
         scaffoldBackgroundColor: darkElegance,
         colorScheme: const ColorScheme.dark(
           primary: socialSky,

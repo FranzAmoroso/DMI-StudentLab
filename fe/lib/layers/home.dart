@@ -38,6 +38,8 @@ import 'package:fe/social/teacher/teachear_area_page.dart';
 
 import 'package:fe/social/widgets/studentlab_user_avatar.dart';
 
+import 'package:fe/widgets/studentlab_ui/studentlab_nav.dart';
+
 import 'package:fe/social/widgets/social_user_profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -141,6 +143,7 @@ super.dispose();
         _teacherAccess = false;
 
         _unreadNotificationCount = 0;
+        StudentLabNavCounters.instance.notifications = 0;
 
       });
 
@@ -183,6 +186,7 @@ super.dispose();
           _teacherAccess = false;
 
           _unreadNotificationCount = 0;
+        StudentLabNavCounters.instance.notifications = 0;
 
         });
 
@@ -479,6 +483,7 @@ super.dispose();
         setState(() {
 
           _unreadNotificationCount = 0;
+        StudentLabNavCounters.instance.notifications = 0;
 
         });
 
@@ -509,6 +514,7 @@ super.dispose();
       setState(() {
 
         _unreadNotificationCount = count;
+        StudentLabNavCounters.instance.notifications = count;
 
       });
 
@@ -523,6 +529,7 @@ super.dispose();
       setState(() {
 
         _unreadNotificationCount = 0;
+        StudentLabNavCounters.instance.notifications = 0;
 
       });
 
@@ -876,114 +883,83 @@ super.dispose();
 
   }
 
+  /// Sottotitolo del logo: percorso dell'utente, oppure il dipartimento predefinito.
+  String get _navbarSubtitle {
+    final SocialUser? user = _currentUser;
+    if (user == null) return 'DMI · UniCT';
+    final List<String> parts = <String>[
+      if (user.department.trim().isNotEmpty) user.department.trim(),
+      if (user.university.trim().isNotEmpty) user.university.trim(),
+    ];
+    return parts.isEmpty ? 'DMI · UniCT' : parts.join(' · ');
+  }
+
   Widget _buildNavbar() {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double width = constraints.maxWidth;
+        final bool compactAccount = width < 720;
+        final bool hideSubtitle = width < 480;
+        final bool hideWordmark = width < 360;
 
-    return Container(
-
-      height: 56,
-
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-
-      decoration: BoxDecoration(
-
-        color: AppColors.eleganceMidnight,
-
-        borderRadius: BorderRadius.circular(16),
-
-        border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.12)),
-
-      ),
-
-      child: Row(
-
-        children: [
-
-          _StudentLabNavbarLogo(onPressed: () {}),
-
-          const Spacer(),
-
-          if (_restoringSession)
-
-            const Padding(
-
-              padding: EdgeInsets.symmetric(horizontal: 8),
-
-              child: SizedBox(
-
-                width: 20,
-
-                height: 20,
-
-                child: CircularProgressIndicator(
-
-                  strokeWidth: 2,
-
-                  color: AppColors.skyBlue,
-
+        return Container(
+          height: 64,
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: AppColors.eleganceMidnight,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.14)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SlBrandMark(
+                    compact: hideWordmark,
+                    subtitle: hideSubtitle ? null : _navbarSubtitle,
+                  ),
                 ),
-
               ),
-
-            )
-
-          else if (_isAuthenticated) ...[
-
-            _NavbarIconButton(
-
-              tooltip: 'Messaggi',
-
-              icon: Icons.chat_bubble_outline_rounded,
-
-              iconColor: AppColors.socialSky,
-
-              onPressed: _openMessages,
-
-            ),
-
-            const SizedBox(width: 6),
-
-            _NavbarIconButton(
-
-              tooltip: 'Notifiche',
-
-              icon: Icons.notifications_none_rounded,
-
-              iconColor: AppColors.materialSky,
-
-              badge: _unreadNotificationCount,
-
-              onPressed: _openNotifications,
-
-            ),
-
-            const SizedBox(width: 6),
-
-            if (_currentUser != null)
-
-              _UserButton(
-
-                user: _currentUser!,
-
-                name: _displayName,
-
-                onPressed: _showUserMenu,
-
-              ),
-
-          ] else ...[
-
-            StudentLabGuestAccountButton(onPressed: _showGuestMenu),
-
-          ],
-
-        ],
-
-      ),
-
+              const SizedBox(width: 8),
+              if (_restoringSession)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.skyBlue),
+                  ),
+                )
+              else if (_isAuthenticated) ...[
+                StudentLabNavActions(
+                  onMessages: _openMessages,
+                  onNotifications: _openNotifications,
+                  barColor: AppColors.eleganceMidnight,
+                ),
+                if (_currentUser != null) ...[
+                  Container(
+                    width: 1,
+                    height: 28,
+                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    color: AppColors.pureWhite.withValues(alpha: 0.10),
+                  ),
+                  SlAccountButton(
+                    user: _currentUser!,
+                    name: _displayName,
+                    compact: compactAccount,
+                    onPressed: _showUserMenu,
+                  ),
+                ],
+              ] else ...[
+                StudentLabGuestAccountButton(onPressed: _showGuestMenu),
+              ],
+            ],
+          ),
+        );
+      },
     );
-
   }
 
   bool _handleHomeScroll(UserScrollNotification notification) {
@@ -1612,6 +1588,7 @@ super.dispose();
         _teacherAccess = false;
 
         _unreadNotificationCount = 0;
+        StudentLabNavCounters.instance.notifications = 0;
 
       });
 
@@ -2003,58 +1980,6 @@ super.dispose();
 
 }
 
-class _StudentLabNavbarLogo extends StatelessWidget {
-
-  final VoidCallback onPressed;
-
-  const _StudentLabNavbarLogo({required this.onPressed});
-
-  @override
-
-  Widget build(BuildContext context) {
-
-    return Tooltip(
-
-      message: 'StudentLab',
-
-      child: InkWell(
-
-        onTap: onPressed,
-
-        borderRadius: BorderRadius.circular(12),
-
-        child: Padding(
-
-          padding: const EdgeInsets.all(4),
-
-          child: ClipRRect(
-
-            borderRadius: BorderRadius.circular(10),
-
-            child: Image.asset(
-
-              'assets/icons/favicon.png',
-
-              width: 38,
-
-              height: 38,
-
-              fit: BoxFit.cover,
-
-            ),
-
-          ),
-
-        ),
-
-      ),
-
-    );
-
-  }
-
-}
-
 class _HomeUserMenuTile extends StatelessWidget {
 
   final IconData icon;
@@ -2146,274 +2071,6 @@ this.iconColor,
           : null,
 
       onTap: onTap,
-
-    );
-
-  }
-
-}
-
-class _NavbarIconButton extends StatelessWidget {
-
-  final String tooltip;
-
-  final IconData icon;
-
-  final Color iconColor;
-
-  final int badge;
-
-  final VoidCallback onPressed;
-
-  const _NavbarIconButton({
-
-    required this.tooltip,
-
-    required this.icon,
-
-    required this.iconColor,
-
-    required this.onPressed,
-
-this.badge = 0,
-
-  });
-
-  @override
-
-  Widget build(BuildContext context) {
-
-    return Tooltip(
-
-      message: tooltip,
-
-      child: InkWell(
-
-        onTap: onPressed,
-
-        borderRadius: BorderRadius.circular(12),
-
-        child: SizedBox(
-
-          width: 38,
-
-          height: 38,
-
-          child: Stack(
-
-            clipBehavior: Clip.none,
-
-            children: [
-
-              Center(
-
-                child: Container(
-
-                  width: 38,
-
-                  height: 38,
-
-                  decoration: BoxDecoration(
-
-                    color: AppColors.brandNightBlue,
-
-                    borderRadius: BorderRadius.circular(12),
-
-                    border: Border.all(
-
-                      color: AppColors.skyBlue.withValues(alpha: 0.10),
-
-                    ),
-
-                  ),
-
-                  child: Icon(icon, color: iconColor, size: 20),
-
-                ),
-
-              ),
-
-              if (badge > 0)
-
-                Positioned(
-
-                  top: -3,
-
-                  right: -3,
-
-                  child: Container(
-
-                    constraints: const BoxConstraints(
-
-                      minWidth: 17,
-
-                      minHeight: 17,
-
-                    ),
-
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-
-                    alignment: Alignment.center,
-
-                    decoration: BoxDecoration(
-
-                      color: Colors.redAccent,
-
-                      borderRadius: BorderRadius.circular(9),
-
-                      border: Border.all(
-
-                        color: AppColors.eleganceMidnight,
-
-                        width: 2,
-
-                      ),
-
-                    ),
-
-                    child: Text(
-
-                      badge > 99 ? '99+' : '$badge',
-
-                      style: const TextStyle(
-
-                        color: AppColors.pureWhite,
-
-                        fontSize: 8,
-
-                        fontWeight: FontWeight.w700,
-
-                      ),
-
-                    ),
-
-                  ),
-
-                ),
-
-            ],
-
-          ),
-
-        ),
-
-      ),
-
-    );
-
-  }
-
-}
-
-class _UserButton extends StatelessWidget {
-
-  final SocialUser user;
-
-  final String name;
-
-  final VoidCallback onPressed;
-
-  const _UserButton({
-
-    required this.user,
-
-    required this.name,
-
-    required this.onPressed,
-
-  });
-
-  @override
-
-  Widget build(BuildContext context) {
-
-    final double screenWidth = MediaQuery.sizeOf(context).width;
-
-    final bool compact = screenWidth < 390;
-
-    return InkWell(
-
-      onTap: onPressed,
-
-      borderRadius: BorderRadius.circular(12),
-
-      child: Container(
-
-        height: 38,
-
-        constraints: BoxConstraints(maxWidth: compact ? 42 : 140),
-
-        padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 7),
-
-        decoration: BoxDecoration(
-
-          color: AppColors.brandNightBlue,
-
-          borderRadius: BorderRadius.circular(12),
-
-          border: Border.all(
-
-            color: AppColors.socialSky.withValues(alpha: 0.16),
-
-          ),
-
-        ),
-
-        child: Row(
-
-          mainAxisSize: MainAxisSize.min,
-
-          children: [
-
-            StudentLabUserAvatar(type: user.type, radius: 12),
-
-            if (!compact) ...[
-
-              const SizedBox(width: 7),
-
-              Flexible(
-
-                child: Text(
-
-                  name,
-
-                  maxLines: 1,
-
-                  overflow: TextOverflow.ellipsis,
-
-                  style: const TextStyle(
-
-                    color: AppColors.pureWhite,
-
-                    fontSize: 12,
-
-                    fontWeight: FontWeight.w600,
-
-                  ),
-
-                ),
-
-              ),
-
-              const SizedBox(width: 2),
-
-              Icon(
-
-                Icons.keyboard_arrow_down_rounded,
-
-                color: AppColors.socialSky.withValues(alpha: 0.70),
-
-                size: 17,
-
-              ),
-
-            ],
-
-          ],
-
-        ),
-
-      ),
 
     );
 

@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import '../../social/admin/admin_material_storage_api_service.dart';
-import '../../theme/nightTheme.dart';
+import '../../theme/app_palette.dart';
+import '../../widgets/studentlab_ui/studentlab_ui.dart';
 import 'drive_file_preview.dart';
 import 'drive_placement_dialog.dart';
 
+/// Coda "Esamina proposte": elenco a sinistra, dettaglio a destra (desktop),
+/// elenco + pagina di dettaglio (mobile).
+///
+/// Il pannello duplicato usa i campi reali del backend:
+/// `duplicate_status` (none | suspected | confirmed | not_duplicate),
+/// `comparison_status`, `request_type` e `possible_duplicate_material_id`.
 class AdminMaterialPublicationsPage extends StatefulWidget {
   const AdminMaterialPublicationsPage({super.key});
 
@@ -14,16 +21,24 @@ class AdminMaterialPublicationsPage extends StatefulWidget {
       _AdminMaterialPublicationsPageState();
 }
 
+/// Decisione scelta dall'admin nel pannello di dettaglio.
+enum _Decision { publishNew, newVersion, separate, alreadyAvailable }
+
 class _AdminMaterialPublicationsPageState
     extends State<AdminMaterialPublicationsPage> {
+  static const double _wideBreakpoint = 1000;
+
   final ApiService _api = ApiService();
   final AdminMaterialStorageApiService _storage = AdminMaterialStorageApiService();
   final Set<int> _processing = <int>{};
+  final Map<int, Future<Map<String, dynamic>>> _duplicates = {};
+  final TextEditingController _searchController = TextEditingController();
   String _status = 'pending';
   String _query = '';
   String? _error;
   bool _loading = true;
   List<Map<String, dynamic>> _items = <Map<String, dynamic>>[];
+  int? _selectedId;
 
   @override
   void initState() {
@@ -31,15 +46,17 @@ class _AdminMaterialPublicationsPageState
     _load();
   }
 
-  int? _id(Map<String, dynamic> item) =>
-      int.tryParse(item['id']?.toString() ?? '');
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  int? _id(Map<String, dynamic> item) => int.tryParse(item['id']?.toString() ?? '');
 
   Future<void> _load() async {
     if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
       final items = await _api.getAdminMaterialPublications(
         status: _status == 'all' ? null : _status,
@@ -48,132 +65,237 @@ class _AdminMaterialPublicationsPageState
       setState(() {
         _items = items;
         _loading = false;
+        _duplicates.clear();
+        if (_selectedId == null || !items.any((i) => _id(i) == _selectedId)) {
+          _selectedId = items.isEmpty ? null : _id(items.first);
+        }
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = 'Impossibile caricare le proposte. Riprova.';
-      });
+      setState(() { _loading = false; _error = 'Impossibile caricare le proposte.'; });
     }
   }
 
   void _message(String message) {
-    if (mounted) ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _run(int id, Future<void> Function() action) async {
-    if (_processing.contains(id)) return;
+  List<Map<String, dynamic>> get _visibleItems => _items.where((item) {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    return <Object?>[item['title'], item['original_name'], item['subject_name'],
+        item['status'], _proposerName(item)]
+      .any((value) => (value?.toString() ?? '').toLowerCase().contains(query));
+  }).toList();
+
+  // ---------------------------------------------------------------------------
+  // Dati derivati
+  // ---------------------------------------------------------------------------
+
+  String _duplicateStatus(Map<String, dynamic> item) =>
+      item['duplicate_status']?.toString().toLowerCase() ?? 'none';
+
+  String _requestType(Map<String, dynamic> item) =>
+      item['request_type']?.toString().toLowerCase() ?? 'new_material';
+
+  bool _hasDuplicatePanel(Map<String, dynamic> item) {
+    final dup = _duplicateStatus(item);
+    return dup == 'suspected' || dup == 'confirmed' || _requestType(item) == 'update_candidate' ||
+        item['possible_duplicate_material_id'] != null;
+  }
+
+  String? _proposerName(Map<String, dynamic> item) {
+    for (final key in const ['requester_name', 'user_name', 'student_name', 'author_name', 'proposer_name']) {
+      final value = item[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  List<_Decision> _decisions(Map<String, dynamic> item) {
+    final dup = _duplicateStatus(item);
+    if (dup == 'confirmed') return const <_Decision>[_Decision.alreadyAvailable];
+    if (_hasDuplicatePanel(item)) {
+      return const <_Decision>[_Decision.newVersion, _Decision.separate, _Decision.alreadyAvailable];
+    }
+    return const <_Decision>[_Decision.publishNew];
+  }
+
+  _Decision _defaultDecision(Map<String, dynamic> item) {
+    final options = _decisions(item);
+    if (_requestType(item) == 'update_candidate' && options.contains(_Decision.newVersion)) {
+      return _Decision.newVersion;
+    }
+    return options.first;
+  }
+
+  String _bytes(dynamic value) {
+    final int size = int.tryParse(value?.toString() ?? '') ?? 0;
+    if (size < 1024) return '$size B';
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
+    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String _relative(dynamic value) {
+    final d = DateTime.tryParse(value?.toString() ?? '')?.toLocal();
+    if (d == null) return '';
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 60) return '${diff.inMinutes.clamp(1, 59)} min fa';
+    if (diff.inHours < 24) return '${diff.inHours} h fa';
+    if (diff.inDays == 1) return 'ieri';
+    if (diff.inDays < 7) return '${diff.inDays} gg fa';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  String _shortHash(dynamic value) {
+    final hash = value?.toString() ?? '';
+    if (hash.length < 12) return hash;
+    return '${hash.substring(0, 4)}…${hash.substring(hash.length - 4)}';
+  }
+
+  Future<Map<String, dynamic>> _duplicateFor(int id) =>
+      _duplicates.putIfAbsent(id, () => _api.getAdminPossibleDuplicateMaterial(id));
+
+  // ---------------------------------------------------------------------------
+  // Azioni
+  // ---------------------------------------------------------------------------
+
+  Future<void> _preview(Map<String, dynamic> item) async {
+    final int? id = _id(item);
+    if (id == null) return;
+    final size = int.tryParse((item['file_size'] ?? item['size'])?.toString() ?? '') ?? 0;
+    if (size > 20 * 1024 * 1024) {
+      _message('Anteprima disponibile per file fino a 20 MB.');
+      return;
+    }
+    await showDriveFilePreview(context,
+        load: () => _api.downloadAdminMaterialPublicationFile(id),
+        name: item['original_name']?.toString() ?? 'Materiale',
+        mimeType: item['mime_type']?.toString() ?? 'application/octet-stream');
+  }
+
+  /// Chiede la cartella Drive quando Drive è configurato. `null` = annullato.
+  Future<({bool ok, DrivePlacement? placement})> _askDrivePlacement(
+      Map<String, dynamic> item, int id) async {
+    try {
+      final drive = await _storage.getDriveStatus();
+      if (!mounted) return (ok: false, placement: null);
+      if (drive['configured'] != true) return (ok: true, placement: null);
+      final placement = await showDialog<DrivePlacement>(
+        context: context,
+        builder: (_) => DrivePlacementDialog(
+          inspect: (path) => _api.previewAdminPublicationDrive(requestId: id, path: path),
+          previewProposed: () => _preview(item),
+          previewExisting: (driveId, fileName, mimeType) => showDriveFilePreview(context,
+              load: () => _storage.downloadDriveFilePreview(driveId), name: fileName, mimeType: mimeType),
+        ),
+      );
+      return (ok: placement != null, placement: placement);
+    } catch (_) {
+      _message('Non posso controllare il percorso Drive. Riprova prima di approvare.');
+      return (ok: false, placement: null);
+    }
+  }
+
+  Future<bool> _approve(Map<String, dynamic> item, _Decision decision, bool forceAnonymous) async {
+    final int? id = _id(item);
+    if (id == null || _processing.contains(id)) return false;
+
+    DrivePlacement? placement;
+    if (decision != _Decision.alreadyAvailable) {
+      final drive = await _askDrivePlacement(item, id);
+      if (!drive.ok || !mounted) return false;
+      placement = drive.placement;
+    }
+
     setState(() => _processing.add(id));
     try {
-      await action();
+      final dup = _duplicateStatus(item);
+      final comparison = item['comparison_status']?.toString().toLowerCase() ?? 'pending';
+      String action = 'publish_new';
+      switch (decision) {
+        case _Decision.publishNew:
+          action = 'publish_new';
+        case _Decision.newVersion:
+          if (!const {'candidate_update', 'pending'}.contains(comparison)) {
+            await _api.reviewAdminMaterialDuplicate(requestId: id, data: {
+              'duplicate_status': 'not_duplicate', 'comparison_status': 'candidate_update'});
+          }
+          action = 'update_existing';
+        case _Decision.separate:
+          if (!const {'different_material', 'not_required'}.contains(comparison)) {
+            await _api.reviewAdminMaterialDuplicate(requestId: id, data: {
+              'duplicate_status': 'not_duplicate', 'comparison_status': 'different_material'});
+          }
+          action = _requestType(item) == 'new_material' ? 'publish_new' : 'publish_separate';
+        case _Decision.alreadyAvailable:
+          if (dup != 'confirmed') {
+            await _api.reviewAdminMaterialDuplicate(requestId: id, data: {'duplicate_status': 'confirmed'});
+          }
+          action = 'keep_existing';
+      }
+      await _api.approveAdminMaterialPublication(requestId: id, data: {
+        'approved_action': action,
+        'force_anonymous': forceAnonymous,
+        if (placement != null) 'drive_path_segments': placement.path,
+        if (placement != null) 'allow_drive_duplicate': placement.allowDuplicate,
+      });
+      _message(decision == _Decision.alreadyAvailable
+          ? 'Proposta chiusa: il materiale era già disponibile.'
+          : 'Materiale approvato. Se Drive è momentaneamente indisponibile resta in attesa, senza perdere il file.');
       await _load();
-    } catch (_) {
-      _message('Operazione non riuscita. La proposta non è stata modificata.');
+      return true;
+    } catch (error) {
+      _message(slErrorMessage(error, fallback: 'Operazione non riuscita. La proposta non è stata modificata.'));
+      return false;
     } finally {
       if (mounted) setState(() => _processing.remove(id));
     }
   }
 
-  Future<void> _approve(Map<String, dynamic> item) async {
+  Future<bool> _reject(Map<String, dynamic> item) async {
     final int? id = _id(item);
-    if (id == null || _processing.contains(id)) return;
-    DrivePlacement? placement;
-    try {
-      final drive = await _storage.getDriveStatus();
-      if (!mounted) return;
-      if (drive['configured'] == true) {
-        placement = await showDialog<DrivePlacement>(context: context,
-          builder: (_) => DrivePlacementDialog(
-            inspect: (path) => _api.previewAdminPublicationDrive(requestId: id, path: path),
-            previewProposed: () async {
-              if (int.tryParse(item['size']?.toString() ?? '') != null &&
-                  int.parse(item['size'].toString()) > 20 * 1024 * 1024) {
-                _message('Anteprima disponibile per file fino a 20 MB.'); return;
-              }
-              await showDriveFilePreview(context,
-                load: () => _api.downloadAdminMaterialPublicationFile(id),
-                name: item['original_name']?.toString() ?? 'Materiale',
-                mimeType: item['mime_type']?.toString() ?? 'application/octet-stream');
-            },
-            previewExisting: (driveId, fileName, mimeType) => showDriveFilePreview(context,
-              load: () => _storage.downloadDriveFilePreview(driveId),
-              name: fileName, mimeType: mimeType)));
-        if (placement == null || !mounted) return;
-      }
-    } catch (_) {
-      _message('Non posso controllare il percorso Drive. Riprova prima di approvare.');
-      return;
-    }
-    bool forceAnonymous = false;
-    final bool? ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text('Approva materiale',
-            style: TextStyle(color: AppColors.pureWhite)),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(item['title']?.toString() ?? 'Materiale',
-              style: const TextStyle(color: AppColors.pureWhite)),
-            const SizedBox(height: 8),
-            const Text('La proposta sarà pubblicata nel catalogo selezionato.',
-              style: TextStyle(color: Colors.white70)),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: forceAnonymous,
-              title: const Text('Forza anonimizzazione',
-                style: TextStyle(color: AppColors.pureWhite)),
-              onChanged: (value) => update(() => forceAnonymous = value),
-            ),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Annulla')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Approva')),
-          ],
-        ),
-      ),
-    );
-    if (ok != true || !mounted) return;
-    await _run(id, () async {
-      await _api.approveAdminMaterialPublication(requestId: id, data: {
-        'approved_action': 'publish_new',
-        'force_anonymous': forceAnonymous,
-        if (placement != null) 'drive_path_segments': placement.path,
-        if (placement != null) 'allow_drive_duplicate': placement.allowDuplicate,
-      });
-      _message('Materiale approvato. Se Drive è momentaneamente indisponibile resta in attesa, senza perdere il file.');
-    });
-  }
-
-  Future<void> _reject(Map<String, dynamic> item) async {
-    final int? id = _id(item);
-    if (id == null || _processing.contains(id)) return;
+    if (id == null || _processing.contains(id)) return false;
+    final p = context.palette;
     final controller = TextEditingController();
+    const presets = <String>[
+      'Il materiale è già disponibile su StudentLab.',
+      'Il file non è leggibile o è incompleto.',
+      'Il contenuto non riguarda la materia indicata.',
+    ];
     final String? reason = await showDialog<String>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, update) => AlertDialog(
-          backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text('Rifiuta proposta',
-            style: TextStyle(color: AppColors.pureWhite)),
-          content: TextField(
-            controller: controller,
-            onChanged: (_) => update(() {}),
-            maxLines: 3,
-            maxLength: 500,
-            style: const TextStyle(color: AppColors.pureWhite),
-            decoration: const InputDecoration(labelText: 'Motivo del rifiuto'),
+          backgroundColor: p.eleganceDeepNavy,
+          title: const Text('Rifiuta proposta'),
+          content: SizedBox(
+            width: 460,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+              Text('Lo studente riceverà il motivo nella notifica.', style: SlText.muted(p)),
+              const SizedBox(height: 12),
+              Wrap(spacing: 6, runSpacing: 6, children: <Widget>[
+                for (final preset in presets)
+                  ActionChip(
+                    label: Text(preset, style: const TextStyle(fontSize: 12)),
+                    onPressed: () => update(() => controller.text = preset),
+                  ),
+              ]),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                onChanged: (_) => update(() {}),
+                maxLines: 3,
+                maxLength: 500,
+                decoration: const InputDecoration(labelText: 'Motivo del rifiuto'),
+              ),
+            ]),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Annulla')),
+          actions: <Widget>[
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Annulla')),
             FilledButton(
-              onPressed: controller.text.trim().isEmpty ? null :
-                () => Navigator.pop(dialogContext, controller.text.trim()),
+              style: FilledButton.styleFrom(backgroundColor: p.adminCoral, foregroundColor: p.darkElegance),
+              onPressed: controller.text.trim().isEmpty ? null : () => Navigator.pop(dialogContext, controller.text.trim()),
               child: const Text('Rifiuta'),
             ),
           ],
@@ -181,176 +303,574 @@ class _AdminMaterialPublicationsPageState
       ),
     );
     controller.dispose();
-    if (reason == null || !mounted) return;
-    await _run(id, () async {
-      await _api.rejectAdminMaterialPublication(
-        requestId: id, data: {'rejection_reason': reason});
-      _message('Proposta rifiutata.');
-    });
-  }
-
-  Future<void> _details(Map<String, dynamic> item) async {
-    final int? id = _id(item);
-    if (id == null) return;
+    if (reason == null || !mounted) return false;
+    setState(() => _processing.add(id));
     try {
-      final details = await _api.getAdminMaterialPublication(id);
-      if (!mounted) return;
-      await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.eleganceDeepNavy,
-        title: Text(details['title']?.toString() ?? 'Proposta',
-          style: const TextStyle(color: AppColors.pureWhite)),
-        content: SingleChildScrollView(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _detail('File', details['original_name']),
-            _detail('Stato', details['status']),
-            _detail('Descrizione', details['description']),
-            _detail('Corso', details['course_name'] ?? details['course']),
-            _detail('Materia', details['subject_name']),
-            _detail('Hash SHA-256', details['sha256'] ?? details['file_hash']),
-            _detail('Dimensione in byte', details['file_size'] ?? details['size']),
-            _detail('Motivo del rifiuto', details['rejection_reason']),
-          ],
-        )),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Chiudi'))],
-      ));
-    } catch (_) {
-      _message('Dettagli della proposta non disponibili.');
+      await _api.rejectAdminMaterialPublication(requestId: id, data: {'rejection_reason': reason});
+      _message('Proposta rifiutata.');
+      await _load();
+      return true;
+    } catch (error) {
+      _message(slErrorMessage(error));
+      return false;
+    } finally {
+      if (mounted) setState(() => _processing.remove(id));
     }
   }
 
-  Widget _detail(String name, Object? value) {
-    if (value == null || value.toString().trim().isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Padding(padding: const EdgeInsets.only(bottom: 9), child: Text(
-      '$name: $value', style: const TextStyle(color: Colors.white70)));
-  }
-
-  List<Map<String, dynamic>> get _visibleItems => _items.where((item) {
-    final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return true;
-    return <Object?>[item['title'], item['original_name'],
-      item['subject_name'], item['status']]
-      .any((value) => (value?.toString() ?? '').toLowerCase().contains(query));
-  }).toList();
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
+    final pendingCount = _status == 'pending' ? _items.length : null;
     return Scaffold(
-      backgroundColor: AppColors.darkElegance,
-      appBar: AppBar(
-        backgroundColor: AppColors.brandNightBlue,
-        foregroundColor: AppColors.pureWhite,
-        title: const Text('Proposte materiali'),
-        actions: [IconButton(tooltip: 'Aggiorna', onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh_rounded))],
+      backgroundColor: p.darkElegance,
+      appBar: slAdminAppBar(context, title: 'Esamina proposte', actions: <Widget>[
+        IconButton(tooltip: 'Aggiorna', onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh_rounded)),
+      ]),
+      body: SafeArea(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final bool wide = constraints.maxWidth >= _wideBreakpoint;
+          final Widget filters = Padding(
+            padding: EdgeInsets.fromLTRB(wide ? 24 : 16, 16, wide ? 24 : 16, 0),
+            child: SlFilterBar<String>(
+              selected: _status,
+              options: <SlFilterOption<String>>[
+                SlFilterOption(value: 'pending', label: 'In attesa', count: pendingCount),
+                const SlFilterOption(value: 'approved', label: 'Approvate'),
+                const SlFilterOption(value: 'rejected', label: 'Rifiutate'),
+                const SlFilterOption(value: 'all', label: 'Tutte'),
+              ],
+              onSelected: (status) {
+                if (status == _status) return;
+                setState(() { _status = status; _selectedId = null; });
+                _load();
+              },
+            ),
+          );
+          if (_loading && _items.isEmpty) {
+            return Column(children: <Widget>[filters, Expanded(child: Center(child: CircularProgressIndicator(color: p.skyBlue)))]);
+          }
+          if (_error != null) {
+            return Column(children: <Widget>[
+              filters,
+              Padding(padding: const EdgeInsets.all(16), child: SlErrorCard(title: _error!, message: 'Controlla la connessione e riprova.', onRetry: _load)),
+            ]);
+          }
+          final items = _visibleItems;
+          final list = _buildQueue(items, wide);
+          if (!wide) return Column(children: <Widget>[filters, Expanded(child: list)]);
+          final matches = items.where((i) => _id(i) == _selectedId);
+          final Map<String, dynamic>? selected = matches.isNotEmpty ? matches.first : (items.isNotEmpty ? items.first : null);
+          return Column(children: <Widget>[
+            filters,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+                  SizedBox(width: 400, child: _queuePanel(list)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: selected == null
+                        ? const SlEmptyState(
+                            icon: Icons.inbox_outlined,
+                            title: 'Nessuna proposta selezionata',
+                            message: 'Scegli una proposta dall’elenco per vederne i dettagli.')
+                        : _PublicationDetail(
+                            key: ValueKey<int?>(_id(selected)),
+                            state: this,
+                            item: selected,
+                          ),
+                  ),
+                ]),
+              ),
+            ),
+          ]);
+        }),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(_error!, style: const TextStyle(color: AppColors.pureWhite)),
-                  TextButton(onPressed: _load, child: const Text('Riprova')),
-                ]))
-              : RefreshIndicator(onRefresh: _load, child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(
-                      color: AppColors.eleganceMidnight,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppColors.materialSky.withValues(alpha: 0.28)),
-                    ), child: const Column(crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Revisione materiali', style: TextStyle(
-                          color: AppColors.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 5),
-                        Text('Controlla percorso e dettagli prima di pubblicare.',
-                          style: TextStyle(color: Colors.white60)),
-                      ])),
-                    const SizedBox(height: 16),
-                    SingleChildScrollView(scrollDirection: Axis.horizontal,
-                      child: Row(children: [for (final status in const [
-                        'pending', 'approved', 'rejected', 'all'
-                      ]) Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(
-                        label: Text(status == 'all' ? 'Tutte' : status),
-                        selected: _status == status,
-                        onSelected: (_) {setState(() => _status = status); _load();},
-                      ))])),
-                    const SizedBox(height: 14),
-                    TextField(onChanged: (value) => setState(() => _query = value),
-                      style: const TextStyle(color: AppColors.pureWhite),
-                      decoration: const InputDecoration(labelText: 'Cerca proposta',
-                        prefixIcon: Icon(Icons.search_rounded), border: OutlineInputBorder())),
-                    const SizedBox(height: 14),
-                    Text('${_visibleItems.length} proposte',
-                      style: const TextStyle(color: Colors.white60)),
-                    const SizedBox(height: 10),
-                    if (_visibleItems.isEmpty)
-                      const Padding(padding: EdgeInsets.all(24), child: Text(
-                        'Nessuna proposta per i filtri selezionati.',
-                        style: TextStyle(color: Colors.white60)))
-                    else ..._visibleItems.map(_card),
-                  ],
-                )),
     );
   }
 
-  Widget _card(Map<String, dynamic> item) {
-    final id = _id(item);
-    final pending = item['status']?.toString().toLowerCase() == 'pending';
-    final busy = id != null && _processing.contains(id);
+  Widget _queuePanel(Widget list) {
+    final p = context.palette;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.eleganceMidnight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.14))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Wrap(spacing: 7, runSpacing: 7, children: [
-          const _PublicationBadge(text: 'PROPOSTA STUDENTE'),
-          _PublicationBadge(text: (item['status']?.toString() ?? '—').toUpperCase()),
-          _PublicationBadge(text: item['attribution_mode'] == 'named'
-              ? 'CON NOME' : 'ANONIMO'),
-        ]),
-        const SizedBox(height: 10),
-        Text(item['title']?.toString() ?? 'Materiale',
-          style: const TextStyle(color: AppColors.pureWhite,
-            fontWeight: FontWeight.bold, fontSize: 15)),
-        _detail('File', item['original_name']),
-        _detail('Materia', item['subject_name']),
-        _detail('Dimensione in byte', item['file_size'] ?? item['size']),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          OutlinedButton.icon(onPressed: busy ? null : () => _details(item),
-            icon: const Icon(Icons.info_outline_rounded),
-            label: const Text('Dettagli')),
-          if (pending) ...[
-            FilledButton.icon(onPressed: busy ? null : () => _approve(item),
-              icon: const Icon(Icons.check_rounded),
-              label: const Text('Accetta')),
-            OutlinedButton.icon(onPressed: busy ? null : () => _reject(item),
-              icon: const Icon(Icons.close_rounded),
-              label: const Text('Rifiuta')),
-          ],
-        ]),
-      ]),
+      decoration: BoxDecoration(
+        color: p.eleganceMidnight,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: p.skyBlue.withValues(alpha: 0.12)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: list,
+    );
+  }
+
+  Widget _buildQueue(List<Map<String, dynamic>> items, bool wide) {
+    final p = context.palette;
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.all(wide ? 8 : 16),
+        children: <Widget>[
+          Padding(
+            padding: EdgeInsets.fromLTRB(wide ? 6 : 0, wide ? 6 : 0, wide ? 6 : 0, 10),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value),
+              style: TextStyle(color: p.pureWhite, fontSize: 14),
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search_rounded),
+                hintText: 'Cerca per titolo, materia o studente',
+                fillColor: p.darkElegance,
+              ),
+            ),
+          ),
+          if (items.isEmpty)
+            const SlEmptyState(
+              icon: Icons.task_alt_rounded,
+              title: 'Nessuna proposta qui',
+              message: 'Quando uno studente propone un materiale lo trovi in questa coda.',
+            )
+          else
+            for (final item in items) _queueTile(item, wide),
+        ],
+      ),
+    );
+  }
+
+  Widget _queueTile(Map<String, dynamic> item, bool wide) {
+    final p = context.palette;
+    final id = _id(item);
+    final bool selected = wide && id == _selectedId;
+    final dup = _duplicateStatus(item);
+    final status = item['status']?.toString().toLowerCase() ?? 'pending';
+    final proposer = _proposerName(item);
+    final badges = <Widget>[
+      if (status == 'approved') const SlStatusBadge(label: 'Approvata', tone: SlTone.success)
+      else if (status == 'rejected') const SlStatusBadge(label: 'Rifiutata', tone: SlTone.danger)
+      else if (dup == 'confirmed') const SlStatusBadge(label: 'Duplicato', tone: SlTone.warning)
+      else if (dup == 'suspected') const SlStatusBadge(label: 'Possibile duplicato', tone: SlTone.warning)
+      else if (_requestType(item) == 'update_candidate') const SlStatusBadge(label: 'Aggiornamento', tone: SlTone.blue)
+      else const SlStatusBadge(label: 'Nuovo', tone: SlTone.success),
+      SlStatusBadge(label: item['attribution_mode'] == 'named' ? 'Con nome' : 'Anonimo'),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: selected ? p.skyBlue.withValues(alpha: 0.10) : (wide ? Colors.transparent : p.eleganceMidnight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: selected ? p.skyBlue.withValues(alpha: 0.36) : (wide ? Colors.transparent : p.skyBlue.withValues(alpha: 0.12))),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            if (wide) {
+              setState(() => _selectedId = id);
+            } else {
+              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => _PublicationDetailPage(state: this, item: item)));
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+              Row(children: <Widget>[
+                Expanded(
+                  child: Text(item['title']?.toString() ?? item['original_name']?.toString() ?? 'Materiale',
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: p.pureWhite, fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(width: 8),
+                Text(_relative(item['created_at']), style: SlText.mono(p, size: 11, color: p.pureWhite.withValues(alpha: 0.56))),
+              ]),
+              const SizedBox(height: 4),
+              Text(<String>[
+                if ((item['subject_name']?.toString() ?? '').isNotEmpty) item['subject_name'].toString(),
+                if (proposer != null) proposer,
+              ].join(' · '), style: SlText.muted(p)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 6, children: badges),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _PublicationBadge extends StatelessWidget {
-  final String text;
-  const _PublicationBadge({required this.text});
+// -----------------------------------------------------------------------------
+// Dettaglio
+// -----------------------------------------------------------------------------
+
+class _PublicationDetailPage extends StatelessWidget {
+  final _AdminMaterialPublicationsPageState state;
+  final Map<String, dynamic> item;
+
+  const _PublicationDetailPage({required this.state, required this.item});
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(color: AppColors.brandNightBlue,
-      borderRadius: BorderRadius.circular(8)),
-    child: Text(text, style: const TextStyle(color: AppColors.materialSky,
-      fontSize: 9, fontWeight: FontWeight.bold)),
-  );
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Scaffold(
+      backgroundColor: p.darkElegance,
+      appBar: slAdminAppBar(context, title: 'Proposta', breadcrumb: 'ADMIN / ESAMINA PROPOSTE'),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: _PublicationDetail(state: state, item: item, popOnDone: true),
+        ),
+      ),
+    );
+  }
+}
+
+class _PublicationDetail extends StatefulWidget {
+  final _AdminMaterialPublicationsPageState state;
+  final Map<String, dynamic> item;
+  final bool popOnDone;
+
+  const _PublicationDetail({super.key, required this.state, required this.item, this.popOnDone = false});
+
+  @override
+  State<_PublicationDetail> createState() => _PublicationDetailState();
+}
+
+class _PublicationDetailState extends State<_PublicationDetail> {
+  late _Decision _decision;
+  late bool _forceAnonymous;
+
+  _AdminMaterialPublicationsPageState get s => widget.state;
+  Map<String, dynamic> get item => widget.item;
+
+  @override
+  void initState() {
+    super.initState();
+    _decision = s._defaultDecision(item);
+    _forceAnonymous = item['attribution_mode'] != 'named';
+  }
+
+  bool get _pending => (item['status']?.toString().toLowerCase() ?? 'pending') == 'pending';
+
+  String _approveLabel() {
+    switch (_decision) {
+      case _Decision.publishNew:
+        return 'Approva e pubblica';
+      case _Decision.newVersion:
+        return 'Approva come nuova versione';
+      case _Decision.separate:
+        return 'Pubblica come materiale separato';
+      case _Decision.alreadyAvailable:
+        return 'Chiudi: già disponibile';
+    }
+  }
+
+  Future<void> _done(Future<bool> action) async {
+    final ok = await action;
+    if (ok && widget.popOnDone && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final id = s._id(item);
+    final busy = id != null && s._processing.contains(id);
+    final description = item['description']?.toString().trim() ?? '';
+    return Container(
+      decoration: BoxDecoration(
+        color: p.eleganceDeepNavy,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: p.skyBlue.withValues(alpha: 0.18)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+            SlFileTile(kind: slFileKind(item['mime_type']?.toString(), item['original_name']?.toString()), size: 52),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+                Text(item['title']?.toString() ?? 'Materiale',
+                    style: TextStyle(color: p.pureWhite, fontSize: 19, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(<String>[
+                  item['original_name']?.toString() ?? '',
+                  s._bytes(item['file_size'] ?? item['size']),
+                  if ((item['sha256'] ?? item['file_hash']) != null) 'SHA-256 ${s._shortHash(item['sha256'] ?? item['file_hash'])}',
+                ].where((v) => v.isNotEmpty).join(' · '), style: SlText.mono(p, size: 12)),
+                if (description.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Text('“$description”', style: SlText.body(p)),
+                ],
+              ]),
+            ),
+            const SizedBox(width: 12),
+            SlActionButton(icon: Icons.visibility_outlined, label: 'Anteprima', primary: true, onPressed: () => s._preview(item)),
+          ]),
+        ),
+        Divider(height: 1, color: p.pureWhite.withValues(alpha: 0.07)),
+        Expanded(
+          child: LayoutBuilder(builder: (context, constraints) {
+            final bool twoColumns = constraints.maxWidth >= 720;
+            final left = _leftColumn();
+            final right = _rightColumn();
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(18),
+              child: twoColumns
+                  ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+                      Expanded(child: left),
+                      const SizedBox(width: 18),
+                      SizedBox(width: 320, child: right),
+                    ])
+                  : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[left, const SizedBox(height: 18), right]),
+            );
+          }),
+        ),
+        if (_pending) ...<Widget>[
+          Divider(height: 1, color: p.pureWhite.withValues(alpha: 0.07)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                Text('Lo studente riceverà una notifica con l’esito.', style: SlText.muted(p)),
+                OutlinedButton(
+                  onPressed: busy ? null : () => _done(s._reject(item)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: p.adminCoral,
+                    minimumSize: const Size(0, 44),
+                    side: BorderSide(color: p.adminCoral.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Rifiuta…'),
+                ),
+                FilledButton(
+                  onPressed: busy ? null : () => _done(s._approve(item, _decision, _forceAnonymous)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: p.skyBlue,
+                    foregroundColor: p.darkElegance,
+                    minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  child: busy
+                      ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: p.darkElegance))
+                      : Text(_approveLabel()),
+                ),
+              ],
+            ),
+          ),
+        ] else if (item['rejection_reason'] != null) ...<Widget>[
+          Divider(height: 1, color: p.pureWhite.withValues(alpha: 0.07)),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: SlKeyValue(label: 'Motivo del rifiuto', value: item['rejection_reason'].toString()),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _leftColumn() {
+    final p = context.palette;
+    final children = <Widget>[];
+    if (s._hasDuplicatePanel(item)) {
+      children.add(_duplicatePanel());
+      children.add(const SizedBox(height: 16));
+    }
+    final hash = (item['sha256'] ?? item['file_hash'])?.toString();
+    final requestType = s._requestType(item) == 'update_candidate' ? 'Aggiornamento di un materiale' : 'Nuovo materiale';
+    children.add(const SlOverline('Dettagli'));
+    children.add(const SizedBox(height: 8));
+    children.add(Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: p.eleganceMidnight, borderRadius: BorderRadius.circular(12)),
+      child: Column(children: <Widget>[
+        SlKeyValue(label: 'Tipo di proposta', value: requestType),
+        SlKeyValue(label: 'Tipo file', value: item['mime_type']?.toString() ?? '—', mono: true),
+        if (hash != null && hash.isNotEmpty) SlKeyValue(label: 'SHA-256', value: hash, mono: true),
+        SlKeyValue(label: 'Stato', value: item['status']?.toString() ?? '—'),
+      ]),
+    ));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+  }
+
+  Widget _duplicatePanel() {
+    final p = context.palette;
+    final id = s._id(item);
+    final dup = s._duplicateStatus(item);
+    final confirmed = dup == 'confirmed';
+    final options = s._decisions(item);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: p.adminAmber.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: p.adminAmber.withValues(alpha: 0.34)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+        Row(children: <Widget>[
+          Icon(Icons.content_copy_rounded, size: 18, color: p.adminAmber),
+          const SizedBox(width: 8),
+          Text(confirmed ? 'Duplicato confermato' : (s._requestType(item) == 'update_candidate' ? 'Proposta di aggiornamento' : 'Possibile duplicato'),
+              style: TextStyle(color: p.adminAmber, fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(confirmed ? 'Contenuto identico a un materiale già pubblicato.' : 'Contenuto simile a un materiale già pubblicato.',
+                style: SlText.muted(p)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        if (id != null)
+          FutureBuilder<Map<String, dynamic>>(
+            future: s._duplicateFor(id),
+            builder: (context, snapshot) {
+              final existing = snapshot.data;
+              final existingCard = _compareCard(
+                label: 'Già pubblicato',
+                title: existing?['title']?.toString() ?? (snapshot.hasError ? 'Non disponibile' : 'Caricamento…'),
+                meta: existing == null ? '' : <String>[
+                  s._bytes(existing['file_size'] ?? existing['size']),
+                  if (existing['created_at'] != null) s._relative(existing['created_at']),
+                ].join(' · '),
+                highlight: false,
+              );
+              final proposedCard = _compareCard(
+                label: 'Proposta',
+                title: item['title']?.toString() ?? 'Materiale',
+                meta: <String>[
+                  s._bytes(item['file_size'] ?? item['size']),
+                  if (s._proposerName(item) != null) s._proposerName(item)!,
+                ].join(' · '),
+                highlight: true,
+                note: existing != null && (existing['file_hash'] ?? existing['sha256']) != null
+                    ? ((existing['file_hash'] ?? existing['sha256']).toString().toLowerCase() ==
+                            (item['file_hash'] ?? item['sha256'])?.toString().toLowerCase()
+                        ? 'Stesso hash: file identico'
+                        : 'Hash diverso: contenuto modificato')
+                    : null,
+              );
+              return LayoutBuilder(builder: (context, c) => c.maxWidth >= 480
+                  ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+                      Expanded(child: existingCard), const SizedBox(width: 10), Expanded(child: proposedCard)])
+                  : Column(children: <Widget>[existingCard, const SizedBox(height: 10), proposedCard]));
+            },
+          ),
+        const SizedBox(height: 12),
+        for (final option in options)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: SlChoiceTile(
+              title: switch (option) {
+                _Decision.newVersion => 'Sostituisci come nuova versione',
+                _Decision.separate => 'Pubblica come materiale separato',
+                _Decision.alreadyAvailable => 'Rifiuta: è già disponibile',
+                _Decision.publishNew => 'Pubblica come nuovo materiale',
+              },
+              description: switch (option) {
+                _Decision.newVersion => 'Chi ha il file offline riceve l’aggiornamento.',
+                _Decision.separate => 'Restano entrambi nel catalogo.',
+                _Decision.alreadyAvailable => 'La proposta si chiude collegata al materiale esistente.',
+                _Decision.publishNew => null,
+              },
+              selected: _decision == option,
+              onTap: _pending ? () => setState(() => _decision = option) : () {},
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget _compareCard({required String label, required String title, required String meta, required bool highlight, String? note}) {
+    final p = context.palette;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: p.eleganceMidnight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: highlight ? p.skyBlue.withValues(alpha: 0.24) : Colors.transparent),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+        SlOverline(label),
+        const SizedBox(height: 6),
+        Text(title, style: TextStyle(color: p.pureWhite, fontSize: 13, fontWeight: FontWeight.w600)),
+        if (meta.isNotEmpty) ...<Widget>[const SizedBox(height: 4), Text(meta, style: SlText.mono(p, size: 11))],
+        if (note != null) ...<Widget>[const SizedBox(height: 4), Text(note, style: SlText.muted(p))],
+      ]),
+    );
+  }
+
+  Widget _rightColumn() {
+    final p = context.palette;
+    final proposer = s._proposerName(item);
+    final path = item['path_segments'] is List ? (item['path_segments'] as List).join(' / ') : '';
+    final placement = <(String, String)>[
+      if ((item['university']?.toString() ?? '').isNotEmpty) ('Ateneo', item['university'].toString()),
+      if ((item['department']?.toString() ?? '').isNotEmpty) ('Dipartimento', item['department'].toString()),
+      if ((item['course_name'] ?? item['course']) != null) ('Corso', (item['course_name'] ?? item['course']).toString()),
+      if ((item['subject_name']?.toString() ?? '').isNotEmpty) ('Materia', item['subject_name'].toString()),
+      if (path.isNotEmpty) ('Cartella', path),
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+      const SlOverline('Proposto da'),
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: p.eleganceMidnight, borderRadius: BorderRadius.circular(12)),
+        child: Row(children: <Widget>[
+          CircleAvatar(
+            radius: 17,
+            backgroundColor: p.studentBlue,
+            child: Text(_initials(proposer), style: TextStyle(color: p.pureWhite, fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+              Text(proposer ?? 'Studente', style: TextStyle(color: p.pureWhite, fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(s._relative(item['created_at']), style: SlText.muted(p)),
+            ]),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 18),
+      const SlOverline('Posizione nel catalogo'),
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: p.eleganceMidnight, borderRadius: BorderRadius.circular(12)),
+        child: Column(children: <Widget>[
+          if (placement.isEmpty) Text('Posizione non indicata.', style: SlText.muted(p)),
+          for (final (label, value) in placement) SlKeyValue(label: label, value: value),
+        ]),
+      ),
+      const SizedBox(height: 18),
+      const SlOverline('Pubblicazione'),
+      const SizedBox(height: 4),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: !_forceAnonymous,
+        onChanged: !_pending || item['attribution_mode'] != 'named'
+            ? null
+            : (value) => setState(() => _forceAnonymous = !value),
+        title: Text('Mostra il nome dell’autore', style: SlText.body(p)),
+        subtitle: item['attribution_mode'] != 'named'
+            ? Text('Lo studente ha chiesto di restare anonimo.', style: SlText.muted(p))
+            : null,
+      ),
+    ]);
+  }
+
+  String _initials(String? name) {
+    final parts = (name ?? '').trim().split(RegExp(r'\s+')).where((v) => v.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    return parts.take(2).map((v) => v[0].toUpperCase()).join();
+  }
 }

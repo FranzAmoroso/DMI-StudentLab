@@ -4240,6 +4240,28 @@ class ApiService {
     return _decodeMapResponse(response, 'Errore invio richiesta materiale');
   }
 
+  Future<List<Map<String, dynamic>>> getMaterialRequestSubjects() async {
+    final response = await http.get(_apiUri('/teacher-material-requests/options'),
+      headers: _jsonHeaders);
+    final values = _decodeListResponse(response, 'Impossibile caricare le materie del tuo corso');
+    return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getStudentLabMaterialRequests() async {
+    final response = await http.get(_apiUri('/teacher-material-requests/studentlab'),
+      headers: _jsonHeaders);
+    final values = _decodeListResponse(response, 'Impossibile caricare le richieste StudentLab');
+    return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<Map<String, dynamic>> replyStudentLabMaterialRequest(int id,
+      {required String message, required String action}) async {
+    final response = await http.post(_apiUri('/teacher-material-requests/studentlab/$id/reply'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'message': message, 'action': action}));
+    return _decodeMapResponse(response, 'Impossibile rispondere alla richiesta');
+  }
+
   Future<Map<String, dynamic>> personalRetentionAction({
     required int materialId,
     required String action,

@@ -89,14 +89,14 @@ class _DeveloperSearchPageState
         _results = results;
         _loading = false;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
 
       setState(() {
         _loading = false;
-        _error = error.toString();
+        _error = 'Non è stato possibile completare la ricerca. Riprova tra poco.';
       });
     }
   }
@@ -124,16 +124,24 @@ class _DeveloperSearchPageState
           ),
         ),
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        SnackBar(
-          content:
-              Text(error.toString()),
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('File non disponibile'),
+          content: const Text(
+            'Non è stato possibile aprire il file. Riprova tra poco.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Chiudi'),
+            ),
+          ],
         ),
       );
     }

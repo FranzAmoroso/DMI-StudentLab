@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 
 import 'message/message_page.dart';
 import 'notifications/notifications_page.dart';
+import '../widgets/studentlab_ui/studentlab_nav.dart';
 
 import 'social_models.dart';
 
@@ -102,6 +103,7 @@ class _SocialPageState extends State<SocialPage> {
     setState(() {
       if (_session.isGuest) {
         _unreadNotificationCount = 0;
+        StudentLabNavCounters.instance.notifications = 0;
 
         if (_currentIndex > 2) {
           _currentIndex = 0;
@@ -132,6 +134,7 @@ class _SocialPageState extends State<SocialPage> {
 
       setState(() {
         _unreadNotificationCount = count;
+        StudentLabNavCounters.instance.notifications = count;
       });
     } catch (_) {
       if (!mounted) {
@@ -140,6 +143,7 @@ class _SocialPageState extends State<SocialPage> {
 
       setState(() {
         _unreadNotificationCount = 0;
+        StudentLabNavCounters.instance.notifications = 0;
       });
     } finally {
       _loadingNotifications = false;
@@ -655,19 +659,12 @@ class _SocialPageState extends State<SocialPage> {
 
         actions: [
           if (!_session.isGuest) ...[
-            IconButton(
-              tooltip: 'Messaggi',
-
-              onPressed: _openMessages,
-
-              icon: const Icon(Icons.chat_bubble_outline_rounded),
+            StudentLabNavActions(
+              onMessages: _openMessages,
+              onNotifications: _openNotifications,
+              barColor: AppColors.brandNightBlue,
             ),
-
-            _SocialNotificationButton(
-              count: _unreadNotificationCount,
-
-              onPressed: _openNotifications,
-            ),
+            const SizedBox(width: 6),
           ],
 
           Padding(
@@ -1373,54 +1370,6 @@ class _SocialUserMenuTile extends StatelessWidget {
             )
           : null,
       onTap: onTap,
-    );
-  }
-}
-
-class _SocialNotificationButton extends StatelessWidget {
-  final int count;
-  final VoidCallback onPressed;
-
-  const _SocialNotificationButton({
-    required this.count,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: 'Notifiche',
-      onPressed: onPressed,
-      icon: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          const Icon(Icons.notifications_none_rounded),
-
-          if (count > 0)
-            Positioned(
-              top: -5,
-              right: -7,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.redAccent,
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: AppColors.brandNightBlue, width: 2),
-                ),
-                child: Text(
-                  count > 99 ? '99+' : '$count',
-                  style: const TextStyle(
-                    color: AppColors.pureWhite,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

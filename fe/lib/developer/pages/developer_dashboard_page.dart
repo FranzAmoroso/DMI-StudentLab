@@ -56,14 +56,14 @@ class _DeveloperDashboardPageState
         _status = status;
         _loading = false;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
 
       setState(() {
         _loading = false;
-        _error = error.toString();
+        _error = 'Non è stato possibile caricare il riepilogo. Riprova tra poco.';
       });
     }
   }

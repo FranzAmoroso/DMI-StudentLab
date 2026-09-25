@@ -10,6 +10,7 @@ import 'layers/home.dart';
 import 'local_storage/database/database_platform_initializer.dart';
 import 'local_storage/local_storage.dart';
 import 'services/app_update_service.dart';
+import 'theme/app_palette.dart';
 import 'theme/nightTheme.dart';
 import 'widgets/studentlab_wolf_wave.dart';
 
@@ -140,6 +141,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         appBarTheme: AppColors.nightAppBarTheme,
         cardTheme: AppColors.elegantCardTheme,
         bottomNavigationBarTheme: AppColors.nightBottomNavTheme,
+        // Palette con gli stessi nomi di AppColors: per un nuovo tema basta
+        // sostituire AppPalette.night con un'altra istanza.
+        extensions: const <ThemeExtension<dynamic>>[AppPalette.night],
       ),
       home: const AppStartupGate(),
     );
