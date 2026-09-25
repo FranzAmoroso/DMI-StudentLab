@@ -98,6 +98,14 @@ def _publication_item(record):
     }
 
 
+def _person_name(user):
+    """Nome leggibile di un utente, o None se assente."""
+    if user is None:
+        return None
+    name = f"{getattr(user, 'first_name', '') or ''} {getattr(user, 'last_name', '') or ''}".strip()
+    return name or getattr(user, 'email', None)
+
+
 def _public_item(record):
     return {
         "source": "public",
@@ -118,6 +126,13 @@ def _public_item(record):
         "size": record.size,
         "mime_type": record.mime_type,
         "user_id": record.uploaded_by,
+        # Provenienza per l'ispettore del Catalogo Drive (solo admin).
+        "uploader_name": _person_name(getattr(record, "uploader", None)),
+        "approver_name": _person_name(getattr(record, "approver", None)),
+        "approved_at": record.approved_at,
+        "created_at": record.created_at,
+        "contributor_mode": getattr(record, "contributor_mode", None),
+        "file_hash": record.file_hash,
         "subject_id": record.subject_id,
         "path_segments": json.loads(record.catalog_path_json or '[]'),
         "group_id": None,

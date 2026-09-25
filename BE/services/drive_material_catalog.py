@@ -129,13 +129,124 @@ def find_path(nodes, path):
 
 async def preview(client, headers, material, path):
     path = clean_path(path)
-    nodes = await scan_tree(client, headers)
-    parent, missing, existing = find_path(nodes, path)
+    # Inspect the chosen branch instead of recursively listing the whole Drive.
+    parent = settings.drive_folder_id
+    existing = []
+    missing = []
+    for index, name in enumerate(path):
+        folders = [entry async for entry in _children(client, headers, parent)
+            if entry.get('name') == name and entry.get('mimeType') == FOLDER_MIME]
+        if len(folders) > 1:
+            raise HTTPException(409, 'Esistono cartelle Drive omonime. Scegli un’altra cartella.')
+        if not folders:
+            missing = path[index:]
+            break
+        parent = folders[0]['id']
+        existing.append(name)
+    conflicts = await _related_files(client, headers, material, path)
+    # The selected folder must also detect same-name collisions that a global
+    # Drive search may miss because it indexes names differently.
+    if not missing:
+        for entry in [item async for item in _children(client, headers, parent)]:
+            if entry.get('mimeType') == FOLDER_MIME:
+                continue
+            same_name = entry.get('name', '').casefold() == material.original_name.casefold()
+            same_hash = (entry.get('appProperties') or {}).get('sha256', '').lower() == material.file_hash.lower()
+            if (same_name or same_hash) and all(row['id'] != entry['id'] for row in conflicts):
+                row = describe(entry, [*path, entry['name']], path)
+                row['reason'] = 'same_content' if same_hash else 'same_name'
+                conflicts.append(row)
     return {'path': path, 'existing_path': existing, 'missing_folders': missing,
         'target_folder_id': parent if not missing else None,
         'proposed_file': {'name': material.original_name, 'path': '/'.join([*path, material.original_name]),
             'size': material.size, 'mime_type': material.mime_type, 'sha256': material.file_hash},
-        'conflicts': matches(material, nodes, path)}
+        'conflicts': conflicts}
+
+
+def _query_literal(value):
+    return str(value).replace('\\', '\\\\').replace("'", "\\'")
+
+
+async def _search_files(client, headers, query):
+    page = None
+    count = 0
+    while True:
+        params = {'q': f'trashed = false and ({query})', 'pageSize': 1000,
+            'fields': 'nextPageToken,files(id,name,mimeType,size,modifiedTime,appProperties,parents)',
+            'supportsAllDrives': 'true', 'includeItemsFromAllDrives': 'true'}
+        if page:
+            params['pageToken'] = page
+        try:
+            response = await client.get(f'{API}/files', headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise HTTPException(503, 'Il controllo dei file Drive non è disponibile. Riprova.') from exc
+        for entry in data.get('files', []):
+            count += 1
+            if count > 3000:
+                raise HTTPException(503, 'Troppi file con questo nome. Scegli un altro nome o percorso.')
+            yield entry
+        page = data.get('nextPageToken')
+        if not page:
+            break
+
+
+async def _path_below_root(client, headers, entry):
+    current = entry
+    segments = [entry.get('name', '')]
+    seen = {entry['id']}
+    for _ in range(MAX_DEPTH + 1):
+        parents = current.get('parents') or []
+        if settings.drive_folder_id in parents:
+            return segments
+        if len(parents) != 1 or parents[0] in seen:
+            return None
+        parent = parents[0]
+        seen.add(parent)
+        try:
+            response = await client.get(f'{API}/files/{_safe_id(parent)}',
+                headers=headers, params={'fields': 'id,name,mimeType,parents,trashed',
+                                          'supportsAllDrives': 'true'})
+            response.raise_for_status()
+            current = response.json()
+        except (httpx.HTTPError, ValueError):
+            return None
+        if current.get('trashed') or current.get('mimeType') != FOLDER_MIME:
+            return None
+        segments.insert(0, current.get('name', ''))
+    return None
+
+
+async def _related_files(client, headers, material, path):
+    name = _query_literal(material.original_name)
+    digest = material.file_hash.lower()
+    query = (f"name = '{name}' or "
+             f"appProperties has {{ key='sha256' and value='{digest}' }}")
+    results = []
+    async for entry in _search_files(client, headers, query):
+        if entry.get('mimeType') == FOLDER_MIME:
+            continue
+        segments = await _path_below_root(client, headers, entry)
+        if segments is None:
+            continue
+        same_hash = (entry.get('appProperties') or {}).get('sha256', '').lower() == digest
+        same_name = entry.get('name', '').casefold() == material.original_name.casefold()
+        if same_hash or same_name:
+            row = describe(entry, segments, path)
+            row['reason'] = 'same_content' if same_hash else 'same_name'
+            results.append(row)
+    return results
+
+
+async def existing_copy(client, headers, material):
+    query = "appProperties has { key='studentlab_public_id' and value='%s' }" % material.id
+    async for entry in _search_files(client, headers, query):
+        props = entry.get('appProperties') or {}
+        if (props.get('sha256', '').lower() == material.file_hash.lower()
+                and await _path_below_root(client, headers, entry) is not None):
+            return entry['id']
+    return None
 
 
 async def ensure_path(client, headers, path):

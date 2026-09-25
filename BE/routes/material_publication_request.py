@@ -6,6 +6,7 @@ from pydantic import (
     BaseModel,
 )
 
+from services.public_material_access import can_read_public_material
 from fastapi import (
     APIRouter,
     Depends,
@@ -215,6 +216,13 @@ def api_material_publication_upload_request(
         file_hash=file_hash,
     )
 
+    visible_duplicate = (
+        duplicate
+        if duplicate is not None
+        and can_read_public_material(db, duplicate, current_user.id)
+        else None
+    )
+
     stored_name = (
         generate_publication_stored_name(
             current_user.id,
@@ -258,13 +266,23 @@ def api_material_publication_upload_request(
         "max_file_size": MAX_PUBLIC_MATERIAL_SIZE,
         "upload_token": upload_token,
         "valid_until": expires_at * 1000,
-        "possible_duplicate": (
-            duplicate is not None
-        ),
+        # Il duplicato viene segnalato allo studente solo se è un materiale
+        # che può già leggere: altrimenti la risposta rivelerebbe l'esistenza
+        # di file nascosti o riservati. La revisione admin lo rileva comunque.
+        "possible_duplicate": visible_duplicate is not None,
         "possible_duplicate_material_id": (
-            duplicate.id
-            if duplicate is not None
-            else None
+            visible_duplicate.id if visible_duplicate is not None else None
+        ),
+        "possible_duplicate_exact": bool(
+            visible_duplicate is not None
+            and (visible_duplicate.file_hash or "").lower() == file_hash
+        ),
+        "possible_duplicate_title": (
+            visible_duplicate.title if visible_duplicate is not None else None
+        ),
+        "possible_duplicate_path": (
+            json.loads(visible_duplicate.catalog_path_json or "[]")
+            if visible_duplicate is not None else None
         ),
     }
 
@@ -848,7 +866,7 @@ def api_admin_recheck_publication_duplicate(
             fresh_status != proposal.duplicate_status):
         proposal.possible_duplicate_material_id = fresh_id
         proposal.duplicate_status = fresh_status
-        proposal.comparison_status = ('same_material' if proposal.duplicate_status == 'confirmed'
+        proposal.comparison_status = ('same_material' if fresh_status == 'confirmed'
             else 'pending' if fresh else 'not_required')
         db.commit()
         db.refresh(proposal)
@@ -883,9 +901,6 @@ async def api_admin_approve_material_publication(
             status_code=404,
             detail="Richiesta non trovata.",
         )
-
-    if request.catalog_path_segments is not None:
-        clean_path(request.catalog_path_segments)
 
     drive_enabled = all((settings.drive_folder_id, settings.drive_client_id,
         settings.drive_client_secret, settings.drive_refresh_token))
@@ -948,9 +963,7 @@ async def api_admin_approve_material_publication(
 
         status_code = (
             409
-            if message.startswith(('È stato pubblicato un possibile duplicato',
-                                   'Il materiale di confronto non è più disponibile',
-                                   'Il file è già presente su StudentLab')) or message in [
+            if message in [
                 (
                     "La richiesta ha già generato "
                     "un materiale pubblico."

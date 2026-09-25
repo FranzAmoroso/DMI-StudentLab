@@ -430,6 +430,11 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
       message.dispose();
       return;
     }
+    if (!await _confirmNoExistingMaterial('${topic.text} ${message.text}')) {
+      topic.dispose();
+      message.dispose();
+      return;
+    }
 
     await _run(() async {
       await _api.createStudentMaterialRequest(
@@ -443,6 +448,80 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     });
     topic.dispose();
     message.dispose();
+  }
+
+  /// "Forse c'è già": prima di inviare una richiesta cerca, tra i materiali
+  /// che lo studente può già leggere, quelli che corrispondono al testo.
+  /// Restituisce true se si può inviare la richiesta.
+  Future<bool> _confirmNoExistingMaterial(String text) async {
+    final int? subjectId = _subjectId;
+    if (subjectId == null) return true;
+    List<Map<String, dynamic>> found;
+    try {
+      found = await _api.getMaterialRequestSuggestions(subjectId: subjectId, query: text);
+    } catch (_) {
+      return true; // la ricerca è un aiuto: se non risponde, la richiesta parte comunque
+    }
+    if (found.isEmpty || !mounted) return true;
+    final String? choice = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.eleganceDeepNavy,
+        title: Row(children: [
+          Icon(Icons.search_rounded, color: AppColors.adminGreen),
+          const SizedBox(width: 8),
+          Text('Forse c’è già', style: TextStyle(color: AppColors.adminGreen)),
+        ]),
+        content: SizedBox(
+          width: 440,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Questi materiali di ${_subjectName ?? 'questa materia'} sono già disponibili per te:',
+                    style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.78))),
+                const SizedBox(height: 12),
+                for (final item in found)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.eleganceMidnight,
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(color: AppColors.adminGreen.withValues(alpha: 0.24)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(item['title']?.toString() ?? item['original_name']?.toString() ?? 'Materiale',
+                          style: TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.w600)),
+                      if (item['path_segments'] is List && (item['path_segments'] as List).isNotEmpty)
+                        Text((item['path_segments'] as List).join(' › '),
+                            style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 12)),
+                    ]),
+                  ),
+                Text('Li trovi nelle Dispense, nella materia.',
+                    style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'open'),
+            child: const Text('Vai alle Dispense'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, 'send'),
+            child: const Text('Non è quello, invia'),
+          ),
+        ],
+      ),
+    );
+    if (choice == 'open' && mounted) {
+      Navigator.of(context).pop();
+      return false;
+    }
+    return choice == 'send';
   }
 
   Future<void> _createTeacherRequest({String? recipientKind}) async {
@@ -494,6 +573,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
       _message('Descrivi il materiale che vuoi richiedere.');
       return;
     }
+    if (!await _confirmNoExistingMaterial('$topicText $messageText')) return;
     await _run(() async {
       final response = await _api.createTeacherMaterialRequest(subjectId: subjectId,
         topic: topicText, message: messageText, recipientKind: recipientKind);

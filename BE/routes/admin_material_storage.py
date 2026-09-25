@@ -190,7 +190,7 @@ async def admin_drive_tree(folder_id: str | None = None,
             response = await client.get('https://www.googleapis.com/drive/v3/files',
                 headers=headers, params={'q': f"'{folder_id}' in parents and trashed = false",
                     'pageSize': 100, **({'pageToken': page_token} if page_token else {}),
-                    'fields': 'nextPageToken,files(id,name,mimeType,size,parents)',
+                    'fields': 'nextPageToken,files(id,name,mimeType,size,parents,modifiedTime,owners(displayName,emailAddress),lastModifyingUser(displayName))',
                     'supportsAllDrives': 'true', 'includeItemsFromAllDrives': 'true'})
             response.raise_for_status()
             payload = response.json()
@@ -204,7 +204,11 @@ async def admin_drive_tree(folder_id: str | None = None,
                 .filter(PublicMaterial.drive_file_id.in_(ids), PublicMaterial.status != 'removed').all()}
         return {'folder_id': folder_id, 'next_page_token': payload.get('nextPageToken'), 'items': [
             {'id': e['id'], 'name': e.get('name', ''), 'mime_type': e.get('mimeType'),
-             'size': int(e.get('size') or 0), 'indexed': e['id'] in indexed}
+             'size': int(e.get('size') or 0), 'indexed': e['id'] in indexed,
+             'modified_at': e.get('modifiedTime'),
+             'owner': ((e.get('owners') or [{}])[0].get('displayName')
+                 or (e.get('owners') or [{}])[0].get('emailAddress')),
+             'last_modified_by': (e.get('lastModifyingUser') or {}).get('displayName')}
             for e in sorted(children, key=lambda e: (e.get('mimeType') != FOLDER_MIME,
                 e.get('name', '').casefold()))]}
 

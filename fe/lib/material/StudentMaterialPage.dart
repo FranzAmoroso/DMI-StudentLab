@@ -5292,6 +5292,83 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
     }
   }
 
+  /// "Questo file è già su StudentLab": il server segnala un materiale che
+  /// lo studente può già vedere. Restituisce 'cancel', 'new_version' o 'separate'.
+  Future<String> _askDuplicateDecision(Map<String, dynamic> duplicate) async {
+    final bool exact = duplicate['exact'] == true;
+    final String title = duplicate['title']?.toString() ?? 'Materiale già pubblicato';
+    final List<String> path = duplicate['path_segments'] is List
+        ? (duplicate['path_segments'] as List).map((e) => '$e').toList()
+        : const <String>[];
+    final String? choice = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.eleganceDeepNavy,
+        title: Row(children: [
+          Icon(Icons.content_copy_rounded, color: AppColors.adminAmber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              exact ? 'Questo file è già su StudentLab' : 'Esiste un materiale simile',
+              style: TextStyle(color: AppColors.adminAmber, fontSize: 17),
+            ),
+          ),
+        ]),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                exact
+                    ? 'Il contenuto è identico a un materiale già pubblicato, quindi non serve inviarlo di nuovo.'
+                    : 'Nella stessa materia c’è un materiale con lo stesso nome o la stessa dimensione.',
+                style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.80), height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.eleganceMidnight,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.w600)),
+                  if (path.isNotEmpty)
+                    Text(path.join(' › '),
+                        style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 12)),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Hai corretto o ampliato il file? Proponilo come nuova versione: StudentLab confronterà le due copie.',
+                style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.66), fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+            child: Text(exact ? 'Usa quello pubblicato' : 'Annulla'),
+          ),
+          if (!exact)
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 'separate'),
+              child: const Text('Invia come nuovo'),
+            ),
+          FilledButton(
+            onPressed: duplicate['id'] == null ? null : () => Navigator.pop(dialogContext, 'new_version'),
+            child: const Text('Proponi come nuova versione'),
+          ),
+        ],
+      ),
+    );
+    return choice ?? 'cancel';
+  }
+
   Future<void> _submit() async {
     if (_submitting || !mounted) {
       return;
@@ -5335,36 +5412,41 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
     bool completed = false;
 
     try {
-      Future<void> onPossibleDuplicate() async {
-        if (!mounted) {
-          return;
-        }
-
-        _showMessage(
-          'StudentLab ha rilevato un materiale simile. '
-          'La tua proposta verrà comunque inviata alla revisione.',
-        );
+      Future<String> onDuplicateDecision(Map<String, dynamic> duplicate) async {
+        if (!mounted) return 'cancel';
+        return _askDuplicateDecision(duplicate);
       }
 
+      final Map<String, dynamic> result;
       if (fileBytes != null && fileBytes.isNotEmpty) {
-        await widget.apiService.uploadMaterialPublicationBytes(
+        result = await widget.apiService.uploadMaterialPublicationBytes(
           subjectId: subject.id,
           title: title,
           description: description,
           bytes: fileBytes,
           originalName: fileName,
           attributionMode: _attributionMode,
-          onPossibleDuplicate: onPossibleDuplicate,
+          onDuplicateDecision: onDuplicateDecision,
         );
+        if (result['cancelled'] == true) {
+          if (mounted) Navigator.of(context).pop(false);
+          completed = true;
+          return;
+        }
       } else {
-        await widget.apiService.uploadMaterialPublication(
+        result = await widget.apiService.uploadMaterialPublication(
           subjectId: subject.id,
           title: title,
           description: description,
           filePath: filePath!,
           attributionMode: _attributionMode,
-          onPossibleDuplicate: onPossibleDuplicate,
+          onDuplicateDecision: onDuplicateDecision,
         );
+        if (result['cancelled'] == true) {
+          if (mounted) Navigator.of(context).pop(false);
+          completed = true;
+          return;
+        }
       }
 
       if (!mounted) {

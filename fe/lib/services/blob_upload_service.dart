@@ -500,6 +500,7 @@ class StudentLabUploadService {
     required String filePath,
     String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
+    Future<String> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
   }) async {
     final _UploadFile file = await _fromPath(filePath);
     return uploadMaterialPublicationBytes(
@@ -510,6 +511,7 @@ class StudentLabUploadService {
       originalName: file.name,
       attributionMode: attributionMode,
       onPossibleDuplicate: onPossibleDuplicate,
+      onDuplicateDecision: onDuplicateDecision,
     );
   }
 
@@ -521,6 +523,10 @@ class StudentLabUploadService {
     required String originalName,
     String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
+    /// Se il server segnala un materiale già visibile allo studente, chiede
+    /// cosa fare: 'cancel' (non inviare), 'new_version' (proponi come
+    /// aggiornamento di quel materiale) oppure 'separate' (invia come nuovo).
+    Future<String> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
   }) async {
     if (subjectId <= 0) throw Exception('Materia non valida.');
     final String normalizedTitle = title.trim();
@@ -556,7 +562,27 @@ class StudentLabUploadService {
     final int? duplicateId = _positiveInt(
       authorization['possible_duplicate_material_id'],
     );
-    if (duplicate && onPossibleDuplicate != null) {
+    String requestType = 'new_material';
+    int? targetMaterialId;
+    if (duplicate && onDuplicateDecision != null) {
+      final String decision = await onDuplicateDecision(<String, dynamic>{
+        'id': duplicateId,
+        'exact': authorization['possible_duplicate_exact'] == true,
+        'title': authorization['possible_duplicate_title'],
+        'path_segments': authorization['possible_duplicate_path'],
+      });
+      if (decision == 'cancel') {
+        return <String, dynamic>{
+          'cancelled': true,
+          'possible_duplicate': true,
+          'possible_duplicate_material_id': duplicateId,
+        };
+      }
+      if (decision == 'new_version' && duplicateId != null) {
+        requestType = 'update_candidate';
+        targetMaterialId = duplicateId;
+      }
+    } else if (duplicate && onPossibleDuplicate != null) {
       await onPossibleDuplicate();
     }
     final String pathname = _requiredString(authorization, 'pathname');
@@ -589,6 +615,8 @@ class StudentLabUploadService {
         'size': bytes.length,
         'file_hash': hash,
         'upload_token': token,
+        'request_type': requestType,
+        if (targetMaterialId != null) 'target_public_material_id': targetMaterialId,
       },
       'Non è stato possibile inviare il materiale in revisione.',
     );

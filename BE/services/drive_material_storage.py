@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from vercel.blob import AsyncBlobClient
 
 from core.config import settings
-from services.drive_material_catalog import _children, clean_path, default_path, ensure_path, preview, scan_tree, verify_under_root
+from services.drive_material_catalog import _children, clean_path, default_path, ensure_path, preview, existing_copy, verify_under_root
 from services.private_blob import safe_download_name
 
 API = 'https://www.googleapis.com/drive/v3'
@@ -145,13 +145,11 @@ async def copy_public_material(material):
         try:
             selected = clean_path(json.loads(material.drive_path_json)
                 if material.drive_path_json else default_path(material))
-            nodes = await scan_tree(client, headers)
-            found = await _existing(client, headers, material, nodes)
+            found = await existing_copy(client, headers, material)
             if found:
                 return found
-            from services.drive_material_catalog import find_path, matches
-            find_path(nodes, selected)
-            conflicts = matches(material, nodes, selected)
+            inspection = await preview(client, headers, material, selected)
+            conflicts = inspection['conflicts']
             if any(item['same_folder'] and item['name'].casefold() ==
                    material.original_name.casefold() for item in conflicts):
                 raise HTTPException(409, 'Il file esiste già nella cartella Drive selezionata. Scegli un’altra cartella.')

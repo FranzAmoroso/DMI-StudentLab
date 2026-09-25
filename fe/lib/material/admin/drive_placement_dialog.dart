@@ -53,9 +53,10 @@ class _DrivePlacementDialogState extends State<DrivePlacementDialog> {
       setState(() {
         _result = result; _inspectedPath = _path.text; _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (mounted) setState(() {
-        _error = e.toString().replaceFirst('Exception: ', ''); _loading = false;
+        _error = 'Non siamo riusciti a controllare le cartelle su Drive. Riprova tra poco. La proposta è ancora in attesa.';
+        _loading = false;
       });
     }
   }
@@ -95,7 +96,22 @@ class _DrivePlacementDialogState extends State<DrivePlacementDialog> {
             ? null : () => _inspect(_segments),
             icon: const Icon(Icons.search), label: const Text('Controlla il percorso')),
           if (_loading) const LinearProgressIndicator(),
-          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.orangeAccent)),
+          if (_error != null) Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orangeAccent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.35)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.info_outline, color: Colors.orangeAccent),
+              const SizedBox(width: 10),
+              Expanded(child: Text(_error!, style: const TextStyle(color: Colors.white70))),
+              TextButton(onPressed: _loading ? null : () => _inspect(_segments.isEmpty ? null : _segments),
+                child: const Text('Riprova')),
+            ]),
+          ),
           if (_result != null) ...[
             const SizedBox(height: 14),
             const Text('File proposto', style: TextStyle(color: Colors.white,

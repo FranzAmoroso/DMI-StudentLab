@@ -3731,6 +3731,7 @@ class ApiService {
     required String filePath,
     String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
+    Future<String> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
   }) async {
     _requireCurrentUserId();
 
@@ -3741,6 +3742,7 @@ class ApiService {
       filePath: filePath,
       attributionMode: attributionMode,
       onPossibleDuplicate: onPossibleDuplicate,
+      onDuplicateDecision: onDuplicateDecision,
     );
   }
 
@@ -3752,6 +3754,7 @@ class ApiService {
     required String originalName,
     String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
+    Future<String> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
   }) async {
     _requireCurrentUserId();
     return StudentLabUploadService().uploadMaterialPublicationBytes(
@@ -3762,6 +3765,7 @@ class ApiService {
       originalName: originalName,
       attributionMode: attributionMode,
       onPossibleDuplicate: onPossibleDuplicate,
+      onDuplicateDecision: onDuplicateDecision,
     );
   }
 
@@ -3837,6 +3841,14 @@ class ApiService {
       response,
       'Errore caricamento possibile duplicato',
     );
+  }
+
+  Future<Map<String, dynamic>> recheckAdminPublicationDuplicate(int requestId) async {
+    final response = await http.post(
+      _apiUri('/admin/material_publications/$requestId/duplicate/recheck'),
+      headers: _jsonHeaders,
+    );
+    return _decodeMapResponse(response, 'Impossibile controllare i duplicati');
   }
 
   Future<Uint8List> downloadAdminPossibleDuplicateFile(int requestId) async {
@@ -4244,6 +4256,21 @@ class ApiService {
     return _decodeMapResponse(response, 'Errore invio richiesta materiale');
   }
 
+  /// Materiali già leggibili dallo studente che forse soddisfano una richiesta.
+  Future<List<Map<String, dynamic>>> getMaterialRequestSuggestions({
+    required int subjectId,
+    String query = '',
+  }) async {
+    final response = await http.get(
+      _apiUri('/teacher-material-requests/suggestions', queryParameters: {
+        'subject_id': '$subjectId',
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+      }),
+      headers: _jsonHeaders);
+    final values = _decodeListResponse(response, 'Impossibile cercare materiali simili');
+    return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
   Future<List<Map<String, dynamic>>> getMaterialRequestSubjects() async {
     final response = await http.get(_apiUri('/teacher-material-requests/options'),
       headers: _jsonHeaders);
@@ -4451,7 +4478,6 @@ class ApiService {
     required int requestId,
     required String action,
     int? fulfilledMaterialId,
-    int? fulfilledShareId,
   }) async {
     final http.Response response = await http.post(
       _apiUri('/teacher-material-requests/$requestId/resolve'),
@@ -4459,7 +4485,6 @@ class ApiService {
       body: jsonEncode({
         'action': action,
         'fulfilled_material_id': fulfilledMaterialId,
-        'fulfilled_share_id': fulfilledShareId,
       }),
     );
     return _decodeMapResponse(response, 'Errore gestione richiesta materiale');

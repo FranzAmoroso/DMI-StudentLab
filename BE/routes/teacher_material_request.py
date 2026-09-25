@@ -1,5 +1,8 @@
 
-from fastapi import APIRouter, Depends, HTTPException
+import json
+import re
+
+from fastapi import Query, APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -7,6 +10,7 @@ from core.database import get_db
 from core.security import get_current_user, get_verified_teacher_user, get_admin_user
 from models.teacher_material_request import TeacherMaterialRequest
 from models.public_material import PublicMaterial
+from services.public_material_access import can_read_public_material
 from models.user import User
 from schemas.teacher_material_request import TeacherMaterialRequestCreate, TeacherMaterialRequestResolve, TeacherMaterialRequestResponse
 from services.teacher_material_request import create_request, resolve_request, available_subjects, utc_now
@@ -77,6 +81,34 @@ def studentlab_reply(request_id: int, data: StudentLabReply,
     db.commit()
     db.refresh(row)
     return row
+
+
+@router.get('/suggestions')
+def material_request_suggestions(subject_id: int = Query(gt=0),
+        q: str = Query(default='', max_length=200),
+        current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Materiali già disponibili che forse soddisfano la richiesta.
+
+    Restituisce solo materiali pubblicati che questo studente può già leggere
+    (stesse regole di download e sincronizzazione), al massimo cinque.
+    """
+    words = [w for w in re.split(r'[^0-9a-zA-ZÀ-ÿ]+', q.casefold()) if len(w) >= 3][:8]
+    rows = db.query(PublicMaterial).filter(PublicMaterial.subject_id == subject_id,
+        PublicMaterial.status == 'published', PublicMaterial.is_visible.is_(True)).order_by(
+        PublicMaterial.updated_at.desc()).limit(200).all()
+    scored = []
+    for row in rows:
+        path = json.loads(row.catalog_path_json or '[]')
+        haystack = ' '.join([row.title or '', row.original_name or '', *path]).casefold()
+        score = sum(1 for w in words if w in haystack)
+        if words and score == 0:
+            continue
+        if not can_read_public_material(db, row, current_user.id):
+            continue
+        scored.append((score, row, path))
+    scored.sort(key=lambda item: (-item[0], -(item[1].updated_at.timestamp() if item[1].updated_at else 0)))
+    return [{'id': row.id, 'title': row.title, 'original_name': row.original_name,
+             'path_segments': path, 'source': 'public'} for _, row, path in scored[:5]]
 
 
 @router.post("",response_model=TeacherMaterialRequestResponse)
