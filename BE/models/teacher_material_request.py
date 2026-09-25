@@ -18,6 +18,8 @@ class TeacherMaterialRequest(Base):
     student_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False, index=True)
     teacher_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    recipient_kind = Column(String(20), nullable=False, default="teachers", server_default="teachers", index=True)
+    staff_response = Column(Text, nullable=True)
     topic = Column(String(255), nullable=True)
     message = Column(Text, nullable=False)
     status = Column(String(30), nullable=False, default="pending", server_default="pending", index=True)

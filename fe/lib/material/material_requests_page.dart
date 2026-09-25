@@ -33,6 +33,8 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
   bool _loading = true;
   bool _busy = false;
   String? _error;
+  String? _notice;
+  bool _noticeIsError = false;
   List<Map<String, dynamic>> _teacherRequests = [];
   List<Map<String, dynamic>> _sentStudentRequests = [];
   List<Map<String, dynamic>> _receivedStudentRequests = [];
@@ -134,7 +136,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
       });
       return _subjectId != null;
     } catch (e) {
-      if (mounted) _message(_friendly(e));
+      if (mounted) _showNotice(_friendly(e), isError: true);
       return false;
     }
   }
@@ -168,6 +170,31 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
           : Center(child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: DeveloperUiStyle.maxContentWidth),
               child: Column(children: [
+                if (_notice != null) Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Semantics(liveRegion: true, child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+                    decoration: BoxDecoration(
+                      color: _noticeIsError
+                          ? const Color(0xFF472F39)
+                          : AppColors.eleganceMidnight,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _noticeIsError
+                          ? const Color(0xFFD58C95)
+                          : AppColors.materialSky),
+                    ),
+                    child: Row(children: [
+                      Icon(_noticeIsError ? Icons.info_outline_rounded : Icons.check_circle_outline,
+                        color: _noticeIsError ? const Color(0xFFFFC2C6) : AppColors.materialSky),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(_notice!, style: const TextStyle(color: Colors.white))),
+                      IconButton(tooltip: 'Chiudi avviso',
+                        onPressed: () => setState(() => _notice = null),
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70)),
+                    ]),
+                  )),
+                ),
                 Padding(padding: const EdgeInsets.all(16),
                   child: DeveloperSectionCard(
                     title: 'Richiedi e condividi',
@@ -535,7 +562,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     try {
       await action();
     } catch (e) {
-      _message(_friendly(e));
+      _showNotice(_friendly(e), isError: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -566,15 +593,34 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
   }
 
   String _friendly(Object error) {
-    var text = error.toString();
-    if (text.startsWith('Exception: ')) text = text.substring(11);
-    if (text.startsWith('Bad state: ')) text = text.substring(11);
-    return text.trim().isEmpty ? 'Operazione non riuscita.' : text.trim();
+    final text = error.toString().toLowerCase();
+    if (text.contains('404') || text.contains('not found') || text.contains('non disponibile')) {
+      return 'Questa funzione è temporaneamente non disponibile. Riprova più tardi.';
+    }
+    if (text.contains('socket') || text.contains('network') ||
+        text.contains('connection') || text.contains('timeout') ||
+        text.contains('host lookup')) {
+      return 'Non riusciamo a contattare StudentLab. Controlla la connessione e riprova.';
+    }
+    if (text.contains('materia del tuo corso') || text.contains('percorso accademico')) {
+      return 'Scegli una materia del tuo percorso accademico e riprova.';
+    }
+    if (text.contains('sessione') || text.contains('401') || text.contains('token')) {
+      return 'La sessione è scaduta. Accedi di nuovo per continuare.';
+    }
+    return 'Non è stato possibile completare l’operazione. Riprova.';
   }
 
   void _message(String text) {
+    _showNotice(text);
+  }
+
+  void _showNotice(String text, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    setState(() {
+      _notice = text;
+      _noticeIsError = isError;
+    });
   }
 }
 

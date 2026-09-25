@@ -22,6 +22,8 @@ class TeacherMaterialRequestResponse(BaseModel):
     student_user_id: int
     subject_id: int
     teacher_user_id: int | None
+    recipient_kind: str = 'teachers'
+    staff_response: str | None = None
     topic: str | None
     message: str
     status: str
