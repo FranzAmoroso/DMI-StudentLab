@@ -52,6 +52,28 @@ class AdminMaterialStorageApiService {
     return _map(response, 'Impossibile leggere lo stato di Google Drive');
   }
 
+  Future<Map<String, dynamic>> getDriveTree([String? folderId, String? pageToken]) async {
+    final response = await http.get(_uri('/admin/material-storage/drive/tree',
+      query: {if (folderId != null) 'folder_id': folderId,
+        if (pageToken != null) 'page_token': pageToken}), headers: _headers);
+    return _map(response, 'Impossibile leggere i file della cartella Drive');
+  }
+
+  Future<List<Map<String, dynamic>>> getDriveImportOptions() async {
+    final response = await http.get(_uri('/admin/material-storage/drive/import-options'),
+      headers: _headers);
+    return _list(response, 'Impossibile caricare le materie del catalogo');
+  }
+
+  Future<Map<String, dynamic>> importDriveFile({required String fileId,
+      required int subjectId, required String audienceType, int? audienceId}) async {
+    final response = await http.post(_uri('/admin/material-storage/drive/import'),
+      headers: _headers, body: jsonEncode({'file_id': fileId,
+        'subject_id': subjectId, 'audience_type': audienceType,
+        'audience_id': audienceId}));
+    return _map(response, 'Impossibile registrare il file nel catalogo');
+  }
+
   Future<Map<String, dynamic>> previewPublicDrive(int materialId,
       {List<String>? path}) async {
     final response = await http.post(
@@ -286,7 +308,9 @@ class AdminMaterialStorageApiService {
       return Map<String, dynamic>.from(decoded);
     }
 
-    throw Exception(_errorMessage(decoded, fallback));
+    throw Exception(response.statusCode == 404
+        ? '$fallback: endpoint non disponibile (HTTP 404). Aggiorna il backend.'
+        : _errorMessage(decoded, fallback));
   }
 
   List<Map<String, dynamic>> _list(

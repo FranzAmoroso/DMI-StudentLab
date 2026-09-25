@@ -46,6 +46,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   Map<String, int> _preferredByHash = <String, int>{};
   final Set<int> _processingMaterialIds = <int>{};
   bool _usingOfflineCache = false;
+  bool _exploreAllPublicCourses = false;
 
   String? _selectedUniversity;
 
@@ -132,8 +133,23 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       final List<MaterialLocal> availableMaterials = await _materialRepository
           .getAvailableByUser(localUserId);
 
+      Set<String> enrolledCourses = {};
+      if (_authSession.isAuthenticated && _authSession.currentUserId != null) {
+        try {
+          final paths = await _apiService.getUserAcademicPaths(_authSession.currentUserId!);
+          enrolledCourses = paths.where((path) => path.status == AcademicPathStatus.enrolled)
+            .map((path) => _courseKey(path.university, path.department, path.course)).toSet();
+        } catch (_) {
+          // The backend still enforces access to restricted files.
+        }
+      }
+
       final List<MaterialLocal> materials = availableMaterials
           .where(_isDisplayableMaterial)
+          .where((material) => !_authSession.isAuthenticated || _exploreAllPublicCourses ||
+            enrolledCourses.isEmpty || material.source != MaterialSourceLocal.public ||
+            enrolledCourses.contains(_courseKey(material.university, material.department,
+              material.course)))
           .toList();
 
       final List<MaterialOfflineEntry> offline = await _downloadService
@@ -836,33 +852,6 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     onTap: () => setState(() => _selectedFolders.add(folder))),
                 )),
               ],
-              if (_authSession.isAuthenticated &&
-                  subject.subjectId != null) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => _requestTeacherMaterial(subject),
-                      icon: const Icon(Icons.school_outlined),
-                      label: const Text('Chiedi a un docente'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => MaterialRequestsPage(
-                            initialSubjectId: subject.subjectId,
-                            initialSubjectName: subject.name,
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.people_outline_rounded),
-                      label: const Text('Richieste materiali'),
-                    ),
-                  ],
-                ),
-              ],
               const SizedBox(height: 24),
               const Text(
                 'Materiali',
@@ -1471,6 +1460,155 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     });
   }
 
+  final Map<int, Map<String, dynamic>> _materialRequestOptions = {};
+
+  Future<_LocalSubject?> _selectSubjectForMaterialRequest() async {
+    List<Map<String, dynamic>> options;
+    try {
+      options = await _apiService.getMaterialRequestSubjects();
+    } catch (e) {
+      _showMessage(_friendlyError(e));
+      return null;
+    }
+    if (!mounted) return null;
+    _materialRequestOptions
+      ..clear()
+      ..addEntries(options.map((option) => MapEntry(
+        int.parse(option['subject_id'].toString()), option)));
+    final subjects = options.map((option) => _LocalSubject(
+      id: 'id:${option['subject_id']}',
+      subjectId: int.parse(option['subject_id'].toString()),
+      name: option['subject_name']?.toString() ?? 'Materia',
+      university: option['university']?.toString() ?? '',
+      department: option['department']?.toString() ?? '',
+      course: option['course']?.toString() ?? '',
+      materialCount: 0,
+    )).toList();
+
+    if (subjects.isEmpty) {
+      _showMessage(
+        'Non ci sono ancora materie disponibili per inviare una richiesta.',
+      );
+      return null;
+    }
+
+    return showModalBottomSheet<_LocalSubject>(
+      context: context,
+      backgroundColor: AppColors.eleganceDeepNavy,
+      isScrollControlled: true,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.72,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 12, 10),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Seleziona la materia',
+                          style: TextStyle(
+                            color: AppColors.pureWhite,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: AppColors.pureWhite,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Scegli la materia per la quale vuoi richiedere un materiale.',
+                      style: TextStyle(
+                        color: AppColors.pureWhite.withValues(alpha: 0.62),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: subjects.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: AppColors.pureWhite.withValues(alpha: 0.08),
+                    ),
+                    itemBuilder: (BuildContext context, int index) {
+                      final _LocalSubject subject = subjects[index];
+                      final details = _materialRequestOptions[subject.subjectId] ?? {};
+                      final year = details['study_year'];
+                      final teacherNames = ((details['teachers'] as List?) ?? [])
+                        .map((teacher) => (teacher as Map)['name']?.toString() ?? '')
+                        .where((name) => name.isNotEmpty).join(', ');
+                      final recipient = details['recipient_kind'] == 'studentlab'
+                        ? 'StudentLab' : teacherNames;
+                      return ListTile(
+                        leading: const Icon(
+                          Icons.menu_book_outlined,
+                          color: AppColors.materialSky,
+                        ),
+                        title: Text(
+                          subject.name,
+                          style: const TextStyle(
+                            color: AppColors.pureWhite,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${subject.course} · ${subject.department} · '
+                          '${year == null ? 'Anno non specificato' : '$year° anno'} · $recipient',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.pureWhite.withValues(alpha: 0.54),
+                            fontSize: 11,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.pureWhite,
+                        ),
+                        onTap: () => Navigator.pop(sheetContext, subject),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _requestTeacherMaterialFromLibrary() async {
+    final _LocalSubject? subject = await _selectSubjectForMaterialRequest();
+    if (subject == null || !mounted) {
+      return;
+    }
+    await _requestTeacherMaterial(subject);
+  }
+
+  void _openRequestsFromLibrary() => _openRequests();
+
   void _openRequests() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => MaterialRequestsPage(
@@ -1506,15 +1644,20 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
             label: const Text('Aggiungi materiale'),
           ),
           if (_authSession.isAuthenticated) ...[
+            OutlinedButton.icon(onPressed: () {
+              setState(() => _exploreAllPublicCourses = !_exploreAllPublicCourses);
+              _loadMaterials();
+            }, icon: Icon(_exploreAllPublicCourses ? Icons.school_outlined : Icons.explore_outlined),
+              label: Text(_exploreAllPublicCourses ? 'Solo i miei corsi' : 'Esplora corsi pubblici')),
             OutlinedButton.icon(
               onPressed: _openingPublicationForm ? null : _openPublication,
               icon: const Icon(Icons.publish_outlined),
               label: const Text('Pubblica materiale'),
             ),
             OutlinedButton.icon(
-              onPressed: _openRequests,
+              onPressed: _openRequestsFromLibrary,
               icon: const Icon(Icons.people_outline_rounded),
-              label: const Text('Richieste e condivisione'),
+              label: const Text('Richieste e condivisioni'),
             ),
           ],
         ]),
@@ -2480,12 +2623,14 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       return;
     }
     try {
-      await _apiService.createTeacherMaterialRequest(
+      final response = await _apiService.createTeacherMaterialRequest(
         subjectId: subject.subjectId!,
         topic: topic.text.trim(),
         message: message.text.trim(),
       );
-      _showMessage('Richiesta inviata ai docenti verificati della materia.');
+      _showMessage(response['recipient_kind'] == 'studentlab'
+        ? 'Nessun docente registrato per la materia: richiesta inviata a StudentLab.'
+        : 'Richiesta inviata ai docenti registrati per questa materia.');
     } catch (e) {
       _showMessage(_friendlyError(e));
     } finally {
@@ -2609,7 +2754,10 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
 
   late final TextEditingController _subjectController;
   final TextEditingController _foldersController = TextEditingController();
+
   bool _additionalCourse = false;
+  bool _manualSubjectEnabled = false;
+  bool _manualTopicEnabled = false;
 
   String? _filePath;
   String? _fileName;
@@ -2719,7 +2867,9 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     final university = _universityController.text.trim();
     final department = _departmentController.text.trim();
     final course = _courseController.text.trim();
-    final subject = _subjectController.text.trim();
+    final subject = _manualSubjectEnabled
+        ? _subjectController.text.trim()
+        : '';
     if (university.isEmpty || department.isEmpty || course.isEmpty) return null;
     try {
       final matches = await widget.apiService.getMaterialPathSuggestions(
@@ -2777,6 +2927,11 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
       return;
     }
 
+    if (_isCatalogCoursePath && _resolvedCatalogSubject == null) {
+      _showMessage('Seleziona una materia valida dal catalogo.');
+      return;
+    }
+
     final String? filePath = _filePath;
     if (_folderSegments.length > 8 || _folderSegments.any((v) => v.length > 80 || v == '.' || v == '..')) {
       _showMessage('Percorso troppo lungo o nome della cartella non valido.');
@@ -2811,7 +2966,13 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
       final String university = _universityController.text.trim();
       final String department = _departmentController.text.trim();
       final String course = _courseController.text.trim();
-      final String subjectName = _subjectController.text.trim();
+      final bool catalogPath = _isCatalogCoursePath;
+      final String subjectName = catalogPath || _manualSubjectEnabled
+          ? _subjectController.text.trim()
+          : '';
+      final List<String> pathSegments = !catalogPath && _manualTopicEnabled
+          ? _folderSegments
+          : const <String>[];
       final String? originalName = _fileName;
 
       if (fileBytes != null && fileBytes.isNotEmpty) {
@@ -2824,7 +2985,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
           subjectName: subjectName,
           subjectId: resolvedSubjectId,
           courseScope: _additionalCourse ? 'additional' : 'degree',
-          pathSegments: _folderSegments,
+          pathSegments: pathSegments,
         );
       } else {
         await widget.importService.importMaterial(
@@ -2836,7 +2997,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
           originalName: originalName,
           subjectId: resolvedSubjectId,
           courseScope: _additionalCourse ? 'additional' : 'degree',
-          pathSegments: _folderSegments,
+          pathSegments: pathSegments,
         );
       }
 
@@ -2876,7 +3037,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
       appBar: AppBar(
         backgroundColor: AppColors.brandNightBlue,
         foregroundColor: AppColors.pureWhite,
-        title: const Text('Aggiungi offline'),
+        title: const Text('Aggiungi materiale'),
       ),
       body: SafeArea(
         child: Center(
@@ -2895,8 +3056,8 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                     ),
                     child: Text(
                       'Il file resterà sul tuo dispositivo e non viene inviato a StudentLab. '
-                      'Scegli il percorso dal catalogo oppure scrivilo manualmente, anche senza connessione. '
-                      'La materia è facoltativa: i file senza materia compaiono in Materiali del corso.',
+                      'Puoi scegliere il percorso dal catalogo oppure inserirlo manualmente. '
+                      'Per un corso inserito manualmente puoi aggiungere una materia, un argomento, entrambi oppure associare direttamente il file al corso.',
                       style: TextStyle(
                         color: AppColors.pureWhite.withValues(alpha: 0.58),
                         fontSize: 11,
@@ -2944,22 +3105,97 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                       style: TextStyle(color: Colors.white60)),
                   ),
                   const SizedBox(height: 13),
-                  _hybridField(
-                    controller: _subjectController,
-                    label: 'Materia (facoltativa)',
-                    icon: Icons.menu_book_outlined,
-                    options: _subjectOptions,
-                    loading: _loadingSubjects,
-                    onOptionSelected: _selectSubjectOption,
-                  ),
-                  const SizedBox(height: 13),
-                  TextFormField(controller: _foldersController,
-                    enabled: !_saving,
-                    style: const TextStyle(color: AppColors.pureWhite),
-                    decoration: const InputDecoration(
-                      labelText: 'Cartelle / argomenti (facoltativi)',
-                      helperText: 'Esempio: Fondamenti / Reti / TCP',
-                      prefixIcon: Icon(Icons.folder_outlined))),
+                  if (_isCatalogCoursePath) ...[
+                    _hybridField(
+                      controller: _subjectController,
+                      label: 'Materia *',
+                      icon: Icons.menu_book_outlined,
+                      options: _subjectOptions,
+                      loading: _loadingSubjects,
+                      onOptionSelected: _selectSubjectOption,
+                      requiredField: true,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Per i materiali associati a un corso del catalogo la materia viene scelta dal catalogo accademico.',
+                      style: TextStyle(
+                        color: AppColors.pureWhite.withValues(alpha: 0.52),
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ] else if (_courseController.text.trim().isNotEmpty) ...[
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        if (!_manualSubjectEnabled)
+                          OutlinedButton.icon(
+                            onPressed: _saving
+                                ? null
+                                : () => setState(() {
+                                      _manualSubjectEnabled = true;
+                                    }),
+                            icon: const Icon(Icons.add_rounded),
+                            label: const Text('Materia'),
+                          ),
+                        if (!_manualTopicEnabled)
+                          OutlinedButton.icon(
+                            onPressed: _saving
+                                ? null
+                                : () => setState(() {
+                                      _manualTopicEnabled = true;
+                                    }),
+                            icon: const Icon(Icons.add_rounded),
+                            label: const Text('Argomento'),
+                          ),
+                      ],
+                    ),
+                    if (_manualSubjectEnabled) ...[
+                      const SizedBox(height: 13),
+                      TextFormField(
+                        controller: _subjectController,
+                        enabled: !_saving,
+                        style: const TextStyle(color: AppColors.pureWhite),
+                        decoration: InputDecoration(
+                          labelText: 'Materia',
+                          prefixIcon: const Icon(Icons.menu_book_outlined),
+                          suffixIcon: IconButton(
+                            tooltip: 'Rimuovi materia',
+                            onPressed: _saving
+                                ? null
+                                : () => setState(() {
+                                      _subjectController.clear();
+                                      _manualSubjectEnabled = false;
+                                    }),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (_manualTopicEnabled) ...[
+                      const SizedBox(height: 13),
+                      TextFormField(
+                        controller: _foldersController,
+                        enabled: !_saving,
+                        style: const TextStyle(color: AppColors.pureWhite),
+                        decoration: InputDecoration(
+                          labelText: 'Argomento',
+                          prefixIcon: const Icon(Icons.topic_outlined),
+                          suffixIcon: IconButton(
+                            tooltip: 'Rimuovi argomento',
+                            onPressed: _saving
+                                ? null
+                                : () => setState(() {
+                                      _foldersController.clear();
+                                      _manualTopicEnabled = false;
+                                    }),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                   const SizedBox(height: 18),
                   InkWell(
                     onTap: _saving ? null : _pickFile,
@@ -3192,6 +3428,9 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
       _departmentController.clear();
       _courseController.clear();
       _subjectController.clear();
+      _foldersController.clear();
+      _manualSubjectEnabled = false;
+      _manualTopicEnabled = false;
       _catalogDepartments = [];
       _catalogCourses = [];
       _catalogSubjects = [];
@@ -3220,6 +3459,9 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     setState(() {
       _courseController.clear();
       _subjectController.clear();
+      _foldersController.clear();
+      _manualSubjectEnabled = false;
+      _manualTopicEnabled = false;
       _catalogCourses = [];
       _catalogSubjects = [];
     });
@@ -3248,6 +3490,9 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
 
     setState(() {
       _subjectController.clear();
+      _foldersController.clear();
+      _manualSubjectEnabled = false;
+      _manualTopicEnabled = false;
       _catalogSubjects = [];
     });
 
@@ -3416,6 +3661,12 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
     }
 
     return null;
+  }
+
+  bool get _isCatalogCoursePath {
+    return _findUniversity(_universityController.text) != null &&
+        _findDepartment(_departmentController.text) != null &&
+        _findCourse(_courseController.text) != null;
   }
 
   SocialSubject? get _resolvedCatalogSubject {

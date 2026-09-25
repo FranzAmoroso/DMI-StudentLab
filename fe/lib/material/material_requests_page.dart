@@ -37,11 +37,17 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
   List<Map<String, dynamic>> _sentStudentRequests = [];
   List<Map<String, dynamic>> _receivedStudentRequests = [];
   List<SocialUser> _students = [];
+  int? _subjectId;
+  String? _subjectName;
+  bool _hasTeacherMaterials = false;
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
+    _subjectId = widget.initialSubjectId;
+    _subjectName = widget.initialSubjectName;
+    _hasTeacherMaterials = widget.hasTeacherMaterials;
     _load();
   }
 
@@ -63,7 +69,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
         _api.getMyTeacherMaterialRequests(),
         _api.getMyStudentMaterialRequests(),
         _api.getReceivedStudentMaterialRequests(),
-        _api.getSocialUsers(),
+        _api.getSocialUsers().catchError((Object _) => <SocialUser>[]),
       ]);
       if (!mounted) return;
       setState(() {
@@ -86,6 +92,50 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
       if (mounted) setState(() => _error = _friendly(e));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<bool> _ensureSubject() async {
+    if (_subjectId != null) return true;
+    try {
+      final options = await _api.getMaterialRequestSubjects();
+      if (!mounted) return false;
+      if (options.isEmpty) {
+        _message('Nessuna materia disponibile nel tuo percorso accademico.');
+        return false;
+      }
+      final chosen = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        backgroundColor: AppColors.eleganceDeepNavy,
+        isScrollControlled: true,
+        builder: (context) => SafeArea(child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .65,
+          child: Column(children: [
+            const Padding(padding: EdgeInsets.all(18), child: Text('Scegli la materia',
+              style: TextStyle(color: Colors.white, fontSize: 19))),
+            Expanded(child: ListView.builder(itemCount: options.length,
+              itemBuilder: (context, index) {
+                final option = options[index];
+                return ListTile(
+                  title: Text(option['subject_name']?.toString() ?? 'Materia',
+                    style: const TextStyle(color: Colors.white)),
+                  subtitle: Text('${option['course'] ?? ''} · anno ${option['study_year'] ?? '—'} · ${option['recipient_kind'] == 'teachers' ? 'Docenti' : 'StudentLab'}',
+                    style: const TextStyle(color: Colors.white70)),
+                  onTap: () => Navigator.pop(context, option),
+                );
+              })),
+          ]))),
+      );
+      if (chosen == null || !mounted) return false;
+      setState(() {
+        _subjectId = int.tryParse(chosen['subject_id'].toString());
+        _subjectName = chosen['subject_name']?.toString();
+        _hasTeacherMaterials = false;
+      });
+      return _subjectId != null;
+    } catch (e) {
+      if (mounted) _message(_friendly(e));
+      return false;
     }
   }
 
@@ -121,19 +171,24 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
                 Padding(padding: const EdgeInsets.all(16),
                   child: DeveloperSectionCard(
                     title: 'Richiedi e condividi',
-                    subtitle: widget.initialSubjectId == null
-                        ? 'Apri prima una materia nel catalogo per inviare una richiesta. Qui trovi sempre quelle ricevute.'
-                        : 'Invia una richiesta per ${widget.initialSubjectName ?? 'questa materia'} oppure consulta quelle ricevute.',
+                    subtitle: _subjectId == null
+                        ? 'Scegli una materia del tuo corso per inviare una richiesta. Puoi consultare subito quelle ricevute.'
+                        : 'Materia: ${_subjectName ?? 'selezionata'}. Consulta e gestisci le richieste qui sotto.',
                     icon: Icons.people_outline_rounded,
                     child: Wrap(spacing: 8, runSpacing: 8, children: [
-                      FilledButton.icon(onPressed: widget.initialSubjectId == null || _busy
-                          ? null : _createTeacherRequest,
+                      FilledButton.icon(onPressed: _busy ? null : () async {
+                        if (await _ensureSubject()) await _createTeacherRequest();
+                      },
                         icon: const Icon(Icons.school_outlined),
                         label: const Text('Chiedi a un docente')),
-                      OutlinedButton.icon(onPressed: widget.initialSubjectId == null || _busy
-                          ? null : _createStudentRequest,
+                      OutlinedButton.icon(onPressed: _busy ? null : () async {
+                        if (await _ensureSubject()) await _createStudentRequest();
+                      },
                         icon: const Icon(Icons.person_search_rounded),
                         label: const Text('Chiedi a uno studente')),
+                      if (_subjectId != null) TextButton.icon(
+                        onPressed: _busy ? null : () { setState(() => _subjectId = null); _ensureSubject(); },
+                        icon: const Icon(Icons.swap_horiz), label: const Text('Cambia materia')),
                     ]))),
                 Expanded(child: TabBarView(controller: _tabs,
                   children: [_buildSent(), _buildReceived()])),
@@ -173,10 +228,10 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
           final pending = status == 'pending';
           return _RequestCard(
             title: item.kind == 'teacher'
-                ? 'Richiesta a docente'
+                ? (data['recipient_kind'] == 'studentlab' ? 'Richiesta a StudentLab' : 'Richiesta ai docenti')
                 : 'Richiesta a studente',
             topic: data['topic']?.toString(),
-            message: data['message']?.toString() ?? '',
+            message: '${data['message']?.toString() ?? ''}${data['staff_response'] == null ? '' : '\n\nRisposta StudentLab: ${data['staff_response']}'}',
             status: status,
             date: _dateLabel(data['created_at']),
             trailing: pending
@@ -242,7 +297,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
   }
 
   Future<void> _createStudentRequest() async {
-    if (_students.isEmpty || widget.initialSubjectId == null) {
+    if (_students.isEmpty || _subjectId == null) {
       _message('Non ci sono studenti disponibili a cui inviare la richiesta.');
       return;
     }
@@ -263,13 +318,13 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if ((widget.initialSubjectName ?? '').trim().isNotEmpty)
+                if ((_subjectName ?? '').trim().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        widget.initialSubjectName!,
+                        _subjectName!,
                         style: const TextStyle(color: Colors.white70),
                       ),
                     ),
@@ -333,7 +388,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     await _run(() async {
       await _api.createStudentMaterialRequest(
         recipientUserId: recipientId!,
-        subjectId: widget.initialSubjectId,
+        subjectId: _subjectId,
         topic: topic.text.trim(),
         message: message.text.trim(),
       );
@@ -345,9 +400,9 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
   }
 
   Future<void> _createTeacherRequest() async {
-    final subjectId = widget.initialSubjectId;
+    final subjectId = _subjectId;
     if (subjectId == null) return;
-    if (widget.hasTeacherMaterials) {
+    if (_hasTeacherMaterials) {
       final proceed = await showDialog<bool>(context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
@@ -371,7 +426,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
         title: const Text('Richiedi materiale al docente',
           style: TextStyle(color: AppColors.pureWhite)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (widget.initialSubjectName != null) Text(widget.initialSubjectName!,
+          if (_subjectName != null) Text(_subjectName!,
             style: const TextStyle(color: Colors.white70)),
           TextField(controller: topic, decoration: const InputDecoration(
             labelText: 'Argomento (facoltativo)')),
@@ -393,9 +448,11 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
       return;
     }
     await _run(() async {
-      await _api.createTeacherMaterialRequest(subjectId: subjectId,
+      final response = await _api.createTeacherMaterialRequest(subjectId: subjectId,
         topic: topicText, message: messageText);
-      _message('Richiesta inviata ai docenti verificati.');
+      _message(response['recipient_kind'] == 'studentlab'
+        ? 'Nessun docente registrato: richiesta inviata a StudentLab.'
+        : 'Richiesta inviata ai docenti registrati.');
       await _load();
     });
   }

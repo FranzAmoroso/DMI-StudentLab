@@ -4,6 +4,8 @@ import '../../theme/nightTheme.dart';
 import '../../social/admin/admin_material_storage_api_service.dart';
 import 'admin_material_publications_page.dart';
 import 'admin_material_course_proposals_page.dart';
+import 'admin_drive_catalog_page.dart';
+import 'admin_studentlab_material_requests_page.dart';
 import 'drive_file_preview.dart';
 import 'drive_placement_dialog.dart';
 
@@ -19,8 +21,6 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
   final AdminMaterialStorageApiService _api = AdminMaterialStorageApiService();
   bool _loading = true;
   String _source = 'all';
-  String _status = 'all';
-  String _type = 'all';
   String _query = '';
   String? _error;
   Map<String, dynamic> _overview = {};
@@ -36,37 +36,36 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    Map<String, dynamic> overview = {};
+    List<Map<String, dynamic>> items = [];
+    Map<String, dynamic> driveStatus = {};
+    String? error;
+    String? driveError;
     try {
-      final overview = await _api.getOverview();
-      final items = await _api.getItems(
-        source: _source == 'all' ? null : _source,
-      );
-      Map<String, dynamic> driveStatus = {};
-      String? driveError;
-      try { driveStatus = await _api.getDriveStatus(); }
-      catch (_) { driveError = 'Stato Drive temporaneamente non disponibile.'; }
-      if (!mounted) return;
+      overview = await _api.getOverview();
+    } catch (_) { /* Metrics are optional. */ }
+    try {
+      items = await _api.getItems(source: _source == 'all' ? null : _source);
+    } catch (e) { error = 'Inventario non disponibile: $e'; }
+    try {
+      driveStatus = await _api.getDriveStatus();
+    } catch (e) { driveError = 'Stato Drive non disponibile: $e'; }
+    if (mounted) {
       setState(() {
         _overview = overview;
         _items = items;
         _driveStatus = driveStatus;
         _driveError = driveError;
-        _error = null;
+        _error = error;
         _loading = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() {
-        _loading = false;
-        _error = 'Impossibile caricare il riepilogo dello storage. Riprova.';
       });
     }
   }
 
   List<Map<String, dynamic>> get _visibleItems => _items.where((item) {
-    final status = item['status']?.toString().toLowerCase() ?? '';
-    if (_status != 'all' && status != _status) return false;
-    final mime = item['mime_type']?.toString().toLowerCase() ?? '';
-    if (_type != 'all' && !mime.contains(_type)) return false;
+    // Moderation requests have their dedicated queue above; avoid showing
+    // the same student proposal twice in the storage inventory.
+    if (item['source'] == 'publication_request') return false;
     if (_query.trim().isEmpty) return true;
     // Never search private titles or filenames in the admin view.
     final privateContent = item['private_content'] == true;
@@ -110,11 +109,6 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(_error!, style: const TextStyle(color: AppColors.pureWhite)),
-                  TextButton(onPressed: _load, child: const Text('Riprova')),
-                ]))
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -131,7 +125,7 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
                       const Text('Controllo materiali', style: TextStyle(
                         color: AppColors.pureWhite, fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
-                      const Text('Spazio utilizzato, file e proposte in un unico punto.',
+                      const Text('Spazio e file pubblicati. Le richieste hanno una coda separata.',
                         style: TextStyle(color: Colors.white60)),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
@@ -151,6 +145,12 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
                         },
                         icon: const Icon(Icons.school_outlined),
                         label: const Text('Approva corsi aggiuntivi')),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => const AdminStudentLabMaterialRequestsPage())),
+                        icon: const Icon(Icons.mark_email_unread_outlined),
+                        label: const Text('Richieste di materiale a StudentLab')),
                     ]),
                   ),
                   const SizedBox(height: 18),
@@ -182,13 +182,22 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.15))),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Google Drive · copie dei materiali pubblici',
+                      const Text('Google Drive · risorse esistenti e materiali pubblicati',
                         style: TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
                       Text(_driveError ?? (_driveStatus['configured'] == true
                         ? 'Account: ${_driveStatus['account'] ?? '—'} · Utilizzato: ${_bytes(_driveStatus['used_bytes'])} / ${_driveStatus['limit_bytes'] == null ? 'limite non disponibile' : _bytes(_driveStatus['limit_bytes'])}'
-                        : 'Collega l’account proprietario per attivare le copie Drive.'),
+                        : 'La copia su Drive richiede permessi di scrittura. Puoi comunque provare a esplorare i file esistenti.'),
                         style: const TextStyle(color: Colors.white70)),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => const AdminDriveCatalogPage()));
+                          if (mounted) await _load();
+                        },
+                        icon: const Icon(Icons.folder_open_outlined),
+                        label: const Text('Esplora e classifica file già su Drive')),
                     ])),
                   const SizedBox(height: 18),
                   SingleChildScrollView(
@@ -197,7 +206,6 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
                       children: [
                         for (final source in const [
                           'all',
-                          'publication_request',
                           'public',
                           'teacher',
                           'group',
@@ -228,26 +236,13 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
-                    children: [for (final status in const [
-                      'all', 'pending', 'approved', 'rejected', 'active', 'removed'
-                    ]) Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(
-                      label: Text(status == 'all' ? 'Tutti gli stati' : status),
-                      selected: _status == status,
-                      onSelected: (_) => setState(() => _status = status),
-                    ))],
-                  )),
-                  const SizedBox(height: 10),
-                  SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
-                    children: [for (final type in const ['all', 'pdf', 'image', 'zip', 'word', 'presentation'])
-                      Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(
-                        label: Text(type == 'all' ? 'Tutti i tipi' : type.toUpperCase()),
-                        selected: _type == type,
-                        onSelected: (_) => setState(() => _type = type),
-                      )),
-                    ],
-                  )),
+                  if (_error != null) Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: ListTile(
+                      title: Text(_error!, style: const TextStyle(color: Colors.white70)),
+                      trailing: TextButton(onPressed: _load, child: const Text('Riprova')),
+                    ),
+                  ),
                   const SizedBox(height: 14),
                   Text('${_visibleItems.length} elementi', style: const TextStyle(color: Colors.white60)),
                   const SizedBox(height: 8),
@@ -517,153 +512,71 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
   }
 
   Widget _card(Map<String, dynamic> item) {
-    final bool privateContent = item['private_content'] == true;
-    final String source = item['source']?.toString() ?? '';
-    final String title = privateContent
-        ? (source == 'shared_user'
-              ? 'Condivisione privata'
-              : 'Materiale personale')
-        : (item['title']?.toString() ??
-              item['original_name']?.toString() ??
-              'Materiale');
-    final String owner = privateContent
-        ? (item['owner_ref']?.toString() ?? 'Utente anonimizzato')
-        : (item['user_id']?.toString().isNotEmpty == true
-              ? 'Utente #${item['user_id']}'
-              : '');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.eleganceMidnight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final privateContent = item['private_content'] == true;
+    final source = item['source']?.toString() ?? '';
+    final title = privateContent
+        ? (source == 'shared_user' ? 'Condivisione privata' : 'Materiale personale')
+        : (item['title']?.toString() ?? item['original_name']?.toString() ?? 'Materiale');
+    final editable = !privateContent && source == 'public' && item['status'] != 'removed';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: AppColors.eleganceMidnight,
+      child: ExpansionTile(
+        leading: Icon(privateContent ? Icons.lock_outline : Icons.description_outlined,
+          color: AppColors.materialSky),
+        title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.w600)),
+        subtitle: Text('${_label(source)} · ${item['status'] ?? '—'} · ${_bytes(item['blob_size'] ?? item['size'])}',
+          style: const TextStyle(color: Colors.white60)),
+        iconColor: AppColors.materialSky,
+        collapsedIconColor: Colors.white70,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              _StorageBadge(text: _label(source).toUpperCase()),
-              if (privateContent) const _StorageBadge(text: 'PRIVATO'),
-              if (source == 'public') _StorageBadge(
-                text: (item['visibility_state']?.toString() ?? 'visible').toUpperCase()),
-              _StorageBadge(
-                text: (item['status']?.toString() ?? '—').toUpperCase(),
-              ),
-              if (item['retention_status'] != null)
-                _StorageBadge(
-                  text:
-                      'RETENTION ${(item['retention_status']?.toString() ?? '').toUpperCase()}',
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.pureWhite,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-          if (owner.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              owner,
-              style: const TextStyle(color: Colors.white54, fontSize: 10),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            children: [
-              Text(
-                _bytes(item['blob_size'] ?? item['size']),
-                style: const TextStyle(color: Colors.white60, fontSize: 10),
-              ),
-              Text(
-                'Caricato: ${_date(item['created_at'] ?? item['updated_at'])}',
-                style: const TextStyle(color: Colors.white60, fontSize: 10),
-              ),
-              if (item['cloud_expires_at'] != null)
-                Text(
-                  'Scadenza: ${_date(item['cloud_expires_at'])}',
-                  style: const TextStyle(
-                    color: Colors.amberAccent,
-                    fontSize: 10,
-                  ),
-                ),
-            ],
-          ),
-          if (!privateContent && source == 'public' && item['status'] != 'removed')
-            PopupMenuButton<String>(
-              tooltip: 'Modifica visibilità',
-              color: AppColors.eleganceDeepNavy,
-              onSelected: (state) => _changeVisibility(item, state),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'visible', child: Text('Visibile')),
-                PopupMenuItem(value: 'hidden', child: Text('Nascosto')),
-                PopupMenuItem(value: 'in_review', child: Text('In revisione')),
-                PopupMenuItem(value: 'archived', child: Text('Archiviato')),
-              ],
-              child: const Padding(padding: EdgeInsets.symmetric(vertical: 10),
-                child: Text('Modifica visibilità', style: TextStyle(color: AppColors.materialSky))),
-            ),
-          if (!privateContent && source == 'public')
-            item['drive_copied'] == true
-              ? TextButton.icon(onPressed: item['status'] == 'removed'
-                    ? () => _deleteDriveCopy(item) : null,
-                  icon: const Icon(Icons.cloud_done_outlined),
-                  label: const Text('Copia Drive verificata'))
-              : OutlinedButton.icon(
-                  onPressed: (item['status'] == 'published' ||
-                      item['status'] == 'hidden') &&
-                      _driveStatus['configured'] == true
-                      ? () => _copyToDrive(item) : null,
-                  icon: const Icon(Icons.add_to_drive_outlined, size: 16),
-                  label: const Text('Copia su Drive')),
-          if (!privateContent && source == 'public' && item['status'] != 'removed')
-            OutlinedButton.icon(onPressed: () => _changeAudience(item),
-              icon: const Icon(Icons.groups_outlined, size: 16),
-              label: Text('Destinatari: ${item['audience_type'] ?? 'public'}')),
-          if (!privateContent && source == 'public' && item['status'] != 'removed')
-            OutlinedButton.icon(onPressed: () => _placeFile(item),
-              icon: const Icon(Icons.edit_location_alt_outlined),
-              label: const Text('Modifica percorso')),
-          if (!privateContent && source == 'public' && item['path_segments'] is List &&
-              (item['path_segments'] as List).isNotEmpty) ...[
-            Text('Cartella: ${(item['path_segments'] as List).join(' / ')}',
-              style: const TextStyle(color: Colors.white60, fontSize: 11)),
-            OutlinedButton.icon(onPressed: () => _moveFolder(item),
-              icon: const Icon(Icons.drive_file_move_outline),
-              label: const Text('Sposta cartella')),
-          ],
-          if (!privateContent) ...[
-            if (item['course'] != null || item['subject_name'] != null)
-              Text([item['course'], item['subject_name']]
-                .where((v) => v?.toString().trim().isNotEmpty == true)
-                .join(' · '),
-                style: const TextStyle(color: Colors.white60, fontSize: 11)),
-          ],
-          if (privateContent) ...[
+          Align(alignment: Alignment.centerLeft, child: Text(
+            privateContent
+                ? 'Contenuto privato: solo metadati e stato di conservazione.'
+                : '${item['course'] ?? ''} · ${item['subject_name'] ?? ''}\nCaricato: ${_date(item['created_at'] ?? item['updated_at'])}${item['path_segments'] is List ? '\nCartella: ${(item['path_segments'] as List).join(' / ')}' : ''}',
+            style: const TextStyle(color: Colors.white70))),
+          if (editable) ...[
             const SizedBox(height: 10),
-            const Text(
-              'Contenuto non accessibile dall’area amministrativa. Sono visibili solo metadati tecnici e stato retention.',
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 9,
-                height: 1.35,
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              PopupMenuButton<String>(
+                tooltip: 'Visibilità', color: AppColors.eleganceDeepNavy,
+                onSelected: (value) => _changeVisibility(item, value),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'visible', child: Text('Visibile')),
+                  PopupMenuItem(value: 'hidden', child: Text('Nascosto')),
+                  PopupMenuItem(value: 'in_review', child: Text('In revisione')),
+                  PopupMenuItem(value: 'archived', child: Text('Archiviato')),
+                ],
+                child: const Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.visibility_outlined, color: AppColors.materialSky),
+                    SizedBox(width: 6), Text('Visibilità', style: TextStyle(color: AppColors.materialSky)),
+                  ])),
               ),
-            ),
+              TextButton.icon(onPressed: () => _changeAudience(item),
+                icon: const Icon(Icons.groups_outlined), label: const Text('Destinatari')),
+              TextButton.icon(onPressed: () => _placeFile(item),
+                icon: const Icon(Icons.edit_location_alt_outlined), label: const Text('Percorso')),
+              if (item['path_segments'] is List && (item['path_segments'] as List).isNotEmpty)
+                TextButton.icon(onPressed: () => _moveFolder(item),
+                  icon: const Icon(Icons.drive_file_move_outline), label: const Text('Sposta cartella')),
+              if (item['drive_copied'] != true)
+                TextButton.icon(onPressed: _driveStatus['configured'] == true
+                    ? () => _copyToDrive(item) : null,
+                  icon: const Icon(Icons.add_to_drive_outlined), label: const Text('Copia su Drive')),
+            ]),
           ],
+          if (!privateContent && source == 'public' && item['status'] == 'removed' &&
+              item['drive_copied'] == true)
+            TextButton.icon(onPressed: () => _deleteDriveCopy(item),
+              icon: const Icon(Icons.delete_outline), label: const Text('Rimuovi copia Drive')),
         ],
       ),
     );
   }
+
 }
 
 class _Metric extends StatelessWidget {
