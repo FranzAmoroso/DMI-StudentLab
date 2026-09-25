@@ -2923,6 +2923,11 @@ async def api_group_material_complete(
                     "mime_type"
                 ]
             ),
+            expected_sha256=(
+                completion[
+                    "file_hash"
+                ]
+            ),
         )
 
         return create_group_material_record(
@@ -4327,6 +4332,11 @@ async def api_teacher_material_complete(
             expected_mime_type=(
                 completion[
                     "mime_type"
+                ]
+            ),
+            expected_sha256=(
+                completion[
+                    "file_hash"
                 ]
             ),
         )

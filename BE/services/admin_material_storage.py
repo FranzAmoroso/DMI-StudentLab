@@ -9,6 +9,8 @@ from models.material_publication_request import MaterialPublicationRequest
 from models.material_storage_event import MaterialStorageEvent
 from models.public_material import PublicMaterial
 from models.teacher_material import TeacherMaterial
+from models.teacher_material_request import TeacherMaterialRequest
+from core.material_course_proposal import MaterialCourseProposal
 from models.user import User
 from models.personal_material import PersonalSyncedMaterial
 from models.material_share import MaterialShare
@@ -120,8 +122,8 @@ def _public_item(record):
         "path_segments": json.loads(record.catalog_path_json or '[]'),
         "group_id": None,
         "updated_at": record.updated_at,
-        "safe_to_delete_blob": record.status == "removed",
-        "expects_blob": record.status != "removed",
+        "safe_to_delete_blob": record.status == "removed" and not (record.stored_name or '').startswith('drive-import/'),
+        "expects_blob": record.status != "removed" and not (record.stored_name or '').startswith('drive-import/'),
         "can_retire": record.status != "removed",
         "can_rename": True,
     }
@@ -346,6 +348,19 @@ def get_all_referenced_blob_paths(db: Session):
     return values
 
 
+def queue_counts(db: Session) -> dict:
+    """Elementi in attesa nelle tre code admin, per i badge della pagina."""
+    return {
+        "pending_publication_requests": db.query(MaterialPublicationRequest.id)
+        .filter(MaterialPublicationRequest.status == "pending").count(),
+        "pending_course_proposals": db.query(MaterialCourseProposal.id)
+        .filter(MaterialCourseProposal.status == "pending").count(),
+        "open_studentlab_requests": db.query(TeacherMaterialRequest.id)
+        .filter(TeacherMaterialRequest.recipient_kind == "studentlab",
+                TeacherMaterialRequest.status == "pending").count(),
+    }
+
+
 async def build_storage_snapshot(db: Session):
     blobs = await list_private_blobs()
     blob_by_path = {
@@ -417,6 +432,7 @@ async def build_storage_snapshot(db: Session):
                 if item["expects_blob"] and not item["blob_exists"]
             ),
             "orphan_blob_count": len(orphan_blobs),
+            **queue_counts(db),
         },
         "items": items,
         "orphan_blobs": orphan_blobs,

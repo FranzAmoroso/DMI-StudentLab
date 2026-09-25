@@ -68,6 +68,7 @@ async def complete(
             stored_name=request.pathname,
             expected_size=request.size,
             expected_mime_type=request.mime_type,
+            expected_sha256=request.file_hash,
         )
         return complete_personal_upload(db, current_user, request)
     except ValueError as exc:

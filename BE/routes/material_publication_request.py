@@ -425,6 +425,9 @@ async def api_material_publication_complete(
             expected_mime_type=(
                 request.mime_type
             ),
+            expected_sha256=(
+                request.file_hash
+            ),
         )
 
         publication_request = (
