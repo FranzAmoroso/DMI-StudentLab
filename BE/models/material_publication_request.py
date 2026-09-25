@@ -278,6 +278,10 @@ class MaterialPublicationRequest(Base):
         "Subject",
     )
 
+    @property
+    def subject_name(self):
+        return self.subject.name if self.subject is not None else None
+
     reviewer = relationship(
         "User",
         foreign_keys=[

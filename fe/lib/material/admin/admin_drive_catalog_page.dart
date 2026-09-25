@@ -168,7 +168,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           children: [
             const Text('Le modifiche resteranno in bozza fino a «Pubblica struttura».'),
             const SizedBox(height: 16),
-            DropdownButtonFormField<int>(value: _subjects.any((e) => _integer(e['id']) == subjectId)
+            DropdownButtonFormField<int>(isExpanded: true, value: _subjects.any((e) => _integer(e['id']) == subjectId)
               ? subjectId : null, decoration: const InputDecoration(labelText: 'Materia'),
               items: [for (final s in _subjects) DropdownMenuItem(value: _integer(s['id']),
                 child: Text('${s['name']} · ${s['course']}', overflow: TextOverflow.ellipsis))],
@@ -176,13 +176,13 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
             TextField(controller: path, decoration: const InputDecoration(
               labelText: 'Percorso nelle Dispense', hintText: 'Cartella / Sottocartella',
               helperText: 'Il percorso Drive non cambia')),
-            DropdownButtonFormField<String>(value: state, decoration: const InputDecoration(labelText: 'Visibilità'),
+            DropdownButtonFormField<String>(isExpanded: true, value: state, decoration: const InputDecoration(labelText: 'Visibilità'),
               items: const [DropdownMenuItem(value: 'visible', child: Text('Visibile')),
                 DropdownMenuItem(value: 'hidden', child: Text('Nascosto')),
                 DropdownMenuItem(value: 'in_review', child: Text('In revisione')),
                 DropdownMenuItem(value: 'archived', child: Text('Archiviato'))],
               onChanged: (v) { if (v != null) update(() => state = v); }),
-            DropdownButtonFormField<String>(value: audience, decoration: const InputDecoration(labelText: 'Destinatari'),
+            DropdownButtonFormField<String>(isExpanded: true, value: audience, decoration: const InputDecoration(labelText: 'Destinatari'),
               items: const [DropdownMenuItem(value: 'public', child: Text('Tutti, anche guest')),
                 DropdownMenuItem(value: 'course', child: Text('Studenti del corso')),
                 DropdownMenuItem(value: 'subject', child: Text('Studenti della materia')),
@@ -228,7 +228,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         content: SizedBox(width: 400, child: Column(mainAxisSize: MainAxisSize.min,
           children: [
             const Text('L’operazione interessa tutti i file di questa cartella. La bozza si pubblica dalla barra in alto.'),
-            DropdownButtonFormField<String>(value: action,
+            DropdownButtonFormField<String>(isExpanded: true, value: action,
               items: const [DropdownMenuItem(value: 'rename', child: Text('Rinomina cartella')),
                 DropdownMenuItem(value: 'move', child: Text('Sposta in un altro percorso')),
                 DropdownMenuItem(value: 'hide', child: Text('Nascondi tutti i file')),
@@ -289,11 +289,11 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           Text(_string(file['name']), maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 12),
           const Text('Il file resta sul Drive. Sarà visibile solo dopo «Pubblica struttura».'),
-          DropdownButtonFormField<int>(value: subjectId,
+          DropdownButtonFormField<int>(isExpanded: true, value: subjectId,
             items: [for (final s in _subjects) DropdownMenuItem(value: _integer(s['id']),
               child: Text('${s['name']} · ${s['course']}', overflow: TextOverflow.ellipsis))],
             onChanged: (v) { if (v != null) update(() => subjectId = v); }),
-          DropdownButtonFormField<String>(value: audience,
+          DropdownButtonFormField<String>(isExpanded: true, value: audience,
             items: const [DropdownMenuItem(value: 'public', child: Text('Tutti, anche guest')),
               DropdownMenuItem(value: 'course', child: Text('Studenti del corso')),
               DropdownMenuItem(value: 'subject', child: Text('Studenti della materia')),
@@ -417,10 +417,12 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     if (mounted) setState(() => _busy = false);
   }
 
-  Widget _panel({required Widget child}) => Container(
-    decoration: BoxDecoration(color: context.palette.eleganceMidnight,
-      border: Border.all(color: context.palette.surfaceBorder),
-      borderRadius: BorderRadius.circular(14)), child: child);
+  Widget _panel({required Widget child}) => Material(
+    color: context.palette.eleganceMidnight,
+    clipBehavior: Clip.antiAlias,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),
+      side: BorderSide(color: context.palette.surfaceBorder)),
+    child: child);
 
   Widget _drivePane() {
     final shown = _drive.where((e) => _string(e['name']).toLowerCase()
@@ -475,7 +477,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         trailing: IconButton(tooltip: 'Nuova cartella nel catalogo',
           onPressed: _busy ? null : _addFolder, icon: const Icon(Icons.create_new_folder_outlined))),
       Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child:
-        DropdownButtonFormField<int>(value: _subjects.any((s) => _integer(s['id']) == _subjectId) ? _subjectId : null,
+        DropdownButtonFormField<int>(isExpanded: true, value: _subjects.any((s) => _integer(s['id']) == _subjectId) ? _subjectId : null,
           decoration: const InputDecoration(labelText: 'Materia'),
           items: [for (final s in _subjects) DropdownMenuItem(value: _integer(s['id']),
             child: Text('${s['name']} · ${s['course']}', overflow: TextOverflow.ellipsis))],
@@ -485,7 +487,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         ? const Center(child: Text('Nessun materiale in questa materia.'))
         : ListView(children: [for (final group in groups.entries) ...[
           ListTile(dense: true, leading: const Icon(Icons.folder_outlined, color: AppColors.adminCyan),
-            title: Text(group.key.isEmpty ? 'Materiali della materia' : group.key),
+            title: Text(group.key.isEmpty ? 'Materiali della materia' : group.key, maxLines: 2, overflow: TextOverflow.ellipsis),
             trailing: group.key.isEmpty ? Text('${group.value.length} file')
               : IconButton(tooltip: 'Rinomina, sposta o nascondi la cartella',
                   icon: const Icon(Icons.more_horiz),
@@ -495,21 +497,21 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(10),
               color: _selectedId == _integer(material['id'])
                 ? context.palette.materialBlue : null),
-            child: ListTile(dense: true, contentPadding: const EdgeInsets.only(left: 24, right: 8),
+            child: Material(color: Colors.transparent, child: ListTile(dense: true, contentPadding: const EdgeInsets.only(left: 24, right: 8),
               leading: const Icon(Icons.insert_drive_file_outlined, size: 18),
               title: Text(_string(material['title']), maxLines: 2, overflow: TextOverflow.ellipsis),
               subtitle: Text('${material['draft'] == true ? 'BOZZA · ' : ''}${_string(material['visibility_state']).toUpperCase()} · ${_string(material['audience_type'])}'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => setState(() { _selectedId = _integer(material['id']); _compactPane = 2; }))),
+              onTap: () => setState(() { _selectedId = _integer(material['id']); _compactPane = 2; })))),
         ],
         for (final folder in folderRows.where((f) => !groups.containsKey(
             _path(f['path_segments']).join(' / '))))
           ListTile(leading: const Icon(Icons.folder_outlined, color: AppColors.adminCyan),
-            title: Text(_path(folder['path_segments']).join(' / ')),
+            title: Text(_path(folder['path_segments']).join(' / '), maxLines: 2, overflow: TextOverflow.ellipsis),
             subtitle: Text(folder['draft'] == true ? 'CARTELLA IN BOZZA' : 'Cartella vuota')),
         for (final file in importRows) ListTile(
           leading: const Icon(Icons.pending_outlined, color: AppColors.adminAmber),
-          title: Text(_string(file['name'])),
+          title: Text(_string(file['name']), maxLines: 2, overflow: TextOverflow.ellipsis),
           subtitle: Text('FILE IN BOZZA · ${_path(file['path_segments']).join(' / ')}'),
           onTap: () => showDriveFilePreview(context,
             load: () => _api.downloadDriveFilePreview(_string(file['drive_file_id'])),
@@ -546,6 +548,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         if (row['drive_file_id'] != null) const Chip(label: Text('Su Drive')),
       ])),
       const Divider(),
+      Expanded(child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _detail('PROVENIENZA', 'Materiale ${_string(row['source'])}'),
       _detail('FILE', '${_string(row['original_name'])}\n${_string(row['size'])} byte'),
       _detail('POSIZIONE DRIVE', _path(row['drive_path_segments']).join(' / ').isEmpty
@@ -553,7 +556,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       _detail('POSIZIONE NELLE DISPENSE', _path(row['path_segments']).join(' / ').isEmpty
         ? 'Direttamente nella materia' : _path(row['path_segments']).join(' / ')),
       _detail('VISIBILITÀ', '${_string(row['visibility_state'])} · ${_string(row['audience_type'])}'),
-      const Spacer(),
+      ]))),
       Padding(padding: const EdgeInsets.all(12), child: FilledButton.icon(
         onPressed: _busy ? null : () => _stage(matches.first),
         icon: const Icon(Icons.drive_file_move_outline), label: const Text('Percorso e permessi'))),
@@ -565,7 +568,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: const TextStyle(fontSize: 10, letterSpacing: 1.2,
         color: AppColors.materialSky, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 5), Text(value),
+      const SizedBox(height: 5), SelectableText(value),
     ]));
 
   Widget _previewPane() {
@@ -601,7 +604,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           tooltip: 'Aggiorna', icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator()) :
         LayoutBuilder(builder: (context, box) {
-          final wide = box.maxWidth >= 900;
+          final wide = box.maxWidth >= 1200;
           return Column(children: [
             Padding(padding: const EdgeInsets.all(12), child: _panel(child: Padding(
               padding: const EdgeInsets.all(10), child: Wrap(spacing: 8, runSpacing: 8,

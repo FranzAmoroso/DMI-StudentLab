@@ -195,6 +195,8 @@ class MaterialPublicationRequestResponse(
 
     subject_id: int
 
+    subject_name: str | None = None
+
     university: str
 
     university_code: str
@@ -282,6 +284,8 @@ class MaterialPublicationApproveRequest(
     admin_note: str | None = None
     drive_path_segments: list[str] | None = None
     allow_drive_duplicate: bool = False
+    catalog_path_segments: list[str] | None = None
+    audience_type: Literal['public', 'course', 'subject'] | None = None
 
 class MaterialPublicationRejectRequest(
     BaseModel,

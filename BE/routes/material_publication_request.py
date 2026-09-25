@@ -32,6 +32,7 @@ from core.security import (
 from models.user import (
     User,
 )
+from models.material_publication_request import MaterialPublicationRequest
 
 from schemas.material_publication_request import (
     MaterialDuplicateReviewRequest,
@@ -825,6 +826,35 @@ def api_admin_review_material_duplicate(
         )
 
 
+@router.post('/admin/material_publications/{request_id}/duplicate/recheck',
+             response_model=MaterialPublicationRequestAdminResponse)
+def api_admin_recheck_publication_duplicate(
+    request_id: int, current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    proposal = db.query(MaterialPublicationRequest).filter(
+        MaterialPublicationRequest.id == request_id).with_for_update().first()
+    if proposal is None:
+        raise HTTPException(404, 'Proposta non trovata.')
+    if proposal.status != 'pending':
+        return proposal
+    fresh = find_duplicate_candidate(db, subject_id=proposal.subject_id,
+        original_name=proposal.original_name, size=proposal.size,
+        file_hash=proposal.file_hash)
+    fresh_id = fresh.id if fresh else None
+    fresh_status = ('confirmed' if fresh and fresh.file_hash == proposal.file_hash
+        else 'suspected' if fresh else 'none')
+    if (fresh_id != proposal.possible_duplicate_material_id or
+            fresh_status != proposal.duplicate_status):
+        proposal.possible_duplicate_material_id = fresh_id
+        proposal.duplicate_status = fresh_status
+        proposal.comparison_status = ('same_material' if proposal.duplicate_status == 'confirmed'
+            else 'pending' if fresh else 'not_required')
+        db.commit()
+        db.refresh(proposal)
+    return proposal
+
+
 @router.post(
     "/admin/material_publications/{request_id}/approve",
     response_model=
@@ -853,6 +883,9 @@ async def api_admin_approve_material_publication(
             status_code=404,
             detail="Richiesta non trovata.",
         )
+
+    if request.catalog_path_segments is not None:
+        clean_path(request.catalog_path_segments)
 
     drive_enabled = all((settings.drive_folder_id, settings.drive_client_id,
         settings.drive_client_secret, settings.drive_refresh_token))
@@ -915,7 +948,9 @@ async def api_admin_approve_material_publication(
 
         status_code = (
             409
-            if message in [
+            if message.startswith(('È stato pubblicato un possibile duplicato',
+                                   'Il materiale di confronto non è più disponibile',
+                                   'Il file è già presente su StudentLab')) or message in [
                 (
                     "La richiesta ha già generato "
                     "un materiale pubblico."

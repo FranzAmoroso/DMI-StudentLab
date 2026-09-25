@@ -31,6 +31,8 @@ class _AdminMaterialPublicationsPageState
   final ApiService _api = ApiService();
   final AdminMaterialStorageApiService _storage = AdminMaterialStorageApiService();
   final Set<int> _processing = <int>{};
+  final Set<int> _checkingDuplicates = <int>{};
+  final Set<int> _duplicateCheckFailed = <int>{};
   final Map<int, Future<Map<String, dynamic>>> _duplicates = {};
   final TextEditingController _searchController = TextEditingController();
   String _status = 'pending';
@@ -70,6 +72,9 @@ class _AdminMaterialPublicationsPageState
           _selectedId = items.isEmpty ? null : _id(items.first);
         }
       });
+      if (_selectedId != null && _status == 'pending') {
+        await _recheckDuplicate(_selectedId!);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() { _loading = false; _error = 'Impossibile caricare le proposte.'; });
@@ -162,6 +167,25 @@ class _AdminMaterialPublicationsPageState
   Future<Map<String, dynamic>> _duplicateFor(int id) =>
       _duplicates.putIfAbsent(id, () => _api.getAdminPossibleDuplicateMaterial(id));
 
+  Future<void> _recheckDuplicate(int id) async {
+    if (_checkingDuplicates.contains(id)) return;
+    setState(() { _checkingDuplicates.add(id); _duplicateCheckFailed.remove(id); });
+    try {
+      final checked = await _api.recheckAdminPublicationDuplicate(id);
+      if (!mounted) return;
+      setState(() {
+        final index = _items.indexWhere((item) => _id(item) == id);
+        if (index >= 0) _items[index] = checked;
+        _duplicates.remove(id);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _duplicateCheckFailed.add(id));
+    } finally {
+      if (mounted) setState(() => _checkingDuplicates.remove(id));
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Azioni
   // ---------------------------------------------------------------------------
@@ -169,11 +193,6 @@ class _AdminMaterialPublicationsPageState
   Future<void> _preview(Map<String, dynamic> item) async {
     final int? id = _id(item);
     if (id == null) return;
-    final size = int.tryParse((item['file_size'] ?? item['size'])?.toString() ?? '') ?? 0;
-    if (size > 20 * 1024 * 1024) {
-      _message('Anteprima disponibile per file fino a 20 MB.');
-      return;
-    }
     await showDriveFilePreview(context,
         load: () => _api.downloadAdminMaterialPublicationFile(id),
         name: item['original_name']?.toString() ?? 'Materiale',
@@ -203,18 +222,26 @@ class _AdminMaterialPublicationsPageState
     }
   }
 
-  Future<bool> _approve(Map<String, dynamic> item, _Decision decision, bool forceAnonymous) async {
+  Future<bool> _approve(Map<String, dynamic> item, _Decision decision, bool forceAnonymous,
+      List<String>? catalogPath, String? audienceType) async {
     final int? id = _id(item);
     if (id == null || _processing.contains(id)) return false;
-
-    DrivePlacement? placement;
-    if (decision != _Decision.alreadyAvailable) {
-      final drive = await _askDrivePlacement(item, id);
-      if (!drive.ok || !mounted) return false;
-      placement = drive.placement;
+    if (_checkingDuplicates.contains(id) || _duplicateCheckFailed.contains(id)) {
+      _message('Controlla di nuovo le versioni disponibili prima di approvare.');
+      return false;
     }
 
     setState(() => _processing.add(id));
+    DrivePlacement? placement;
+    if (decision != _Decision.alreadyAvailable) {
+      final drive = await _askDrivePlacement(item, id);
+      if (!drive.ok || !mounted) {
+        if (mounted) setState(() => _processing.remove(id));
+        return false;
+      }
+      placement = drive.placement;
+    }
+
     try {
       final dup = _duplicateStatus(item);
       final comparison = item['comparison_status']?.toString().toLowerCase() ?? 'pending';
@@ -243,6 +270,10 @@ class _AdminMaterialPublicationsPageState
       await _api.approveAdminMaterialPublication(requestId: id, data: {
         'approved_action': action,
         'force_anonymous': forceAnonymous,
+        if (decision != _Decision.alreadyAvailable && catalogPath != null)
+          'catalog_path_segments': catalogPath,
+        if (decision != _Decision.alreadyAvailable && audienceType != null)
+          'audience_type': audienceType,
         if (placement != null) 'drive_path_segments': placement.path,
         if (placement != null) 'allow_drive_duplicate': placement.allowDuplicate,
       });
@@ -474,11 +505,16 @@ class _AdminMaterialPublicationsPageState
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () {
+          onTap: () async {
             if (wide) {
               setState(() => _selectedId = id);
+              if (id != null && item['status'] == 'pending') await _recheckDuplicate(id);
             } else {
-              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => _PublicationDetailPage(state: this, item: item)));
+              if (id != null && item['status'] == 'pending') await _recheckDuplicate(id);
+              if (!mounted) return;
+              final fresh = _items.where((entry) => _id(entry) == id);
+              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
+                _PublicationDetailPage(state: this, item: fresh.isEmpty ? item : fresh.first)));
             }
           },
           child: Padding(
@@ -548,6 +584,10 @@ class _PublicationDetail extends StatefulWidget {
 class _PublicationDetailState extends State<_PublicationDetail> {
   late _Decision _decision;
   late bool _forceAnonymous;
+  late List<String> _catalogPath;
+  late String _audienceType;
+  bool _catalogPathChanged = false;
+  bool _audienceChanged = false;
 
   _AdminMaterialPublicationsPageState get s => widget.state;
   Map<String, dynamic> get item => widget.item;
@@ -557,6 +597,20 @@ class _PublicationDetailState extends State<_PublicationDetail> {
     super.initState();
     _decision = s._defaultDecision(item);
     _forceAnonymous = item['attribution_mode'] != 'named';
+    _catalogPath = item['path_segments'] is List
+        ? (item['path_segments'] as List).map((value) => value.toString()).toList()
+        : <String>[];
+    _audienceType = 'course';
+  }
+
+  @override
+  void didUpdateWidget(covariant _PublicationDetail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item['possible_duplicate_material_id'] !=
+            item['possible_duplicate_material_id'] ||
+        oldWidget.item['duplicate_status'] != item['duplicate_status']) {
+      _decision = s._defaultDecision(item);
+    }
   }
 
   bool get _pending => (item['status']?.toString().toLowerCase() ?? 'pending') == 'pending';
@@ -579,11 +633,59 @@ class _PublicationDetailState extends State<_PublicationDetail> {
     if (ok && widget.popOnDone && mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _editCatalogPath() async {
+    final controller = TextEditingController(text: _catalogPath.join(' / '));
+    String? error;
+    final selected = await showDialog<List<String>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, update) {
+        return AlertDialog(
+          title: const Text('Cambia posizione nelle Dispense'),
+          content: SizedBox(width: 480, child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Materia: ${item['subject_name'] ?? 'materia della proposta'}'),
+              const SizedBox(height: 8),
+              const Text('Indica le cartelle dentro questa materia, separate da /. '
+                  'Il file sul dispositivo e la cartella Drive restano al loro posto.'),
+              const SizedBox(height: 12),
+              TextField(controller: controller,
+                decoration: const InputDecoration(labelText: 'Cartelle (facoltative)',
+                  hintText: 'Livello trasporto / TCP')),
+              if (error != null) Padding(padding: const EdgeInsets.only(top: 8),
+                child: Text(error!, style: const TextStyle(color: Colors.orangeAccent))),
+            ],
+          )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Annulla')),
+            FilledButton(onPressed: () {
+              final parts = controller.text.trim().isEmpty ? <String>[] :
+                controller.text.split('/').map((part) => part.trim()).toList();
+              if (parts.length > 20 || parts.any((part) => part.isEmpty ||
+                  part.length > 150 || part == '.' || part == '..' ||
+                  part.contains('\\'))) {
+                update(() => error = 'Controlla le cartelle: massimo 20 livelli, 150 caratteri per nome.');
+                return;
+              }
+              Navigator.pop(dialogContext, parts);
+            }, child: const Text('Usa questa posizione')),
+          ],
+        );
+      }),
+    );
+    controller.dispose();
+    if (selected != null && mounted) setState(() {
+      _catalogPath = selected;
+      _catalogPathChanged = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final id = s._id(item);
-    final busy = id != null && s._processing.contains(id);
+    final busy = id != null && (s._processing.contains(id) || s._checkingDuplicates.contains(id));
     final description = item['description']?.toString().trim() ?? '';
     return Container(
       decoration: BoxDecoration(
@@ -595,19 +697,19 @@ class _PublicationDetailState extends State<_PublicationDetail> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
         Padding(
           padding: const EdgeInsets.all(18),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+          child: LayoutBuilder(builder: (context, width) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
             SlFileTile(kind: slFileKind(item['mime_type']?.toString(), item['original_name']?.toString()), size: 52),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-                Text(item['title']?.toString() ?? 'Materiale',
+                Text(item['title']?.toString() ?? 'Materiale', maxLines: 2, overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: p.pureWhite, fontSize: 19, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(<String>[
                   item['original_name']?.toString() ?? '',
                   s._bytes(item['file_size'] ?? item['size']),
                   if ((item['sha256'] ?? item['file_hash']) != null) 'SHA-256 ${s._shortHash(item['sha256'] ?? item['file_hash'])}',
-                ].where((v) => v.isNotEmpty).join(' · '), style: SlText.mono(p, size: 12)),
+                ].where((v) => v.isNotEmpty).join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis, style: SlText.mono(p, size: 12)),
                 if (description.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 8),
                   Text('“$description”', style: SlText.body(p)),
@@ -615,8 +717,10 @@ class _PublicationDetailState extends State<_PublicationDetail> {
               ]),
             ),
             const SizedBox(width: 12),
-            SlActionButton(icon: Icons.visibility_outlined, label: 'Anteprima', primary: true, onPressed: () => s._preview(item)),
-          ]),
+            if (width.maxWidth >= 410)
+              SlActionButton(icon: Icons.visibility_outlined, label: 'Anteprima', primary: true, onPressed: () => s._preview(item))
+            else IconButton(onPressed: () => s._preview(item), tooltip: 'Anteprima', icon: const Icon(Icons.visibility_outlined)),
+          ])),
         ),
         Divider(height: 1, color: p.pureWhite.withValues(alpha: 0.07)),
         Expanded(
@@ -638,6 +742,11 @@ class _PublicationDetailState extends State<_PublicationDetail> {
         ),
         if (_pending) ...<Widget>[
           Divider(height: 1, color: p.pureWhite.withValues(alpha: 0.07)),
+          if (id != null && s._duplicateCheckFailed.contains(id))
+            Padding(padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
+              child: SlErrorCard(title: 'Controllo delle versioni non disponibile',
+                message: 'La proposta è ancora in attesa. Riprova prima di approvare.',
+                onRetry: () => s._recheckDuplicate(id))),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
             child: Wrap(
@@ -658,7 +767,12 @@ class _PublicationDetailState extends State<_PublicationDetail> {
                   child: const Text('Rifiuta…'),
                 ),
                 FilledButton(
-                  onPressed: busy ? null : () => _done(s._approve(item, _decision, _forceAnonymous)),
+                  onPressed: busy ? null : () => _done(s._approve(
+                      item, _decision, _forceAnonymous,
+                      _decision == _Decision.newVersion && !_catalogPathChanged
+                          ? null : _catalogPath,
+                      _decision == _Decision.newVersion && !_audienceChanged
+                          ? null : _audienceType)),
                   style: FilledButton.styleFrom(
                     backgroundColor: p.skyBlue,
                     foregroundColor: p.darkElegance,
@@ -691,6 +805,28 @@ class _PublicationDetailState extends State<_PublicationDetail> {
       children.add(_duplicatePanel());
       children.add(const SizedBox(height: 16));
     }
+    final previewSize = int.tryParse((item['file_size'] ?? item['size'])?.toString() ?? '') ?? 0;
+    children.add(Container(
+      height: 165,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: p.eleganceMidnight,
+        border: Border.all(color: p.skyBlue.withValues(alpha: 0.20)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.picture_as_pdf_outlined, color: p.skyBlue, size: 34),
+        const SizedBox(height: 8),
+        Text(item['original_name']?.toString() ?? 'File proposto',
+          textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
+          style: SlText.body(p)),
+        const SizedBox(height: 8),
+        Text('Dimensione: ${s._bytes(previewSize)}', style: SlText.muted(p)),
+        TextButton.icon(onPressed: () => s._preview(item),
+          icon: const Icon(Icons.visibility_outlined), label: const Text('Apri anteprima')),
+      ]),
+    ));
+    children.add(const SizedBox(height: 16));
     final hash = (item['sha256'] ?? item['file_hash'])?.toString();
     final requestType = s._requestType(item) == 'update_candidate' ? 'Aggiornamento di un materiale' : 'Nuovo materiale';
     children.add(const SlOverline('Dettagli'));
@@ -817,12 +953,14 @@ class _PublicationDetailState extends State<_PublicationDetail> {
   Widget _rightColumn() {
     final p = context.palette;
     final proposer = s._proposerName(item);
-    final path = item['path_segments'] is List ? (item['path_segments'] as List).join(' / ') : '';
+    final path = _catalogPath.join(' / ');
     final placement = <(String, String)>[
       if ((item['university']?.toString() ?? '').isNotEmpty) ('Ateneo', item['university'].toString()),
       if ((item['department']?.toString() ?? '').isNotEmpty) ('Dipartimento', item['department'].toString()),
       if ((item['course_name'] ?? item['course']) != null) ('Corso', (item['course_name'] ?? item['course']).toString()),
       if ((item['subject_name']?.toString() ?? '').isNotEmpty) ('Materia', item['subject_name'].toString()),
+      if ((item['topic_name'] ?? item['argument_name'] ?? item['argoment'])?.toString().trim().isNotEmpty == true)
+        ('Argomento', (item['topic_name'] ?? item['argument_name'] ?? item['argoment']).toString()),
       if (path.isNotEmpty) ('Cartella', path),
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
@@ -855,6 +993,13 @@ class _PublicationDetailState extends State<_PublicationDetail> {
         child: Column(children: <Widget>[
           if (placement.isEmpty) Text('Posizione non indicata.', style: SlText.muted(p)),
           for (final (label, value) in placement) SlKeyValue(label: label, value: value),
+          if (_pending) ...<Widget>[
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: OutlinedButton(
+              onPressed: _editCatalogPath,
+              child: const Text('Cambia posizione'),
+            )),
+          ],
         ]),
       ),
       const SizedBox(height: 18),
@@ -871,6 +1016,18 @@ class _PublicationDetailState extends State<_PublicationDetail> {
             ? Text('Lo studente ha chiesto di restare anonimo.', style: SlText.muted(p))
             : null,
       ),
+      if (_pending) DropdownButtonFormField<String>(
+        value: _audienceType,
+        decoration: const InputDecoration(labelText: 'Destinatari'),
+        items: const [
+          DropdownMenuItem(value: 'course', child: Text('Studenti del corso')),
+          DropdownMenuItem(value: 'subject', child: Text('Studenti della materia')),
+          DropdownMenuItem(value: 'public', child: Text('Tutti, inclusi gli ospiti')),
+        ],
+        onChanged: (value) {
+          if (value != null) setState(() { _audienceType = value; _audienceChanged = true; });
+        },
+      ) else SlKeyValue(label: 'Destinatari', value: _audienceType),
     ]);
   }
 
