@@ -500,7 +500,7 @@ class StudentLabUploadService {
     required String filePath,
     String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
-    Future<String> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
+    Future<Map<String, dynamic>> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
   }) async {
     final _UploadFile file = await _fromPath(filePath);
     return uploadMaterialPublicationBytes(
@@ -524,9 +524,9 @@ class StudentLabUploadService {
     String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
     /// Se il server segnala un materiale già visibile allo studente, chiede
-    /// cosa fare: 'cancel' (non inviare), 'new_version' (proponi come
-    /// aggiornamento di quel materiale) oppure 'separate' (invia come nuovo).
-    Future<String> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
+    /// cosa fare. Risposta: {'decision': 'cancel' | 'new_version' | 'separate',
+    /// 'note': cosa è cambiato (facoltativo, aggiunto alla descrizione)}.
+    Future<Map<String, dynamic>> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
   }) async {
     if (subjectId <= 0) throw Exception('Materia non valida.');
     final String normalizedTitle = title.trim();
@@ -564,13 +564,19 @@ class StudentLabUploadService {
     );
     String requestType = 'new_material';
     int? targetMaterialId;
+    String changeNote = '';
     if (duplicate && onDuplicateDecision != null) {
-      final String decision = await onDuplicateDecision(<String, dynamic>{
+      final Map<String, dynamic> answer = await onDuplicateDecision(<String, dynamic>{
         'id': duplicateId,
         'exact': authorization['possible_duplicate_exact'] == true,
         'title': authorization['possible_duplicate_title'],
         'path_segments': authorization['possible_duplicate_path'],
       });
+      final String decision = answer['decision']?.toString() ?? 'cancel';
+      final String note = answer['note']?.toString().trim() ?? '';
+      if (note.isNotEmpty) {
+        changeNote = note;
+      }
       if (decision == 'cancel') {
         return <String, dynamic>{
           'cancelled': true,
@@ -601,12 +607,15 @@ class StudentLabUploadService {
       mimeType: type,
       presignedUrl: _requiredString(blob, 'presigned_url'),
     );
+    final String finalDescription = changeNote.isEmpty
+        ? description.trim()
+        : '${description.trim()}${description.trim().isEmpty ? '' : '\n\n'}Cosa è cambiato: $changeNote';
     final Map<String, dynamic> result = await _postJson(
       '/material_publication/complete',
       <String, dynamic>{
         'subject_id': subjectId,
         'title': normalizedTitle,
-        'description': description.trim(),
+        'description': finalDescription,
         'attribution_mode': normalizedAttribution,
         'original_name': name,
         'stored_name': pathname,

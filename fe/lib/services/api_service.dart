@@ -3731,7 +3731,7 @@ class ApiService {
     required String filePath,
     String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
-    Future<String> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
+    Future<Map<String, dynamic>> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
   }) async {
     _requireCurrentUserId();
 
@@ -3754,7 +3754,7 @@ class ApiService {
     required String originalName,
     String attributionMode = 'anonymous',
     Future<void> Function()? onPossibleDuplicate,
-    Future<String> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
+    Future<Map<String, dynamic>> Function(Map<String, dynamic> duplicate)? onDuplicateDecision,
   }) async {
     _requireCurrentUserId();
     return StudentLabUploadService().uploadMaterialPublicationBytes(

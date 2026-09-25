@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/picked_file_bridge.dart';
 import '../social/social_models.dart';
 import '../theme/nightTheme.dart';
+import '../widgets/studentlab_ui/studentlab_ui.dart';
 import '../developer/theme/developer_ui_style.dart';
 import '../developer/widgets/developer_section_card.dart';
 
@@ -544,36 +545,21 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
           ]));
       if (proceed != true || !mounted) return;
     }
-    final topic = TextEditingController();
-    final message = TextEditingController();
-    final send = await showDialog<bool>(context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.eleganceDeepNavy,
-        title: Text(toStudentLab ? 'Richiedi materiale a StudentLab' : 'Richiedi materiale al docente',
-          style: const TextStyle(color: AppColors.pureWhite)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (_subjectName != null) Text(_subjectName!,
-            style: const TextStyle(color: Colors.white70)),
-          TextField(controller: topic, decoration: const InputDecoration(
-            labelText: 'Argomento (facoltativo)')),
-          TextField(controller: message, minLines: 3, maxLines: 5,
-            decoration: const InputDecoration(labelText: 'Materiale richiesto')),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Invia richiesta')),
-        ]));
-    final topicText = topic.text.trim();
-    final messageText = message.text.trim();
-    topic.dispose(); message.dispose();
-    if (send != true) return;
-    if (messageText.isEmpty) {
-      _message('Descrivi il materiale che vuoi richiedere.');
-      return;
-    }
-    if (!await _confirmNoExistingMaterial('$topicText $messageText')) return;
+    // Modulo a pagina intera (canvas "Richiesta al docente"): controlla da solo
+    // i materiali già disponibili mentre lo studente scrive.
+    final (String, String)? form = await Navigator.of(context).push<(String, String)>(
+      MaterialPageRoute(
+        builder: (_) => _MaterialRequestFormPage(
+          api: _api,
+          subjectId: subjectId,
+          subjectName: _subjectName,
+          toStudentLab: toStudentLab,
+        ),
+      ),
+    );
+    if (form == null || !mounted) return;
+    final topicText = form.$1;
+    final messageText = form.$2;
     await _run(() async {
       final response = await _api.createTeacherMaterialRequest(subjectId: subjectId,
         topic: topicText, message: messageText, recipientKind: recipientKind);
@@ -886,6 +872,266 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             OutlinedButton(onPressed: onRetry, child: const Text('Riprova')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// "Richiesta al docente" / "Richiesta a StudentLab" a pagina intera.
+/// Restituisce (argomento, messaggio) quando lo studente preme "Invia richiesta".
+class _MaterialRequestFormPage extends StatefulWidget {
+  final ApiService api;
+  final int subjectId;
+  final String? subjectName;
+  final bool toStudentLab;
+
+  const _MaterialRequestFormPage({
+    required this.api,
+    required this.subjectId,
+    required this.subjectName,
+    required this.toStudentLab,
+  });
+
+  @override
+  State<_MaterialRequestFormPage> createState() => _MaterialRequestFormPageState();
+}
+
+class _MaterialRequestFormPageState extends State<_MaterialRequestFormPage> {
+  final TextEditingController _topic = TextEditingController();
+  final TextEditingController _message = TextEditingController();
+  List<Map<String, dynamic>> _suggestions = const [];
+  List<String> _teachers = const [];
+  bool _dismissedSuggestions = false;
+  int _searchTicket = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeachers();
+  }
+
+  @override
+  void dispose() {
+    _topic.dispose();
+    _message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTeachers() async {
+    if (widget.toStudentLab) return;
+    try {
+      final options = await widget.api.getMaterialRequestSubjects();
+      final match = options.where((o) => '${o['subject_id']}' == '${widget.subjectId}');
+      if (match.isEmpty || !mounted) return;
+      final teachers = match.first['teachers'];
+      setState(() => _teachers = teachers is List
+          ? teachers.map((t) => (t is Map ? t['name'] : t)?.toString() ?? '').where((n) => n.isNotEmpty).toList()
+          : const []);
+    } catch (_) {
+      // Solo informativo: la richiesta si può inviare comunque.
+    }
+  }
+
+  /// Cerca materiali già disponibili poco dopo che lo studente smette di scrivere.
+  Future<void> _search() async {
+    final int ticket = ++_searchTicket;
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (ticket != _searchTicket || !mounted) return;
+    final String text = '${_topic.text} ${_message.text}'.trim();
+    if (text.length < 4) {
+      setState(() => _suggestions = const []);
+      return;
+    }
+    try {
+      final found = await widget.api.getMaterialRequestSuggestions(subjectId: widget.subjectId, query: text);
+      if (ticket == _searchTicket && mounted) {
+        setState(() {
+          _suggestions = found;
+          _dismissedSuggestions = false;
+        });
+      }
+    } catch (_) {
+      // La ricerca è un aiuto: se non risponde, il modulo funziona lo stesso.
+    }
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    return parts.take(2).map((p) => p[0].toUpperCase()).join();
+  }
+
+  InputDecoration _decoration(String label) => InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: AppColors.eleganceMidnight,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final String recipient = widget.toStudentLab
+        ? 'Redazione StudentLab'
+        : (_teachers.isEmpty ? 'Docenti della materia' : _teachers.join(', '));
+    final bool showSuggestions = _suggestions.isNotEmpty && !_dismissedSuggestions;
+    final bool canSend = _message.text.trim().isNotEmpty;
+    return Scaffold(
+      backgroundColor: AppColors.darkElegance,
+      appBar: AppBar(
+        backgroundColor: AppColors.eleganceMidnight,
+        foregroundColor: AppColors.pureWhite,
+        leading: IconButton(
+          tooltip: 'Chiudi',
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(widget.toStudentLab ? 'Richiesta a StudentLab' : 'Richiesta al docente'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.eleganceMidnight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(children: [
+                widget.toStudentLab
+                    ? const SlIconTile(icon: Icons.mark_email_unread_outlined, tone: SlTone.cyan, size: 34)
+                    : CircleAvatar(
+                        radius: 17,
+                        backgroundColor: AppColors.teacherIndigo,
+                        child: Text(_teachers.isEmpty ? 'D' : _initials(_teachers.first),
+                            style: TextStyle(color: AppColors.pureWhite, fontSize: 12, fontWeight: FontWeight.w700)),
+                      ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(recipient,
+                        style: TextStyle(color: AppColors.pureWhite, fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text(widget.subjectName ?? 'Materia selezionata',
+                        style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 11)),
+                  ]),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _topic,
+              onChanged: (_) => _search(),
+              style: TextStyle(color: AppColors.pureWhite),
+              decoration: _decoration('Argomento (facoltativo)'),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _message,
+              onChanged: (_) {
+                setState(() {});
+                _search();
+              },
+              minLines: 4,
+              maxLines: 8,
+              maxLength: 3000,
+              style: TextStyle(color: AppColors.pureWhite, height: 1.45),
+              decoration: _decoration('Cosa ti serve'),
+            ),
+            if (showSuggestions) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.adminGreen.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.adminGreen.withValues(alpha: 0.32)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [
+                    Icon(Icons.search_rounded, size: 17, color: AppColors.adminGreen),
+                    const SizedBox(width: 8),
+                    Text('Forse c’è già',
+                        style: TextStyle(color: AppColors.adminGreen, fontSize: 13, fontWeight: FontWeight.w700)),
+                  ]),
+                  const SizedBox(height: 10),
+                  for (final item in _suggestions)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.eleganceMidnight,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Row(children: [
+                        SlFileTile(kind: slFileKind(null, item['original_name']?.toString()), size: 36),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(item['title']?.toString() ?? item['original_name']?.toString() ?? 'Materiale',
+                                style: TextStyle(color: AppColors.pureWhite, fontSize: 13, fontWeight: FontWeight.w600)),
+                            Text(
+                              item['path_segments'] is List && (item['path_segments'] as List).isNotEmpty
+                                  ? (item['path_segments'] as List).join(' › ')
+                                  : 'StudentLab · già disponibile',
+                              style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 11),
+                            ),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.adminGreen,
+                          minimumSize: const Size(0, 42),
+                          side: BorderSide(color: AppColors.adminGreen.withValues(alpha: 0.40)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                        ),
+                        child: const Text('Apri nelle Dispense'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => setState(() => _dismissedSuggestions = true),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.pureWhite.withValues(alpha: 0.86),
+                          minimumSize: const Size(0, 42),
+                          side: BorderSide(color: AppColors.pureWhite.withValues(alpha: 0.14)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                        ),
+                        child: const Text('Non è quello'),
+                      ),
+                    ),
+                  ]),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 18),
+            Text(
+              widget.toStudentLab
+                  ? 'La redazione vede il tuo nome e il corso. Riceverai una notifica quando risponde.'
+                  : 'Il docente vede il tuo nome e il corso. Riceverai una notifica quando risponde.',
+              style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: canSend
+                  ? () => Navigator.of(context).pop((_topic.text.trim(), _message.text.trim()))
+                  : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.skyBlue,
+                foregroundColor: AppColors.darkElegance,
+                minimumSize: const Size(0, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              child: const Text('Invia richiesta'),
+            ),
           ],
         ),
       ),

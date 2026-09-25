@@ -81,6 +81,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   /// Duplicati per cui in questa sessione si è scelto "Tienile entrambe".
   final Set<String> _dismissedDuplicateHashes = <String>{};
 
+  /// Copia selezionata nella scheda duplicato, prima di confermare.
+  final Map<String, int> _duplicateChoice = <String, int>{};
+
   bool _openingPublicationForm = false;
 
   bool _openingOfflineForm = false;
@@ -618,10 +621,13 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   PreferredSizeWidget _buildAppBar() {
     final bool signedIn = _authSession.isAuthenticated;
     return AppBar(
-      backgroundColor: AppColors.brandNightBlue,
+      backgroundColor: AppColors.eleganceMidnight,
       foregroundColor: AppColors.pureWhite,
       automaticallyImplyLeading: false,
       titleSpacing: 4,
+      shape: Border(
+        bottom: BorderSide(color: AppColors.pureWhite.withValues(alpha: 0.06)),
+      ),
       leading: IconButton(
         tooltip: _hasSelection ? 'Indietro' : 'Torna alla Home',
         icon: const Icon(Icons.arrow_back_rounded),
@@ -637,7 +643,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         _pageTitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontSize: _hasSelection ? 17 : 19,
+          fontWeight: _hasSelection ? FontWeight.w600 : FontWeight.w700,
+        ),
       ),
       actions: [
         if (!signedIn && !_hasSelection)
@@ -647,20 +656,44 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               child: SlStatusBadge(label: 'Ospite'),
             ),
           ),
-        if (signedIn)
+        IconButton(
+          tooltip: 'Cerca nelle Dispense',
+          onPressed: _loading ? null : _openSearch,
+          icon: const Icon(Icons.search_rounded),
+        ),
+        if (signedIn && !_hasSelection)
           IconButton(
             tooltip: 'Le mie richieste',
             onPressed: _openRequests,
-            icon: const Icon(Icons.mark_email_unread_outlined),
+            icon: const Icon(Icons.mail_outline_rounded),
           ),
-        IconButton(
-          tooltip: 'Aggiorna',
-          onPressed: _loading ? null : _loadMaterials,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
         const SizedBox(width: 4),
       ],
     );
+  }
+
+  /// Cerca per nome del file, materia o cartella e apre la cartella del file.
+  Future<void> _openSearch() async {
+    final MaterialLocal? found = await showSearch<MaterialLocal?>(
+      context: context,
+      delegate: _DispenseSearchDelegate(_materials),
+    );
+    if (found == null || !mounted) return;
+    setState(() {
+      _rootEntryLevel = 'subject';
+      _selectedUniversity = found.displayUniversity;
+      _selectedDepartment = found.displayDepartment;
+      _selectedCourse = found.displayCourse;
+      _selectedCourseScope = found.courseScope;
+      _selectedSubject = _subjectFor(
+        found,
+        _materials.where((m) => _subjectFor(m, 0).id == _subjectFor(found, 0).id &&
+            m.displayCourse == found.displayCourse).length,
+      );
+      _selectedFolders
+        ..clear()
+        ..addAll(found.pathSegments);
+    });
   }
 
   Widget _buildBody() {
@@ -706,15 +739,19 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         final String context_ = _selectedSubject?.name ??
             (_selectedCourse ?? 'il tuo percorso');
         Widget option(String value, IconData icon, SlTone tone, String title,
-            String description) {
+            String description, {bool highlighted = false}) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Material(
-              color: AppColors.eleganceMidnight,
+              color: highlighted
+                  ? AppColors.skyBlue.withValues(alpha: 0.08)
+                  : AppColors.eleganceMidnight,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
                 side: BorderSide(
-                  color: AppColors.pureWhite.withValues(alpha: 0.08),
+                  color: highlighted
+                      ? AppColors.skyBlue.withValues(alpha: 0.34)
+                      : AppColors.pureWhite.withValues(alpha: 0.08),
                 ),
               ),
               child: InkWell(
@@ -785,28 +822,24 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                         fontSize: 17,
                         fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text('Per $context_',
+                Text('Per $context_${_selectedCourse == null || _selectedSubject == null ? '' : ' · $_selectedCourse'}',
                     style: TextStyle(
                         color: AppColors.pureWhite.withValues(alpha: 0.62),
                         fontSize: 12)),
                 const SizedBox(height: 10),
                 overline('CHIEDI MATERIALE'),
-                option('studentlab', Icons.mark_email_unread_outlined, SlTone.cyan,
+                option('studentlab', Icons.mail_outline_rounded, SlTone.cyan,
                     'A StudentLab', 'La redazione lo cerca o lo produce'),
                 option('teacher', Icons.school_outlined, SlTone.blue,
-                    'Ai docenti',
-                    'Se la materia non ha docenti registrati, la richiesta va a StudentLab'),
+                    'Al docente',
+                    '${_selectedSubject?.name ?? 'La materia scelta'} · se non ci sono docenti va a StudentLab'),
                 option('student', Icons.people_outline_rounded, SlTone.private,
                     'A uno studente', 'Un compagno del tuo corso o gruppo'),
-                option('requests', Icons.inbox_outlined, SlTone.neutral,
-                    'Le mie richieste', 'Richieste inviate e ricevute'),
                 overline('CONDIVIDI'),
                 option('publish', Icons.upload_rounded, SlTone.info,
                     'Pubblica un tuo materiale',
-                    'StudentLab lo verifica prima di pubblicarlo'),
-                option('device', Icons.add_circle_outline_rounded, SlTone.neutral,
-                    'Aggiungi un file dal dispositivo',
-                    'Resta nelle tue dispense, anche offline'),
+                    'StudentLab lo verifica prima di pubblicarlo',
+                    highlighted: true),
               ],
             ),
           ),
@@ -830,12 +863,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     material.isAvailableRemote),
           ),
         ));
-      case 'requests':
-        _openRequests();
       case 'publish':
         if (!_openingPublicationForm) await _openPublication();
-      case 'device':
-        if (!_openingOfflineForm) await _openOfflineMaterial();
     }
   }
 
@@ -945,13 +974,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                 ],
                 _buildPathCard(ownFirstCourse),
                 const SizedBox(height: 16),
-                SlFilterBar<int>(
+                _segmentedTabs(
                   selected: _rootTab,
-                  options: const <SlFilterOption<int>>[
-                    SlFilterOption(value: 0, label: 'Il mio corso'),
-                    SlFilterOption(value: 1, label: 'Corsi DMI'),
-                    SlFilterOption(value: 2, label: 'Dispositivo'),
-                  ],
+                  labels: const <String>['Il mio corso', 'Corsi DMI', 'Dispositivo'],
                   onSelected: (selected) {
                     final explore = selected == 1;
                     setState(() => _rootTab = selected);
@@ -964,24 +989,37 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                 const SizedBox(height: 20),
               ],
               if (!showDevice) ...[
-                _sectionTitle(
-                  !signedIn
-                      ? 'Scegli tu cosa vedere'
-                      : (showOwn ? 'Materie' : 'Corsi pubblici'),
-                ),
-                const SizedBox(height: 10),
-                if (universities.length > 1 || departments.length > 1) ...[
-                  Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
-                    _dispenseFilter('Tutti gli atenei', selectedUniversity,
+                if (showOwn) ...[
+                  _sectionTitle('Materie'),
+                  const SizedBox(height: 10),
+                ] else ...[
+                  // Ospite e "Corsi DMI": filtri sempre visibili, come nel canvas.
+                  Text('Scegli tu cosa vedere',
+                      style: TextStyle(
+                          color: AppColors.pureWhite.withValues(alpha: 0.62), fontSize: 12)),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 6, children: <Widget>[
+                    _dispenseFilter('Ateneo', selectedUniversity,
                         universities, (value) => setState(() {
                               _rootUniversityFilter = value;
                               _rootDepartmentFilter = null;
                             })),
-                    _dispenseFilter('Tutti i dipartimenti', selectedDepartment,
+                    _dispenseFilter('Dipartimento', selectedDepartment,
                         departments,
                         (value) => setState(() => _rootDepartmentFilter = value)),
+                    _dispenseFilter('Corso', null,
+                        shown.map((items) => items.first.displayCourse).toSet().toList()..sort(),
+                        (value) {
+                      if (value == null) return;
+                      final match = shown.where((items) => items.first.displayCourse == value);
+                      if (match.isNotEmpty) _openCourseFromRoot(match.first);
+                    }, dashed: true),
                   ]),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
+                  _sectionTitle(selectedDepartment == null
+                      ? 'Corsi'
+                      : 'Corsi del $selectedDepartment'),
+                  const SizedBox(height: 10),
                 ],
                 if (showOwn && ownSubjects.isNotEmpty) ...[
                   for (final group in ownSubjects.values)
@@ -1025,6 +1063,16 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                         ),
                       ),
                   ],
+                  if (deviceFiles.any(_isUnclassified)) ...[
+                    const SizedBox(height: 14),
+                    _sectionTitle('Sul dispositivo, da sistemare'),
+                    const SizedBox(height: 10),
+                    for (final material in deviceFiles.where(_isUnclassified))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _deviceFileCard(material),
+                      ),
+                  ],
                 ] else if (shown.isEmpty)
                   _dispensePanel(
                     icon: Icons.menu_book_outlined,
@@ -1063,22 +1111,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                         title: first.displayCourse,
                         subtitle: direct
                             ? 'Corso del dipartimento · ${_materialCountText(items.length)}'
-                            : '${first.displayUniversity} · ${first.displayDepartment} · ${_materialCountText(items.length)}',
-                        onTap: () {
-                          if (direct) {
-                            _openDirectCourse(items);
-                            return;
-                          }
-                          setState(() {
-                            _rootEntryLevel = 'course';
-                            _selectedUniversity = first.displayUniversity;
-                            _selectedDepartment = first.displayDepartment;
-                            _selectedCourse = first.displayCourse;
-                            _selectedCourseScope = first.courseScope;
-                            _selectedSubject = null;
-                            _selectedFolders.clear();
-                          });
-                        },
+                            : 'Percorso · ${_subjectCountText(items)}',
+                        onTap: () => _openCourseFromRoot(items),
                       ),
                     );
                   }),
@@ -1123,33 +1157,18 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     ),
                   )
                 else
-                  ...deviceFiles.map((material) {
-                    final bool unclassified = material.subjectId == null &&
-                        (material.subjectName?.trim().isNotEmpty ?? false);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _HierarchyCard(
-                        icon: Icons.insert_drive_file_outlined,
-                        tone: unclassified ? SlTone.warning : SlTone.neutral,
-                        dashed: unclassified,
-                        title: material.originalName,
-                        subtitle: unclassified
-                            ? 'Da classificare · solo tuo'
-                            : '${material.displayCourse} · ${material.displaySubjectName} · solo tuo',
-                        trailing: unclassified
-                            ? OutlinedButton(
-                                style: _secondaryButtonStyle(tone: SlTone.warning),
-                                onPressed: _processingMaterialIds.contains(material.id)
-                                    ? null
-                                    : () => _reconcileLocalPath(material),
-                                child: const Text('Classifica'),
-                              )
-                            : null,
-                        onTap: () => _openMaterial(material),
-                      ),
-                    );
-                  }),
+                  ...deviceFiles.map((material) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _deviceFileCard(material),
+                      )),
                 const SizedBox(height: 8),
+                if (signedIn)
+                  OutlinedButton.icon(
+                    style: _secondaryButtonStyle(),
+                    onPressed: _openingOfflineForm ? null : _openOfflineMaterial,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Aggiungi un file dal dispositivo'),
+                  ),
                 if (!signedIn) ...[
                   FilledButton.icon(
                     style: _primaryButtonStyle(),
@@ -1179,7 +1198,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       id: first.subjectId == null
           ? ((first.subjectName?.trim().isEmpty ?? true)
               ? 'course:direct'
-              : 'name:${first.displaySubjectName.toLowerCase()}')
+              : 'name:${first.subjectName!.trim().toLowerCase()}')
           : 'id:${first.subjectId}',
       subjectId: first.subjectId,
       name: (first.subjectName?.trim().isEmpty ?? true)
@@ -1259,6 +1278,128 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           ),
         ],
       ),
+    );
+  }
+
+  int _offlineBytes(List<MaterialLocal> materials) => materials
+      .map((m) => _offlineEntryFor(m)?.file.size ?? 0)
+      .fold<int>(0, (sum, size) => sum + size);
+
+  bool _isUnclassified(MaterialLocal material) =>
+      material.source == MaterialSourceLocal.local &&
+      material.subjectId == null &&
+      (material.subjectName?.trim().isNotEmpty ?? false);
+
+  String _subjectCountText(List<MaterialLocal> items) {
+    final int count = items
+        .where((m) => m.subjectName?.trim().isNotEmpty ?? false)
+        .map((m) => m.displaySubjectName.toLowerCase())
+        .toSet()
+        .length;
+    return count == 1 ? '1 materia' : '$count materie';
+  }
+
+  /// Apre un corso dalla home: i corsi senza materie mostrano subito i file.
+  void _openCourseFromRoot(List<MaterialLocal> items) {
+    if (items.every((m) => m.subjectName?.trim().isEmpty ?? true)) {
+      _openDirectCourse(items);
+      return;
+    }
+    final first = items.first;
+    setState(() {
+      _rootEntryLevel = 'course';
+      _selectedUniversity = first.displayUniversity;
+      _selectedDepartment = first.displayDepartment;
+      _selectedCourse = first.displayCourse;
+      _selectedCourseScope = first.courseScope;
+      _selectedSubject = null;
+      _selectedFolders.clear();
+    });
+  }
+
+  /// File "solo tuo" sul dispositivo; se non è classificato, card tratteggiata
+  /// con "Classifica" come nel canvas.
+  Widget _deviceFileCard(MaterialLocal material) {
+    final bool unclassified = _isUnclassified(material);
+    return _HierarchyCard(
+      icon: Icons.insert_drive_file_outlined,
+      tone: unclassified ? SlTone.warning : SlTone.neutral,
+      dashed: unclassified,
+      title: material.originalName,
+      subtitle: unclassified
+          ? 'Aggiunto da ospite · solo tuo'
+          : '${material.displayCourse} · ${material.displaySubjectName} · solo tuo',
+      trailing: unclassified
+          ? OutlinedButton(
+              style: _secondaryButtonStyle(tone: SlTone.warning),
+              onPressed: _processingMaterialIds.contains(material.id)
+                  ? null
+                  : () => _reconcileLocalPath(material),
+              child: const Text('Classifica'),
+            )
+          : null,
+      onTap: () => _openMaterial(material),
+    );
+  }
+
+  /// Schede a tutta larghezza (Il mio corso / Corsi DMI / Dispositivo).
+  Widget _segmentedTabs({
+    required int selected,
+    required List<String> labels,
+    required ValueChanged<int> onSelected,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.eleganceMidnight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.pureWhite.withValues(alpha: 0.06)),
+      ),
+      child: Row(children: [
+        for (int i = 0; i < labels.length; i++) ...[
+          if (i > 0) const SizedBox(width: 4),
+          Expanded(
+            child: Semantics(
+              selected: i == selected,
+              button: true,
+              child: Material(
+                color: i == selected
+                    ? AppColors.skyBlue.withValues(alpha: 0.14)
+                    : Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  side: BorderSide(
+                    color: i == selected
+                        ? AppColors.skyBlue.withValues(alpha: 0.40)
+                        : Colors.transparent,
+                  ),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(9),
+                  onTap: () => onSelected(i),
+                  child: SizedBox(
+                    height: 38,
+                    child: Center(
+                      child: Text(
+                        labels[i],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: i == selected
+                              ? AppColors.diamondDust
+                              : AppColors.pureWhite.withValues(alpha: 0.72),
+                          fontSize: 13,
+                          fontWeight: i == selected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ]),
     );
   }
 
@@ -1461,8 +1602,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
   /// Filtro a "chip" con menu: stesso comportamento del vecchio menu a tendina.
   Widget _dispenseFilter(String label, String? selected, List<String> options,
-      ValueChanged<String?> onChange) {
-    final bool active = selected != null;
+      ValueChanged<String?> onChange, {bool dashed = false}) {
+    final bool active = selected != null && !dashed;
     return PopupMenuButton<String>(
       tooltip: label,
       color: AppColors.eleganceDeepNavy,
@@ -1699,9 +1840,11 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               const SizedBox(height: 20),
               _sectionTitle(
                 filesTitle,
-                subtitle: depth == 0 && folders.isNotEmpty && !direct
-                    ? 'Non appartengono a un argomento'
-                    : _materialCountText(allVisibleFiles.length),
+                subtitle: depth == 0 && direct
+                    ? '${_materialCountText(allVisibleFiles.length)} · nessuna materia, li trovi tutti qui'
+                    : (depth == 0 && folders.isNotEmpty
+                        ? 'Non appartengono a un argomento'
+                        : _materialCountText(allVisibleFiles.length)),
               ),
               const SizedBox(height: 10),
               if (allVisibleFiles.length > 1) ...[
@@ -1973,19 +2116,31 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   }
 
   Widget _buildDuplicateCard(_DuplicatePair pair) {
-    final int? preferred = _preferredByHash[pair.hash];
+    // Scelta locale (radio) finché non si preme "Tieni una copia".
+    final int keepId = _duplicateChoice[pair.hash] ?? pair.catalog.id!;
+    final MaterialLocal keep = keepId == pair.mine.id ? pair.mine : pair.catalog;
+    final MaterialLocal other = identical(keep, pair.mine) ? pair.catalog : pair.mine;
+    final int? freed = _offlineEntryFor(other)?.file.size;
+
     Widget option(MaterialLocal material, String subtitle) {
-      final bool selected = preferred == material.id;
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: SlChoiceTile(
           title: material.originalName,
           description: subtitle,
-          selected: selected,
-          onTap: () => _choosePreferred(pair.hash, material),
+          selected: material.id == keepId,
+          onTap: () => setState(() => _duplicateChoice[pair.hash] = material.id!),
         ),
       );
     }
+
+    final ButtonStyle outline = OutlinedButton.styleFrom(
+      foregroundColor: AppColors.pureWhite.withValues(alpha: 0.86),
+      minimumSize: const Size(0, 42),
+      side: BorderSide(color: AppColors.pureWhite.withValues(alpha: 0.14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+      textStyle: const TextStyle(fontSize: 13),
+    );
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -2010,7 +2165,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                           fontSize: 14,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
-                  Text('Stesso contenuto: scegli quale usare come principale',
+                  Text('Stesso contenuto, due copie offline',
                       style: TextStyle(
                           color: AppColors.pureWhite.withValues(alpha: 0.66),
                           fontSize: 12)),
@@ -2019,25 +2174,56 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
             ),
           ]),
           const SizedBox(height: 10),
-          option(pair.catalog,
-              '${_provenanceLabel(pair.catalog.source)} · riceve gli aggiornamenti'),
-          option(pair.mine, 'La tua copia sul dispositivo'),
+          option(pair.catalog, '${_provenanceLabel(pair.catalog.source)} · riceve gli aggiornamenti'),
+          option(pair.mine, 'La tua copia · aggiunta dal dispositivo'),
           const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => _keepBothCopies(pair.hash),
-              child: const Text('Tienile entrambe'),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                style: outline,
+                onPressed: () => _keepBothCopies(pair.hash),
+                child: const Text('Tienile entrambe'),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.skyBlue,
+                  foregroundColor: AppColors.darkElegance,
+                  minimumSize: const Size(0, 42),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                onPressed: () => _keepOneCopy(pair.hash, keep, other),
+                child: const Text('Tieni una copia'),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 8),
           Text(
-            'Per liberare spazio usa “Elimina” o “Rimuovi offline” dal menu del file che non ti serve.',
+            freed == null
+                ? 'L’altra copia verrà rimossa solo da questo dispositivo.'
+                : 'L’altra copia verrà rimossa solo da questo dispositivo, libererai ${_formatSize(freed)}.',
             style: TextStyle(
                 color: AppColors.pureWhite.withValues(alpha: 0.56), fontSize: 11),
           ),
         ],
       ),
     );
+  }
+
+  /// "Tieni una copia": la copia scelta diventa principale e l'altra lascia
+  /// il dispositivo. Una tua copia locale si elimina solo dopo la conferma
+  /// già usata dall'app; la copia offline del catalogo si può riscaricare.
+  Future<void> _keepOneCopy(String hash, MaterialLocal keep, MaterialLocal other) async {
+    await _choosePreferred(hash, keep);
+    if (!mounted) return;
+    if (other.source == MaterialSourceLocal.local) {
+      await _confirmDeleteMaterial(other);
+    } else if (_offlineEntryFor(other) != null) {
+      await _removeRemoteDownload(other);
+    }
   }
 
   Future<void> _choosePreferred(String hash, MaterialLocal material) async {
@@ -2891,7 +3077,11 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                       const SlStatusBadge(label: 'Corso del dipartimento', tone: SlTone.violet)
                     else
                       Text(
-                        '${subject.department} · ${subject.course} · ${_materialCountText(list.length)}',
+                        <String>[
+                          _materialCountText(list.length),
+                          if (_offlineBytes(list) > 0) '${_formatSize(_offlineBytes(list))} offline',
+                          subject.course,
+                        ].join(' · '),
                         style: TextStyle(
                           color: AppColors.pureWhite.withValues(alpha: 0.62),
                           fontSize: 12,
@@ -5292,83 +5482,6 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
     }
   }
 
-  /// "Questo file è già su StudentLab": il server segnala un materiale che
-  /// lo studente può già vedere. Restituisce 'cancel', 'new_version' o 'separate'.
-  Future<String> _askDuplicateDecision(Map<String, dynamic> duplicate) async {
-    final bool exact = duplicate['exact'] == true;
-    final String title = duplicate['title']?.toString() ?? 'Materiale già pubblicato';
-    final List<String> path = duplicate['path_segments'] is List
-        ? (duplicate['path_segments'] as List).map((e) => '$e').toList()
-        : const <String>[];
-    final String? choice = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.eleganceDeepNavy,
-        title: Row(children: [
-          Icon(Icons.content_copy_rounded, color: AppColors.adminAmber),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              exact ? 'Questo file è già su StudentLab' : 'Esiste un materiale simile',
-              style: TextStyle(color: AppColors.adminAmber, fontSize: 17),
-            ),
-          ),
-        ]),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                exact
-                    ? 'Il contenuto è identico a un materiale già pubblicato, quindi non serve inviarlo di nuovo.'
-                    : 'Nella stessa materia c’è un materiale con lo stesso nome o la stessa dimensione.',
-                style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.80), height: 1.4),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.eleganceMidnight,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.w600)),
-                  if (path.isNotEmpty)
-                    Text(path.join(' › '),
-                        style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 12)),
-                ]),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Hai corretto o ampliato il file? Proponilo come nuova versione: StudentLab confronterà le due copie.',
-                style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.66), fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
-            child: Text(exact ? 'Usa quello pubblicato' : 'Annulla'),
-          ),
-          if (!exact)
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, 'separate'),
-              child: const Text('Invia come nuovo'),
-            ),
-          FilledButton(
-            onPressed: duplicate['id'] == null ? null : () => Navigator.pop(dialogContext, 'new_version'),
-            child: const Text('Proponi come nuova versione'),
-          ),
-        ],
-      ),
-    );
-    return choice ?? 'cancel';
-  }
-
   Future<void> _submit() async {
     if (_submitting || !mounted) {
       return;
@@ -5412,9 +5525,18 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
     bool completed = false;
 
     try {
-      Future<String> onDuplicateDecision(Map<String, dynamic> duplicate) async {
-        if (!mounted) return 'cancel';
-        return _askDuplicateDecision(duplicate);
+      Future<Map<String, dynamic>> onDuplicateDecision(Map<String, dynamic> duplicate) async {
+        if (!mounted) return const <String, dynamic>{'decision': 'cancel'};
+        final result = await Navigator.of(context).push<Map<String, dynamic>>(
+          MaterialPageRoute(
+            builder: (_) => _PublicationDuplicatePage(
+              duplicate: duplicate,
+              fileName: fileName,
+              fileSize: fileBytes?.length,
+            ),
+          ),
+        );
+        return result ?? const <String, dynamic>{'decision': 'cancel'};
       }
 
       final Map<String, dynamic> result;
@@ -6365,4 +6487,327 @@ class _SubjectCard extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// "Pubblica con StudentLab" quando il server trova un materiale già visibile
+/// allo studente (canvas: Pubblica · duplicato rilevato).
+/// Restituisce {'decision': 'cancel' | 'new_version' | 'separate', 'note': ...}.
+class _PublicationDuplicatePage extends StatefulWidget {
+  final Map<String, dynamic> duplicate;
+  final String fileName;
+  final int? fileSize;
+
+  const _PublicationDuplicatePage({
+    required this.duplicate,
+    required this.fileName,
+    required this.fileSize,
+  });
+
+  @override
+  State<_PublicationDuplicatePage> createState() => _PublicationDuplicatePageState();
+}
+
+class _PublicationDuplicatePageState extends State<_PublicationDuplicatePage> {
+  final TextEditingController _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  String _size(int? bytes) {
+    if (bytes == null || bytes <= 0) return '';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  void _close(String decision) {
+    Navigator.of(context).pop(<String, dynamic>{'decision': decision, 'note': _note.text.trim()});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool exact = widget.duplicate['exact'] == true;
+    final bool canLink = widget.duplicate['id'] != null;
+    final String title = widget.duplicate['title']?.toString() ?? 'Materiale già pubblicato';
+    final List<String> path = widget.duplicate['path_segments'] is List
+        ? (widget.duplicate['path_segments'] as List).map((e) => '$e').toList()
+        : const <String>[];
+    final String size = _size(widget.fileSize);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _close('cancel');
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.darkElegance,
+        appBar: AppBar(
+          backgroundColor: AppColors.eleganceMidnight,
+          foregroundColor: AppColors.pureWhite,
+          leading: IconButton(
+            tooltip: 'Chiudi',
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => _close('cancel'),
+          ),
+          title: const Text('Pubblica con StudentLab'),
+        ),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.eleganceMidnight,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.pureWhite.withValues(alpha: 0.08)),
+                ),
+                child: Row(children: [
+                  SlFileTile(kind: slFileKind(null, widget.fileName), size: 40),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(widget.fileName,
+                          style: TextStyle(color: AppColors.pureWhite, fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text(size.isEmpty ? 'Dal tuo dispositivo' : 'Dal tuo dispositivo · $size',
+                          style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 11)),
+                    ]),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.adminAmber.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.adminAmber.withValues(alpha: 0.40)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(Icons.content_copy_rounded, size: 20, color: AppColors.adminAmber),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(exact ? 'Questo file è già su StudentLab' : 'Esiste un materiale simile',
+                            style: TextStyle(color: AppColors.adminAmber, fontSize: 15, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        Text(
+                          exact
+                              ? 'Il contenuto è identico a un materiale già pubblicato, quindi non serve inviarlo di nuovo.'
+                              : 'Nella stessa materia c’è un materiale con lo stesso nome o la stessa dimensione.',
+                          style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.78), fontSize: 13, height: 1.45),
+                        ),
+                      ]),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: AppColors.eleganceMidnight, borderRadius: BorderRadius.circular(11)),
+                    child: Row(children: [
+                      SlFileTile(kind: slFileKind(null, widget.fileName), size: 36),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(title,
+                              style: TextStyle(color: AppColors.pureWhite, fontSize: 13, fontWeight: FontWeight.w600)),
+                          if (path.isNotEmpty)
+                            Text(path.join(' › '),
+                                style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 11)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () => _close('cancel'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.skyBlue,
+                      foregroundColor: AppColors.darkElegance,
+                      minimumSize: const Size(0, 46),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    child: const Text('Usa quello pubblicato'),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('La tua copia resta nelle tue dispense finché non decidi di rimuoverla.',
+                      style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.62), fontSize: 12)),
+                ]),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.eleganceMidnight,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.pureWhite.withValues(alpha: 0.08)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('Hai modificato il file?',
+                      style: TextStyle(color: AppColors.pureWhite, fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Se contiene correzioni o aggiunte, proponilo come nuova versione: StudentLab confronterà le due copie.',
+                    style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.66), fontSize: 12, height: 1.45),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _note,
+                    minLines: 3,
+                    maxLines: 5,
+                    style: TextStyle(color: AppColors.pureWhite, fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'Cosa hai cambiato',
+                      hintText: 'Es. corrette le slide 14–18',
+                      filled: true,
+                      fillColor: AppColors.darkElegance,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: canLink ? () => _close('new_version') : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.diamondDust,
+                      backgroundColor: AppColors.skyBlue.withValues(alpha: 0.08),
+                      minimumSize: const Size(0, 44),
+                      side: BorderSide(color: AppColors.skyBlue.withValues(alpha: 0.35)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    child: const Text('Proponi come nuova versione'),
+                  ),
+                  if (!exact) ...[
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => _close('separate'),
+                      child: const Text('È un materiale diverso: invia come nuovo'),
+                    ),
+                  ],
+                ]),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Ricerca nelle Dispense: nome del file, materia, corso o cartella.
+class _DispenseSearchDelegate extends SearchDelegate<MaterialLocal?> {
+  final List<MaterialLocal> materials;
+
+  _DispenseSearchDelegate(this.materials)
+      : super(searchFieldLabel: 'Cerca file, materia o cartella');
+
+  @override
+  ThemeData appBarTheme(BuildContext context) {
+    final ThemeData base = Theme.of(context);
+    return base.copyWith(
+      appBarTheme: base.appBarTheme.copyWith(backgroundColor: AppColors.eleganceMidnight),
+      inputDecorationTheme: const InputDecorationTheme(border: InputBorder.none),
+      scaffoldBackgroundColor: AppColors.darkElegance,
+    );
+  }
+
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+        if (query.isNotEmpty)
+          IconButton(
+            tooltip: 'Cancella',
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => query = '',
+          ),
+      ];
+
+  @override
+  Widget buildLeading(BuildContext context) => IconButton(
+        tooltip: 'Indietro',
+        icon: const Icon(Icons.arrow_back_rounded),
+        onPressed: () => close(context, null),
+      );
+
+  List<MaterialLocal> _matches() {
+    final q = query.trim().toLowerCase();
+    if (q.length < 2) return const [];
+    return materials.where((m) {
+      final text = <String>[
+        m.originalName,
+        m.displaySubjectName,
+        m.displayCourse,
+        ...m.pathSegments,
+      ].join(' ').toLowerCase();
+      return text.contains(q);
+    }).take(50).toList();
+  }
+
+  Widget _list(BuildContext context) {
+    final results = _matches();
+    if (query.trim().length < 2) {
+      return Center(
+        child: Text('Scrivi almeno due lettere.',
+            style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60))),
+      );
+    }
+    if (results.isEmpty) {
+      return Center(
+        child: Text('Nessun file trovato.',
+            style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60))),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: results.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final m = results[index];
+        return Material(
+          color: AppColors.eleganceMidnight,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: AppColors.skyBlue.withValues(alpha: 0.10)),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => close(context, m),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(children: [
+                SlFileTile(kind: slFileKind(null, m.originalName), size: 38),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(m.originalName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: AppColors.pureWhite, fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text(
+                      <String>[m.displayCourse, m.displaySubjectName, ...m.pathSegments]
+                          .where((e) => e.trim().isNotEmpty)
+                          .join(' › '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 11),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) => _list(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _list(context);
 }
