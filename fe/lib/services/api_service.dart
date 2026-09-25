@@ -4226,6 +4226,9 @@ class ApiService {
     int? teacherUserId,
     String? topic,
     required String message,
+    /// null = automatico (docenti se ci sono, altrimenti StudentLab),
+    /// 'teachers' oppure 'studentlab'.
+    String? recipientKind,
   }) async {
     final http.Response response = await http.post(
       _apiUri('/teacher-material-requests'),
@@ -4235,6 +4238,7 @@ class ApiService {
         'teacher_user_id': teacherUserId,
         'topic': topic,
         'message': message,
+        if (recipientKind != null) 'recipient_kind': recipientKind,
       }),
     );
     return _decodeMapResponse(response, 'Errore invio richiesta materiale');
@@ -4254,11 +4258,19 @@ class ApiService {
     return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getAdminPublishedMaterials() async {
+    final response = await http.get(_apiUri('/admin/public_materials?status=published'),
+      headers: _jsonHeaders);
+    final values = _decodeListResponse(response, 'Impossibile caricare i materiali pubblicati');
+    return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
   Future<Map<String, dynamic>> replyStudentLabMaterialRequest(int id,
-      {required String message, required String action}) async {
+      {required String message, required String action, int? publicMaterialId}) async {
     final response = await http.post(_apiUri('/teacher-material-requests/studentlab/$id/reply'),
       headers: _jsonHeaders,
-      body: jsonEncode({'message': message, 'action': action}));
+      body: jsonEncode({'message': message, 'action': action,
+        if (publicMaterialId != null) 'public_material_id': publicMaterialId}));
     return _decodeMapResponse(response, 'Impossibile rispondere alla richiesta');
   }
 
@@ -4439,6 +4451,7 @@ class ApiService {
     required int requestId,
     required String action,
     int? fulfilledMaterialId,
+    int? fulfilledShareId,
   }) async {
     final http.Response response = await http.post(
       _apiUri('/teacher-material-requests/$requestId/resolve'),
@@ -4446,6 +4459,7 @@ class ApiService {
       body: jsonEncode({
         'action': action,
         'fulfilled_material_id': fulfilledMaterialId,
+        'fulfilled_share_id': fulfilledShareId,
       }),
     );
     return _decodeMapResponse(response, 'Errore gestione richiesta materiale');

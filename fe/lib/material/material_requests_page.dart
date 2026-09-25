@@ -13,11 +13,16 @@ class MaterialRequestsPage extends StatefulWidget {
   final String? initialSubjectName;
   final bool hasTeacherMaterials;
 
+  /// Azione da avviare all'apertura: 'teacher' (docenti; StudentLab se la
+  /// materia non ne ha), 'studentlab' oppure 'student'. `null` apre solo l'elenco.
+  final String? initialAction;
+
   const MaterialRequestsPage({
     super.key,
     this.initialSubjectId,
     this.initialSubjectName,
     this.hasTeacherMaterials = false,
+    this.initialAction,
   });
 
   @override
@@ -50,7 +55,21 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     _subjectId = widget.initialSubjectId;
     _subjectName = widget.initialSubjectName;
     _hasTeacherMaterials = widget.hasTeacherMaterials;
-    _load();
+    _load().then((_) => _runInitialAction());
+  }
+
+  /// Apre subito il modulo scelto dal pannello "Richiedi o pubblica".
+  Future<void> _runInitialAction() async {
+    final String? action = widget.initialAction;
+    if (!mounted || action == null || _busy) return;
+    if (!await _ensureSubject() || !mounted) return;
+    if (action == 'teacher') {
+      await _createTeacherRequest();
+    } else if (action == 'studentlab') {
+      await _createTeacherRequest(recipientKind: 'studentlab');
+    } else if (action == 'student') {
+      await _createStudentRequest();
+    }
   }
 
   @override
@@ -426,10 +445,11 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     message.dispose();
   }
 
-  Future<void> _createTeacherRequest() async {
+  Future<void> _createTeacherRequest({String? recipientKind}) async {
+    final bool toStudentLab = recipientKind == 'studentlab';
     final subjectId = _subjectId;
     if (subjectId == null) return;
-    if (_hasTeacherMaterials) {
+    if (_hasTeacherMaterials && !toStudentLab) {
       final proceed = await showDialog<bool>(context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
@@ -450,8 +470,8 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     final send = await showDialog<bool>(context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text('Richiedi materiale al docente',
-          style: TextStyle(color: AppColors.pureWhite)),
+        title: Text(toStudentLab ? 'Richiedi materiale a StudentLab' : 'Richiedi materiale al docente',
+          style: const TextStyle(color: AppColors.pureWhite)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           if (_subjectName != null) Text(_subjectName!,
             style: const TextStyle(color: Colors.white70)),
@@ -476,9 +496,11 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     }
     await _run(() async {
       final response = await _api.createTeacherMaterialRequest(subjectId: subjectId,
-        topic: topicText, message: messageText);
+        topic: topicText, message: messageText, recipientKind: recipientKind);
       _message(response['recipient_kind'] == 'studentlab'
-        ? 'Nessun docente registrato: richiesta inviata a StudentLab.'
+        ? (toStudentLab
+            ? 'Richiesta inviata a StudentLab.'
+            : 'Nessun docente registrato: richiesta inviata a StudentLab.')
         : 'Richiesta inviata ai docenti registrati.');
       await _load();
     });

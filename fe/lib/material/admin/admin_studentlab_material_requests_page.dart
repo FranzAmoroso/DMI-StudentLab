@@ -66,7 +66,7 @@ class _AdminStudentLabMaterialRequestsPageState extends State<AdminStudentLabMat
   }
 
   String _groupKey(Map<String, dynamic> item) =>
-      '${item['subject_id'] ?? item['subject_name'] ?? ''}|${(item['topic']?.toString() ?? '').trim().toLowerCase()}';
+      '${item['recipient_kind'] ?? 'studentlab'}|${item['subject_id'] ?? item['subject_name'] ?? ''}|${(item['topic']?.toString() ?? '').trim().toLowerCase()}';
 
   /// Altre richieste aperte uguali (stessa materia e argomento).
   List<Map<String, dynamic>> _similar(Map<String, dynamic> item) {
@@ -87,7 +87,46 @@ class _AdminStudentLabMaterialRequestsPageState extends State<AdminStudentLabMat
   }
 
   void _message(String text) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(MaterialBanner(
+      content: Text(text), leading: const Icon(Icons.info_outline),
+      actions: [TextButton(onPressed: () => messenger.hideCurrentMaterialBanner(),
+        child: const Text('Chiudi'))]));
+  }
+
+  Future<int?> _choosePublicMaterial(int subjectId, String recipientKind) async {
+    try {
+      final materials = (await _api.getAdminPublishedMaterials()).where((m) =>
+        int.tryParse('${m['subject_id']}') == subjectId &&
+        m['visibility_state'] == 'visible' &&
+        m['audience_type'] == (recipientKind == 'teachers' ? 'course' : 'public') &&
+        m['is_visible'] == true && m['drive_activation_pending'] != true &&
+        (m['drive_file_id']?.toString().isNotEmpty ?? false)).toList();
+      if (!mounted) return null;
+      if (materials.isEmpty) {
+        _message('Prima pubblica su Drive un materiale della materia visibile al corso o a tutti, secondo la richiesta.');
+        return null;
+      }
+      return showModalBottomSheet<int>(context: context, isScrollControlled: true,
+        builder: (sheetContext) => SafeArea(child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * .55,
+          child: Column(children: [
+            ListTile(title: Text(recipientKind == 'teachers' ? 'Materiale per tutto il corso' : 'Materiale pubblico su Drive'),
+              subtitle: Text('Il file scelto sarà indicato nella risposta allo studente.')),
+            Expanded(child: ListView(children: [for (final m in materials)
+              ListTile(leading: const Icon(Icons.insert_drive_file_outlined),
+                title: Text(m['title']?.toString() ?? m['original_name']?.toString() ?? 'Materiale'),
+                subtitle: Text(m['original_name']?.toString() ?? ''),
+                onTap: () => Navigator.pop(sheetContext,
+                  int.tryParse('${m['id']}'))),
+            ])),
+          ]))));
+    } catch (_) {
+      _message('Impossibile caricare i materiali pubblicati. Riprova.');
+      return null;
+    }
   }
 
   Future<bool> _send(Map<String, dynamic> item, String action) async {
@@ -98,9 +137,17 @@ class _AdminStudentLabMaterialRequestsPageState extends State<AdminStudentLabMat
       _message('Scrivi una risposta per lo studente.');
       return false;
     }
+    int? publicMaterialId;
+    if (action == 'fulfilled') {
+      final subjectId = int.tryParse('${item['subject_id']}');
+      if (subjectId == null) return false;
+      publicMaterialId = await _choosePublicMaterial(subjectId, item['recipient_kind']?.toString() ?? 'studentlab');
+      if (publicMaterialId == null || !mounted) return false;
+    }
     setState(() => _busyId = id);
     try {
-      await _api.replyStudentLabMaterialRequest(id, action: action, message: text);
+      await _api.replyStudentLabMaterialRequest(id, action: action,
+        message: text, publicMaterialId: publicMaterialId);
       _message(action == 'fulfilled' ? 'Richiesta soddisfatta.' : 'Richiesta chiusa come non disponibile.');
       _reply.clear();
       await _load();
@@ -228,6 +275,7 @@ class _AdminStudentLabMaterialRequestsPageState extends State<AdminStudentLabMat
     final selected = wide && id == _selectedId;
     final similar = _isOpen(item) ? _similar(item).length : 0;
     final status = item['status']?.toString();
+    final fromTeacher = item['recipient_kind'] == 'teachers';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -259,6 +307,7 @@ class _AdminStudentLabMaterialRequestsPageState extends State<AdminStudentLabMat
               Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: <Widget>[
                 if (status == 'fulfilled') const SlStatusBadge(label: 'Soddisfatta', tone: SlTone.success)
                 else if (status == 'rejected') const SlStatusBadge(label: 'Non disponibile'),
+                if (fromTeacher) SlStatusBadge(label: item['teacher_declined_at'] != null ? 'Docente non disponibile' : 'Anche al docente', tone: SlTone.violet),
                 if (similar > 0) SlStatusBadge(label: '+$similar studenti', tone: SlTone.cyan),
                 Text(<String>[
                   if ((item['student_name']?.toString() ?? '').isNotEmpty) item['student_name'].toString(),
@@ -337,6 +386,11 @@ class _AdminStudentLabMaterialRequestsPageState extends State<AdminStudentLabMat
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(
+                item['recipient_kind'] == 'teachers'
+                    ? 'Per soddisfarla scegli un file già pubblicato su Drive per tutto il corso. La risposta del docente resta privata.'
+                    : 'Per soddisfarla scegli un file già pubblicato per tutti su Drive.',
+                style: TextStyle(fontSize: 12))),
               TextField(
                 controller: _reply,
                 minLines: 3,

@@ -35,7 +35,7 @@ def _changed(record,since):
 
 
 def _public(record, allowed):
-    active=allowed and record.status=="published" and bool(record.is_visible)
+    active=allowed and record.status=="published" and bool(record.is_visible) and getattr(record,"visibility_state","visible")=="visible" and not getattr(record,"drive_activation_pending",False)
     return MaterialSyncItem(key=f"public:{record.id}",source="public",material_id=record.id,subject_id=(record.subject_id if active else None),version=record.version or 1,status=("active" if active else "removed" if record.status=="removed" else "hidden"),is_active=active,is_visible=active,is_tombstone=not active,original_name=(record.original_name if active else None),university=(record.university if active else None),department=(record.department if active else None),course=(record.course if active else None),subject_name=(getattr(record.subject,"name",None) if active and getattr(record,"subject",None) else None),path_segments=(json.loads(record.catalog_path_json or '[]') if active else []),mime_type=(record.mime_type if active else None),size=(record.size if active else None),file_hash=(record.file_hash if active else None),cloud_policy="persistent",updated_at=_utc(record.updated_at),removed_at=_utc(getattr(record,"removed_at",None)))
 
 

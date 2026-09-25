@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user, get_verified_teacher_user, get_admin_user
 from models.teacher_material_request import TeacherMaterialRequest
+from models.public_material import PublicMaterial
 from models.user import User
 from schemas.teacher_material_request import TeacherMaterialRequestCreate, TeacherMaterialRequestResolve, TeacherMaterialRequestResponse
 from services.teacher_material_request import create_request, resolve_request, available_subjects, utc_now
@@ -17,6 +18,7 @@ router=APIRouter(prefix="/teacher-material-requests",tags=["teacher-material-req
 class StudentLabReply(BaseModel):
     message: str = Field(min_length=1, max_length=3000)
     action: str = Field(pattern='^(fulfilled|rejected)$')
+    public_material_id: int | None = None
 
 
 @router.get('/options')
@@ -26,24 +28,42 @@ def options(current_user: User = Depends(get_current_user), db: Session = Depend
 
 @router.get('/studentlab')
 def studentlab_inbox(current_user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
-    rows = db.query(TeacherMaterialRequest).filter(TeacherMaterialRequest.recipient_kind == 'studentlab').order_by(
+    rows = db.query(TeacherMaterialRequest).filter(TeacherMaterialRequest.recipient_kind.in_(['studentlab','teachers'])).order_by(
         TeacherMaterialRequest.created_at.desc()).limit(200).all()
     return [{'id': row.id, 'student_user_id': row.student_user_id,
         'student_name': f'{row.student.first_name} {row.student.last_name}'.strip(),
         'subject_id': row.subject_id, 'subject_name': row.subject.name,
+        'recipient_kind': row.recipient_kind, 'teacher_declined_at': row.teacher_declined_at,
         'topic': row.topic, 'message': row.message, 'status': row.status,
-        'staff_response': row.staff_response, 'created_at': row.created_at} for row in rows]
+        'staff_response': row.staff_response, 'created_at': row.created_at,
+        'public_material_id': row.public_material_id} for row in rows]
 
 
 @router.post('/studentlab/{request_id}/reply', response_model=TeacherMaterialRequestResponse)
 def studentlab_reply(request_id: int, data: StudentLabReply,
         current_user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
     row = db.query(TeacherMaterialRequest).filter(TeacherMaterialRequest.id == request_id,
-        TeacherMaterialRequest.recipient_kind == 'studentlab').with_for_update().first()
+        TeacherMaterialRequest.recipient_kind.in_(['studentlab','teachers'])).with_for_update().first()
     if row is None:
         raise HTTPException(404, 'Richiesta StudentLab non trovata.')
     if row.status != 'pending':
         raise HTTPException(409, 'Questa richiesta è già stata gestita.')
+    if data.action == 'fulfilled':
+        material = db.query(PublicMaterial).filter(
+            PublicMaterial.id == data.public_material_id,
+            PublicMaterial.subject_id == row.subject_id,
+            PublicMaterial.status == 'published',
+            PublicMaterial.is_visible.is_(True),
+            PublicMaterial.visibility_state == 'visible',
+            PublicMaterial.audience_type == ('course' if row.recipient_kind == 'teachers' else 'public'),
+            PublicMaterial.drive_file_id.isnot(None),
+            PublicMaterial.drive_activation_pending.is_(False),
+        ).first()
+        if material is None:
+            raise HTTPException(400, 'Prima pubblica su Drive un file visibile al corso o a tutti, secondo il destinatario della richiesta.')
+        row.public_material_id = material.id
+    elif data.public_material_id is not None:
+        raise HTTPException(400, 'La richiesta chiusa non deve indicare un materiale.')
     row.status = data.action
     row.staff_response = data.message.strip()
     row.resolved_by = current_user.id
@@ -78,6 +98,7 @@ def teacher(current_user:User=Depends(get_verified_teacher_user),db:Session=Depe
     subject_ids=[row[0] for row in db.query(TeacherAssignment.subject_id).filter(TeacherAssignment.user_id==current_user.id,TeacherAssignment.verification_status=="verified",TeacherAssignment.is_current.is_(True)).all()]
     return db.query(TeacherMaterialRequest).filter(TeacherMaterialRequest.subject_id.in_(subject_ids),
         TeacherMaterialRequest.recipient_kind == 'teachers',
+        TeacherMaterialRequest.teacher_declined_at.is_(None),
         (TeacherMaterialRequest.teacher_user_id.is_(None) | (TeacherMaterialRequest.teacher_user_id == current_user.id))).order_by(TeacherMaterialRequest.created_at.desc()).all() if subject_ids else []
 
 

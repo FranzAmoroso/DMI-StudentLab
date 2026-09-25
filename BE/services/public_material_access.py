@@ -5,7 +5,9 @@ from models.subject import UserSubject
 
 
 def can_read_public_material(db, material, user_id: int | None) -> bool:
-    if material.status != 'published' or not material.is_visible:
+    if (material.status != 'published' or not material.is_visible or
+            getattr(material, 'visibility_state', 'visible') != 'visible' or
+            getattr(material, 'drive_activation_pending', False)):
         return False
     target = material.audience_type or 'public'
     if target == 'public':

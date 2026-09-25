@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+
+import '../../services/picked_file_bridge.dart';
 
 import '../../services/api_service.dart';
 import '../../theme/nightTheme.dart';
@@ -14,6 +17,9 @@ class TeacherMaterialRequestsPage extends StatefulWidget {
 class _TeacherMaterialRequestsPageState
     extends State<TeacherMaterialRequestsPage> {
   final ApiService _api = ApiService();
+  final PickedFileBridge _fileBridge = PickedFileBridge();
+  int? _busyId;
+  String? _error;
   bool _loading = true;
   List<Map<String, dynamic>> _items = [];
 
@@ -40,8 +46,41 @@ class _TeacherMaterialRequestsPageState
   Future<void> _reject(Map<String, dynamic> item) async {
     final int? id = int.tryParse(item['id']?.toString() ?? '');
     if (id == null) return;
-    await _api.resolveTeacherMaterialRequest(requestId: id, action: 'rejected');
-    await _load();
+    try {
+      await _api.resolveTeacherMaterialRequest(requestId: id, action: 'rejected');
+      await _load();
+    } catch (_) {
+      if (mounted) setState(() => _error =
+        'Non è stato possibile chiudere la richiesta. Riprova.');
+    }
+  }
+
+  Future<void> _fulfill(Map<String, dynamic> item) async {
+    final requestId = int.tryParse(item['id']?.toString() ?? '');
+    final recipientId = int.tryParse(item['student_user_id']?.toString() ?? '');
+    final subjectId = int.tryParse(item['subject_id']?.toString() ?? '');
+    if (requestId == null || recipientId == null || subjectId == null) return;
+    final chosen = await FilePicker.pickFiles(allowMultiple: false,
+      withData: true, type: FileType.custom,
+      allowedExtensions: const ['pdf', 'txt', 'zip', 'docx', 'pptx', 'png', 'jpg', 'jpeg']);
+    if (chosen == null || chosen.files.isEmpty || !mounted) return;
+    setState(() { _busyId = requestId; _error = null; });
+    try {
+      final path = await _fileBridge.materialize(chosen.files.single);
+      final share = await _api.shareMaterialWithUser(filePath: path,
+        recipientUserId: recipientId, subjectId: subjectId,
+        message: 'Materiale condiviso privatamente in risposta alla tua richiesta.');
+      final shareId = int.tryParse(share['id']?.toString() ?? '');
+      if (shareId == null) throw StateError('Condivisione incompleta.');
+      await _api.resolveTeacherMaterialRequest(requestId: requestId,
+        action: 'fulfilled', fulfilledShareId: shareId);
+      await _load();
+    } catch (_) {
+      if (mounted) setState(() => _error =
+        'Non è stato possibile inviare il materiale. Controlla la connessione e riprova.');
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
   }
 
   @override
@@ -60,6 +99,9 @@ class _TeacherMaterialRequestsPageState
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
+                  if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 16),
+                    child: Card(child: ListTile(leading: const Icon(Icons.info_outline),
+                      title: Text(_error!)))),
                   if (_items.isEmpty)
                     const Center(
                       child: Padding(
@@ -118,13 +160,15 @@ class _TeacherMaterialRequestsPageState
                             ),
                             const SizedBox(height: 12),
                             if (item['status'] == 'pending')
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: OutlinedButton(
-                                  onPressed: () => _reject(item),
-                                  child: const Text('Rifiuta richiesta'),
-                                ),
-                              ),
+                              Wrap(spacing: 8, children: [
+                                OutlinedButton(
+                                  onPressed: _busyId == null ? () => _reject(item) : null,
+                                  child: const Text('Rifiuta richiesta')),
+                                FilledButton.icon(
+                                  onPressed: _busyId == null ? () => _fulfill(item) : null,
+                                  icon: const Icon(Icons.upload_file_outlined),
+                                  label: const Text('Condividi privatamente')),
+                              ]),
                           ],
                         ),
                       ),

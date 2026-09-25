@@ -65,6 +65,54 @@ class AdminMaterialStorageApiService {
     return _list(response, 'Impossibile caricare le materie del catalogo');
   }
 
+  Future<Map<String, dynamic>> getCatalogSnapshot() async {
+    final response = await http.get(_uri('/admin/material-storage/catalog/draft'),
+      headers: _headers);
+    return _map(response, 'Impossibile leggere la bozza');
+  }
+
+  Future<Map<String, dynamic>> stageCatalogFolder({required int subjectId,
+      required List<String> pathSegments}) async => _map(await http.post(
+        _uri('/admin/material-storage/catalog/folders'), headers: _headers,
+        body: jsonEncode({'subject_id': subjectId, 'path_segments': pathSegments})),
+      'Impossibile salvare la cartella nella bozza');
+
+  Future<Map<String, dynamic>> stageDriveImport({required String fileId,
+      required int subjectId, required List<String> pathSegments,
+      required String audienceType, int? audienceId,
+      bool allowDuplicate = false}) async => _map(await http.post(
+        _uri('/admin/material-storage/catalog/import'), headers: _headers,
+        body: jsonEncode({'file_id': fileId, 'subject_id': subjectId,
+          'path_segments': pathSegments, 'audience_type': audienceType,
+          'audience_id': audienceId, 'allow_duplicate': allowDuplicate})),
+      'Impossibile aggiungere il file alla bozza');
+
+  Future<Map<String, dynamic>> stageCatalogFile({required int materialId,
+      required int subjectId, required List<String> pathSegments,
+      required String visibilityState, required String audienceType,
+      int? audienceId}) async {
+    final response = await http.put(_uri('/admin/material-storage/catalog/draft/$materialId'),
+      headers: _headers, body: jsonEncode({
+        'subject_id': subjectId, 'path_segments': pathSegments,
+        'visibility_state': visibilityState, 'audience_type': audienceType,
+        'audience_id': audienceId,
+      }));
+    return _map(response, 'Impossibile salvare la bozza');
+  }
+
+  Future<Map<String, dynamic>> discardCatalogDraft() async => _map(
+      await http.delete(_uri('/admin/material-storage/catalog/draft'), headers: _headers),
+      'Impossibile scartare la bozza');
+
+  Future<Map<String, dynamic>> publishCatalogDraft() async => _map(
+      await http.post(_uri('/admin/material-storage/catalog/publish'), headers: _headers),
+      'Impossibile pubblicare la struttura');
+
+  Future<Map<String, dynamic>> previewCatalog({int? userId}) async => _map(
+      await http.get(_uri('/admin/material-storage/catalog/preview', query: {
+        if (userId != null) 'user_id': '$userId',
+      }), headers: _headers), 'Impossibile caricare l’anteprima');
+
   Future<Map<String, dynamic>> importDriveFile({required String fileId,
       required int subjectId, required String audienceType, int? audienceId}) async {
     final response = await http.post(_uri('/admin/material-storage/drive/import'),

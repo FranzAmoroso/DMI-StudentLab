@@ -2,7 +2,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,10 @@ from services.admin_material_storage import (
     set_public_visibility,
     set_public_audience,
 )
+from services.material_catalog_draft import (
+    list_drafts, list_folders, list_imports, stage, stage_folder,
+    stage_drive_import, discard, publish, preview,
+)
 
 router = APIRouter(
     prefix="/admin/material-storage",
@@ -56,6 +60,104 @@ class DriveImportRequest(BaseModel):
     subject_id: int
     audience_type: str = 'public'
     audience_id: int | None = None
+
+
+class CatalogDraftRequest(BaseModel):
+    subject_id: int
+    path_segments: list[str]
+    visibility_state: str
+    audience_type: str
+    audience_id: int | None = None
+
+
+class CatalogFolderRequest(BaseModel):
+    subject_id: int
+    path_segments: list[str]
+
+
+class CatalogImportRequest(BaseModel):
+    file_id: str
+    subject_id: int
+    path_segments: list[str] = Field(default_factory=list)
+    audience_type: str = 'public'
+    audience_id: int | None = None
+    allow_duplicate: bool = False
+
+
+@router.get('/catalog/draft')
+def get_catalog_draft(current_user: User = Depends(get_admin_user),
+        db: Session = Depends(get_db)):
+    return {'changes': list_drafts(db, current_user.id),
+        'folders': list_folders(db, current_user.id),
+        'imports': list_imports(db, current_user.id)}
+
+
+@router.post('/catalog/folders')
+def put_catalog_folder(request: CatalogFolderRequest,
+        current_user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    try:
+        return stage_folder(db, current_user.id, request.subject_id, request.path_segments)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post('/catalog/import')
+async def put_catalog_import(request: CatalogImportRequest,
+        current_user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    try:
+        return await stage_drive_import(db, admin_id=current_user.id,
+            file_id=request.file_id, subject_id=request.subject_id,
+            path=request.path_segments, audience=request.audience_type,
+            audience_id=request.audience_id, allow_duplicate=request.allow_duplicate)
+    except (ValueError, RuntimeError) as exc:
+        db.rollback()
+        raise HTTPException(409 if isinstance(exc, RuntimeError) else 400,
+            str(exc)) from exc
+
+
+@router.put('/catalog/draft/{material_id}')
+def put_catalog_draft(material_id: int, request: CatalogDraftRequest,
+        current_user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    try:
+        return stage(db, admin_id=current_user.id, material_id=material_id,
+            subject_id=request.subject_id, path=request.path_segments,
+            state=request.visibility_state, audience=request.audience_type,
+            audience_id=request.audience_id)
+    except RuntimeError as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.delete('/catalog/draft')
+def delete_catalog_draft(current_user: User = Depends(get_admin_user),
+        db: Session = Depends(get_db)):
+    return discard(db, current_user.id)
+
+
+@router.post('/catalog/publish')
+async def publish_catalog_draft(current_user: User = Depends(get_admin_user),
+        db: Session = Depends(get_db)):
+    try:
+        return await publish(db, current_user)
+    except RuntimeError as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get('/catalog/preview')
+def preview_catalog_draft(user_id: int | None = Query(default=None, gt=0),
+        current_user: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    if user_id is not None and db.query(User.id).filter(
+        User.id == user_id, User.is_active.is_(True)).first() is None:
+        raise HTTPException(404, 'Studente non trovato.')
+    return preview(db, admin_id=current_user.id, user_id=user_id)
 
 
 @router.get('/drive/import-options')

@@ -77,7 +77,13 @@ class _AdminMaterialPublicationsPageState
   }
 
   void _message(String message) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(MaterialBanner(
+      content: Text(message), leading: const Icon(Icons.info_outline),
+      actions: [TextButton(onPressed: () => messenger.hideCurrentMaterialBanner(),
+        child: const Text('Chiudi'))]));
   }
 
   List<Map<String, dynamic>> get _visibleItems => _items.where((item) {

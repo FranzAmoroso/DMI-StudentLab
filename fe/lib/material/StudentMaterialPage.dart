@@ -3,8 +3,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fe/material/material_requests_page.dart';
+import 'package:fe/social/auth/login_page.dart';
 import 'package:fe/developer/theme/developer_ui_style.dart';
+import 'package:fe/theme/app_palette.dart';
 import 'package:fe/theme/nightTheme.dart';
+import 'package:fe/widgets/studentlab_ui/studentlab_ui.dart';
+import 'package:fe/social/widgets/academic_paths_page.dart';
 
 import 'package:fe/services/api_service.dart';
 import 'package:fe/services/auth_session.dart';
@@ -12,8 +16,6 @@ import 'package:fe/services/picked_file_bridge.dart';
 
 import 'package:fe/social/social_models.dart';
 
-import 'package:fe/material/models/study_material.dart';
-import 'package:fe/material/widgets/material_card.dart';
 
 import 'package:fe/local_storage/models/material_local.dart';
 import 'package:fe/local_storage/models/material_offline_entry.dart';
@@ -47,6 +49,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   final Set<int> _processingMaterialIds = <int>{};
   bool _usingOfflineCache = false;
   bool _exploreAllPublicCourses = false;
+  int _rootTab = 0;
+  Set<String> _enrolledCourseKeys = <String>{};
+  String? _rootUniversityFilter;
+  String? _rootDepartmentFilter;
 
   String? _selectedUniversity;
 
@@ -59,6 +65,21 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   final List<String> _selectedFolders = <String>[];
 
   bool _loading = true;
+
+  /// Livello aperto direttamente dalla home ('subject' o 'course'):
+  /// "Indietro" da lì torna alla home invece di risalire la gerarchia.
+  String? _rootEntryLevel;
+
+  bool _downloadingAll = false;
+
+  /// File importati da ospite e passati all'account all'ultimo caricamento.
+  int _claimedGuestFiles = 0;
+
+  /// Ordine dei file nella materia: 'recent', 'name' oppure 'offline'.
+  String _fileOrder = 'recent';
+
+  /// Duplicati per cui in questa sessione si è scelto "Tienile entrambe".
+  final Set<String> _dismissedDuplicateHashes = <String>{};
 
   bool _openingPublicationForm = false;
 
@@ -103,7 +124,11 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       final int? currentUserId = _authSession.currentUserId;
       if (currentUserId != null) {
         try {
-          await _materialRepository.claimGuestLocalMaterials(currentUserId);
+          final int claimed =
+              await _materialRepository.claimGuestLocalMaterials(currentUserId);
+          if (claimed > 0 && mounted) {
+            setState(() => _claimedGuestFiles = claimed);
+          }
           await _preferenceService.claimGuest(currentUserId);
           await _syncService.syncMaterials(
             userId: currentUserId,
@@ -164,6 +189,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         _materials = materials;
         _offlineMaterials = offline;
         _preferredByHash = preferred;
+        _enrolledCourseKeys = enrolledCourses;
         _usingOfflineCache = syncFailed;
         _loading = false;
       });
@@ -501,7 +527,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   String get _pageTitle {
     if (_selectedFolders.isNotEmpty) return _selectedFolders.last;
     if (_selectedSubject != null) {
-      return _selectedSubject!.name;
+      return _selectedSubject!.id == 'course:direct'
+          ? _selectedSubject!.course
+          : _selectedSubject!.name;
     }
 
     if (_selectedCourse != null) {
@@ -516,13 +544,24 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       return _selectedUniversity!;
     }
 
-    return 'Materiale';
+    return 'Dispense';
   }
 
   void _goBack() {
     setState(() {
       if (_selectedFolders.isNotEmpty) {
         _selectedFolders.removeLast();
+        return;
+      }
+      final bool backToRoot =
+          (_rootEntryLevel == 'subject' && _selectedSubject != null) ||
+          (_rootEntryLevel == 'course' && _selectedSubject == null && _selectedCourse != null);
+      if (backToRoot) {
+        _rootEntryLevel = null;
+        _selectedSubject = null;
+        _selectedCourse = null;
+        _selectedDepartment = null;
+        _selectedUniversity = null;
         return;
       }
       if (_selectedSubject != null) {
@@ -547,162 +586,936 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     });
   }
 
+  // ===========================================================================
+  // UI DISPENSE (stile StudentLab)
+  // La logica di caricamento, sincronizzazione e download è quella di prima:
+  // qui cambia solo la presentazione.
+  // ===========================================================================
+
   @override
   Widget build(BuildContext context) {
+    final bool showActions =
+        _authSession.isAuthenticated && !_loading && _error == null;
     return Scaffold(
       backgroundColor: AppColors.darkElegance,
-
       appBar: _buildAppBar(),
-
       body: SafeArea(child: _buildBody()),
+      floatingActionButton: showActions
+          ? FloatingActionButton.extended(
+              onPressed: _showActionsSheet,
+              backgroundColor: AppColors.skyBlue,
+              foregroundColor: AppColors.darkElegance,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text(
+                'Richiedi o pubblica',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            )
+          : null,
     );
   }
 
   PreferredSizeWidget _buildAppBar() {
+    final bool signedIn = _authSession.isAuthenticated;
     return AppBar(
       backgroundColor: AppColors.brandNightBlue,
-
       foregroundColor: AppColors.pureWhite,
-
       automaticallyImplyLeading: false,
-
+      titleSpacing: 4,
       leading: IconButton(
         tooltip: _hasSelection ? 'Indietro' : 'Torna alla Home',
-
         icon: const Icon(Icons.arrow_back_rounded),
-
         onPressed: () {
           if (_hasSelection) {
             _goBack();
-
             return;
           }
-
           Navigator.of(context).pop();
         },
       ),
-
       title: Text(
         _pageTitle,
-
         maxLines: 1,
-
         overflow: TextOverflow.ellipsis,
-
-        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w500),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       ),
-
       actions: [
+        if (!signedIn && !_hasSelection)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: SlStatusBadge(label: 'Ospite'),
+            ),
+          ),
+        if (signedIn)
+          IconButton(
+            tooltip: 'Le mie richieste',
+            onPressed: _openRequests,
+            icon: const Icon(Icons.mark_email_unread_outlined),
+          ),
         IconButton(
           tooltip: 'Aggiorna',
-
           onPressed: _loading ? null : _loadMaterials,
-
           icon: const Icon(Icons.refresh_rounded),
         ),
+        const SizedBox(width: 4),
       ],
     );
   }
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator(color: AppColors.skyBlue));
     }
-
     if (_error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
-
           child: _buildErrorCard(),
         ),
       );
     }
-
     if (_selectedSubject != null) {
       return _buildMaterialPage();
     }
-
     if (_selectedCourse != null) {
       return _buildSubjectPage();
     }
-
     if (_selectedDepartment != null) {
       return _buildCoursePage();
     }
-
     if (_selectedUniversity != null) {
       return _buildDepartmentPage();
     }
-
     return _buildUniversityPage();
   }
 
+  // ---------------------------------------------------------------------------
+  // Pannello delle azioni ("Richiedi o pubblica")
+  // ---------------------------------------------------------------------------
+
+  Future<void> _showActionsSheet() async {
+    final String? choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.eleganceDeepNavy,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final String context_ = _selectedSubject?.name ??
+            (_selectedCourse ?? 'il tuo percorso');
+        Widget option(String value, IconData icon, SlTone tone, String title,
+            String description) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: AppColors.eleganceMidnight,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: AppColors.pureWhite.withValues(alpha: 0.08),
+                ),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => Navigator.pop(sheetContext, value),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 64),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(children: [
+                      SlIconTile(icon: icon, tone: tone, size: 40),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title,
+                                style: TextStyle(
+                                    color: AppColors.pureWhite,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(description,
+                                style: TextStyle(
+                                    color: AppColors.pureWhite.withValues(alpha: 0.60),
+                                    fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        Widget overline(String text) => Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 8),
+              child: Text(text,
+                  style: TextStyle(
+                      color: AppColors.pureWhite.withValues(alpha: 0.56),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6)),
+            );
+
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.pureWhite.withValues(alpha: 0.30),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text('Cosa ti serve?',
+                    style: TextStyle(
+                        color: AppColors.pureWhite,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text('Per $context_',
+                    style: TextStyle(
+                        color: AppColors.pureWhite.withValues(alpha: 0.62),
+                        fontSize: 12)),
+                const SizedBox(height: 10),
+                overline('CHIEDI MATERIALE'),
+                option('studentlab', Icons.mark_email_unread_outlined, SlTone.cyan,
+                    'A StudentLab', 'La redazione lo cerca o lo produce'),
+                option('teacher', Icons.school_outlined, SlTone.blue,
+                    'Ai docenti',
+                    'Se la materia non ha docenti registrati, la richiesta va a StudentLab'),
+                option('student', Icons.people_outline_rounded, SlTone.private,
+                    'A uno studente', 'Un compagno del tuo corso o gruppo'),
+                option('requests', Icons.inbox_outlined, SlTone.neutral,
+                    'Le mie richieste', 'Richieste inviate e ricevute'),
+                overline('CONDIVIDI'),
+                option('publish', Icons.upload_rounded, SlTone.info,
+                    'Pubblica un tuo materiale',
+                    'StudentLab lo verifica prima di pubblicarlo'),
+                option('device', Icons.add_circle_outline_rounded, SlTone.neutral,
+                    'Aggiungi un file dal dispositivo',
+                    'Resta nelle tue dispense, anche offline'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'teacher':
+      case 'studentlab':
+      case 'student':
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => MaterialRequestsPage(
+            initialSubjectId: _selectedSubject?.subjectId,
+            initialSubjectName: _selectedSubject?.name,
+            initialAction: choice,
+            hasTeacherMaterials: _selectedSubject?.subjectId != null &&
+                _materials.any((material) =>
+                    material.subjectId == _selectedSubject!.subjectId &&
+                    material.source == MaterialSourceLocal.teacher &&
+                    material.isAvailableRemote),
+          ),
+        ));
+      case 'requests':
+        _openRequests();
+      case 'publish':
+        if (!_openingPublicationForm) await _openPublication();
+      case 'device':
+        if (!_openingOfflineForm) await _openOfflineMaterial();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Home delle Dispense
+  // ---------------------------------------------------------------------------
+
+  /// Ingresso Dispense: percorsi e file restano quelli della sincronizzazione
+  /// esistente; questa vista modifica solo la navigazione, non SQLite.
   Widget _buildUniversityPage() {
+    final bool signedIn = _authSession.isAuthenticated;
+    final ownCourses = <String, List<MaterialLocal>>{};
+    final publicCourses = <String, List<MaterialLocal>>{};
+    final deviceFiles =
+        _materials.where((m) => m.source == MaterialSourceLocal.local).toList();
+    for (final material in _materials) {
+      if (material.source == MaterialSourceLocal.local) continue;
+      final academicKey =
+          _courseKey(material.university, material.department, material.course);
+      final key = '$academicKey\u0000${material.courseScope}';
+      final own = _enrolledCourseKeys.contains(academicKey);
+      (own ? ownCourses : publicCourses)
+          .putIfAbsent(key, () => <MaterialLocal>[])
+          .add(material);
+    }
+    final showOwn = signedIn && _rootTab == 0;
+    final showDevice = signedIn && _rootTab == 2;
+    final ownMaterial = ownCourses.values.expand((e) => e).toList();
+    final ownSubjects = <String, List<MaterialLocal>>{};
+    for (final item in ownMaterial
+        .where((m) => m.subjectName?.trim().isNotEmpty ?? false)) {
+      ownSubjects
+          .putIfAbsent('${item.displayCourse}\u0000${item.displaySubjectName}',
+              () => <MaterialLocal>[])
+          .add(item);
+    }
+    final departmentCourses = publicCourses.values
+        .where((items) =>
+            items.isNotEmpty &&
+            items.every((m) => m.subjectName?.trim().isEmpty ?? true))
+        .toList();
+    final courses = showOwn ? ownCourses : publicCourses;
+    final universities = courses.values
+        .expand((items) => items.map((m) => m.displayUniversity))
+        .toSet()
+        .toList()
+      ..sort();
+    final selectedUniversity = universities.contains(_rootUniversityFilter)
+        ? _rootUniversityFilter
+        : null;
+    final departments = courses.values
+        .expand((items) => items)
+        .where((m) =>
+            selectedUniversity == null || m.displayUniversity == selectedUniversity)
+        .map((m) => m.displayDepartment)
+        .toSet()
+        .toList()
+      ..sort();
+    final selectedDepartment = departments.contains(_rootDepartmentFilter)
+        ? _rootDepartmentFilter
+        : null;
+    final shown = courses.values
+        .where((items) =>
+            (selectedUniversity == null ||
+                items.first.displayUniversity == selectedUniversity) &&
+            (selectedDepartment == null ||
+                items.first.displayDepartment == selectedDepartment))
+        .toList();
+    shown.sort((a, b) => a.first.displayCourse
+        .toLowerCase()
+        .compareTo(b.first.displayCourse.toLowerCase()));
+    final List<MaterialLocal> ownFirstCourse =
+        ownCourses.values.isEmpty ? const <MaterialLocal>[] : ownCourses.values.first;
+
     return RefreshIndicator(
       onRefresh: _loadMaterials,
-
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-
-        padding: const EdgeInsets.all(20),
-
-        children: [
-          if (_usingOfflineCache) ...[
-            _buildOfflineSyncBanner(),
-            const SizedBox(height: 14),
-          ],
-          _buildMaterialActions(),
-
-          const SizedBox(height: 20),
-
-          if (_universities.isEmpty)
-            _buildEmptyLibrary()
-          else
-            _buildGrid(
-              _universities.map((String university) {
-                return _HierarchyCard(
-                  icon: Icons.account_balance_rounded,
-
-                  title: university,
-
-                  subtitle: _materialCountText(_countUniversity(university)),
-
-                  onTap: () {
-                    setState(() {
-                      _selectedUniversity = university;
-
-                      _selectedDepartment = null;
-
-                      _selectedCourse = null;
-
-                      _selectedSubject = null;
-                    });
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+            children: <Widget>[
+              if (_usingOfflineCache) ...[
+                _buildOfflineSyncBanner(),
+                const SizedBox(height: 14),
+              ],
+              if (!signedIn) ...[
+                _dispensePanel(
+                  icon: Icons.person_outline_rounded,
+                  title: 'Stai usando StudentLab senza account',
+                  detail:
+                      'I file che aggiungi restano solo su questo dispositivo. Quando accedi, entrano nel tuo albero e vedrai solo il tuo corso.',
+                  elevated: true,
+                  action: FilledButton(
+                    style: _primaryButtonStyle(),
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const LoginPage())),
+                    child: const Text('Accedi o registrati'),
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ] else ...[
+                if (_claimedGuestFiles > 0) ...[
+                  _buildClaimNotice(deviceFiles),
+                  const SizedBox(height: 14),
+                ],
+                _buildPathCard(ownFirstCourse),
+                const SizedBox(height: 16),
+                SlFilterBar<int>(
+                  selected: _rootTab,
+                  options: const <SlFilterOption<int>>[
+                    SlFilterOption(value: 0, label: 'Il mio corso'),
+                    SlFilterOption(value: 1, label: 'Corsi DMI'),
+                    SlFilterOption(value: 2, label: 'Dispositivo'),
+                  ],
+                  onSelected: (selected) {
+                    final explore = selected == 1;
+                    setState(() => _rootTab = selected);
+                    if (_exploreAllPublicCourses != explore) {
+                      _exploreAllPublicCourses = explore;
+                      _loadMaterials();
+                    }
                   },
-                );
-              }).toList(),
+                ),
+                const SizedBox(height: 20),
+              ],
+              if (!showDevice) ...[
+                _sectionTitle(
+                  !signedIn
+                      ? 'Scegli tu cosa vedere'
+                      : (showOwn ? 'Materie' : 'Corsi pubblici'),
+                ),
+                const SizedBox(height: 10),
+                if (universities.length > 1 || departments.length > 1) ...[
+                  Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+                    _dispenseFilter('Tutti gli atenei', selectedUniversity,
+                        universities, (value) => setState(() {
+                              _rootUniversityFilter = value;
+                              _rootDepartmentFilter = null;
+                            })),
+                    _dispenseFilter('Tutti i dipartimenti', selectedDepartment,
+                        departments,
+                        (value) => setState(() => _rootDepartmentFilter = value)),
+                  ]),
+                  const SizedBox(height: 14),
+                ],
+                if (showOwn && ownSubjects.isNotEmpty) ...[
+                  for (final group in ownSubjects.values)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _SubjectCard(
+                        title: group.first.displaySubjectName,
+                        topics: group
+                            .where((m) => m.pathSegments.isNotEmpty)
+                            .map((m) => m.pathSegments.first)
+                            .toSet()
+                            .length,
+                        files: group.length,
+                        offline: group.where(_isOnDevice).length,
+                        onTap: () => setState(() {
+                          final first = group.first;
+                          _rootEntryLevel = 'subject';
+                          _selectedUniversity = first.displayUniversity;
+                          _selectedDepartment = first.displayDepartment;
+                          _selectedCourse = first.displayCourse;
+                          _selectedCourseScope = first.courseScope;
+                          _selectedSubject = _subjectFor(first, group.length);
+                          _selectedFolders.clear();
+                        }),
+                      ),
+                    ),
+                  if (departmentCourses.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _sectionTitle('Corsi del dipartimento',
+                        subtitle: 'Senza materie: aprendoli vedi subito i file'),
+                    const SizedBox(height: 10),
+                    for (final items in departmentCourses)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _HierarchyCard(
+                          icon: Icons.shield_outlined,
+                          tone: SlTone.violet,
+                          title: items.first.displayCourse,
+                          subtitle: _materialCountText(items.length),
+                          onTap: () => _openDirectCourse(items),
+                        ),
+                      ),
+                  ],
+                ] else if (shown.isEmpty)
+                  _dispensePanel(
+                    icon: Icons.menu_book_outlined,
+                    title: showOwn
+                        ? 'Nessun materiale per il tuo percorso'
+                        : 'Nessun corso pubblico disponibile',
+                    detail: showOwn
+                        ? 'Controlla il percorso nel profilo oppure esplora i corsi pubblici.'
+                        : 'Qui compariranno i file che StudentLab ha classificato e reso visibili nel catalogo.',
+                    action: showOwn
+                        ? OutlinedButton(
+                            style: _secondaryButtonStyle(),
+                            onPressed: () {
+                              setState(() => _rootTab = 1);
+                              _exploreAllPublicCourses = true;
+                              _loadMaterials();
+                            },
+                            child: const Text('Esplora corsi'),
+                          )
+                        : null,
+                  )
+                else
+                  ...shown.map((items) {
+                    final first = items.first;
+                    final bool direct = items.every(
+                        (m) => m.subjectName?.trim().isEmpty ?? true);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _HierarchyCard(
+                        icon: direct
+                            ? Icons.shield_outlined
+                            : (first.courseScope == 'additional'
+                                ? Icons.auto_stories_outlined
+                                : Icons.school_outlined),
+                        tone: direct ? SlTone.violet : SlTone.info,
+                        title: first.displayCourse,
+                        subtitle: direct
+                            ? 'Corso del dipartimento · ${_materialCountText(items.length)}'
+                            : '${first.displayUniversity} · ${first.displayDepartment} · ${_materialCountText(items.length)}',
+                        onTap: () {
+                          if (direct) {
+                            _openDirectCourse(items);
+                            return;
+                          }
+                          setState(() {
+                            _rootEntryLevel = 'course';
+                            _selectedUniversity = first.displayUniversity;
+                            _selectedDepartment = first.displayDepartment;
+                            _selectedCourse = first.displayCourse;
+                            _selectedCourseScope = first.courseScope;
+                            _selectedSubject = null;
+                            _selectedFolders.clear();
+                          });
+                        },
+                      ),
+                    );
+                  }),
+              ],
+              if (showDevice || !signedIn) ...[
+                const SizedBox(height: 20),
+                _sectionTitle('Sul dispositivo'),
+                const SizedBox(height: 10),
+                if (deviceFiles.isEmpty)
+                  _dispensePanel(
+                    icon: Icons.insert_drive_file_outlined,
+                    title: 'Nessun file importato',
+                    detail:
+                        'Puoi aggiungere un file sul dispositivo anche senza un account.',
+                  )
+                else if (!signedIn)
+                  _HierarchyCard(
+                    icon: Icons.insert_drive_file_outlined,
+                    tone: SlTone.neutral,
+                    dashed: true,
+                    title: '${deviceFiles.length} file importati',
+                    subtitle:
+                        deviceFiles.take(2).map((m) => m.originalName).join(', '),
+                    onTap: () => showModalBottomSheet<void>(
+                      context: context,
+                      backgroundColor: AppColors.eleganceDeepNavy,
+                      builder: (sheetContext) => SafeArea(
+                        child: ListView(shrinkWrap: true, children: [
+                          for (final file in deviceFiles)
+                            ListTile(
+                              leading: Icon(Icons.insert_drive_file_outlined,
+                                  color: AppColors.skyBlue),
+                              title: Text(file.originalName,
+                                  style: TextStyle(color: AppColors.pureWhite)),
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                _openMaterial(file);
+                              },
+                            ),
+                        ]),
+                      ),
+                    ),
+                  )
+                else
+                  ...deviceFiles.map((material) {
+                    final bool unclassified = material.subjectId == null &&
+                        (material.subjectName?.trim().isNotEmpty ?? false);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _HierarchyCard(
+                        icon: Icons.insert_drive_file_outlined,
+                        tone: unclassified ? SlTone.warning : SlTone.neutral,
+                        dashed: unclassified,
+                        title: material.originalName,
+                        subtitle: unclassified
+                            ? 'Da classificare · solo tuo'
+                            : '${material.displayCourse} · ${material.displaySubjectName} · solo tuo',
+                        trailing: unclassified
+                            ? OutlinedButton(
+                                style: _secondaryButtonStyle(tone: SlTone.warning),
+                                onPressed: _processingMaterialIds.contains(material.id)
+                                    ? null
+                                    : () => _reconcileLocalPath(material),
+                                child: const Text('Classifica'),
+                              )
+                            : null,
+                        onTap: () => _openMaterial(material),
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 8),
+                if (!signedIn) ...[
+                  FilledButton.icon(
+                    style: _primaryButtonStyle(),
+                    onPressed: _openingOfflineForm ? null : _openOfflineMaterial,
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Aggiungi un file'),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Per chiedere o pubblicare materiale serve un account.',
+                    style: TextStyle(
+                        color: AppColors.pureWhite.withValues(alpha: 0.56),
+                        fontSize: 12),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Materia selezionabile a partire da un materiale di quella materia.
+  _LocalSubject _subjectFor(MaterialLocal first, int count) {
+    return _LocalSubject(
+      id: first.subjectId == null
+          ? ((first.subjectName?.trim().isEmpty ?? true)
+              ? 'course:direct'
+              : 'name:${first.displaySubjectName.toLowerCase()}')
+          : 'id:${first.subjectId}',
+      subjectId: first.subjectId,
+      name: (first.subjectName?.trim().isEmpty ?? true)
+          ? 'Materiali del corso'
+          : first.displaySubjectName,
+      university: first.displayUniversity,
+      department: first.displayDepartment,
+      course: first.displayCourse,
+      materialCount: count,
+    );
+  }
+
+  /// Corso senza materie: si aprono subito i file.
+  void _openDirectCourse(List<MaterialLocal> items) {
+    final first = items.first;
+    setState(() {
+      _rootEntryLevel = 'subject';
+      _selectedUniversity = first.displayUniversity;
+      _selectedDepartment = first.displayDepartment;
+      _selectedCourse = first.displayCourse;
+      _selectedCourseScope = first.courseScope;
+      _selectedSubject = _subjectFor(first, items.length);
+      _selectedFolders.clear();
+    });
+  }
+
+  /// Avviso dopo l'accesso: i file aggiunti da ospite ora sono nel tuo albero.
+  Widget _buildClaimNotice(List<MaterialLocal> deviceFiles) {
+    final int toClassify = deviceFiles
+        .where((m) => m.subjectId == null && (m.subjectName?.trim().isNotEmpty ?? false))
+        .length;
+    final int count = _claimedGuestFiles;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+      decoration: BoxDecoration(
+        color: AppColors.adminGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.adminGreen.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.check_rounded, color: AppColors.adminGreen, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count == 1
+                      ? '1 file del dispositivo aggiunto al tuo albero'
+                      : '$count file del dispositivo aggiunti al tuo albero',
+                  style: TextStyle(
+                      color: AppColors.pureWhite, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                if (toClassify > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    toClassify == 1
+                        ? '1 è da classificare: lo trovi in Dispositivo.'
+                        : '$toClassify sono da classificare: li trovi in Dispositivo.',
+                    style: TextStyle(
+                        color: AppColors.pureWhite.withValues(alpha: 0.66), fontSize: 12),
+                  ),
+                ],
+              ],
             ),
+          ),
+          IconButton(
+            tooltip: 'Chiudi avviso',
+            onPressed: () => setState(() => _claimedGuestFiles = 0),
+            icon: Icon(Icons.close_rounded,
+                size: 18, color: AppColors.pureWhite.withValues(alpha: 0.66)),
+          ),
         ],
+      ),
+    );
+  }
+
+  bool _isOnDevice(MaterialLocal material) =>
+      material.source == MaterialSourceLocal.local ||
+      _offlineEntryFor(material) != null;
+
+  Widget _buildPathCard(List<MaterialLocal> ownFirstCourse) {
+    final MaterialLocal? first =
+        ownFirstCourse.isEmpty ? null : ownFirstCourse.first;
+    final chips = <String>[
+      if (first != null) first.displayUniversity,
+      if (first != null) first.displayDepartment,
+      if (first != null) first.displayCourse,
+    ];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.eleganceDeepNavy,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.materialSky.withValues(alpha: 0.30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Text('IL TUO PERCORSO',
+                style: TextStyle(
+                    color: AppColors.adminCyan,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6)),
+            const Spacer(),
+            TextButton(
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const AcademicPathsPage()));
+                if (mounted) await _loadMaterials();
+              },
+              child: const Text('Cambia'),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          if (chips.isEmpty)
+            Text(
+              'Aggiungi il tuo percorso accademico al profilo per vedere qui le materie del corso.',
+              style: TextStyle(
+                  color: AppColors.pureWhite.withValues(alpha: 0.72),
+                  fontSize: 13,
+                  height: 1.4),
+            )
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (int i = 0; i < chips.length; i++) ...[
+                  if (i > 0)
+                    Text('›',
+                        style: TextStyle(
+                            color: AppColors.pureWhite.withValues(alpha: 0.40))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: i == chips.length - 1
+                          ? AppColors.skyBlue.withValues(alpha: 0.14)
+                          : AppColors.eleganceMidnight,
+                      borderRadius: BorderRadius.circular(8),
+                      border: i == chips.length - 1
+                          ? Border.all(color: AppColors.skyBlue.withValues(alpha: 0.34))
+                          : null,
+                    ),
+                    child: Text(chips[i],
+                        style: TextStyle(
+                            color: i == chips.length - 1
+                                ? AppColors.diamondDust
+                                : AppColors.pureWhite,
+                            fontSize: 13)),
+                  ),
+                ],
+                if (_enrolledCourseKeys.length > 1)
+                  Text('+${_enrolledCourseKeys.length - 1}',
+                      style: TextStyle(
+                          color: AppColors.pureWhite.withValues(alpha: 0.60),
+                          fontSize: 12)),
+              ],
+            ),
+          const SizedBox(height: 10),
+          Row(children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: _usingOfflineCache ? AppColors.adminAmber : AppColors.adminGreen,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _usingOfflineCache
+                    ? 'Stai vedendo i file salvati sul dispositivo'
+                    : 'Offline pronto · dispense sincronizzate',
+                style: TextStyle(
+                    color: AppColors.pureWhite.withValues(alpha: 0.66),
+                    fontSize: 12),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title, {String? subtitle}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style: TextStyle(
+                color: AppColors.pureWhite,
+                fontSize: 16,
+                fontWeight: FontWeight.w700)),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(subtitle,
+              style: TextStyle(
+                  color: AppColors.pureWhite.withValues(alpha: 0.60),
+                  fontSize: 12)),
+        ],
+      ],
+    );
+  }
+
+  ButtonStyle _primaryButtonStyle() => FilledButton.styleFrom(
+        backgroundColor: AppColors.skyBlue,
+        foregroundColor: AppColors.darkElegance,
+        minimumSize: const Size(0, 46),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      );
+
+  ButtonStyle _secondaryButtonStyle({SlTone tone = SlTone.info}) {
+    final Color color = tone == SlTone.warning ? AppColors.adminAmber : AppColors.diamondDust;
+    final Color border = tone == SlTone.warning ? AppColors.adminAmber : AppColors.skyBlue;
+    return OutlinedButton.styleFrom(
+      foregroundColor: color,
+      minimumSize: const Size(0, 40),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      side: BorderSide(color: border.withValues(alpha: 0.40)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+    );
+  }
+
+  Widget _dispensePanel({
+    required IconData icon,
+    required String title,
+    required String detail,
+    Widget? action,
+    bool elevated = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: elevated ? AppColors.eleganceDeepNavy : AppColors.eleganceMidnight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: elevated
+              ? AppColors.materialSky.withValues(alpha: 0.30)
+              : AppColors.skyBlue.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+        Row(children: <Widget>[
+          SlIconTile(icon: icon, size: 36),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(title,
+                style: TextStyle(
+                    color: AppColors.pureWhite,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Text(detail,
+            style: TextStyle(
+                color: AppColors.pureWhite.withValues(alpha: 0.70),
+                fontSize: 12,
+                height: 1.5)),
+        if (action != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(width: double.infinity, child: action),
+        ],
+      ]),
+    );
+  }
+
+  /// Filtro a "chip" con menu: stesso comportamento del vecchio menu a tendina.
+  Widget _dispenseFilter(String label, String? selected, List<String> options,
+      ValueChanged<String?> onChange) {
+    final bool active = selected != null;
+    return PopupMenuButton<String>(
+      tooltip: label,
+      color: AppColors.eleganceDeepNavy,
+      onSelected: (value) => onChange(value.isEmpty ? null : value),
+      itemBuilder: (_) => <PopupMenuEntry<String>>[
+        PopupMenuItem<String>(value: '', child: Text(label)),
+        ...options.map((option) =>
+            PopupMenuItem<String>(value: option, child: Text(option))),
+      ],
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.skyBlue.withValues(alpha: 0.14)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: active
+                ? AppColors.skyBlue.withValues(alpha: 0.40)
+                : AppColors.pureWhite.withValues(alpha: 0.24),
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(selected ?? label,
+              style: TextStyle(
+                  color: active
+                      ? AppColors.diamondDust
+                      : AppColors.pureWhite.withValues(alpha: 0.72),
+                  fontSize: 13)),
+          const SizedBox(width: 6),
+          Icon(Icons.keyboard_arrow_down_rounded,
+              size: 16,
+              color: active
+                  ? AppColors.diamondDust
+                  : AppColors.pureWhite.withValues(alpha: 0.72)),
+        ]),
       ),
     );
   }
 
   Widget _buildDepartmentPage() {
     return _buildHierarchyList(
+      title: 'Dipartimenti',
       children: _departments.map((String department) {
         return _HierarchyCard(
           icon: Icons.apartment_rounded,
-
           title: department,
-
           subtitle: _materialCountText(_countDepartment(department)),
-
           onTap: () {
             setState(() {
               _selectedDepartment = department;
-
               _selectedCourse = null;
-
               _selectedSubject = null;
             });
           },
@@ -719,8 +1532,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         if (count == 0) continue;
         cards.add(_HierarchyCard(
           icon: scope == 'degree' ? Icons.school_rounded : Icons.auto_stories_outlined,
+          tone: scope == 'degree' ? SlTone.info : SlTone.violet,
           title: course,
-          subtitle: '${scope == 'degree' ? 'Corso di laurea' : 'Corso aggiuntivo'} · ${_materialCountText(count)}',
+          subtitle:
+              '${scope == 'degree' ? 'Corso di laurea' : 'Corso aggiuntivo'} · ${_materialCountText(count)}',
           onTap: () => setState(() {
             _selectedCourse = course;
             _selectedCourseScope = scope;
@@ -730,27 +1545,28 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         ));
       }
     }
-    return _buildHierarchyList(children: cards);
+    return _buildHierarchyList(title: 'Corsi', children: cards);
   }
 
   Widget _buildSubjectPage() {
     final List<_LocalSubject> subjects = _subjects;
-
     if (subjects.isEmpty) {
       return Center(
         child: _buildEmptyHierarchy('Nessuna materia disponibile.'),
       );
     }
-
     return _buildHierarchyList(
+      title: 'Materie',
+      breadcrumb: '${_selectedDepartment ?? ''} › ${_selectedCourse ?? ''}',
       children: subjects.map((_LocalSubject subject) {
+        final bool direct = subject.id == 'course:direct';
         return _HierarchyCard(
-          icon: Icons.menu_book_rounded,
-
+          icon: direct ? Icons.folder_open_rounded : Icons.menu_book_rounded,
+          tone: direct ? SlTone.violet : SlTone.info,
           title: subject.name,
-
-          subtitle: _materialCountText(subject.materialCount),
-
+          subtitle: direct
+              ? 'File senza materia · ${_materialCountText(subject.materialCount)}'
+              : _materialCountText(subject.materialCount),
           onTap: () {
             setState(() {
               _selectedSubject = subject;
@@ -762,55 +1578,40 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     );
   }
 
-  Widget _buildHierarchyList({required List<Widget> children}) {
+  Widget _buildHierarchyList({
+    required List<Widget> children,
+    String? title,
+    String? breadcrumb,
+  }) {
     return RefreshIndicator(
       onRefresh: _loadMaterials,
-
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-
-        padding: const EdgeInsets.all(20),
-
-        children: [
-          if (children.isEmpty)
-            _buildEmptyHierarchy('Nessun contenuto disponibile.')
-          else
-            _buildGrid(children),
-        ],
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+            children: [
+              if (breadcrumb != null) ...[
+                Text(breadcrumb,
+                    style: TextStyle(color: AppColors.materialSky, fontSize: 12)),
+                const SizedBox(height: 10),
+              ],
+              if (title != null) ...[
+                _sectionTitle(title),
+                const SizedBox(height: 10),
+              ],
+              if (children.isEmpty)
+                _buildEmptyHierarchy('Nessun contenuto disponibile.')
+              else
+                for (final child in children)
+                  Padding(padding: const EdgeInsets.only(bottom: 10), child: child),
+            ],
+          ),
+        ),
       ),
     );
   }
-
-  Widget _buildGrid(List<Widget> children) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        int columns = 2;
-
-        if (constraints.maxWidth < 480) {
-          columns = 1;
-        } else if (constraints.maxWidth >= 820) {
-          columns = 3;
-        }
-
-        return GridView.count(
-          crossAxisCount: columns,
-
-          shrinkWrap: true,
-
-          physics: const NeverScrollableScrollPhysics(),
-
-          crossAxisSpacing: 14,
-
-          mainAxisSpacing: 14,
-
-          childAspectRatio: columns == 1 ? 2.65 : 1.55,
-
-          children: children,
-        );
-      },
-    );
-  }
-
   Widget _buildMaterialPage() {
     final _LocalSubject subject = _selectedSubject!;
     final List<MaterialLocal> materials = _selectedMaterials;
@@ -822,9 +1623,29 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       }
       return true;
     }).toList();
-    final folders = matching.where((material) => material.pathSegments.length > depth)
-        .map((material) => material.pathSegments[depth]).toSet().toList()..sort();
-    final visibleFiles = matching.where((material) => material.pathSegments.length == depth).toList();
+    final folders = matching
+        .where((material) => material.pathSegments.length > depth)
+        .map((material) => material.pathSegments[depth])
+        .toSet()
+        .toList()
+      ..sort();
+    final allVisibleFiles =
+        matching.where((material) => material.pathSegments.length == depth).toList();
+    final visibleFiles = _fileOrder == 'offline'
+        ? allVisibleFiles.where(_isOnDevice).toList()
+        : List<MaterialLocal>.of(allVisibleFiles);
+    if (_fileOrder == 'name') {
+      visibleFiles.sort((a, b) =>
+          a.originalName.toLowerCase().compareTo(b.originalName.toLowerCase()));
+    }
+    final bool direct = subject.id == 'course:direct';
+    final String folderLabel = depth == 0
+        ? (direct ? 'Cartelle' : 'Argomenti')
+        : 'Cartelle';
+    final String filesTitle = depth == 0
+        ? (folders.isNotEmpty && !direct ? 'File della materia' : 'Materiali')
+        : 'File in questa cartella';
+    final duplicates = depth == 0 ? _duplicateGroups(materials) : const <_DuplicatePair>[];
 
     return Center(
       child: ConstrainedBox(
@@ -833,45 +1654,74 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           onRefresh: _loadMaterials,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
             children: [
-              _buildSubjectHeader(subject),
-              const SizedBox(height: 14),
-              _buildSourceSummary(materials),
-              if (_selectedFolders.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(_selectedFolders.join(' / '),
-                  style: const TextStyle(color: AppColors.materialSky, fontSize: 12)),
-              ],
-              if (folders.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                ...folders.map((folder) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _HierarchyCard(icon: Icons.folder_outlined,
-                    title: folder, subtitle: 'Apri cartella',
-                    onTap: () => setState(() => _selectedFolders.add(folder))),
-                )),
-              ],
-              const SizedBox(height: 24),
-              const Text(
-                'Materiali',
-                style: TextStyle(
-                  color: AppColors.pureWhite,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
               Text(
-                _materialCountText(visibleFiles.length),
-                style: TextStyle(
-                  color: AppColors.pureWhite.withValues(alpha: 0.48),
-                  fontSize: 11,
-                ),
+                <String>[
+                  subject.course,
+                  if (!direct) subject.name,
+                  ..._selectedFolders,
+                ].join(' › '),
+                style: TextStyle(color: AppColors.materialSky, fontSize: 12),
               ),
-              const SizedBox(height: 16),
-              if (visibleFiles.isEmpty && folders.isEmpty)
+              const SizedBox(height: 12),
+              _buildSubjectHeader(subject, materials),
+              const SizedBox(height: 12),
+              _buildSourceSummary(materials),
+              if (folders.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _sectionTitle(folderLabel),
+                const SizedBox(height: 8),
+                ...folders.map((folder) {
+                  final inFolder = matching
+                      .where((m) => m.pathSegments.length > depth &&
+                          m.pathSegments[depth] == folder)
+                      .toList();
+                  final int onDevice = inFolder.where(_isOnDevice).length;
+                  final String status = onDevice == inFolder.length
+                      ? 'tutto offline'
+                      : (onDevice == 0 ? 'da scaricare' : '$onDevice di ${inFolder.length} offline');
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _HierarchyCard(
+                      icon: Icons.folder_outlined,
+                      title: folder,
+                      subtitle: '${_materialCountText(inFolder.length)} · $status',
+                      onTap: () => setState(() => _selectedFolders.add(folder)),
+                    ),
+                  );
+                }),
+              ],
+              for (final pair in duplicates) ...[
+                const SizedBox(height: 12),
+                _buildDuplicateCard(pair),
+              ],
+              const SizedBox(height: 20),
+              _sectionTitle(
+                filesTitle,
+                subtitle: depth == 0 && folders.isNotEmpty && !direct
+                    ? 'Non appartengono a un argomento'
+                    : _materialCountText(allVisibleFiles.length),
+              ),
+              const SizedBox(height: 10),
+              if (allVisibleFiles.length > 1) ...[
+                SlFilterBar<String>(
+                  selected: _fileOrder,
+                  options: const <SlFilterOption<String>>[
+                    SlFilterOption(value: 'recent', label: 'Recenti'),
+                    SlFilterOption(value: 'name', label: 'Nome'),
+                    SlFilterOption(value: 'offline', label: 'Solo offline'),
+                  ],
+                  onSelected: (value) => setState(() => _fileOrder = value),
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (visibleFiles.isEmpty && folders.isEmpty && _fileOrder != 'offline')
                 _buildEmptyMaterials()
+              else if (visibleFiles.isEmpty && _fileOrder == 'offline')
+                Text('Nessun file di questa cartella è ancora offline.',
+                    style: TextStyle(
+                        color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 12))
               else
                 ...visibleFiles.map(_buildMaterialEntry),
             ],
@@ -881,298 +1731,413 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // File
+  // ---------------------------------------------------------------------------
+
+  String _fileKind(MaterialLocal material, MaterialOfflineEntry? offline) {
+    switch (_materialType(material, offline)) {
+      case 'PDF':
+        return 'PDF';
+      case 'PPTX':
+        return 'PPT';
+      case 'Document':
+        return 'DOC';
+      case 'Image':
+        return 'IMG';
+      case 'ZIP':
+        return 'ZIP';
+      default:
+        return 'FILE';
+    }
+  }
+
   Widget _buildMaterialEntry(MaterialLocal material) {
     final MaterialOfflineEntry? offline = _offlineEntryFor(material);
     final bool isOffline = offline != null;
     final bool isLocal = material.source == MaterialSourceLocal.local;
-    final bool personalSynced =
-        material.source == MaterialSourceLocal.personalSync;
+    final bool personalSynced = material.source == MaterialSourceLocal.personalSync;
     final bool shared = material.source == MaterialSourceLocal.sharedUser;
+    final bool sharedPending = shared && material.remoteStatus == 'pending';
+    final bool signedIn = _authSession.isAuthenticated;
     final bool processing =
         material.id != null && _processingMaterialIds.contains(material.id);
 
+    final meta = <String>[
+      _provenanceLabel(material.source),
+      if (offline != null) _formatSize(offline.file.size),
+      if (!isLocal) (isOffline ? 'offline' : 'solo online'),
+      if (material.source == MaterialSourceLocal.group && material.groupId != null)
+        'gruppo ${material.groupId}',
+      if (material.remoteVersion != null && !isLocal) 'v${material.remoteVersion}',
+    ];
+    final badges = <Widget>[
+      if (_isPreferredMaterial(material))
+        const SlStatusBadge(label: 'Principale', tone: SlTone.info),
+      if (isLocal) const SlStatusBadge(label: 'Solo tuo', tone: SlTone.private),
+      if (material.source == MaterialSourceLocal.teacher)
+        const SlStatusBadge(label: 'Docente', tone: SlTone.violet, icon: Icons.verified_rounded),
+      if (personalSynced) const SlStatusBadge(label: 'Sincronizzato', tone: SlTone.cyan),
+      if (sharedPending) const SlStatusBadge(label: 'Da accettare', tone: SlTone.warning),
+      if (material.cloudExpiresAt != null)
+        SlStatusBadge(label: _cloudExpiryLabel(material.cloudExpiresAt!), tone: SlTone.warning),
+    ];
+
+    void onPrimaryTap() {
+      if (processing) return;
+      if (isOffline || isLocal) {
+        _openMaterial(material);
+      } else if (sharedPending) {
+        _acceptSharedMaterial(material);
+      } else {
+        _downloadWithDuplicateChoice(material);
+      }
+    }
+
+    // Azione principale a destra: aperto/offline, scarica, accetta.
+    Widget trailing;
+    if (processing) {
+      trailing = SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.skyBlue),
+          ),
+        ),
+      );
+    } else if (isOffline || isLocal) {
+      trailing = IconButton(
+        tooltip: 'Apri',
+        onPressed: () => _openMaterial(material),
+        icon: Icon(Icons.check_rounded, color: AppColors.adminGreen),
+      );
+    } else if (sharedPending) {
+      trailing = IconButton(
+        tooltip: 'Accetta e scarica',
+        onPressed: () => _acceptSharedMaterial(material),
+        icon: Icon(Icons.download_done_outlined, color: AppColors.adminAmber),
+      );
+    } else {
+      trailing = IconButton(
+        tooltip: 'Scarica offline',
+        onPressed: () => _downloadWithDuplicateChoice(material),
+        style: IconButton.styleFrom(
+          side: BorderSide(color: AppColors.skyBlue.withValues(alpha: 0.24)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+        ),
+        icon: Icon(Icons.download_rounded, color: AppColors.skyBlue),
+      );
+    }
+
+    // Tutte le altre azioni di prima, raccolte nel menu "Altre azioni".
+    final actions = <PopupMenuEntry<String>>[
+      if (isOffline && !isLocal) const PopupMenuItem(value: 'open', child: Text('Apri')),
+      if (isOffline && !isLocal)
+        const PopupMenuItem(value: 'removeOffline', child: Text('Rimuovi offline')),
+      if (!isOffline && !isLocal && !sharedPending)
+        const PopupMenuItem(value: 'download', child: Text('Scarica')),
+      if (sharedPending)
+        const PopupMenuItem(value: 'accept', child: Text('Accetta e scarica')),
+      if (isLocal && signedIn) ...[
+        const PopupMenuItem(value: 'publish', child: Text('Proponi a StudentLab')),
+        const PopupMenuItem(value: 'sync', child: Text('Sincronizza')),
+        const PopupMenuItem(value: 'share', child: Text('Condividi con uno studente')),
+      ],
+      if (isLocal &&
+          material.subjectId == null &&
+          (material.subjectName?.trim().isNotEmpty ?? false))
+        const PopupMenuItem(value: 'reconcile', child: Text('Cerca materia nel catalogo')),
+      if (isLocal && signedIn && material.courseScope == 'additional' && material.subjectId == null)
+        const PopupMenuItem(value: 'proposeCourse', child: Text('Proponi il corso per la pubblicazione')),
+      if (isLocal) const PopupMenuItem(value: 'delete', child: Text('Elimina')),
+    ];
+
+    void runAction(String value) {
+      switch (value) {
+        case 'open':
+          _openMaterial(material);
+        case 'removeOffline':
+          _removeRemoteDownload(material);
+        case 'download':
+          _downloadWithDuplicateChoice(material);
+        case 'accept':
+          _acceptSharedMaterial(material);
+        case 'publish':
+          if (!_openingPublicationForm) _openPublicationForMaterial(material);
+        case 'sync':
+          _syncPersonalMaterial(material);
+        case 'share':
+          _shareMaterial(material);
+        case 'reconcile':
+          _reconcileLocalPath(material);
+        case 'proposeCourse':
+          _proposeCourse(material);
+        case 'delete':
+          _confirmDeleteMaterial(material);
+      }
+    }
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: AppColors.eleganceMidnight,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColors.skyBlue.withValues(alpha: 0.10)),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onPrimaryTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+            child: Row(
+              children: [
+                SlFileTile(kind: _fileKind(material, offline), size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        material.originalName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.pureWhite,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        meta.join(' · '),
+                        style: TextStyle(
+                          color: AppColors.pureWhite.withValues(alpha: 0.60),
+                          fontSize: 11,
+                        ),
+                      ),
+                      if (badges.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(spacing: 6, runSpacing: 6, children: badges),
+                      ],
+                    ],
+                  ),
+                ),
+                trailing,
+                if (actions.isNotEmpty)
+                  PopupMenuButton<String>(
+                    tooltip: 'Altre azioni',
+                    enabled: !processing,
+                    color: AppColors.eleganceDeepNavy,
+                    icon: Icon(Icons.more_vert_rounded,
+                        color: AppColors.pureWhite.withValues(alpha: 0.72)),
+                    onSelected: runAction,
+                    itemBuilder: (_) => actions,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Duplicati: stessa impronta SHA-256 tra una copia tua e una del catalogo
+  // ---------------------------------------------------------------------------
+
+  List<_DuplicatePair> _duplicateGroups(List<MaterialLocal> materials) {
+    final byHash = <String, List<MaterialLocal>>{};
+    for (final material in materials) {
+      final hash = (material.remoteFileHash ?? _offlineEntryFor(material)?.fileHash)
+          ?.toLowerCase();
+      if (hash == null || hash.isEmpty || material.id == null) continue;
+      byHash.putIfAbsent(hash, () => <MaterialLocal>[]).add(material);
+    }
+    final pairs = <_DuplicatePair>[];
+    byHash.forEach((hash, items) {
+      final local = items.where((m) => m.source == MaterialSourceLocal.local).toList();
+      final remote = items.where((m) => m.source != MaterialSourceLocal.local).toList();
+      if (local.isEmpty || remote.isEmpty) return;
+      // Mostriamo la scelta solo finché non è stata presa (o rimandata con
+      // "Tienile entrambe" in questa sessione).
+      if (!_preferredByHash.containsKey(hash) &&
+          !_dismissedDuplicateHashes.contains(hash)) {
+        pairs.add(_DuplicatePair(hash: hash, mine: local.first, catalog: remote.first));
+      }
+    });
+    return pairs;
+  }
+
+  Widget _buildDuplicateCard(_DuplicatePair pair) {
+    final int? preferred = _preferredByHash[pair.hash];
+    Widget option(MaterialLocal material, String subtitle) {
+      final bool selected = preferred == material.id;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: SlChoiceTile(
+          title: material.originalName,
+          description: subtitle,
+          selected: selected,
+          onTap: () => _choosePreferred(pair.hash, material),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.eleganceMidnight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.adminAmber.withValues(alpha: 0.40)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MaterialCard(
-            material: _toStudyMaterial(material, offline),
-            provenanceLabel: _provenanceLabel(material.source),
-            provenanceIcon: _provenanceIcon(material.source),
-            provenanceVerified: material.source == MaterialSourceLocal.teacher,
-            onTap: () {
-              if (processing) {
-                return;
-              }
-
-              if (isOffline) {
-                _openMaterial(material);
-              } else if (!isLocal) {
-                _downloadWithDuplicateChoice(material);
-              }
-            },
-          ),
-          const SizedBox(height: 7),
-          if (_isPreferredMaterial(material)) ...[
-            const Align(alignment: Alignment.centerLeft,
-              child: Chip(label: Text('Materiale principale'))),
-            const SizedBox(height: 5),
-          ],
-          _buildAvailabilityRow(material: material, offline: isOffline),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: isLocal
-                    ? OutlinedButton.icon(
-                        onPressed: processing
-                            ? null
-                            : () {
-                                _confirmDeleteMaterial(material);
-                              },
-                        icon: const Icon(
-                          Icons.delete_outline_rounded,
-                          size: 16,
-                          color: Colors.redAccent,
-                        ),
-                        label: const Text(
-                          'Elimina',
-                          style: TextStyle(color: Colors.redAccent),
-                        ),
-                      )
-                    : isOffline
-                    ? OutlinedButton.icon(
-                        onPressed: processing
-                            ? null
-                            : () {
-                                _removeRemoteDownload(material);
-                              },
-                        icon: const Icon(Icons.cloud_off_outlined, size: 16),
-                        label: const Text('Rimuovi offline'),
-                      )
-                    : OutlinedButton.icon(
-                        onPressed: processing
-                            ? null
-                            : () {
-                                _downloadWithDuplicateChoice(material);
-                              },
-                        icon: processing
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.download_rounded, size: 16),
-                        label: Text(processing ? 'Download...' : 'Scarica'),
-                      ),
-              ),
-              if (isLocal && _authSession.isAuthenticated) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openingPublicationForm || processing
-                        ? null
-                        : () {
-                            _openPublicationForMaterial(material);
-                          },
-                    icon: const Icon(Icons.publish_outlined, size: 16),
-                    label: const Text('Proponi a StudentLab'),
-                  ),
-                ),
-              ],
-              if (isLocal && _authSession.isAuthenticated) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: processing
-                        ? null
-                        : () => _syncPersonalMaterial(material),
-                    icon: const Icon(Icons.cloud_sync_outlined, size: 16),
-                    label: const Text('Sincronizza'),
-                  ),
-                ),
-              ],
-              if (!isLocal && isOffline) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: processing
-                        ? null
-                        : () {
-                            _openMaterial(material);
-                          },
-                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                    label: const Text('Apri'),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          if (isLocal && _authSession.isAuthenticated) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: processing ? null : () => _shareMaterial(material),
-                icon: const Icon(Icons.share_outlined, size: 16),
-                label: const Text('Condividi con uno studente'),
+          Row(children: [
+            const SlIconTile(icon: Icons.content_copy_rounded, tone: SlTone.warning, size: 40),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Hai questo file due volte',
+                      style: TextStyle(
+                          color: AppColors.pureWhite,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text('Stesso contenuto: scegli quale usare come principale',
+                      style: TextStyle(
+                          color: AppColors.pureWhite.withValues(alpha: 0.66),
+                          fontSize: 12)),
+                ],
               ),
             ),
-          ],
-          if (isLocal && material.subjectId == null &&
-              (material.subjectName?.trim().isNotEmpty ?? false)) ...[
-            const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: processing ? null : () => _reconcileLocalPath(material),
-              icon: const Icon(Icons.route_outlined, size: 16),
-              label: const Text('Cerca materia nel catalogo'))),
-          ],
-          if (isLocal && _authSession.isAuthenticated &&
-              material.courseScope == 'additional' &&
-              material.subjectId == null) ...[
-            const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: processing ? null : () => _proposeCourse(material),
-              icon: const Icon(Icons.school_outlined, size: 16),
-              label: const Text('Proponi il corso per la pubblicazione'))),
-          ],
-          if (shared && material.remoteStatus == 'pending') ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: processing
-                    ? null
-                    : () => _acceptSharedMaterial(material),
-                icon: const Icon(Icons.download_done_outlined, size: 16),
-                label: const Text('Accetta e scarica'),
-              ),
+          ]),
+          const SizedBox(height: 10),
+          option(pair.catalog,
+              '${_provenanceLabel(pair.catalog.source)} · riceve gli aggiornamenti'),
+          option(pair.mine, 'La tua copia sul dispositivo'),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _keepBothCopies(pair.hash),
+              child: const Text('Tienile entrambe'),
             ),
-          ],
+          ),
+          Text(
+            'Per liberare spazio usa “Elimina” o “Rimuovi offline” dal menu del file che non ti serve.',
+            style: TextStyle(
+                color: AppColors.pureWhite.withValues(alpha: 0.56), fontSize: 11),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAvailabilityRow({
-    required MaterialLocal material,
-    required bool offline,
-  }) {
-    final bool local = material.source == MaterialSourceLocal.local;
-    final String label = local
-        ? 'Sul dispositivo'
-        : offline
-        ? 'Disponibile offline'
-        : 'Solo online';
-    final IconData icon = local || offline
-        ? Icons.offline_pin_rounded
-        : Icons.cloud_outlined;
+  Future<void> _choosePreferred(String hash, MaterialLocal material) async {
+    if (material.id == null) return;
+    await _preferenceService.choose(
+        userId: _downloadService.currentLocalUserId,
+        hash: hash,
+        materialId: material.id!);
+    if (!mounted) return;
+    setState(() => _preferredByHash[hash] = material.id!);
+    _showMessage('“${material.originalName}” è ora la copia principale.');
+  }
 
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: AppColors.materialSky),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.pureWhite.withValues(alpha: 0.54),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (material.source == MaterialSourceLocal.group &&
-            material.groupId != null) ...[
-          const SizedBox(width: 8),
-          Text(
-            '• Gruppo ${material.groupId}',
-            style: TextStyle(
-              color: AppColors.pureWhite.withValues(alpha: 0.36),
-              fontSize: 9,
-            ),
-          ),
-        ],
-        if (material.cloudExpiresAt != null) ...[
-          const SizedBox(width: 8),
-          Text(
-            '• ${_cloudExpiryLabel(material.cloudExpiresAt!)}',
-            style: TextStyle(
-              color: AppColors.pureWhite.withValues(alpha: 0.52),
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        if (material.remoteVersion != null &&
-            material.source != MaterialSourceLocal.local) ...[
-          const SizedBox(width: 8),
-          Text(
-            '• v${material.remoteVersion}',
-            style: TextStyle(
-              color: AppColors.pureWhite.withValues(alpha: 0.36),
-              fontSize: 9,
-            ),
-          ),
-        ],
-      ],
-    );
+  Future<void> _keepBothCopies(String hash) async {
+    await _preferenceService.keepBoth(
+        userId: _downloadService.currentLocalUserId, hash: hash);
+    if (mounted) {
+      setState(() {
+        _preferredByHash.remove(hash);
+        _dismissedDuplicateHashes.add(hash);
+      });
+    }
+  }
+
+  /// Scarica offline, uno dopo l'altro, i file della materia non ancora
+  /// presenti sul dispositivo. Ogni download passa dal controllo duplicati.
+  Future<void> _downloadRemaining(List<MaterialLocal> materials) async {
+    if (_downloadingAll) return;
+    final pending = materials
+        .where((m) =>
+            m.source != MaterialSourceLocal.local &&
+            m.isAvailableRemote &&
+            _offlineEntryFor(m) == null &&
+            !(m.source == MaterialSourceLocal.sharedUser && m.remoteStatus == 'pending'))
+        .toList();
+    if (pending.isEmpty) return;
+    setState(() => _downloadingAll = true);
+    try {
+      for (final material in pending) {
+        if (!mounted) return;
+        await _downloadWithDuplicateChoice(material);
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingAll = false);
+    }
   }
 
   Widget _buildSourceSummary(List<MaterialLocal> materials) {
     final Map<MaterialSourceLocal, int> counts = {
-      for (final MaterialSourceLocal source in MaterialSourceLocal.values)
-        source: 0,
+      for (final MaterialSourceLocal source in MaterialSourceLocal.values) source: 0,
     };
-
     for (final MaterialLocal material in materials) {
       counts[material.source] = (counts[material.source] ?? 0) + 1;
     }
-
     final List<MaterialSourceLocal> visible = counts.entries
         .where((entry) => entry.value > 0)
         .map((entry) => entry.key)
         .toList();
-
     if (visible.isEmpty) {
       return const SizedBox.shrink();
     }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: visible.map((MaterialSourceLocal source) {
-        final int count = counts[source] ?? 0;
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    final int onDevice = materials.where(_isOnDevice).length;
+    Widget chip(Widget icon, String text, {bool good = false}) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
           decoration: BoxDecoration(
-            color: AppColors.brandNightBlue.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(999),
+            color: good
+                ? AppColors.adminGreen.withValues(alpha: 0.08)
+                : AppColors.eleganceMidnight,
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: AppColors.skyBlue.withValues(alpha: 0.14),
+              color: good
+                  ? AppColors.adminGreen.withValues(alpha: 0.24)
+                  : AppColors.pureWhite.withValues(alpha: 0.08),
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _provenanceIcon(source),
-              const SizedBox(width: 6),
-              Text(
-                '${_provenanceLabel(source)} • $count',
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            icon,
+            const SizedBox(width: 6),
+            Text(text,
                 style: TextStyle(
-                  color: AppColors.pureWhite.withValues(alpha: 0.68),
-                  fontSize: 10,
+                  color: good
+                      ? AppColors.adminGreen
+                      : AppColors.pureWhite.withValues(alpha: 0.72),
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+                )),
+          ]),
         );
-      }).toList(),
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        ...visible.map((MaterialSourceLocal source) => chip(
+            _provenanceIcon(source), '${_provenanceLabel(source)} · ${counts[source] ?? 0}')),
+        chip(Icon(Icons.offline_pin_rounded, size: 14, color: AppColors.adminGreen),
+            '$onDevice di ${materials.length} offline',
+            good: onDevice == materials.length),
+      ],
     );
   }
-
   MaterialOfflineEntry? _offlineEntryFor(MaterialLocal material) {
     for (final MaterialOfflineEntry entry in _offlineMaterials) {
       if (material.id != null && entry.material.id == material.id) {
@@ -1876,80 +2841,95 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     });
   }
 
-  Widget _buildSubjectHeader(_LocalSubject subject) {
+  Widget _buildSubjectHeader(_LocalSubject subject, [List<MaterialLocal>? materials]) {
+    final list = materials ?? const <MaterialLocal>[];
+    final bool direct = subject.id == 'course:direct';
+    final int remaining = list
+        .where((m) =>
+            m.source != MaterialSourceLocal.local &&
+            m.isAvailableRemote &&
+            _offlineEntryFor(m) == null &&
+            !(m.source == MaterialSourceLocal.sharedUser && m.remoteStatus == 'pending'))
+        .length;
     return Container(
       width: double.infinity,
-
-      padding: const EdgeInsets.all(18),
-
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.eleganceMidnight,
-
+        color: AppColors.eleganceDeepNavy,
         borderRadius: BorderRadius.circular(18),
-
-        border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.15)),
+        border: Border.all(
+          color: direct
+              ? AppColors.adminIndigo.withValues(alpha: 0.24)
+              : AppColors.skyBlue.withValues(alpha: 0.14),
+        ),
       ),
-
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 54,
-
-            height: 54,
-
-            decoration: BoxDecoration(
-              color: AppColors.brandNightBlue,
-
-              borderRadius: BorderRadius.circular(14),
-            ),
-
-            child: const Icon(
-              Icons.menu_book_rounded,
-
-              color: AppColors.skyBlue,
-
-              size: 28,
-            ),
-          ),
-
-          const SizedBox(width: 15),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              children: [
-                Text(
-                  subject.name,
-
-                  style: const TextStyle(
-                    color: AppColors.pureWhite,
-
-                    fontSize: 17,
-
-                    fontWeight: FontWeight.bold,
-                  ),
+          Row(
+            children: [
+              SlIconTile(
+                icon: direct ? Icons.shield_outlined : Icons.school_outlined,
+                tone: direct ? SlTone.violet : SlTone.info,
+                size: 46,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      direct ? subject.course : subject.name,
+                      style: TextStyle(
+                        color: AppColors.pureWhite,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (direct)
+                      const SlStatusBadge(label: 'Corso del dipartimento', tone: SlTone.violet)
+                    else
+                      Text(
+                        '${subject.department} · ${subject.course} · ${_materialCountText(list.length)}',
+                        style: TextStyle(
+                          color: AppColors.pureWhite.withValues(alpha: 0.62),
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
                 ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  '${subject.department} • ${subject.course}',
-
-                  style: TextStyle(
-                    color: AppColors.pureWhite.withValues(alpha: 0.46),
-
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          if (remaining > 0) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _downloadingAll ? null : () => _downloadRemaining(list),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.adminGreen,
+                minimumSize: const Size(0, 42),
+                side: BorderSide(color: AppColors.adminGreen.withValues(alpha: 0.35)),
+                backgroundColor: AppColors.adminGreen.withValues(alpha: 0.08),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              icon: _downloadingAll
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.adminGreen),
+                    )
+                  : const Icon(Icons.download_rounded, size: 18),
+              label: Text(_downloadingAll
+                  ? 'Download in corso…'
+                  : 'Scarica il resto offline · ${_materialCountText(remaining)}'),
+            ),
+          ],
         ],
       ),
     );
   }
-
   String _provenanceLabel(MaterialSourceLocal source) {
     switch (source) {
       case MaterialSourceLocal.local:
@@ -2018,18 +2998,6 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           color: AppColors.materialSky,
         );
     }
-  }
-
-  StudyMaterial _toStudyMaterial(
-    MaterialLocal material,
-    MaterialOfflineEntry? offline,
-  ) {
-    return StudyMaterial(
-      id: (material.id ?? material.remoteId ?? 0).toString(),
-      name: material.originalName,
-      type: _materialType(material, offline),
-      size: offline == null ? 'Solo online' : _formatSize(offline.file.size),
-    );
   }
 
   String _materialType(MaterialLocal material, MaterialOfflineEntry? offline) {
@@ -2111,26 +3079,22 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   Widget _buildOfflineSyncBanner() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.brandNightBlue.withValues(alpha: 0.48),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.12)),
+        color: AppColors.adminAmber.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.adminAmber.withValues(alpha: 0.30)),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.cloud_off_outlined,
-            color: AppColors.materialSky,
-            size: 18,
-          ),
-          const SizedBox(width: 9),
+          Icon(Icons.cloud_off_outlined, color: AppColors.adminAmber, size: 18),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Sincronizzazione non disponibile. Stai visualizzando i materiali già salvati sul dispositivo.',
               style: TextStyle(
-                color: AppColors.pureWhite.withValues(alpha: 0.58),
-                fontSize: 10,
+                color: AppColors.pureWhite.withValues(alpha: 0.78),
+                fontSize: 12,
                 height: 1.4,
               ),
             ),
@@ -2139,7 +3103,6 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       ),
     );
   }
-
   Widget _buildEmptyLibrary() {
     return Container(
       width: double.infinity,
@@ -5138,108 +6101,182 @@ class _LocalSubject {
   });
 }
 
+class _DuplicatePair {
+  final String hash;
+  final MaterialLocal mine;
+  final MaterialLocal catalog;
+
+  const _DuplicatePair({required this.hash, required this.mine, required this.catalog});
+}
+
+/// Riga di navigazione (ateneo, corso, materia, cartella, file sul dispositivo).
 class _HierarchyCard extends StatelessWidget {
   final IconData icon;
-
   final String title;
-
   final String subtitle;
-
   final VoidCallback onTap;
+  final SlTone tone;
+  final bool dashed;
+  final Widget? trailing;
 
   const _HierarchyCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.tone = SlTone.info,
+    this.dashed = false,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
+    final Color accent = tone.resolve(p);
     return Material(
-      color: Colors.transparent,
-
+      color: dashed ? accent.withValues(alpha: 0.05) : AppColors.eleganceMidnight,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: dashed
+              ? accent.withValues(alpha: 0.40)
+              : (tone == SlTone.violet
+                  ? accent.withValues(alpha: 0.20)
+                  : AppColors.skyBlue.withValues(alpha: 0.10)),
+        ),
+      ),
       child: InkWell(
         onTap: onTap,
-
-        borderRadius: BorderRadius.circular(18),
-
-        child: Container(
-          padding: const EdgeInsets.all(16),
-
-          decoration: BoxDecoration(
-            color: AppColors.eleganceMidnight,
-
-            borderRadius: BorderRadius.circular(18),
-
-            border: Border.all(
-              color: AppColors.skyBlue.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 64),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                SlIconTile(icon: icon, tone: tone, size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.pureWhite,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.pureWhite.withValues(alpha: 0.60),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                trailing ??
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.pureWhite.withValues(alpha: 0.40),
+                      size: 20,
+                    ),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
 
+/// Materia del proprio corso con avanzamento dei file offline.
+class _SubjectCard extends StatelessWidget {
+  final String title;
+  final int topics;
+  final int files;
+  final int offline;
+  final VoidCallback onTap;
+
+  const _SubjectCard({
+    required this.title,
+    required this.topics,
+    required this.files,
+    required this.offline,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double fraction = files == 0 ? 0 : offline / files;
+    final bool complete = files > 0 && offline == files;
+    final String detail = topics > 0
+        ? '$topics ${topics == 1 ? 'argomento' : 'argomenti'} · $files file'
+        : '$files file · nessun argomento';
+    return Material(
+      color: AppColors.eleganceMidnight,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: AppColors.skyBlue.withValues(alpha: 0.12)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              Container(
-                width: 44,
-
-                height: 44,
-
-                decoration: BoxDecoration(
-                  color: AppColors.brandNightBlue,
-
-                  borderRadius: BorderRadius.circular(12),
-                ),
-
-                child: Icon(icon, color: AppColors.skyBlue, size: 22),
-              ),
-
+              const SlIconTile(icon: Icons.school_outlined, size: 44),
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-
                   crossAxisAlignment: CrossAxisAlignment.start,
-
                   children: [
-                    Text(
-                      title,
-
-                      maxLines: 2,
-
-                      overflow: TextOverflow.ellipsis,
-
-                      style: const TextStyle(
-                        color: AppColors.pureWhite,
-
-                        fontSize: 13,
-
-                        fontWeight: FontWeight.w600,
+                    Text(title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: AppColors.pureWhite,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 3),
+                    Text(detail,
+                        style: TextStyle(
+                            color: AppColors.pureWhite.withValues(alpha: 0.60),
+                            fontSize: 12)),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: fraction,
+                        minHeight: 4,
+                        backgroundColor: AppColors.pureWhite.withValues(alpha: 0.08),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.adminGreen),
                       ),
                     ),
-
                     const SizedBox(height: 5),
-
-                    Text(
-                      subtitle,
-
-                      style: TextStyle(
-                        color: AppColors.pureWhite.withValues(alpha: 0.42),
-
-                        fontSize: 10,
-                      ),
-                    ),
+                    Text('$offline di $files offline',
+                        style: TextStyle(
+                            color: complete
+                                ? AppColors.adminGreen
+                                : AppColors.pureWhite.withValues(alpha: 0.60),
+                            fontSize: 11)),
                   ],
                 ),
               ),
-
-              const Icon(
-                Icons.chevron_right_rounded,
-
-                color: Colors.white30,
-
-                size: 20,
-              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right_rounded,
+                  color: AppColors.pureWhite.withValues(alpha: 0.40), size: 20),
             ],
           ),
         ),

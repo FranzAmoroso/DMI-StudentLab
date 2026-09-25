@@ -64,7 +64,7 @@ class _AdminMaterialCourseProposalsPageState extends State<AdminMaterialCoursePr
       final value = jsonDecode(response.body);
       if (value is Map && value['detail'] != null) return value['detail'].toString();
     } catch (_) {}
-    return 'Operazione non riuscita (${response.statusCode}).';
+    return 'Operazione non riuscita. Controlla i dati e riprova.';
   }
 
   int? _id(Map<String, dynamic> item) => int.tryParse(item['id']?.toString() ?? '');
@@ -84,8 +84,8 @@ class _AdminMaterialCourseProposalsPageState extends State<AdminMaterialCoursePr
           _select(shown.isEmpty ? null : shown.first);
         }
       });
-    } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _error = 'Non è stato possibile caricare i corsi. Riprova.'; _loading = false; });
     }
   }
 
@@ -112,7 +112,13 @@ class _AdminMaterialCourseProposalsPageState extends State<AdminMaterialCoursePr
   }
 
   void _message(String text) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(MaterialBanner(
+      content: Text(text), leading: const Icon(Icons.info_outline),
+      actions: [TextButton(onPressed: () => messenger.hideCurrentMaterialBanner(),
+        child: const Text('Chiudi'))]));
   }
 
   Future<bool> _approve(Map<String, dynamic> item) async {
@@ -182,7 +188,7 @@ class _AdminMaterialCourseProposalsPageState extends State<AdminMaterialCoursePr
       await _load();
       return true;
     } catch (e) {
-      _message(e.toString().replaceFirst('Exception: ', ''));
+      _message('Operazione non riuscita. Controlla i dati e riprova.');
       return false;
     } finally {
       if (mounted) setState(() => _busyId = null);
