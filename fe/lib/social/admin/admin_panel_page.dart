@@ -6,6 +6,7 @@ import '../../material/admin/admin_material_storage_page.dart';
 
 import '../../faq/admin_faq_moderation_page.dart';
 import '../../dictionary/dictionary_review_page.dart';
+import '../../calendar/calendar_home_page.dart';
 
 import '../../quiz/teacher/question_moderation_page.dart';
 
@@ -326,7 +327,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
         borderRadius: BorderRadius.circular(20),
 
-        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.14)),
+        border: Border.all(color: AppColors.greenAccent.withValues(alpha: 0.14)),
       ),
 
       child: Row(
@@ -337,15 +338,15 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
             height: 60,
 
             decoration: BoxDecoration(
-              color: Colors.greenAccent.withValues(alpha: 0.08),
+              color: AppColors.greenAccent.withValues(alpha: 0.08),
 
               borderRadius: BorderRadius.circular(17),
             ),
 
-            child: const Icon(
+            child: Icon(
               Icons.admin_panel_settings_outlined,
 
-              color: Colors.greenAccent,
+              color: AppColors.greenAccent,
 
               size: 31,
             ),
@@ -395,12 +396,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                     ),
 
                     decoration: BoxDecoration(
-                      color: Colors.greenAccent.withValues(alpha: 0.08),
+                      color: AppColors.greenAccent.withValues(alpha: 0.08),
 
                       borderRadius: BorderRadius.circular(9),
 
                       border: Border.all(
-                        color: Colors.greenAccent.withValues(alpha: 0.18),
+                        color: AppColors.greenAccent.withValues(alpha: 0.18),
                       ),
                     ),
 
@@ -411,7 +412,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                         Icon(
                           Icons.workspace_premium_outlined,
 
-                          color: Colors.greenAccent,
+                          color: AppColors.greenAccent,
 
                           size: 14,
                         ),
@@ -422,7 +423,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                           _roleLabel,
 
                           style: TextStyle(
-                            color: Colors.greenAccent,
+                            color: AppColors.greenAccent,
 
                             fontSize: 10,
 
@@ -528,11 +529,29 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
     return _AdminGrid(
       children: [
         _AdminModuleCard(
-          icon: Icons.menu_book_outlined,
-          title: 'Dizionario',
-          description: 'Revisione tra anni accademici, affidamento ai docenti e passaggio al nuovo anno.',
-          onTap: () => _openProtectedPage(const DictionaryReviewPage()),
+          icon: Icons.edit_calendar_outlined,
+
+          title: 'Calendario accademico',
+
+          description: 'Lezioni, sessioni, appelli e chiusure: inserimento, import da PDF, CSV, iCal e web.',
+
+          onTap: () {
+            _openProtectedPage(const CalendarHomePage());
+          },
         ),
+
+        _AdminModuleCard(
+          icon: Icons.menu_book_outlined,
+
+          title: 'Dizionario',
+
+          description: 'Revisione tra anni accademici, affidamento ai docenti e passaggio al nuovo anno.',
+
+          onTap: () {
+            _openProtectedPage(const DictionaryReviewPage());
+          },
+        ),
+
         _AdminModuleCard(
           icon: Icons.forum_outlined,
 
@@ -988,16 +1007,16 @@ class _AdminModuleCard extends StatelessWidget {
                       ),
 
                       decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.09),
+                        color: AppColors.amber.withValues(alpha: 0.09),
 
                         borderRadius: BorderRadius.circular(8),
                       ),
 
-                      child: const Text(
+                      child: Text(
                         'DA COLLEGARE',
 
                         style: TextStyle(
-                          color: Colors.amber,
+                          color: AppColors.amber,
 
                           fontSize: 7,
 
@@ -1006,10 +1025,10 @@ class _AdminModuleCard extends StatelessWidget {
                       ),
                     )
                   else
-                    const Icon(
+                    Icon(
                       Icons.arrow_forward_ios_rounded,
 
-                      color: Colors.white30,
+                      color: AppColors.white30,
 
                       size: 14,
                     ),
@@ -1036,8 +1055,8 @@ class _AdminModuleCard extends StatelessWidget {
                 child: Text(
                   description,
 
-                  style: const TextStyle(
-                    color: Colors.white54,
+                  style: TextStyle(
+                    color: AppColors.white54,
 
                     fontSize: 10,
 
@@ -1091,7 +1110,7 @@ class _AdminAccessDeniedPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
 
                 border: Border.all(
-                  color: Colors.redAccent.withValues(alpha: 0.16),
+                  color: AppColors.redAccent.withValues(alpha: 0.16),
                 ),
               ),
 
@@ -1099,10 +1118,10 @@ class _AdminAccessDeniedPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
 
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.gpp_bad_outlined,
 
-                    color: Colors.redAccent,
+                    color: AppColors.redAccent,
 
                     size: 44,
                   ),
@@ -1131,8 +1150,8 @@ class _AdminAccessDeniedPage extends StatelessWidget {
 
                     textAlign: TextAlign.center,
 
-                    style: const TextStyle(
-                      color: Colors.white54,
+                    style: TextStyle(
+                      color: AppColors.white54,
 
                       fontSize: 11,
 

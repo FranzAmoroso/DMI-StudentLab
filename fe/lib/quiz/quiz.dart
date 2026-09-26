@@ -925,9 +925,9 @@ class _QuizPageState extends State<QuizPage> {
   Widget build(BuildContext context) {
     if (load) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D1B2A),
+        backgroundColor: AppColors.darkElegance,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF1B263B),
+          backgroundColor: AppColors.secondaryNightBlue,
           foregroundColor: AppColors.white,
           title: const Text('Che ansia..', style: TextStyle(fontSize: 16)),
         ),
@@ -937,9 +937,9 @@ class _QuizPageState extends State<QuizPage> {
 
     if (_questionLength == 0) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D1B2A),
+        backgroundColor: AppColors.darkElegance,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF1B263B),
+          backgroundColor: AppColors.secondaryNightBlue,
           foregroundColor: AppColors.white,
           title: const Text('Quiz'),
         ),
@@ -956,9 +956,9 @@ class _QuizPageState extends State<QuizPage> {
     final Map<String, dynamic> metadata = _currentMetadata;
 
     final Widget quizScaffold = Scaffold(
-      backgroundColor: const Color(0xFF0D1B2A),
+      backgroundColor: AppColors.darkElegance,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: AppColors.secondaryNightBlue,
         foregroundColor: AppColors.white,
         elevation: 0,
         title: Text(
@@ -1020,9 +1020,7 @@ class _QuizPageState extends State<QuizPage> {
                     LinearProgressIndicator(
                       value: (idx + 1) / _questionLength,
                       backgroundColor: AppColors.white.withOpacity(0.1),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF5C6BC0),
-                      ),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.skyBlue),
                     ),
                     const SizedBox(height: 25),
                     Row(
@@ -1046,7 +1044,7 @@ class _QuizPageState extends State<QuizPage> {
                             vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1B263B),
+                            color: AppColors.secondaryNightBlue,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -1087,9 +1085,9 @@ class _QuizPageState extends State<QuizPage> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1B263B),
+                            backgroundColor: AppColors.secondaryNightBlue,
                             foregroundColor: AppColors.white,
-                            disabledBackgroundColor: const Color(0xFF1B263B),
+                            disabledBackgroundColor: AppColors.secondaryNightBlue,
                             disabledForegroundColor: AppColors.white.withOpacity(
                               0.50,
                             ),

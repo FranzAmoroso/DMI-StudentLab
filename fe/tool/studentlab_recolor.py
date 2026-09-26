@@ -14,6 +14,8 @@ THEMES = {
     'antartide': (205, 0.85, 1.05),
     'cocco':     (28,  0.60, 0.85),
     'laguna':    (180, 0.85, 1.00),
+    'focus':     (215, 0.35, 1.00),
+    'argilla':   (15,  0.62, 0.98),
 }
 SRC_CENTER = 250.0   # blu/viola dei vestiti e del logo
 

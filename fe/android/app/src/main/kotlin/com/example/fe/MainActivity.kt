@@ -16,7 +16,7 @@ import io.flutter.plugin.common.MethodChannel
  */
 class MainActivity : FlutterActivity() {
     private val channelName = "studentlab/app_icon"
-    private val icons = listOf("notte", "ardesia", "terra", "bosco", "pietra", "fico", "torbiera", "kiwi", "pesca", "antartide", "cocco", "laguna")
+    private val icons = listOf("notte", "ardesia", "terra", "bosco", "pietra", "fico", "torbiera", "focus", "argilla", "kiwi", "pesca", "antartide", "cocco", "laguna")
 
     // Gli alias sono dichiarati come ".LauncherX": il nome completo usa il
     // pacchetto delle classi (namespace), l'app è identificata da packageName.

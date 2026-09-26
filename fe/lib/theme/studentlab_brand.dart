@@ -34,6 +34,18 @@ class StudentLabBrand {
   );
 
   static const Map<String, _BrandColors> _byTheme = {
+    // Focus: blu acciaio poco saturo, come il tema.
+    'focus': _BrandColors(
+      lab: [Color(0xFFBFD8F5), Color(0xFF9BB4D6), Color(0xFF7F9CC8), Color(0xFFA8B5E0)],
+      student: [Color(0xFFFFFFFF), Color(0xFFF3F7FC), Color(0xFFE2EAF4), Color(0xFFCBD8E8)],
+      glow: [Color(0xFF9BB4D6), Color(0xFF7F9CC8)],
+    ),
+    // Argilla: argilla e avorio caldi.
+    'argilla': _BrandColors(
+      lab: [Color(0xFFF0A07E), Color(0xFFD97757), Color(0xFFC4623F), Color(0xFFE8B48A)],
+      student: [Color(0xFFFAF9F5), Color(0xFFF5F4EE), Color(0xFFEFE9DF), Color(0xFFE6D9CB)],
+      glow: [Color(0xFFD97757), Color(0xFFE8B48A)],
+    ),
     'ardesia': _BrandColors(
       lab: [Color(0xFF26FF63), Color(0xFF39FF9B), Color(0xFF68FFE8), Color(0xFF59D7FF)],
       student: [Color(0xFFFFFFFF), Color(0xFFF3F9FF), Color(0xFFDCEEFF), Color(0xFFC1E3F1)],

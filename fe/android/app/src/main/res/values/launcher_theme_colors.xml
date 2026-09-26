@@ -12,4 +12,6 @@
     <color name="ic_launcher_background_antartide">#173842</color>
     <color name="ic_launcher_background_cocco">#36241D</color>
     <color name="ic_launcher_background_laguna">#163F38</color>
+    <color name="ic_launcher_background_focus">#2E383F</color>
+    <color name="ic_launcher_background_argilla">#3E2321</color>
 </resources>

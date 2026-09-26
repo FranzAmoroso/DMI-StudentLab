@@ -3,19 +3,21 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fe/material/material_requests_page.dart';
-import 'package:fe/faq/faq_home_page.dart';
-import 'package:fe/faq/faq_exam_page.dart';
 import 'package:fe/social/auth/login_page.dart';
 import 'package:fe/developer/theme/developer_ui_style.dart';
 import 'package:fe/theme/app_palette.dart';
 import 'package:fe/theme/nightTheme.dart';
 import 'package:fe/widgets/studentlab_ui/studentlab_ui.dart';
+import 'package:fe/social/widgets/academic_paths_page.dart';
 
 import 'package:fe/services/api_service.dart';
 import 'package:fe/services/auth_session.dart';
 import 'package:fe/services/picked_file_bridge.dart';
 
 import 'package:fe/social/social_models.dart';
+import 'package:fe/faq/faq_home_page.dart';
+import 'package:fe/calendar/calendar_home_page.dart';
+import 'package:fe/faq/faq_exam_page.dart';
 
 
 import 'package:fe/local_storage/models/material_local.dart';
@@ -50,8 +52,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   final Set<int> _processingMaterialIds = <int>{};
   bool _usingOfflineCache = false;
   bool _exploreAllPublicCourses = false;
-  bool _choosingBrowseCourse = false;
-  String? _browseCourseKey;
+  int _rootTab = 0;
   Set<String> _enrolledCourseKeys = <String>{};
 
   /// Percorso corrente dello studente (per la card "Il tuo percorso"),
@@ -168,59 +169,36 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           .getAvailableByUser(localUserId);
 
       Set<String> enrolledCourses = {};
+      Set<String> enrolledDepartments = {};
       SocialAcademicPath? currentPath;
       if (_authSession.isAuthenticated && _authSession.currentUserId != null) {
-        final user = _authSession.currentUser!;
-        // Il profilo contiene gia il percorso anche se l'endpoint separato
-        // non e disponibile (o restituisce una lista vuota).
-        var paths = user.academicPaths;
         try {
-          final remote = await _apiService.getUserAcademicPaths(user.id);
-          if (remote.isNotEmpty) paths = remote;
+          final paths = await _apiService.getUserAcademicPaths(_authSession.currentUserId!);
+          final enrolled = paths.where((path) => path.status == AcademicPathStatus.enrolled).toList();
+          enrolledCourses = enrolled
+            .map((path) => _courseKey(path.university, path.department, path.course)).toSet();
+          enrolledDepartments = enrolled
+            .map((path) => _courseKey(path.university, path.department, '')).toSet();
+          final current = enrolled.where((path) => path.isCurrent);
+          final primary = enrolled.where((path) => path.isPrimary);
+          currentPath = current.isNotEmpty
+              ? current.first
+              : (primary.isNotEmpty ? primary.first : (enrolled.isNotEmpty ? enrolled.first : null));
         } catch (_) {
-          // Usa il profilo presente nella sessione; il server mantiene i permessi.
+          // The backend still enforces access to restricted files.
         }
-        var enrolled = paths
-            .where((path) => path.status == AcademicPathStatus.enrolled)
-            .toList();
-        if (enrolled.isEmpty &&
-            user.university.trim().isNotEmpty &&
-            user.department.trim().isNotEmpty &&
-            user.course.trim().isNotEmpty) {
-          // Compatibilita con i profili che espongono il corso nei campi
-          // principali ma non ancora nella lista academic_paths.
-          enrolled = [
-            SocialAcademicPath(
-              id: -1,
-              userId: user.id,
-              university: user.university,
-              universityCode: '',
-              department: user.department,
-              departmentCode: '',
-              course: user.course,
-              courseCode: '',
-              isCurrent: true,
-              isPrimary: true,
-            ),
-          ];
-        }
-        enrolledCourses = enrolled
-            .map((path) => _courseKey(
-                path.university, path.department, path.course))
-            .toSet();
-        final current = enrolled.where((path) => path.isCurrent);
-        final primary = enrolled.where((path) => path.isPrimary);
-        currentPath = current.isNotEmpty
-            ? current.first
-            : (primary.isNotEmpty
-                ? primary.first
-                : (enrolled.isNotEmpty ? enrolled.first : null));
       }
 
-      // Il backend applica i permessi dei singoli materiali. Conserviamo qui
-      // anche i corsi pubblici: "Cambia" filtra la vista senza cambiare il profilo.
       final List<MaterialLocal> materials = availableMaterials
           .where(_isDisplayableMaterial)
+          .where((material) => !_authSession.isAuthenticated || _exploreAllPublicCourses ||
+            enrolledCourses.isEmpty || material.source != MaterialSourceLocal.public ||
+            enrolledCourses.contains(_courseKey(material.university, material.department,
+              material.course)) ||
+            // "Corsi del dipartimento" (senza materie) restano visibili nel tab
+            // Il mio corso, come nel canvas.
+            ((material.subjectName?.trim().isEmpty ?? true) &&
+              enrolledDepartments.contains(_courseKey(material.university, material.department, ''))))
           .toList();
 
       final List<MaterialOfflineEntry> offline = await _downloadService
@@ -934,23 +912,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           .putIfAbsent(key, () => <MaterialLocal>[])
           .add(material);
     }
-    final showOwn = signedIn;
-    final allCourses = <String, List<MaterialLocal>>{
-      ...publicCourses,
-      ...ownCourses,
-    };
-    final currentCourseKey = _currentPath == null
-        ? null
-        : _courseKey(_currentPath!.university,
-            _currentPath!.department, _currentPath!.course);
-    final activeCourseKey = _browseCourseKey ?? currentCourseKey;
-    final selectedCourseItems = allCourses.values
-        .where((items) => items.isNotEmpty &&
-            _courseKey(items.first.university, items.first.department,
-                items.first.course) == activeCourseKey)
-        .expand((items) => items)
-        .toList();
-    final ownMaterial = selectedCourseItems;
+    final showOwn = signedIn && _rootTab == 0;
+    final showDevice = signedIn && _rootTab == 2;
+    final ownMaterial = ownCourses.values.expand((e) => e).toList();
     final ownSubjects = <String, List<MaterialLocal>>{};
     for (final item in ownMaterial
         .where((m) => m.subjectName?.trim().isNotEmpty ?? false)) {
@@ -959,14 +923,12 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               () => <MaterialLocal>[])
           .add(item);
     }
-    final departmentCourses = allCourses.values
+    final departmentCourses = publicCourses.values
         .where((items) =>
             items.isNotEmpty &&
-            items.every((m) => m.subjectName?.trim().isEmpty ?? true) &&
-            _courseKey(items.first.university, items.first.department,
-                items.first.course) == activeCourseKey)
+            items.every((m) => m.subjectName?.trim().isEmpty ?? true))
         .toList();
-    final courses = signedIn ? allCourses : publicCourses;
+    final courses = showOwn ? ownCourses : publicCourses;
     final universities = courses.values
         .expand((items) => items.map((m) => m.displayUniversity))
         .toSet()
@@ -996,7 +958,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     shown.sort((a, b) => a.first.displayCourse
         .toLowerCase()
         .compareTo(b.first.displayCourse.toLowerCase()));
-    final List<MaterialLocal> ownFirstCourse = selectedCourseItems;
+    final List<MaterialLocal> ownFirstCourse =
+        ownCourses.values.isEmpty ? const <MaterialLocal>[] : ownCourses.values.first;
 
     return RefreshIndicator(
       onRefresh: _loadMaterials,
@@ -1032,38 +995,22 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                   const SizedBox(height: 14),
                 ],
                 _buildPathCard(ownFirstCourse),
-                if (_choosingBrowseCourse) ...[
-                  const SizedBox(height: 12),
-                  Text('Scegli il percorso da visualizzare',
-                      style: TextStyle(color: AppColors.pureWhite)),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 6, runSpacing: 6, children: <Widget>[
-                    _dispenseFilter('Ateneo', selectedUniversity, universities,
-                        (value) => setState(() {
-                          _rootUniversityFilter = value;
-                          _rootDepartmentFilter = null;
-                        })),
-                    _dispenseFilter('Dipartimento', selectedDepartment, departments,
-                        (value) => setState(() => _rootDepartmentFilter = value)),
-                    _dispenseFilter('Corso', null,
-                        shown.map((items) => items.first.displayCourse).toSet().toList()..sort(),
-                        (value) {
-                          if (value == null) return;
-                          final matches = shown.where((items) =>
-                              items.first.displayCourse == value);
-                          if (matches.isEmpty) return;
-                          final first = matches.first.first;
-                          setState(() {
-                            _browseCourseKey = _courseKey(first.university,
-                                first.department, first.course);
-                            _choosingBrowseCourse = false;
-                          });
-                        }),
-                  ]),
-                ],
+                const SizedBox(height: 16),
+                _segmentedTabs(
+                  selected: _rootTab,
+                  labels: const <String>['Il mio corso', 'Corsi DMI', 'Dispositivo'],
+                  onSelected: (selected) {
+                    final explore = selected == 1;
+                    setState(() => _rootTab = selected);
+                    if (_exploreAllPublicCourses != explore) {
+                      _exploreAllPublicCourses = explore;
+                      _loadMaterials();
+                    }
+                  },
+                ),
                 const SizedBox(height: 20),
               ],
-              ...[
+              if (!showDevice) ...[
                 if (showOwn) ...[
                   _sectionTitle('Materie'),
                   const SizedBox(height: 10),
@@ -1096,7 +1043,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                       : 'Corsi del $selectedDepartment'),
                   const SizedBox(height: 10),
                 ],
-                if (showOwn && ownMaterial.isNotEmpty) ...[
+                if (showOwn && ownSubjects.isNotEmpty) ...[
                   for (final group in ownSubjects.values)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -1148,15 +1095,26 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                         child: _deviceFileCard(material),
                       ),
                   ],
-                ] else if (showOwn || shown.isEmpty)
+                ] else if (shown.isEmpty)
                   _dispensePanel(
                     icon: Icons.menu_book_outlined,
                     title: showOwn
-                        ? 'Nessun materiale per questo corso'
+                        ? 'Nessun materiale per il tuo percorso'
                         : 'Nessun corso pubblico disponibile',
                     detail: showOwn
-                        ? 'Puoi scegliere un altro corso con Cambia o aggiungere un file sul dispositivo.'
-                        : 'Qui compariranno i file che StudentLab ha reso visibili nel catalogo.',
+                        ? 'Controlla il percorso nel profilo oppure esplora i corsi pubblici.'
+                        : 'Qui compariranno i file che StudentLab ha classificato e reso visibili nel catalogo.',
+                    action: showOwn
+                        ? OutlinedButton(
+                            style: _secondaryButtonStyle(),
+                            onPressed: () {
+                              setState(() => _rootTab = 1);
+                              _exploreAllPublicCourses = true;
+                              _loadMaterials();
+                            },
+                            child: const Text('Esplora corsi'),
+                          )
+                        : null,
                   )
                 else
                   ...shown.map((items) {
@@ -1181,7 +1139,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     );
                   }),
               ],
-              ...[
+              if (showDevice || !signedIn) ...[
                 const SizedBox(height: 20),
                 _sectionTitle('Sul dispositivo'),
                 const SizedBox(height: 10),
@@ -1511,6 +1469,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       const SizedBox(width: 8),
       link(Icons.event_note_outlined, SlTone.warning, 'Com’è l’esame', 'Racconti degli appelli',
           FaqExamPage(subjectId: subject.subjectId!, subjectName: subject.name)),
+      const SizedBox(width: 8),
+      link(Icons.edit_calendar_outlined, SlTone.danger, 'Appelli', 'Date e promemoria',
+          CalendarHomePage(subjectId: subject.subjectId, subjectName: subject.name)),
     ]);
   }
 
@@ -1524,11 +1485,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     final SocialAcademicPath? path = _currentPath;
     String pick(String code, String name) => code.trim().isNotEmpty && code.trim().length <= 8 ? code.trim() : name.trim();
     final chips = <String>[
-      if (_browseCourseKey != null && first != null) ...[
-        first.displayUniversity,
-        first.displayDepartment,
-        first.displayCourse,
-      ] else if (path != null) ...[
+      if (path != null) ...[
         pick(path.universityCode, path.university),
         pick(path.departmentCode, path.department),
         path.course,
@@ -1558,8 +1515,12 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     letterSpacing: 0.6)),
             const Spacer(),
             TextButton(
-              onPressed: () => setState(() => _choosingBrowseCourse = !_choosingBrowseCourse),
-              child: Text(_choosingBrowseCourse ? 'Chiudi' : 'Cambia'),
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const AcademicPathsPage()));
+                if (mounted) await _loadMaterials();
+              },
+              child: const Text('Cambia'),
             ),
           ]),
           const SizedBox(height: 4),
@@ -1601,7 +1562,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                             fontSize: 13)),
                   ),
                 ],
-                if (_browseCourseKey == null && _enrolledCourseKeys.length > 1)
+                if (_enrolledCourseKeys.length > 1)
                   Text('+${_enrolledCourseKeys.length - 1}',
                       style: TextStyle(
                           color: AppColors.pureWhite.withValues(alpha: 0.60),

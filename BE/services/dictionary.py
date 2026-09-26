@@ -196,14 +196,21 @@ def version_for_year(db: Session, entry_id: int, year: str) -> DictionaryVersion
     return exact or previous_version(db, entry_id, year)
 
 
+PUBLIC_REVIEW_STATES = ('confirmed', 'same_as_previous', 'changed')
+
+
+def public_version_for_year(db: Session, entry_id: int, year: str) -> DictionaryVersion | None:
+    """Latest reviewed version no later than the selected academic year."""
+    return (db.query(DictionaryVersion).filter(
+        DictionaryVersion.entry_id == entry_id,
+        DictionaryVersion.academic_year <= year,
+        DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES),
+    ).order_by(DictionaryVersion.academic_year.desc()).first())
+
+
 def auto_review_state(db: Session, version: DictionaryVersion) -> str:
-    """Se c'è l'anno prima: uguale -> same_as_previous, diverso -> to_review."""
-    previous = previous_version(db, version.entry_id, version.academic_year)
-    if previous is None:
-        return 'confirmed'
-    fields = ('formal_definition', 'informal_definition', 'examples', 'exercises', 'exam_questions', 'resources')
-    a, b = version_content(version), version_content(previous)
-    return 'same_as_previous' if all(a[f] == b[f] for f in fields) else 'to_review'
+    """Import and edit always require an administrator review before publication."""
+    return 'to_review'
 
 
 def upsert_version(db: Session, entry: DictionaryEntry, year: str, content: dict, author: User | None,

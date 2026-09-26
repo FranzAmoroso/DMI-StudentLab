@@ -16,8 +16,8 @@ id delle domande (per "Mettiti alla prova"). Le domande senza termine
 riconoscibile restano fuori dal dizionario (sono comunque nel quiz).
 
 Uso, dalla cartella BE/:
-    python3 scripts/genera_dizionario_da_domande.py            # scrive i file
-    python3 scripts/genera_dizionario_da_domande.py --prova    # solo il riepilogo
+    python3 scripts/genera_dizionario_da_domande.py            # solo il riepilogo
+    python3 scripts/genera_dizionario_da_domande.py --scrivi   # crea soltanto file nuovi
     python3 scripts/genera_dizionario_da_domande.py --data altra/cartella
 """
 import argparse
@@ -150,8 +150,11 @@ def build(path: Path, data_root: Path) -> tuple[dict, dict]:
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--data', default='data', help='cartella radice dei dati (default: data)')
-    parser.add_argument('--prova', action='store_true', help='non scrive file, mostra solo il riepilogo')
+    parser.add_argument('--prova', action='store_true', help='solo il riepilogo (comportamento predefinito)')
+    parser.add_argument('--scrivi', action='store_true', help='crea soltanto JSON nuovi; non sovrascrive file esistenti')
     args = parser.parse_args()
+    if args.prova and args.scrivi:
+        parser.error('--prova e --scrivi non possono essere usati insieme')
     root = Path(args.data)
     files = sorted(p for p in root.rglob('*.json') if p.parent.name == 'question')
     if not files:
@@ -164,10 +167,15 @@ def main():
             print(f'✗ {path}: {exc}')
             continue
         print(f'{report["file"]:58} {report["questions"]:8} {report["terms"]:8} {report["skipped"]:7}')
-        if not args.prova and result['entries']:
+        if args.scrivi and result['entries']:
             out = path.parent.parent / 'dictionary' / path.name
+            if out.exists():
+                print(f'  • già presente, non sovrascritto: {out}')
+                continue
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+            with out.open('x', encoding='utf-8') as file:
+                file.write(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+            print(f'  ✓ creato: {out}')
     print('\n"senza": domande in cui non si riconosce un termine. Per le domande nuove aggiungi il campo '
           '"term" (es. "term": "Router") e verranno incluse.')
 

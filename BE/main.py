@@ -4163,8 +4163,12 @@ def api_teacher_subjects(
                 subject.name,
             "department":
                 subject.department,
+            "department_code":
+                subject.department_code,
             "course":
                 subject.course,
+            "course_code":
+                subject.course_code,
         }
         for subject in teacher_subjects
     ]
@@ -4845,3 +4849,12 @@ _ensure_router_registered(faq_router, "/faq")
 
 from routes.dictionary import router as dictionary_router  # noqa: E402
 _ensure_router_registered(dictionary_router, '/dictionary')
+
+
+# Calendario accademico (lezioni, sessioni, appelli, promemoria).
+from routes.academic_calendar import router as academic_calendar_router  # noqa: E402
+
+_ensure_router_registered(
+    academic_calendar_router,
+    "/calendar",
+)

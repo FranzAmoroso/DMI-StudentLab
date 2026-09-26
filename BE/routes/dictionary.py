@@ -20,15 +20,19 @@ from models.user import User
 from services.dictionary import (SCHEMA, apply_content, can_edit, clean_content, current_academic_year, display_name,
                                  import_dictionary, is_admin, match_subject, normalize_year, previous_version,
                                  quiz_questions, slugify, subject_teachers, topic_pdf, upsert_version,
+                                 PUBLIC_REVIEW_STATES, public_version_for_year,
                                  version_content, version_for_year)
 
 router = APIRouter(prefix='/dictionary', tags=['dictionary'])
 
 
 def _years(db: Session, subject_id: int) -> list[str]:
-    rows = db.query(DictionaryVersion.academic_year).join(DictionaryEntry,
-        DictionaryEntry.id == DictionaryVersion.entry_id).filter(DictionaryEntry.subject_id == subject_id).distinct().all()
-    return sorted({r[0] for r in rows}, reverse=True)
+    rows = (db.query(DictionaryVersion.academic_year)
+        .join(DictionaryEntry, DictionaryEntry.id == DictionaryVersion.entry_id)
+        .filter(DictionaryEntry.subject_id == subject_id,
+                DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES))
+        .distinct().all())
+    return sorted({row[0] for row in rows}, reverse=True)
 
 
 def _year_or_default(db: Session, subject_id: int, year: str | None) -> str:
@@ -44,7 +48,8 @@ def _teachers_for_year(db: Session, subject_id: int, year: str) -> list[str]:
     names: list[str] = []
     rows = db.query(DictionaryVersion.teachers_json).join(DictionaryEntry,
         DictionaryEntry.id == DictionaryVersion.entry_id).filter(DictionaryEntry.subject_id == subject_id,
-        DictionaryVersion.academic_year == year).distinct().limit(50).all()
+        DictionaryVersion.academic_year == year,
+        DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES)).distinct().limit(50).all()
     for (value,) in rows:
         for name in json.loads(value or '[]'):
             if name not in names:
@@ -67,14 +72,18 @@ def _subject_or_404(db: Session, subject_id: int) -> Subject:
 
 @router.get('/subjects')
 def dictionary_subjects(db: Session = Depends(get_db)):
-    """Materie con almeno un termine (per chip ateneo/dipartimento/corso e card)."""
-    counts = dict(db.query(DictionaryEntry.subject_id, func.count(DictionaryEntry.id)).group_by(
-        DictionaryEntry.subject_id).all())
-    topics = dict(db.query(DictionaryTopic.subject_id, func.count(DictionaryTopic.id)).group_by(
-        DictionaryTopic.subject_id).all())
+    """List only subjects that have a reviewed dictionary version."""
+    counts = dict(db.query(DictionaryEntry.subject_id, func.count(func.distinct(DictionaryEntry.id)))
+        .join(DictionaryVersion, DictionaryVersion.entry_id == DictionaryEntry.id)
+        .filter(DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES))
+        .group_by(DictionaryEntry.subject_id).all())
     if not counts:
         return []
-    subjects = db.query(Subject).filter(Subject.id.in_(list(counts.keys()))).order_by(Subject.name).all()
+    topics = dict(db.query(DictionaryEntry.subject_id, func.count(func.distinct(DictionaryEntry.topic_id)))
+        .join(DictionaryVersion, DictionaryVersion.entry_id == DictionaryEntry.id)
+        .filter(DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES))
+        .group_by(DictionaryEntry.subject_id).all())
+    subjects = db.query(Subject).filter(Subject.id.in_(list(counts))).order_by(Subject.name).all()
     return [{'id': s.id, 'name': s.name, 'university': s.university, 'university_code': s.university_code,
              'department': s.department, 'department_code': s.department_code, 'course': s.course,
              'course_code': s.course_code, 'terms': counts.get(s.id, 0), 'topics': topics.get(s.id, 0)}
@@ -92,7 +101,7 @@ def dictionary_subject(subject_id: int, year: str | None = None,
         func.lower(DictionaryEntry.term)).all()
     by_topic: dict[int | None, list[dict]] = {}
     for entry in entries:
-        version = version_for_year(db, entry.id, selected)
+        version = public_version_for_year(db, entry.id, selected)
         if version is None:
             continue   # termine introdotto dopo l'anno scelto
         content = version_content(version)
@@ -118,7 +127,9 @@ def dictionary_search(q: str = Query(min_length=2, max_length=100), subject_id: 
                       limit: int = Query(default=30, ge=1, le=100), db: Session = Depends(get_db)):
     like = f'%{q.strip().lower()}%'
     query = db.query(DictionaryEntry, Subject).join(Subject, Subject.id == DictionaryEntry.subject_id).filter(
-        or_(func.lower(DictionaryEntry.term).like(like), func.lower(DictionaryEntry.aliases_json).like(like)))
+        or_(func.lower(DictionaryEntry.term).like(like), func.lower(DictionaryEntry.aliases_json).like(like)),
+        db.query(DictionaryVersion.id).filter(DictionaryVersion.entry_id == DictionaryEntry.id,
+            DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES)).exists())
     if subject_id:
         query = query.filter(DictionaryEntry.subject_id == subject_id)
     rows = query.order_by(func.length(DictionaryEntry.term)).limit(limit).all()
@@ -134,21 +145,24 @@ def dictionary_entry(entry_id: int, year: str | None = None,
         raise HTTPException(404, 'Termine non trovato.')
     subject = _subject_or_404(db, entry.subject_id)
     selected = _year_or_default(db, entry.subject_id, year)
-    version = version_for_year(db, entry.id, selected)
-    if version is None:
-        version = db.query(DictionaryVersion).filter(DictionaryVersion.entry_id == entry.id).order_by(
-            DictionaryVersion.academic_year).first()
+    version = (version_for_year(db, entry.id, selected) if is_admin(viewer)
+               else public_version_for_year(db, entry.id, selected))
     if version is None:
         raise HTTPException(404, 'Termine senza contenuto.')
     content = version_content(version)
     related = []
     if content['related']:
         for item in db.query(DictionaryEntry).filter(DictionaryEntry.subject_id == entry.subject_id,
-                                                     DictionaryEntry.slug.in_(content['related'])).all():
+                                                     DictionaryEntry.slug.in_(content['related']),
+                                                     db.query(DictionaryVersion.id).filter(
+                                                         DictionaryVersion.entry_id == DictionaryEntry.id,
+                                                         DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES)).exists()).all():
             related.append({'id': item.id, 'term': item.term})
     topic = db.query(DictionaryTopic).filter(DictionaryTopic.id == entry.topic_id).first() if entry.topic_id else None
-    all_versions = db.query(DictionaryVersion).filter(DictionaryVersion.entry_id == entry.id).order_by(
-        DictionaryVersion.academic_year.desc()).all()
+    all_versions_query = db.query(DictionaryVersion).filter(DictionaryVersion.entry_id == entry.id)
+    if not is_admin(viewer):
+        all_versions_query = all_versions_query.filter(DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES))
+    all_versions = all_versions_query.order_by(DictionaryVersion.academic_year.desc()).all()
     return {
         'entry': {'id': entry.id, 'term': entry.term, 'aliases': json.loads(entry.aliases_json or '[]'),
                   'topic': topic.title if topic else None, 'topic_id': entry.topic_id,
@@ -171,8 +185,10 @@ def dictionary_entry_quiz(entry_id: int, year: str | None = None, db: Session = 
     entry = db.query(DictionaryEntry).filter(DictionaryEntry.id == entry_id).first()
     if entry is None:
         raise HTTPException(404, 'Termine non trovato.')
-    version = version_for_year(db, entry.id, _year_or_default(db, entry.subject_id, year))
-    return quiz_questions(version) if version else []
+    version = public_version_for_year(db, entry.id, _year_or_default(db, entry.subject_id, year))
+    if version is None:
+        raise HTTPException(404, 'Termine non disponibile.')
+    return quiz_questions(version)
 
 
 @router.get('/topics/{topic_id}/pdf')
@@ -186,7 +202,7 @@ def dictionary_topic_pdf(topic_id: int, year: str | None = None, db: Session = D
     rows = []
     for entry in db.query(DictionaryEntry).filter(DictionaryEntry.topic_id == topic.id).order_by(
             func.lower(DictionaryEntry.term)).all():
-        version = version_for_year(db, entry.id, selected)
+        version = public_version_for_year(db, entry.id, selected)
         if version is not None:
             rows.append((entry, version))
     if not rows:
@@ -383,7 +399,7 @@ def review_queue(subject_id: int | None = None, state: str = Query(default='to_r
         query = query.filter(DictionaryVersion.review_state == state)
     if normalize_year(year):
         query = query.filter(DictionaryVersion.academic_year == normalize_year(year))
-    rows = query.order_by(DictionaryVersion.updated_at.desc()).limit(200).all()
+    rows = query.order_by(DictionaryVersion.updated_at.desc()).limit(2000).all()
     result = []
     for version, entry in rows:
         previous = previous_version(db, entry.id, version.academic_year)

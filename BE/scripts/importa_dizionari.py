@@ -12,18 +12,32 @@ Uso, dalla cartella BE/ (con le variabili del database impostate):
     python3 scripts/importa_dizionari.py --admin-email tu@esempio.it --materia reti_di_calcolatori_e_internet.json=42
 """
 import argparse
+import importlib
+import pkgutil
+import importlib
+import pkgutil
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import models  # noqa: E402
+import models  # noqa: E402
 from core.database import SessionLocal  # noqa: E402
 from models.subject import Subject  # noqa: E402
 from models.user import User  # noqa: E402
 import models.dictionary  # noqa: E402,F401
 from services.dictionary import import_dictionary, is_admin, match_subject  # noqa: E402
 
+
+def import_all_models():
+    for info in pkgutil.walk_packages(models.__path__, prefix=f"{models.__name__}."):
+        importlib.import_module(info.name)
+
+def import_all_models():
+    for info in pkgutil.walk_packages(models.__path__, prefix=f"{models.__name__}."):
+        importlib.import_module(info.name)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -33,6 +47,8 @@ def main():
     parser.add_argument('--prova', action='store_true', help='mostra solo gli abbinamenti, non scrive')
     args = parser.parse_args()
     forced = dict(item.split('=', 1) for item in args.materia if '=' in item)
+    import_all_models()
+    import_all_models()
     db = SessionLocal()
     try:
         admin = db.query(User).filter(User.email == args.admin_email).first()
