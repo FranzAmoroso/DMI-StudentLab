@@ -180,8 +180,11 @@ class MaterialRepository {
 
     final List<Map<String, Object?>> result = await db.query(
       DatabaseTables.materials,
-      where: 'user_id = ? AND (source = ? OR is_available_remote = 1)',
-      whereArgs: <Object?>[userId, MaterialSourceLocal.local.storageValue],
+      // I file importati sul dispositivo restano visibili anche dopo il
+      // passaggio guest -> account -> guest. I materiali remoti restano
+      // isolati all'account che ha il permesso di leggerli.
+      where: '(source = ?) OR (user_id = ? AND is_available_remote = 1)',
+      whereArgs: <Object?>[MaterialSourceLocal.local.storageValue, userId],
       orderBy: 'updated_at DESC, id DESC',
     );
 

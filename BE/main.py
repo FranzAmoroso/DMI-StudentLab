@@ -4837,3 +4837,7 @@ _ensure_router_registered(
     teacher_material_request_router,
     "/teacher-material-requests",
 )
+
+# Domande degli studenti e racconti d'esame.
+from routes.faq import router as faq_router  # noqa: E402
+_ensure_router_registered(faq_router, "/faq")

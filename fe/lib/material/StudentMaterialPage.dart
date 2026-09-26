@@ -3,6 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fe/material/material_requests_page.dart';
+import 'package:fe/faq/faq_home_page.dart';
+import 'package:fe/faq/faq_exam_page.dart';
 import 'package:fe/social/auth/login_page.dart';
 import 'package:fe/developer/theme/developer_ui_style.dart';
 import 'package:fe/theme/app_palette.dart';
@@ -168,19 +170,51 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       Set<String> enrolledCourses = {};
       SocialAcademicPath? currentPath;
       if (_authSession.isAuthenticated && _authSession.currentUserId != null) {
+        final user = _authSession.currentUser!;
+        // Il profilo contiene gia il percorso anche se l'endpoint separato
+        // non e disponibile (o restituisce una lista vuota).
+        var paths = user.academicPaths;
         try {
-          final paths = await _apiService.getUserAcademicPaths(_authSession.currentUserId!);
-          final enrolled = paths.where((path) => path.status == AcademicPathStatus.enrolled).toList();
-          enrolledCourses = enrolled
-            .map((path) => _courseKey(path.university, path.department, path.course)).toSet();
-          final current = enrolled.where((path) => path.isCurrent);
-          final primary = enrolled.where((path) => path.isPrimary);
-          currentPath = current.isNotEmpty
-              ? current.first
-              : (primary.isNotEmpty ? primary.first : (enrolled.isNotEmpty ? enrolled.first : null));
+          final remote = await _apiService.getUserAcademicPaths(user.id);
+          if (remote.isNotEmpty) paths = remote;
         } catch (_) {
-          // The backend still enforces access to restricted files.
+          // Usa il profilo presente nella sessione; il server mantiene i permessi.
         }
+        var enrolled = paths
+            .where((path) => path.status == AcademicPathStatus.enrolled)
+            .toList();
+        if (enrolled.isEmpty &&
+            user.university.trim().isNotEmpty &&
+            user.department.trim().isNotEmpty &&
+            user.course.trim().isNotEmpty) {
+          // Compatibilita con i profili che espongono il corso nei campi
+          // principali ma non ancora nella lista academic_paths.
+          enrolled = [
+            SocialAcademicPath(
+              id: -1,
+              userId: user.id,
+              university: user.university,
+              universityCode: '',
+              department: user.department,
+              departmentCode: '',
+              course: user.course,
+              courseCode: '',
+              isCurrent: true,
+              isPrimary: true,
+            ),
+          ];
+        }
+        enrolledCourses = enrolled
+            .map((path) => _courseKey(
+                path.university, path.department, path.course))
+            .toSet();
+        final current = enrolled.where((path) => path.isCurrent);
+        final primary = enrolled.where((path) => path.isPrimary);
+        currentPath = current.isNotEmpty
+            ? current.first
+            : (primary.isNotEmpty
+                ? primary.first
+                : (enrolled.isNotEmpty ? enrolled.first : null));
       }
 
       // Il backend applica i permessi dei singoli materiali. Conserviamo qui
@@ -1433,6 +1467,53 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     );
   }
 
+  /// Domande e "Com'è l'esame" della materia (sezione Domande).
+  Widget _buildSubjectFaqLinks(_LocalSubject subject) {
+    Widget link(IconData icon, SlTone tone, String title, String subtitle, Widget page) {
+      return Expanded(
+        child: Material(
+          color: AppColors.eleganceMidnight,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: AppColors.skyBlue.withValues(alpha: 0.12)),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 60),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(children: [
+                  SlIconTile(icon: icon, tone: tone, size: 34),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(title,
+                          style: TextStyle(color: AppColors.pureWhite, fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text(subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.60), fontSize: 11)),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(children: [
+      link(Icons.forum_outlined, SlTone.cyan, 'Domande', 'Dubbi e risposte',
+          FaqHomePage(subjectId: subject.subjectId, subjectName: subject.name)),
+      const SizedBox(width: 8),
+      link(Icons.event_note_outlined, SlTone.warning, 'Com’è l’esame', 'Racconti degli appelli',
+          FaqExamPage(subjectId: subject.subjectId!, subjectName: subject.name)),
+    ]);
+  }
+
   bool _isOnDevice(MaterialLocal material) =>
       material.source == MaterialSourceLocal.local ||
       _offlineEntryFor(material) != null;
@@ -1848,6 +1929,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               _buildSubjectHeader(subject, materials),
               const SizedBox(height: 12),
               _buildSourceSummary(materials),
+              if (subject.subjectId != null && depth == 0) ...[
+                const SizedBox(height: 12),
+                _buildSubjectFaqLinks(subject),
+              ],
               if (folders.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 _sectionTitle(folderLabel),

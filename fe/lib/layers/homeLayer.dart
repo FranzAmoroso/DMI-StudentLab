@@ -8,6 +8,8 @@ import 'package:fe/quiz/review/student_quiz_review_page.dart';
 
 import 'package:fe/social/social_page.dart';
 
+import 'package:fe/faq/faq_home_page.dart';
+
 import 'package:fe/theme/nightTheme.dart';
 
 import 'package:fe/widgets/studentlab_coming_soon_badge.dart';
@@ -25,6 +27,8 @@ enum HomeFeatureType {
   materials,
 
   institution,
+
+  faq,
 
   marketplace,
 
@@ -173,6 +177,22 @@ class HomeLayer extends StatelessWidget {
           Icons.account_balance_outlined,
 
       accent: AppColors.socialBlue,
+
+    ),
+
+    FeatureCard(
+
+      type: HomeFeatureType.faq,
+
+      title: 'Domande',
+
+      description:
+
+          'Dubbi su corsi, esami, materiali e percorso: chiedi a studenti e docenti, o trova chi ha già risposto.',
+
+      icon: Icons.forum_outlined,
+
+      accent: AppColors.adminCyan,
 
     ),
 
@@ -453,6 +473,20 @@ class HomeLayer extends StatelessWidget {
             builder: (_) =>
 
                 const SocialPage(),
+
+          ),
+
+        );
+
+        return;
+
+      case HomeFeatureType.faq:
+
+        await Navigator.of(context).push(
+
+          MaterialPageRoute<void>(
+
+            builder: (_) => const FaqHomePage(),
 
           ),
 

@@ -4,6 +4,8 @@ import '../../developer/pages/developer_entry_page.dart';
 
 import '../../material/admin/admin_material_storage_page.dart';
 
+import '../../faq/admin_faq_moderation_page.dart';
+
 import '../../quiz/teacher/question_moderation_page.dart';
 
 import '../../services/api_service.dart';
@@ -323,7 +325,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
         borderRadius: BorderRadius.circular(20),
 
-        border: Border.all(color: AppColors.greenAccent.withValues(alpha: 0.14)),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.14)),
       ),
 
       child: Row(
@@ -334,15 +336,15 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
             height: 60,
 
             decoration: BoxDecoration(
-              color: AppColors.greenAccent.withValues(alpha: 0.08),
+              color: Colors.greenAccent.withValues(alpha: 0.08),
 
               borderRadius: BorderRadius.circular(17),
             ),
 
-            child: Icon(
+            child: const Icon(
               Icons.admin_panel_settings_outlined,
 
-              color: AppColors.greenAccent,
+              color: Colors.greenAccent,
 
               size: 31,
             ),
@@ -392,12 +394,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                     ),
 
                     decoration: BoxDecoration(
-                      color: AppColors.greenAccent.withValues(alpha: 0.08),
+                      color: Colors.greenAccent.withValues(alpha: 0.08),
 
                       borderRadius: BorderRadius.circular(9),
 
                       border: Border.all(
-                        color: AppColors.greenAccent.withValues(alpha: 0.18),
+                        color: Colors.greenAccent.withValues(alpha: 0.18),
                       ),
                     ),
 
@@ -408,7 +410,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                         Icon(
                           Icons.workspace_premium_outlined,
 
-                          color: AppColors.greenAccent,
+                          color: Colors.greenAccent,
 
                           size: 14,
                         ),
@@ -419,7 +421,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                           _roleLabel,
 
                           style: TextStyle(
-                            color: AppColors.greenAccent,
+                            color: Colors.greenAccent,
 
                             fontSize: 10,
 
@@ -524,6 +526,18 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
   Widget _buildModerationGrid() {
     return _AdminGrid(
       children: [
+        _AdminModuleCard(
+          icon: Icons.forum_outlined,
+
+          title: 'Domande',
+
+          description: 'Domande, risposte e racconti d’esame da controllare prima della pubblicazione.',
+
+          onTap: () {
+            _openProtectedPage(const AdminFaqModerationPage());
+          },
+        ),
+
         _AdminModuleCard(
           icon: Icons.rate_review_outlined,
 
@@ -967,16 +981,16 @@ class _AdminModuleCard extends StatelessWidget {
                       ),
 
                       decoration: BoxDecoration(
-                        color: AppColors.amber.withValues(alpha: 0.09),
+                        color: Colors.amber.withValues(alpha: 0.09),
 
                         borderRadius: BorderRadius.circular(8),
                       ),
 
-                      child: Text(
+                      child: const Text(
                         'DA COLLEGARE',
 
                         style: TextStyle(
-                          color: AppColors.amber,
+                          color: Colors.amber,
 
                           fontSize: 7,
 
@@ -985,10 +999,10 @@ class _AdminModuleCard extends StatelessWidget {
                       ),
                     )
                   else
-                    Icon(
+                    const Icon(
                       Icons.arrow_forward_ios_rounded,
 
-                      color: AppColors.white30,
+                      color: Colors.white30,
 
                       size: 14,
                     ),
@@ -1015,8 +1029,8 @@ class _AdminModuleCard extends StatelessWidget {
                 child: Text(
                   description,
 
-                  style: TextStyle(
-                    color: AppColors.white54,
+                  style: const TextStyle(
+                    color: Colors.white54,
 
                     fontSize: 10,
 
@@ -1070,7 +1084,7 @@ class _AdminAccessDeniedPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
 
                 border: Border.all(
-                  color: AppColors.redAccent.withValues(alpha: 0.16),
+                  color: Colors.redAccent.withValues(alpha: 0.16),
                 ),
               ),
 
@@ -1078,10 +1092,10 @@ class _AdminAccessDeniedPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
 
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.gpp_bad_outlined,
 
-                    color: AppColors.redAccent,
+                    color: Colors.redAccent,
 
                     size: 44,
                   ),
@@ -1110,8 +1124,8 @@ class _AdminAccessDeniedPage extends StatelessWidget {
 
                     textAlign: TextAlign.center,
 
-                    style: TextStyle(
-                      color: AppColors.white54,
+                    style: const TextStyle(
+                      color: Colors.white54,
 
                       fontSize: 11,
 
