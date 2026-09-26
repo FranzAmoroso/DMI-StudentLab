@@ -5,6 +5,7 @@ import '../../developer/pages/developer_entry_page.dart';
 import '../../material/admin/admin_material_storage_page.dart';
 
 import '../../faq/admin_faq_moderation_page.dart';
+import '../../dictionary/dictionary_review_page.dart';
 
 import '../../quiz/teacher/question_moderation_page.dart';
 
@@ -526,6 +527,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
   Widget _buildModerationGrid() {
     return _AdminGrid(
       children: [
+        _AdminModuleCard(
+          icon: Icons.menu_book_outlined,
+          title: 'Dizionario',
+          description: 'Revisione tra anni accademici, affidamento ai docenti e passaggio al nuovo anno.',
+          onTap: () => _openProtectedPage(const DictionaryReviewPage()),
+        ),
         _AdminModuleCard(
           icon: Icons.forum_outlined,
 

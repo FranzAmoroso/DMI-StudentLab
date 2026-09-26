@@ -1301,6 +1301,16 @@ super.dispose();
 
               ),
 
+              _HomeUserMenuTile(
+                icon: Icons.palette_outlined,
+                label: 'Tema dell’app',
+                subtitle: 'Colori, mascotte e logo',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  if (!mounted) return;
+                  showStudentLabThemeSheet(context);
+                },
+              ),
               const SizedBox(height: 6),
 
             ],

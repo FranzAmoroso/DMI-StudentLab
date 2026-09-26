@@ -9,6 +9,7 @@ import 'package:fe/quiz/review/student_quiz_review_page.dart';
 import 'package:fe/social/social_page.dart';
 
 import 'package:fe/faq/faq_home_page.dart';
+import 'package:fe/dictionary/dictionary_home_page.dart';
 
 import 'package:fe/theme/nightTheme.dart';
 
@@ -132,17 +133,16 @@ class HomeLayer extends StatelessWidget {
 
       type: HomeFeatureType.definitions,
 
-      title: 'Definizioni',
+      title: 'Dizionario',
 
       description:
 
-          'Consulta termini e concetti chiave delle materie del tuo percorso.',
+          'Definizioni formali e semplici, esempi, esercizi e domande d’esame per ogni argomento.',
 
       icon: Icons.menu_book_outlined,
 
       accent: AppColors.materialSky,
 
-      isComingSoon: true,
 
     ),
 
@@ -511,6 +511,10 @@ class HomeLayer extends StatelessWidget {
       case HomeFeatureType.examSimulation:
 
       case HomeFeatureType.definitions:
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => const DictionaryHomePage(),
+        ));
+        return;
 
       case HomeFeatureType.marketplace:
 

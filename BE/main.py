@@ -4841,3 +4841,7 @@ _ensure_router_registered(
 # Domande degli studenti e racconti d'esame.
 from routes.faq import router as faq_router  # noqa: E402
 _ensure_router_registered(faq_router, "/faq")
+
+
+from routes.dictionary import router as dictionary_router  # noqa: E402
+_ensure_router_registered(dictionary_router, '/dictionary')
