@@ -202,6 +202,10 @@ async def api_admin_public_material_file(
             status_code=404,
             detail="Materiale non trovato.",
         )
+    if material.drive_file_id:
+        return await public_drive_response(drive_file_id=material.drive_file_id,
+            original_name=material.original_name, mime_type=material.mime_type,
+            inline=True)
     return await private_blob_response(
         stored_name=material.stored_name,
         original_name=material.original_name,
@@ -222,6 +226,9 @@ async def api_admin_public_material_download(
             status_code=404,
             detail="Materiale non trovato.",
         )
+    if material.drive_file_id:
+        return await public_drive_response(drive_file_id=material.drive_file_id,
+            original_name=material.original_name, mime_type=material.mime_type)
     return await private_blob_response(
         stored_name=material.stored_name,
         original_name=material.original_name,

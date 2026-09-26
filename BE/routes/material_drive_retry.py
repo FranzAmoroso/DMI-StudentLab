@@ -9,6 +9,7 @@ from core.database import SessionLocal
 from models.public_material import PublicMaterial
 from services.admin_material_storage import record_storage_event, utc_now
 from services.drive_material_storage import copy_public_material, mark_retry
+from services.public_drive_blob_retirement import retire_public_staging_blob_best_effort
 from sqlalchemy import or_
 
 router = APIRouter(prefix='/internal/materials', tags=['materials-maintenance'])
@@ -57,6 +58,7 @@ async def retry_drive_upload(request: Request):
                     original_name=row.original_name, size=row.size,
                     details={'source': 'scheduled_retry'}, commit=False)
                 db.commit()
+                await retire_public_staging_blob_best_effort(db, row)
                 copied += 1
             except Exception as exc:
                 db.rollback()

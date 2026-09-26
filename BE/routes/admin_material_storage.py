@@ -17,6 +17,7 @@ from services.drive_material_storage import copy_public_material, drive_status, 
 from services.drive_material_catalog import clean_path, verify_under_root, FOLDER_MIME
 from core.config import settings
 from services.admin_material_storage import record_storage_event, utc_now
+from services.public_drive_blob_retirement import retire_public_staging_blob_best_effort
 from schemas.admin_material_storage import (
     AdminMaterialStorageCleanupRequest,
     AdminMovePublicFolderRequest,
@@ -364,6 +365,7 @@ async def admin_copy_public_to_drive(
     if material is None:
         raise HTTPException(status_code=404, detail='Materiale non trovato.')
     if material.drive_file_id:
+        await retire_public_staging_blob_best_effort(db, material, current_user.id)
         return {'id': material.id, 'copied': True}
     if placement is not None:
         if placement.path is not None:
@@ -405,6 +407,7 @@ async def admin_copy_public_to_drive(
     except Exception:
         db.rollback()
         raise
+    await retire_public_staging_blob_best_effort(db, material, current_user.id)
     return {'id': material.id, 'copied': True}
 
 
@@ -756,6 +759,7 @@ async def publish_admin_upload(request_id: int, request: AdminUploadPublishReque
                 details={'source': 'admin_upload', 'destination': request.destination}, commit=False)
             db.commit()
             drive_pending = False
+            await retire_public_staging_blob_best_effort(db, approved, current_user.id)
         except Exception as exc:
             db.rollback()
             # Resta nascosto finché la copia su Drive non riesce (nuovo tentativo automatico).

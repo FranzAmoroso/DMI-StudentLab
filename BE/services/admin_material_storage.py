@@ -138,7 +138,8 @@ def _public_item(record):
         "group_id": None,
         "updated_at": record.updated_at,
         "safe_to_delete_blob": record.status == "removed" and not (record.stored_name or '').startswith('drive-import/'),
-        "expects_blob": record.status != "removed" and not (record.stored_name or '').startswith('drive-import/'),
+        "expects_blob": record.status != "removed" and not record.drive_file_id
+            and not (record.stored_name or '').startswith('drive-import/'),
         "can_retire": record.status != "removed",
         "can_rename": True,
     }

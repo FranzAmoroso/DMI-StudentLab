@@ -75,8 +75,9 @@ from services.public_material import (
 )
 from core.config import settings
 from services.drive_material_catalog import clean_path, default_path
-from services.drive_material_storage import copy_public_material, preview_public_material, mark_retry
+from services.drive_material_storage import copy_public_material, preview_public_material, mark_retry, public_drive_response
 from services.admin_material_storage import record_storage_event, utc_now
+from services.public_drive_blob_retirement import retire_public_staging_blob_best_effort
 
 from services.upload_authorization import (
     create_upload_authorization,
@@ -665,6 +666,14 @@ async def api_admin_material_publication_file(
             detail="Richiesta non trovata.",
         )
 
+    if publication_request.status == 'approved' and publication_request.approved_public_material_id:
+        material = get_public_material_by_id(db, publication_request.approved_public_material_id)
+        if (material is not None and material.drive_file_id and
+                material.stored_name == publication_request.stored_name):
+            return await public_drive_response(drive_file_id=material.drive_file_id,
+                original_name=material.original_name, mime_type=material.mime_type,
+                inline=True)
+
     return await private_blob_response(
         stored_name=(
             publication_request.stored_name
@@ -781,6 +790,11 @@ async def api_admin_possible_duplicate_material_file(
                 "Materiale duplicato non trovato."
             ),
         )
+
+    if material.drive_file_id:
+        return await public_drive_response(drive_file_id=material.drive_file_id,
+            original_name=material.original_name, mime_type=material.mime_type,
+            inline=True)
 
     return await private_blob_response(
         stored_name=(
@@ -946,6 +960,7 @@ async def api_admin_approve_material_publication(
                     blob_path=approved.stored_name, original_name=approved.original_name,
                     size=approved.size, details={'source': 'approval'}, commit=False)
                 db.commit()
+                await retire_public_staging_blob_best_effort(db, approved, current_user.id)
             except Exception as exc:
                 db.rollback()
                 # Approved and hidden until a later automatic retry or admin decision.
