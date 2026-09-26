@@ -103,12 +103,12 @@ class _TeacherMaterialRequestsPageState
                     child: Card(child: ListTile(leading: const Icon(Icons.info_outline),
                       title: Text(_error!)))),
                   if (_items.isEmpty)
-                    const Center(
+                    Center(
                       child: Padding(
                         padding: EdgeInsets.all(30),
                         child: Text(
                           'Nessuna richiesta disponibile.',
-                          style: TextStyle(color: Colors.white54),
+                          style: TextStyle(color: AppColors.white54),
                         ),
                       ),
                     )
@@ -145,7 +145,7 @@ class _TeacherMaterialRequestsPageState
                                 .isNotEmpty)
                               Text(
                                 item['topic'].toString(),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.pureWhite,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -153,8 +153,8 @@ class _TeacherMaterialRequestsPageState
                             const SizedBox(height: 6),
                             Text(
                               item['message']?.toString() ?? '',
-                              style: const TextStyle(
-                                color: Colors.white70,
+                              style: TextStyle(
+                                color: AppColors.white70,
                                 height: 1.4,
                               ),
                             ),
@@ -194,7 +194,7 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.materialSky,
           fontSize: 9,
           fontWeight: FontWeight.bold,

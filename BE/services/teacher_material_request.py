@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from models.subject import Subject
+from models.material_share import MaterialShare
 from models.teacher_assignment import TeacherAssignment
 from models.teacher_material import TeacherMaterial
 from models.teacher_material_request import TeacherMaterialRequest
@@ -117,19 +118,32 @@ def resolve_request(db:Session,teacher:User,request_id:int,data:TeacherMaterialR
     if record.status!="pending":
         return record
     if data.action=="fulfilled":
-        if data.fulfilled_material_id is None:
-            raise ValueError("Seleziona il materiale pubblicato.")
-        material=db.query(TeacherMaterial).filter(TeacherMaterial.id==data.fulfilled_material_id,TeacherMaterial.uploaded_by==teacher.id,TeacherMaterial.subject_id==record.subject_id,TeacherMaterial.status=="active").first()
-        if material is None:
-            raise ValueError("Materiale docente non trovato.")
+        if (data.fulfilled_material_id is None) == (data.fulfilled_share_id is None):
+            raise ValueError("Seleziona un materiale docente oppure una condivisione privata.")
+        if data.fulfilled_material_id is not None:
+            material=db.query(TeacherMaterial).filter(TeacherMaterial.id==data.fulfilled_material_id,TeacherMaterial.uploaded_by==teacher.id,TeacherMaterial.subject_id==record.subject_id,TeacherMaterial.status=="active").first()
+            if material is None:
+                raise ValueError("Materiale docente non trovato.")
+            record.fulfilled_material_id=material.id
+        else:
+            share=db.query(MaterialShare).filter(
+                MaterialShare.id==data.fulfilled_share_id,
+                MaterialShare.sender_user_id==teacher.id,
+                MaterialShare.recipient_user_id==record.student_user_id,
+                MaterialShare.subject_id==record.subject_id,
+                MaterialShare.status.in_(("pending", "accepted", "delivered")),
+            ).first()
+            if share is None:
+                raise ValueError("Condivisione privata non disponibile per questa richiesta.")
+            record.fulfilled_share_id=share.id
         record.status="fulfilled"
-        record.fulfilled_material_id=material.id
     else:
         record.status="rejected"
     record.resolved_by=teacher.id
     record.resolved_at=utc_now()
     record.updated_at=utc_now()
-    create_notification(db,user_id=record.student_user_id,notification_type="teacher_material_request_resolved",title="Richiesta materiale aggiornata",message=("Il docente ha pubblicato un materiale per la tua richiesta." if record.status=="fulfilled" else "La richiesta di materiale è stata chiusa dal docente."),actor_user_id=teacher.id,resource_type="teacher_material_request",resource_id=record.id,action_type=None,action_resource_id=None,action_status="none",commit=False)
+    notice = ("Il docente ha condiviso privatamente il materiale richiesto." if record.fulfilled_share_id is not None else "Il docente ha pubblicato un materiale per la tua richiesta.") if record.status=="fulfilled" else "La richiesta di materiale è stata chiusa dal docente."
+    create_notification(db,user_id=record.student_user_id,notification_type="teacher_material_request_resolved",title="Richiesta materiale aggiornata",message=notice,actor_user_id=teacher.id,resource_type="teacher_material_request",resource_id=record.id,action_type=None,action_resource_id=None,action_status="none",commit=False)
     _propagate_to_parent(db, record, teacher)
     db.commit()
     db.refresh(record)
@@ -204,9 +218,16 @@ def _propagate_to_parent(db: Session, record, teacher: User):
         TeacherMaterialRequest.id == record.parent_request_id).with_for_update().first()
     if parent is None or parent.status != 'pending':
         return
+    # Una condivisione privata può chiudere solo la richiesta dello stesso
+    # studente; le altre richieste restano alla redazione StudentLab.
+    if record.fulfilled_share_id is not None and parent.student_user_id != record.student_user_id:
+        return
     parent.status = 'fulfilled'
     parent.fulfilled_material_id = record.fulfilled_material_id
-    parent.staff_response = 'Il docente ha pubblicato il materiale richiesto: lo trovi nelle Dispense della materia.'
+    parent.fulfilled_share_id = record.fulfilled_share_id
+    parent.staff_response = ('Il docente ha condiviso il file privatamente: lo trovi tra le condivisioni ricevute.'
+        if record.fulfilled_share_id is not None else
+        'Il docente ha pubblicato il materiale richiesto: lo trovi nelle Dispense della materia.')
     parent.resolved_by = teacher.id
     parent.resolved_at = utc_now()
     parent.updated_at = parent.resolved_at

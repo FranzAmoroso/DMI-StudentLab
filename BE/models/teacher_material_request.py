@@ -24,6 +24,7 @@ class TeacherMaterialRequest(Base):
     message = Column(Text, nullable=False)
     status = Column(String(30), nullable=False, default="pending", server_default="pending", index=True)
     fulfilled_material_id = Column(Integer, ForeignKey("teacher_materials.id", ondelete="SET NULL"), nullable=True, index=True)
+    fulfilled_share_id = Column(Integer, ForeignKey("material_shares.id", ondelete="SET NULL"), nullable=True, index=True)
     resolved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     # Inoltro ai docenti e richieste dell'admin (migrazione b934).

@@ -345,7 +345,7 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
               color: AppColors.brandNightBlue,
               borderRadius: BorderRadius.circular(15),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.edit_note_rounded,
               color: AppColors.skyBlue,
               size: 28,
@@ -358,7 +358,7 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
               children: [
                 Text(
                   widget.subject,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -474,7 +474,7 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
                   color: AppColors.skyBlue.withValues(alpha: 0.14),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.attach_file_rounded, color: AppColors.skyBlue),
                   SizedBox(width: 12),
@@ -493,7 +493,7 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
                         SizedBox(height: 3),
                         Text(
                           'PNG, JPG, WebP, PDF, TXT, DOCX o PPTX · max 50 MB',
-                          style: TextStyle(color: Colors.white54, fontSize: 11),
+                          style: TextStyle(color: AppColors.white54, fontSize: 11),
                         ),
                       ],
                     ),
@@ -550,7 +550,7 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.pureWhite,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -585,7 +585,7 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
       minLines: minLines,
       maxLines: maxLines,
       keyboardType: keyboardType,
-      style: const TextStyle(color: AppColors.pureWhite, fontSize: 13),
+      style: TextStyle(color: AppColors.pureWhite, fontSize: 13),
       validator:
           validator ??
           (String? value) {
@@ -630,7 +630,7 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: Colors.redAccent.withValues(alpha: 0.75),
+            color: AppColors.redAccent.withValues(alpha: 0.75),
           ),
         ),
       ),
@@ -1032,7 +1032,7 @@ class _AnswerEditor extends StatelessWidget {
               controller: controller,
               minLines: 2,
               maxLines: 5,
-              style: const TextStyle(color: AppColors.pureWhite, fontSize: 13),
+              style: TextStyle(color: AppColors.pureWhite, fontSize: 13),
               validator: (String? value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Risposta obbligatoria.';
@@ -1104,7 +1104,7 @@ class _AttachmentTile extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1126,7 +1126,7 @@ class _AttachmentTile extends StatelessWidget {
           IconButton(
             tooltip: 'Rimuovi',
             onPressed: onRemove,
-            icon: const Icon(Icons.close_rounded, color: Colors.white54),
+            icon: Icon(Icons.close_rounded, color: AppColors.white54),
           ),
         ],
       ),
@@ -1159,19 +1159,19 @@ class _ErrorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.1),
+        color: AppColors.redAccent.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.28)),
+        border: Border.all(color: AppColors.redAccent.withValues(alpha: 0.28)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.redAccent),
+          Icon(Icons.error_outline_rounded, color: AppColors.redAccent),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
                 fontSize: 12,
                 height: 1.35,

@@ -146,7 +146,7 @@ class _DeveloperExplorerPageState
                   DeveloperUiStyle.maxContentWidth,
             ),
             child: _loading
-                ? const Center(
+                ? Center(
                     child:
                         CircularProgressIndicator(
                       color:
@@ -196,7 +196,7 @@ class _DeveloperExplorerPageState
                                     ),
                                   ),
                                   child:
-                                      const Icon(
+                                      Icon(
                                     Icons
                                         .account_tree_outlined,
                                     color: AppColors

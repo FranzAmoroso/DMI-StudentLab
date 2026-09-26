@@ -650,12 +650,12 @@ class _QuizPageState extends State<QuizPage> {
                   Row(
                     children: <Widget>[
                       const SizedBox(height: 24),
-                      const Icon(
+                      Icon(
                         Icons.menu_book_rounded,
                         color: AppColors.skyBlue,
                       ),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Spiegazione',
                           style: TextStyle(
@@ -669,7 +669,7 @@ class _QuizPageState extends State<QuizPage> {
                         onPressed: () {
                           Navigator.pop(modalContext);
                         },
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.close_rounded,
                           color: AppColors.pureWhite,
                         ),
@@ -677,7 +677,7 @@ class _QuizPageState extends State<QuizPage> {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  const Text(
+                  Text(
                     'Definizione formale',
                     style: TextStyle(
                       color: AppColors.skyBlue,
@@ -697,7 +697,7 @@ class _QuizPageState extends State<QuizPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     'Spiegazione informale',
                     style: TextStyle(
                       color: AppColors.skyBlue,
@@ -793,12 +793,12 @@ class _QuizPageState extends State<QuizPage> {
                         children: <Widget>[
                           Row(
                             children: <Widget>[
-                              const Icon(
+                              Icon(
                                 Icons.flag_outlined,
-                                color: Colors.redAccent,
+                                color: AppColors.redAccent,
                               ),
                               const SizedBox(width: 10),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
                                   'Segnala domanda',
                                   style: TextStyle(
@@ -810,7 +810,7 @@ class _QuizPageState extends State<QuizPage> {
                               ),
                               IconButton(
                                 onPressed: () => Navigator.pop(modalContext),
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.close_rounded,
                                   color: AppColors.pureWhite,
                                 ),
@@ -827,7 +827,7 @@ class _QuizPageState extends State<QuizPage> {
                               activeColor: AppColors.skyBlue,
                               title: Text(
                                 reason.value,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.pureWhite,
                                   fontSize: 13,
                                 ),
@@ -843,11 +843,11 @@ class _QuizPageState extends State<QuizPage> {
                             minLines: 3,
                             maxLines: 6,
                             maxLength: 2000,
-                            style: const TextStyle(color: AppColors.pureWhite),
+                            style: TextStyle(color: AppColors.pureWhite),
                             decoration: InputDecoration(
                               labelText: 'Dettagli facoltativi',
-                              labelStyle: const TextStyle(
-                                color: Colors.white70,
+                              labelStyle: TextStyle(
+                                color: AppColors.white70,
                               ),
                               filled: true,
                               fillColor: AppColors.brandNightBlue.withValues(
@@ -928,7 +928,7 @@ class _QuizPageState extends State<QuizPage> {
         backgroundColor: const Color(0xFF0D1B2A),
         appBar: AppBar(
           backgroundColor: const Color(0xFF1B263B),
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.white,
           title: const Text('Che ansia..', style: TextStyle(fontSize: 16)),
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -940,13 +940,13 @@ class _QuizPageState extends State<QuizPage> {
         backgroundColor: const Color(0xFF0D1B2A),
         appBar: AppBar(
           backgroundColor: const Color(0xFF1B263B),
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.white,
           title: const Text('Quiz'),
         ),
-        body: const Center(
+        body: Center(
           child: Text(
             'Non sono state trovate domande.',
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: AppColors.white, fontSize: 16),
           ),
         ),
       );
@@ -959,7 +959,7 @@ class _QuizPageState extends State<QuizPage> {
       backgroundColor: const Color(0xFF0D1B2A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1B263B),
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.white,
         elevation: 0,
         title: Text(
           '${metadata['sub'] ?? widget.sub} - ${metadata['argoment'] ?? ''}',
@@ -974,8 +974,8 @@ class _QuizPageState extends State<QuizPage> {
                   _formatRemaining(_remainingSeconds!),
                   style: TextStyle(
                     color: _remainingSeconds! <= 60
-                        ? Colors.redAccent
-                        : Colors.white,
+                        ? AppColors.redAccent
+                        : AppColors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1019,7 +1019,7 @@ class _QuizPageState extends State<QuizPage> {
                   children: <Widget>[
                     LinearProgressIndicator(
                       value: (idx + 1) / _questionLength,
-                      backgroundColor: Colors.white.withOpacity(0.1),
+                      backgroundColor: AppColors.white.withOpacity(0.1),
                       valueColor: const AlwaysStoppedAnimation<Color>(
                         Color(0xFF5C6BC0),
                       ),
@@ -1031,8 +1031,8 @@ class _QuizPageState extends State<QuizPage> {
                         Expanded(
                           child: Text(
                             _currentText,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppColors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                               height: 1.3,
@@ -1051,8 +1051,8 @@ class _QuizPageState extends State<QuizPage> {
                           ),
                           child: Text(
                             '${idx + 1}/$_questionLength',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppColors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1088,9 +1088,9 @@ class _QuizPageState extends State<QuizPage> {
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1B263B),
-                            foregroundColor: Colors.white,
+                            foregroundColor: AppColors.white,
                             disabledBackgroundColor: const Color(0xFF1B263B),
-                            disabledForegroundColor: Colors.white.withOpacity(
+                            disabledForegroundColor: AppColors.white.withOpacity(
                               0.50,
                             ),
                             padding: const EdgeInsets.symmetric(

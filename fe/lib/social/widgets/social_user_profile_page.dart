@@ -19,6 +19,7 @@ import 'teacher_assignment_page.dart';
 import 'user_block_action.dart';
 import '../auth/account_security_page.dart';
 import '../widgets/studentlab_user_avatar.dart';
+import '../../widgets/studentlab_ui/theme_picker.dart';
 
 class SocialUserProfilePage extends StatefulWidget {
   final SocialUser user;
@@ -156,6 +157,13 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
               onSelected: _handleOwnProfileMenu,
               itemBuilder: (BuildContext context) => const [
                 PopupMenuItem<String>(
+                  value: 'theme',
+                  child: _ProfileMenuItem(
+                    icon: Icons.palette_outlined,
+                    label: 'Tema dell’app',
+                  ),
+                ),
+                PopupMenuItem<String>(
                   value: 'logout',
                   child: _ProfileMenuItem(
                     icon: Icons.logout_rounded,
@@ -232,6 +240,10 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                       if (_isOwnProfile) ...[
                         const SizedBox(height: 18),
 
+                        const StudentLabThemeSection(),
+
+                        const SizedBox(height: 18),
+
                         _buildOwnAccountActions(),
                       ],
 
@@ -300,8 +312,8 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
               : const Icon(Icons.delete_forever_outlined),
           label: Text(_deletingAccount ? 'Eliminazione...' : 'Elimina account'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.redAccent,
-            side: BorderSide(color: Colors.redAccent.withOpacity(0.32)),
+            foregroundColor: AppColors.redAccent,
+            side: BorderSide(color: AppColors.redAccent.withOpacity(0.32)),
             padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(13),
@@ -341,14 +353,14 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
       decoration: BoxDecoration(
         color: AppColors.eleganceMidnight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.redAccent.withOpacity(0.12)),
+        border: Border.all(color: AppColors.redAccent.withOpacity(0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.shield_outlined, color: Colors.redAccent, size: 18),
+              Icon(Icons.shield_outlined, color: AppColors.redAccent, size: 18),
               SizedBox(width: 8),
               Text(
                 'Sicurezza e moderazione',
@@ -388,8 +400,8 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                 _reportingProfile ? 'Invio segnalazione...' : 'Segnala profilo',
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.redAccent,
-                side: BorderSide(color: Colors.redAccent.withOpacity(0.35)),
+                foregroundColor: AppColors.redAccent,
+                side: BorderSide(color: AppColors.redAccent.withOpacity(0.35)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -485,7 +497,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.school_outlined,
 
                 color: AppColors.skyBlue,
@@ -499,7 +511,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                 child: Text(
                   assignment.subject.name,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
 
                     fontSize: 12,
@@ -510,28 +522,28 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
               ),
 
               if (assignment.isVerified)
-                const _StatusBadge(
+                _StatusBadge(
                   label: 'Verificato',
 
                   icon: Icons.verified_rounded,
 
-                  color: Colors.greenAccent,
+                  color: AppColors.greenAccent,
                 )
               else if (assignment.isPending)
-                const _StatusBadge(
+                _StatusBadge(
                   label: 'In verifica',
 
                   icon: Icons.schedule_rounded,
 
-                  color: Colors.amber,
+                  color: AppColors.amber,
                 )
               else if (assignment.isRejected)
-                const _StatusBadge(
+                _StatusBadge(
                   label: 'Rifiutato',
 
                   icon: Icons.cancel_outlined,
 
-                  color: Colors.redAccent,
+                  color: AppColors.redAccent,
                 ),
             ],
           ),
@@ -567,7 +579,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                       : Icons.history_rounded,
 
                   color: assignment.isCurrent
-                      ? Colors.greenAccent
+                      ? AppColors.greenAccent
                       : AppColors.pureWhite.withOpacity(0.35),
 
                   size: 13,
@@ -633,7 +645,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                     Text(
                       _user.name,
 
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
 
                         fontSize: 21,
@@ -655,21 +667,21 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                         _RoleBadge(isTeacher: _isTeacher),
 
                         if (_isTeacher && _user.isVerifiedTeacher)
-                          const _StatusBadge(
+                          _StatusBadge(
                             label: 'Docente verificato',
 
                             icon: Icons.verified_rounded,
 
-                            color: Colors.greenAccent,
+                            color: AppColors.greenAccent,
                           ),
 
                         if (_isTeacher && _user.isTeacherPending)
-                          const _StatusBadge(
+                          _StatusBadge(
                             label: 'Verifica docente in corso',
 
                             icon: Icons.schedule_rounded,
 
-                            color: Colors.amber,
+                            color: AppColors.amber,
                           ),
                       ],
                     ),
@@ -944,8 +956,8 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
 
         border: Border.all(
           color: title.isPrimary
-              ? Colors.amber.withOpacity(0.24)
-              : Colors.amber.withOpacity(0.10),
+              ? AppColors.amber.withOpacity(0.24)
+              : AppColors.amber.withOpacity(0.10),
         ),
       ),
 
@@ -957,10 +969,10 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
-              const Icon(
+              Icon(
                 Icons.workspace_premium_outlined,
 
-                color: Colors.amber,
+                color: AppColors.amber,
 
                 size: 18,
               ),
@@ -975,7 +987,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                     Text(
                       title.titleTypeLabel,
 
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
 
                         fontSize: 12,
@@ -1076,8 +1088,8 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
 
         border: Border.all(
           color: path.isPrimary
-              ? Colors.amber.withOpacity(0.24)
-              : Colors.amber.withOpacity(0.10),
+              ? AppColors.amber.withOpacity(0.24)
+              : AppColors.amber.withOpacity(0.10),
         ),
       ),
 
@@ -1089,10 +1101,10 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
-              const Icon(
+              Icon(
                 Icons.workspace_premium_outlined,
 
-                color: Colors.amber,
+                color: AppColors.amber,
 
                 size: 18,
               ),
@@ -1109,7 +1121,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                           ? 'Titolo accademico'
                           : academicPathTypeLabel(path.degreeType),
 
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
 
                         fontSize: 12,
@@ -1277,7 +1289,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
-              const Icon(
+              Icon(
                 Icons.school_outlined,
 
                 color: AppColors.skyBlue,
@@ -1295,7 +1307,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                     Text(
                       _academicPathTitle(path),
 
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
 
                         fontSize: 12,
@@ -1491,7 +1503,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
             child: Text(
               subject.name,
 
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
 
                 fontSize: 11,
@@ -1532,7 +1544,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.menu_book_outlined,
 
                 color: AppColors.skyBlue,
@@ -1546,7 +1558,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                 child: Text(
                   subject.name,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
 
                     fontSize: 12,
@@ -1830,7 +1842,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                   children: [
                     Text(
                       'Modifica $title',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -1852,12 +1864,12 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: currentValue,
-                      activeThumbColor: Colors.greenAccent,
+                      activeThumbColor: AppColors.greenAccent,
                       title: Text(
                         currentValue ? 'Disponibile' : 'Non disponibile',
                         style: TextStyle(
                           color: currentValue
-                              ? Colors.greenAccent
+                              ? AppColors.greenAccent
                               : AppColors.pureWhite,
                           fontWeight: FontWeight.w600,
                         ),
@@ -2055,6 +2067,11 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
 
   void _handleOwnProfileMenu(String value) {
     switch (value) {
+      case 'theme':
+        showStudentLabThemeSheet(context);
+
+        return;
+
       case 'account_security':
         _openAccountSecurity();
 
@@ -2113,7 +2130,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               backgroundColor: AppColors.eleganceDeepNavy,
-              title: const Text(
+              title: Text(
                 'Segnala profilo',
                 style: TextStyle(color: AppColors.pureWhite),
               ),
@@ -2172,7 +2189,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                       controller: controller,
                       maxLines: 4,
                       maxLength: 5000,
-                      style: const TextStyle(color: AppColors.pureWhite),
+                      style: TextStyle(color: AppColors.pureWhite),
                       decoration: const InputDecoration(
                         labelText: 'Descrizione',
                         hintText: 'Descrivi il problema...',
@@ -2193,8 +2210,8 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                     Navigator.pop(dialogContext, true);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.redAccent,
+                    foregroundColor: AppColors.white,
                   ),
                   child: const Text('Invia segnalazione'),
                 ),
@@ -2266,7 +2283,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               backgroundColor: AppColors.eleganceDeepNavy,
-              title: const Text(
+              title: Text(
                 'Segnala un errore',
                 style: TextStyle(color: AppColors.pureWhite),
               ),
@@ -2374,7 +2391,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                       controller: controller,
                       maxLines: 5,
                       maxLength: 5000,
-                      style: const TextStyle(color: AppColors.pureWhite),
+                      style: TextStyle(color: AppColors.pureWhite),
                       decoration: const InputDecoration(
                         labelText: 'Descrizione errore',
                         hintText: 'Descrivi cosa non è corretto...',
@@ -2462,9 +2479,9 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text(
+          title: Text(
             'Elimina account',
-            style: TextStyle(color: Colors.redAccent),
+            style: TextStyle(color: AppColors.redAccent),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -2485,7 +2502,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                   controller: noteController,
                   maxLines: 3,
                   maxLength: 5000,
-                  style: const TextStyle(color: AppColors.pureWhite),
+                  style: TextStyle(color: AppColors.pureWhite),
                   decoration: const InputDecoration(
                     labelText: 'Nota facoltativa',
                     hintText: 'Puoi indicarci il motivo della cancellazione...',
@@ -2505,9 +2522,9 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
-              child: const Text(
+              child: Text(
                 'Continua',
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: AppColors.redAccent),
               ),
             ),
           ],
@@ -2563,9 +2580,9 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
         builder: (BuildContext dialogContext) {
           return AlertDialog(
             backgroundColor: AppColors.eleganceDeepNavy,
-            title: const Text(
+            title: Text(
               'Conferma eliminazione definitiva',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: AppColors.redAccent),
             ),
             content: Text(
               'Non risultano vincoli pendenti. Vuoi eliminare definitivamente '
@@ -2586,9 +2603,9 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                 onPressed: () {
                   Navigator.pop(dialogContext, true);
                 },
-                child: const Text(
+                child: Text(
                   'Elimina definitivamente',
-                  style: TextStyle(color: Colors.redAccent),
+                  style: TextStyle(color: AppColors.redAccent),
                 ),
               ),
             ],
@@ -2644,7 +2661,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
         return AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
 
-          title: const Text(
+          title: Text(
             'Esci da StudentLab',
 
             style: TextStyle(color: AppColors.pureWhite),
@@ -2670,10 +2687,10 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                 Navigator.pop(dialogContext, true);
               },
 
-              child: const Text(
+              child: Text(
                 'Esci',
 
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: AppColors.redAccent),
               ),
             ),
           ],
@@ -2823,7 +2840,7 @@ class _BiographyEditorSheetState extends State<_BiographyEditorSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Modifica biografia',
                 style: TextStyle(
                   color: AppColors.pureWhite,
@@ -2848,7 +2865,7 @@ class _BiographyEditorSheetState extends State<_BiographyEditorSheet> {
                 autofocus: true,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
-                style: const TextStyle(color: AppColors.pureWhite),
+                style: TextStyle(color: AppColors.pureWhite),
                 decoration: const InputDecoration(
                   labelText: 'Biografia',
                   hintText: 'Racconta qualcosa di te...',
@@ -2868,7 +2885,7 @@ class _BiographyEditorSheetState extends State<_BiographyEditorSheet> {
                       icon: const Icon(Icons.delete_outline_rounded, size: 17),
                       label: const Text('Rimuovi'),
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
+                        foregroundColor: AppColors.redAccent,
                       ),
                     ),
                   TextButton(
@@ -2940,7 +2957,7 @@ class _SectionCard extends StatelessWidget {
                 child: Text(
                   title,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
 
                     fontSize: 14,
@@ -2992,7 +3009,7 @@ class _InfoRow extends StatelessWidget {
               Text(
                 label,
 
-                style: const TextStyle(color: Colors.white38, fontSize: 9),
+                style: TextStyle(color: AppColors.white38, fontSize: 9),
               ),
 
               const SizedBox(height: 2),
@@ -3000,7 +3017,7 @@ class _InfoRow extends StatelessWidget {
               Text(
                 value,
 
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                style: TextStyle(color: AppColors.white70, fontSize: 11),
               ),
             ],
           ),
@@ -3022,14 +3039,14 @@ class _AvailabilityBadge extends StatelessWidget {
       children: [
         Icon(
           Icons.circle,
-          color: available ? Colors.greenAccent : Colors.white30,
+          color: available ? AppColors.greenAccent : AppColors.white30,
           size: 8,
         ),
         const SizedBox(width: 5),
         Text(
           available ? 'Disponibile' : 'Non disponibile',
           style: TextStyle(
-            color: available ? Colors.greenAccent : Colors.white38,
+            color: available ? AppColors.greenAccent : AppColors.white38,
             fontSize: 9,
             fontWeight: FontWeight.w600,
           ),
@@ -3065,7 +3082,7 @@ class _AvailabilityRow extends StatelessWidget {
         Icon(
           icon,
 
-          color: active ? Colors.greenAccent : Colors.white30,
+          color: active ? AppColors.greenAccent : AppColors.white30,
 
           size: 15,
         ),
@@ -3080,7 +3097,7 @@ class _AvailabilityRow extends StatelessWidget {
               Text(
                 title,
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
 
                   fontSize: 11,
@@ -3152,7 +3169,7 @@ class _SmallBadge extends StatelessWidget {
           Text(
             label,
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.materialSky,
 
               fontSize: 8,
@@ -3306,30 +3323,30 @@ class _AcademicTitleVerificationBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (title.verificationStatus) {
       case AcademicTitleVerificationStatus.verified:
-        return const _StatusBadge(
+        return _StatusBadge(
           label: 'Titolo verificato',
 
           icon: Icons.verified_rounded,
 
-          color: Colors.greenAccent,
+          color: AppColors.greenAccent,
         );
 
       case AcademicTitleVerificationStatus.pending:
-        return const _StatusBadge(
+        return _StatusBadge(
           label: 'Verifica titolo in corso',
 
           icon: Icons.schedule_rounded,
 
-          color: Colors.amber,
+          color: AppColors.amber,
         );
 
       case AcademicTitleVerificationStatus.rejected:
-        return const _StatusBadge(
+        return _StatusBadge(
           label: 'Titolo non verificato',
 
           icon: Icons.cancel_outlined,
 
-          color: Colors.redAccent,
+          color: AppColors.redAccent,
         );
 
       case AcademicTitleVerificationStatus.notRequired:
@@ -3347,30 +3364,30 @@ class _DegreeVerificationBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (path.verificationStatus) {
       case AcademicPathVerificationStatus.verified:
-        return const _StatusBadge(
+        return _StatusBadge(
           label: 'Laurea verificata',
 
           icon: Icons.verified_rounded,
 
-          color: Colors.greenAccent,
+          color: AppColors.greenAccent,
         );
 
       case AcademicPathVerificationStatus.pending:
-        return const _StatusBadge(
+        return _StatusBadge(
           label: 'Verifica laurea in corso',
 
           icon: Icons.schedule_rounded,
 
-          color: Colors.amber,
+          color: AppColors.amber,
         );
 
       case AcademicPathVerificationStatus.rejected:
-        return const _StatusBadge(
+        return _StatusBadge(
           label: 'Laurea non verificata',
 
           icon: Icons.cancel_outlined,
 
-          color: Colors.redAccent,
+          color: AppColors.redAccent,
         );
 
       case AcademicPathVerificationStatus.notRequired:
@@ -3399,7 +3416,7 @@ class _GradeBadge extends StatelessWidget {
 
           icon: Icons.verified_rounded,
 
-          color: Colors.greenAccent,
+          color: AppColors.greenAccent,
         );
 
       case GradeVerificationStatus.pending:
@@ -3408,7 +3425,7 @@ class _GradeBadge extends StatelessWidget {
 
           icon: Icons.schedule_rounded,
 
-          color: Colors.amber,
+          color: AppColors.amber,
         );
 
       case GradeVerificationStatus.rejected:
@@ -3417,7 +3434,7 @@ class _GradeBadge extends StatelessWidget {
 
           icon: Icons.cancel_outlined,
 
-          color: Colors.redAccent,
+          color: AppColors.redAccent,
         );
 
       case GradeVerificationStatus.none:
@@ -3445,7 +3462,7 @@ class _ProfileMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color = danger ? Colors.redAccent : AppColors.pureWhite;
+    final Color color = danger ? AppColors.redAccent : AppColors.pureWhite;
 
     return Row(
       children: [

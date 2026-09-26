@@ -206,7 +206,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
             backgroundColor: roleColor,
             child: Text(
               _initial(),
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -225,7 +225,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
                         widget.user.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.pureWhite,
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
@@ -234,9 +234,9 @@ class _ContactUserPageState extends State<ContactUserPage> {
                     ),
                     if (isTeacher && widget.user.isVerifiedTeacher) ...[
                       const SizedBox(width: 5),
-                      const Icon(
+                      Icon(
                         Icons.verified_rounded,
-                        color: Colors.greenAccent,
+                        color: AppColors.greenAccent,
                         size: 15,
                       ),
                     ],
@@ -286,7 +286,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.privacy_tip_outlined,
             color: AppColors.materialSky,
             size: 20,
@@ -316,17 +316,17 @@ class _ContactUserPageState extends State<ContactUserPage> {
       decoration: BoxDecoration(
         color: AppColors.eleganceMidnight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.16)),
+        border: Border.all(color: AppColors.orangeAccent.withValues(alpha: 0.16)),
       ),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.contact_mail_outlined,
-            color: Colors.orangeAccent,
+            color: AppColors.orangeAccent,
             size: 34,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Contatto non disponibile',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -356,7 +356,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.pureWhite,
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -453,7 +453,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
       initialValue: _selectedSubjectId,
       isExpanded: true,
       dropdownColor: AppColors.eleganceDeepNavy,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         labelText: 'Materia',
         prefixIcon: Icon(Icons.menu_book_outlined, color: AppColors.skyBlue),
       ),
@@ -475,7 +475,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
               child: Text(
                 subject.name,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppColors.pureWhite),
+                style: TextStyle(color: AppColors.pureWhite),
               ),
             ),
           )
@@ -507,7 +507,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
             textInputAction: TextInputAction.next,
             autocorrect: true,
             enableSuggestions: true,
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
             validator: (String? value) {
               final String text = _normalizeSingleLine(value);
 
@@ -522,7 +522,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
 
               return null;
             },
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Oggetto',
               hintText: 'Es. Aiuto con gli esercizi',
               prefixIcon: Icon(Icons.subject_rounded, color: AppColors.skyBlue),
@@ -539,7 +539,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
             textCapitalization: TextCapitalization.sentences,
             autocorrect: true,
             enableSuggestions: true,
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
             validator: (String? value) {
               final String text = value?.trim() ?? '';
 
@@ -569,7 +569,7 @@ class _ContactUserPageState extends State<ContactUserPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Riepilogo',
             style: TextStyle(
               color: AppColors.pureWhite,
@@ -597,22 +597,22 @@ class _ContactUserPageState extends State<ContactUserPage> {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.08),
+        color: AppColors.redAccent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.18)),
+        border: Border.all(color: AppColors.redAccent.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
-            color: Colors.redAccent,
+            color: AppColors.redAccent,
             size: 18,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               _error!,
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              style: TextStyle(color: AppColors.white70, fontSize: 11),
             ),
           ),
         ],
@@ -806,14 +806,14 @@ class _RequestTypeTile extends StatelessWidget {
             border: Border.all(
               color: selected
                   ? AppColors.skyBlue.withValues(alpha: 0.30)
-                  : Colors.white.withValues(alpha: 0.05),
+                  : AppColors.white.withValues(alpha: 0.05),
             ),
           ),
           child: Row(
             children: [
               Icon(
                 icon,
-                color: selected ? AppColors.skyBlue : Colors.white54,
+                color: selected ? AppColors.skyBlue : AppColors.white54,
                 size: 22,
               ),
               const SizedBox(width: 12),
@@ -823,7 +823,7 @@ class _RequestTypeTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -845,7 +845,7 @@ class _RequestTypeTile extends StatelessWidget {
                 selected
                     ? Icons.radio_button_checked
                     : Icons.radio_button_unchecked,
-                color: selected ? AppColors.skyBlue : Colors.white30,
+                color: selected ? AppColors.skyBlue : AppColors.white30,
               ),
             ],
           ),
@@ -880,7 +880,7 @@ class _SummaryRow extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -902,15 +902,15 @@ class _InfoState extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.orangeAccent.withValues(alpha: 0.06),
+        color: AppColors.orangeAccent.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.16)),
+        border: Border.all(color: AppColors.orangeAccent.withValues(alpha: 0.16)),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline_rounded,
-            color: Colors.orangeAccent,
+            color: AppColors.orangeAccent,
             size: 18,
           ),
           const SizedBox(width: 8),

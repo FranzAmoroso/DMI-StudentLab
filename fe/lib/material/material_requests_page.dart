@@ -133,16 +133,16 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
         builder: (context) => SafeArea(child: SizedBox(
           height: MediaQuery.sizeOf(context).height * .65,
           child: Column(children: [
-            const Padding(padding: EdgeInsets.all(18), child: Text('Scegli la materia',
-              style: TextStyle(color: Colors.white, fontSize: 19))),
+            Padding(padding: EdgeInsets.all(18), child: Text('Scegli la materia',
+              style: TextStyle(color: AppColors.white, fontSize: 19))),
             Expanded(child: ListView.builder(itemCount: options.length,
               itemBuilder: (context, index) {
                 final option = options[index];
                 return ListTile(
                   title: Text(option['subject_name']?.toString() ?? 'Materia',
-                    style: const TextStyle(color: Colors.white)),
+                    style: TextStyle(color: AppColors.white)),
                   subtitle: Text('${option['course'] ?? ''} · anno ${option['study_year'] ?? '—'} · ${option['recipient_kind'] == 'teachers' ? 'Docenti' : 'StudentLab'}',
-                    style: const TextStyle(color: Colors.white70)),
+                    style: TextStyle(color: AppColors.white70)),
                   onTap: () => Navigator.pop(context, option),
                 );
               })),
@@ -208,10 +208,10 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
                       Icon(_noticeIsError ? Icons.info_outline_rounded : Icons.check_circle_outline,
                         color: _noticeIsError ? const Color(0xFFFFC2C6) : AppColors.materialSky),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(_notice!, style: const TextStyle(color: Colors.white))),
+                      Expanded(child: Text(_notice!, style: TextStyle(color: AppColors.white))),
                       IconButton(tooltip: 'Chiudi avviso',
                         onPressed: () => setState(() => _notice = null),
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70)),
+                        icon: Icon(Icons.close_rounded, color: AppColors.white70)),
                     ]),
                   )),
                 ),
@@ -357,7 +357,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text(
+          title: Text(
             'Chiedi materiale a uno studente',
             style: TextStyle(color: AppColors.pureWhite),
           ),
@@ -372,7 +372,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
                       alignment: Alignment.centerLeft,
                       child: Text(
                         _subjectName!,
-                        style: const TextStyle(color: Colors.white70),
+                        style: TextStyle(color: AppColors.white70),
                       ),
                     ),
                   ),
@@ -533,10 +533,10 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
       final proceed = await showDialog<bool>(context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text('Materiale docente già disponibile',
+          title: Text('Materiale docente già disponibile',
             style: TextStyle(color: AppColors.pureWhite)),
-          content: const Text('Per questa materia ci sono già materiali del docente. Controlla la cartella prima di richiederne altri.',
-            style: TextStyle(color: Colors.white70)),
+          content: Text('Per questa materia ci sono già materiali del docente. Controlla la cartella prima di richiederne altri.',
+            style: TextStyle(color: AppColors.white70)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Vedi materiali')),
@@ -750,7 +750,7 @@ class _RequestCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.pureWhite,
                       fontWeight: FontWeight.w700,
                     ),
@@ -763,20 +763,20 @@ class _RequestCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 topic!,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: AppColors.white70,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
             const SizedBox(height: 8),
-            Text(message, style: const TextStyle(color: Colors.white70)),
+            Text(message, style: TextStyle(color: AppColors.white70)),
             const SizedBox(height: 10),
             Row(
               children: [
                 Text(
                   date,
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  style: TextStyle(color: AppColors.white38, fontSize: 11),
                 ),
                 const Spacer(),
                 if (trailing != null) trailing!,
@@ -824,11 +824,11 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: Colors.white38),
+            Icon(icon, size: 48, color: AppColors.white38),
             const SizedBox(height: 12),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
                 fontWeight: FontWeight.w700,
               ),
@@ -837,7 +837,7 @@ class _EmptyState extends StatelessWidget {
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54),
+              style: TextStyle(color: AppColors.white54),
             ),
           ],
         ),
@@ -859,16 +859,16 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
-              color: Colors.redAccent,
+              color: AppColors.redAccent,
               size: 42,
             ),
             const SizedBox(height: 12),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: AppColors.white70),
             ),
             const SizedBox(height: 14),
             OutlinedButton(onPressed: onRetry, child: const Text('Riprova')),

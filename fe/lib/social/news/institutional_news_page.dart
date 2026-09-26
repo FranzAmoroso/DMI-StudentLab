@@ -295,7 +295,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.pureWhite,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -303,7 +303,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        style: const TextStyle(color: AppColors.pureWhite),
+                        style: TextStyle(color: AppColors.pureWhite),
                         decoration: const InputDecoration(
                           hintText: 'Cerca tra i suggerimenti...',
                           prefixIcon: Icon(Icons.search_rounded),
@@ -316,11 +316,11 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                       ),
                       const SizedBox(height: 10),
                       ListTile(
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.filter_alt_off_outlined,
-                          color: Colors.white54,
+                          color: AppColors.white54,
                         ),
-                        title: const Text(
+                        title: Text(
                           'Qualsiasi',
                           style: TextStyle(color: AppColors.pureWhite),
                         ),
@@ -331,36 +331,36 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                           children: [
                             for (final String value in visible)
                               ListTile(
-                                leading: const Icon(
+                                leading: Icon(
                                   Icons.auto_awesome_outlined,
                                   color: AppColors.materialSky,
                                 ),
                                 title: Text(
                                   value,
-                                  style: const TextStyle(color: AppColors.pureWhite),
+                                  style: TextStyle(color: AppColors.pureWhite),
                                 ),
                                 trailing: selected == value
-                                    ? const Icon(
+                                    ? Icon(
                                         Icons.check_rounded,
-                                        color: Colors.greenAccent,
+                                        color: AppColors.greenAccent,
                                       )
                                     : null,
                                 onTap: () => Navigator.pop(sheetContext, value),
                               ),
-                            const Divider(color: Colors.white10),
-                            const Padding(
+                            Divider(color: AppColors.white10),
+                            Padding(
                               padding: EdgeInsets.only(top: 8, bottom: 8),
                               child: Text(
                                 'Oppure inserisci manualmente',
                                 style: TextStyle(
-                                  color: Colors.white54,
+                                  color: AppColors.white54,
                                   fontSize: 10,
                                 ),
                               ),
                             ),
                             TextField(
                               controller: manualController,
-                              style: const TextStyle(color: AppColors.pureWhite),
+                              style: TextStyle(color: AppColors.pureWhite),
                               decoration: const InputDecoration(
                                 labelText: 'Valore manuale',
                                 prefixIcon: Icon(Icons.edit_outlined),
@@ -421,7 +421,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Seleziona materia',
                     style: TextStyle(
                       color: AppColors.pureWhite,
@@ -432,7 +432,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                   const SizedBox(height: 10),
                   ListTile(
                     leading: const Icon(Icons.filter_alt_off_outlined),
-                    title: const Text(
+                    title: Text(
                       'Qualsiasi materia',
                       style: TextStyle(color: AppColors.pureWhite),
                     ),
@@ -446,20 +446,20 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                       children: [
                         for (final _SubjectFilterValue subject in _subjects)
                           ListTile(
-                            leading: const Icon(
+                            leading: Icon(
                               Icons.menu_book_outlined,
                               color: AppColors.materialSky,
                             ),
                             title: Text(
                               subject.name,
-                              style: const TextStyle(color: AppColors.pureWhite),
+                              style: TextStyle(color: AppColors.pureWhite),
                             ),
                             onTap: () => Navigator.pop(sheetContext, subject),
                           ),
-                        const Divider(color: Colors.white10),
+                        Divider(color: AppColors.white10),
                         TextField(
                           controller: manualController,
-                          style: const TextStyle(color: AppColors.pureWhite),
+                          style: TextStyle(color: AppColors.pureWhite),
                           decoration: const InputDecoration(
                             labelText: 'Materia manuale',
                             prefixIcon: Icon(Icons.edit_outlined),
@@ -575,7 +575,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(20),
                 children: [
-                  const Text(
+                  Text(
                     'Avvisi StudentLab',
                     style: TextStyle(
                       color: AppColors.pureWhite,
@@ -614,13 +614,13 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     return TextField(
       controller: _searchController,
       onSubmitted: (_) => _load(),
-      style: const TextStyle(color: AppColors.pureWhite),
+      style: TextStyle(color: AppColors.pureWhite),
       decoration: InputDecoration(
         hintText: 'Cerca autore, titolo, materia, corso...',
         hintStyle: TextStyle(
           color: AppColors.pureWhite.withValues(alpha: 0.35),
         ),
-        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.skyBlue),
+        prefixIcon: Icon(Icons.search_rounded, color: AppColors.skyBlue),
         suffixIcon: _searchController.text.isEmpty
             ? null
             : IconButton(
@@ -737,7 +737,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       children: [
         Text(
           '$_total ${_total == 1 ? 'avviso' : 'avvisi'}',
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.pureWhite,
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -746,7 +746,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         const Spacer(),
         Text(
           _isGuest ? 'Lettura pubblica' : 'Feed pubblico',
-          style: const TextStyle(color: Colors.white38, fontSize: 10),
+          style: TextStyle(color: AppColors.white38, fontSize: 10),
         ),
       ],
     );
@@ -833,7 +833,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text(
+        title: Text(
           'Rimuovi avviso',
           style: TextStyle(color: AppColors.pureWhite),
         ),
@@ -842,7 +842,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
           minLines: 3,
           maxLines: 6,
           maxLength: 1000,
-          style: const TextStyle(color: AppColors.pureWhite),
+          style: TextStyle(color: AppColors.pureWhite),
           decoration: const InputDecoration(labelText: 'Motivo'),
         ),
         actions: [
@@ -855,9 +855,9 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
               final String value = controller.text.trim();
               if (value.isNotEmpty) Navigator.pop(dialogContext, value);
             },
-            child: const Text(
+            child: Text(
               'Rimuovi',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: AppColors.redAccent),
             ),
           ),
         ],
@@ -923,8 +923,8 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: Text(title, style: const TextStyle(color: AppColors.pureWhite)),
-        content: Text(message, style: const TextStyle(color: Colors.white70)),
+        title: Text(title, style: TextStyle(color: AppColors.pureWhite)),
+        content: Text(message, style: TextStyle(color: AppColors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -932,7 +932,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(action, style: const TextStyle(color: Colors.redAccent)),
+            child: Text(action, style: TextStyle(color: AppColors.redAccent)),
           ),
         ],
       ),
@@ -1045,7 +1045,7 @@ class _PublicNewsCard extends StatelessWidget {
                 backgroundColor: AppColors.brandNightBlue,
                 child: Text(
                   _initials(news.author.fullName),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.skyBlue,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -1061,7 +1061,7 @@ class _PublicNewsCard extends StatelessWidget {
                       news.author.fullName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1070,7 +1070,7 @@ class _PublicNewsCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       news.author.roleLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.materialSky,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
@@ -1079,7 +1079,7 @@ class _PublicNewsCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       _formatDate(news.createdAt),
-                      style: const TextStyle(color: Colors.white38, fontSize: 9),
+                      style: TextStyle(color: AppColors.white38, fontSize: 9),
                     ),
                   ],
                 ),
@@ -1109,11 +1109,11 @@ class _PublicNewsCard extends StatelessWidget {
                         child: Text('Rimuovi come moderatore'),
                       ),
                     if (onDelete != null)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
                         child: Text(
                           'Elimina',
-                          style: TextStyle(color: Colors.redAccent),
+                          style: TextStyle(color: AppColors.redAccent),
                         ),
                       ),
                   ],
@@ -1125,7 +1125,7 @@ class _PublicNewsCard extends StatelessWidget {
             news.academicContext,
             maxLines: expanded ? null : 2,
             overflow: expanded ? null : TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.materialSky,
               fontSize: 10,
               fontWeight: FontWeight.w500,
@@ -1137,7 +1137,7 @@ class _PublicNewsCard extends StatelessWidget {
             news.title,
             maxLines: expanded ? null : 2,
             overflow: expanded ? null : TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
               fontSize: 15,
               fontWeight: FontWeight.bold,
@@ -1209,7 +1209,7 @@ class _FilterButton extends StatelessWidget {
         child: Text(label, overflow: TextOverflow.ellipsis),
       ),
       style: OutlinedButton.styleFrom(
-        foregroundColor: active ? AppColors.materialSky : Colors.white60,
+        foregroundColor: active ? AppColors.materialSky : AppColors.white60,
         backgroundColor:
             active ? AppColors.skyBlue.withValues(alpha: 0.10) : null,
         side: BorderSide(
@@ -1247,12 +1247,12 @@ class _StateCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, color: Colors.white30, size: 40),
+          Icon(icon, color: AppColors.white30, size: 40),
           const SizedBox(height: 10),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
               fontSize: 15,
               fontWeight: FontWeight.bold,
@@ -1262,7 +1262,7 @@ class _StateCard extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white54, fontSize: 10),
+            style: TextStyle(color: AppColors.white54, fontSize: 10),
           ),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 12),
@@ -1318,7 +1318,7 @@ class _PublicNewsReportSheetState extends State<_PublicNewsReportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Segnala avviso',
                 style: TextStyle(
                   color: AppColors.pureWhite,
@@ -1360,7 +1360,7 @@ class _PublicNewsReportSheetState extends State<_PublicNewsReportSheet> {
                 minLines: 3,
                 maxLines: 6,
                 maxLength: 1000,
-                style: const TextStyle(color: AppColors.pureWhite),
+                style: TextStyle(color: AppColors.pureWhite),
                 decoration: const InputDecoration(labelText: 'Dettagli facoltativi'),
               ),
               const SizedBox(height: 10),

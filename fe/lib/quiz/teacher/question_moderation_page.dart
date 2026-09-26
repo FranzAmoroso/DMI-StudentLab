@@ -128,7 +128,7 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
                 },
                 selectedColor: AppColors.brandNightBlue,
                 backgroundColor: AppColors.darkElegance,
-                labelStyle: const TextStyle(color: AppColors.pureWhite),
+                labelStyle: TextStyle(color: AppColors.pureWhite),
                 side: BorderSide(
                   color: AppColors.skyBlue.withValues(alpha: 0.18),
                 ),
@@ -149,16 +149,16 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              const Icon(
+              Icon(
                 Icons.error_outline_rounded,
-                color: Colors.redAccent,
+                color: AppColors.redAccent,
                 size: 42,
               ),
               const SizedBox(height: 12),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70),
+                style: TextStyle(color: AppColors.white70),
               ),
               const SizedBox(height: 14),
               OutlinedButton(onPressed: _load, child: const Text('Riprova')),
@@ -168,10 +168,10 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
       );
     }
     if (_items.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Nessuna domanda in questo stato.',
-          style: TextStyle(color: Colors.white54),
+          style: TextStyle(color: AppColors.white54),
         ),
       );
     }
@@ -218,8 +218,8 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
         borderRadius: BorderRadius.circular(17),
         border: Border.all(
           color: report
-              ? Colors.redAccent.withValues(alpha: 0.25)
-              : Colors.amber.withValues(alpha: 0.22),
+              ? AppColors.redAccent.withValues(alpha: 0.25)
+              : AppColors.amber.withValues(alpha: 0.22),
         ),
       ),
       child: Column(
@@ -231,7 +231,7 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
             children: <Widget>[
               _badge(
                 report ? 'ERRORE SEGNALATO' : 'PROPOSTA STUDENTE',
-                report ? Colors.redAccent : Colors.amber,
+                report ? AppColors.redAccent : AppColors.amber,
               ),
               _badge(_statusLabel(status), _statusColor(status)),
             ],
@@ -239,7 +239,7 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
           const SizedBox(height: 12),
           Text(
             item['subject']?.toString() ?? '',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.skyBlue,
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -252,7 +252,7 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
                 : 'Domanda non disponibile',
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
               fontSize: 15,
               height: 1.35,
@@ -263,15 +263,15 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
             const SizedBox(height: 12),
             Text(
               'Motivo: ${_reasonLabel(item['report_reason']?.toString())}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: TextStyle(color: AppColors.white70, fontSize: 12),
             ),
             if (item['report_message']?.toString().trim().isNotEmpty ==
                 true) ...<Widget>[
               const SizedBox(height: 5),
               Text(
                 item['report_message'].toString(),
-                style: const TextStyle(
-                  color: Colors.white60,
+                style: TextStyle(
+                  color: AppColors.white60,
                   fontSize: 12,
                   height: 1.35,
                 ),
@@ -285,13 +285,13 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
                       ? 'Segnalante non disponibile'
                       : 'Studente non disponibile')
                 : '${report ? 'Segnalata da' : 'Proposta da'}: $creatorName',
-            style: const TextStyle(color: Colors.white38, fontSize: 10),
+            style: TextStyle(color: AppColors.white38, fontSize: 10),
           ),
           if (reviewerName.isNotEmpty) ...<Widget>[
             const SizedBox(height: 4),
             Text(
               'Revisionata da: $reviewerName${item['reviewer_role'] == null ? '' : ' · ${item['reviewer_role']}'}',
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              style: TextStyle(color: AppColors.white38, fontSize: 10),
             ),
           ],
           if (item['resolution_note']?.toString().trim().isNotEmpty ==
@@ -299,7 +299,7 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
             const SizedBox(height: 8),
             Text(
               'Esito: ${item['resolution_note']}',
-              style: const TextStyle(color: Colors.white54, fontSize: 11),
+              style: TextStyle(color: AppColors.white54, fontSize: 11),
             ),
           ],
           if (status == 'pending' || status == 'under_review') ...<Widget>[
@@ -312,7 +312,7 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
                     icon: const Icon(Icons.close_rounded),
                     label: const Text('Rifiuta'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
+                      foregroundColor: AppColors.redAccent,
                     ),
                   ),
                 ),
@@ -496,16 +496,16 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
           item['source_type']?.toString() == 'proposal'
               ? 'Rifiutare la proposta?'
               : 'Rifiutare la segnalazione?',
-          style: const TextStyle(color: AppColors.pureWhite),
+          style: TextStyle(color: AppColors.pureWhite),
         ),
         content: TextField(
           controller: controller,
           minLines: 2,
           maxLines: 5,
-          style: const TextStyle(color: AppColors.pureWhite),
-          decoration: const InputDecoration(
+          style: TextStyle(color: AppColors.pureWhite),
+          decoration: InputDecoration(
             labelText: 'Nota facoltativa',
-            labelStyle: TextStyle(color: Colors.white70),
+            labelStyle: TextStyle(color: AppColors.white70),
           ),
         ),
         actions: <Widget>[
@@ -559,7 +559,7 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text(
+        title: Text(
           'Approva e pubblica',
           style: TextStyle(color: AppColors.pureWhite),
         ),
@@ -567,7 +567,7 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
           proposal
               ? 'Vuoi approvare questa proposta e pubblicarla nella banca domande ufficiale? Gli allegati già caricati verranno riutilizzati senza un nuovo upload.'
               : 'Le modifiche sono state salvate. Vuoi chiudere la segnalazione come approvata e pubblicata?',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppColors.white70),
         ),
         actions: <Widget>[
           TextButton(
@@ -604,13 +604,13 @@ class _QuestionModerationPageState extends State<QuestionModerationPage> {
   Color _statusColor(String value) {
     switch (value) {
       case 'under_review':
-        return Colors.blueAccent;
+        return AppColors.blueAccent;
       case 'approved':
-        return Colors.greenAccent;
+        return AppColors.greenAccent;
       case 'rejected':
-        return Colors.white54;
+        return AppColors.white54;
       default:
-        return Colors.amber;
+        return AppColors.amber;
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fe/theme/nightTheme.dart';
 
 import '../../services/api_service.dart';
 import '../../social/admin/admin_material_storage_api_service.dart';
@@ -654,7 +655,7 @@ class _PublicationDetailState extends State<_PublicationDetail> {
                 decoration: const InputDecoration(labelText: 'Cartelle (facoltative)',
                   hintText: 'Livello trasporto / TCP')),
               if (error != null) Padding(padding: const EdgeInsets.only(top: 8),
-                child: Text(error!, style: const TextStyle(color: Colors.orangeAccent))),
+                child: Text(error!, style: TextStyle(color: AppColors.orangeAccent))),
             ],
           )),
           actions: [

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:fe/theme/nightTheme.dart';
 
 import 'package:flutter/material.dart';
 
@@ -75,21 +76,21 @@ class _QuestionAttachmentImageState
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: AppColors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Row(
+            child: Row(
               children: <Widget>[
                 Icon(
                   Icons.broken_image_outlined,
-                  color: Colors.white54,
+                  color: AppColors.white54,
                 ),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Immagine non disponibile.',
                     style: TextStyle(
-                      color: Colors.white54,
+                      color: AppColors.white54,
                     ),
                   ),
                 ),
@@ -142,7 +143,7 @@ class _QuestionAttachmentImageState
             backgroundColor: Colors.black,
             appBar: AppBar(
               backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.white,
               elevation: 0,
             ),
             body: SafeArea(

@@ -211,7 +211,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
                   onChanged: (_) {
                     setState(() {});
                   },
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 13,
                   ),
@@ -220,7 +220,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
                     hintStyle: TextStyle(
                       color: AppColors.pureWhite.withValues(alpha: 0.38),
                     ),
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.search_rounded,
                       color: AppColors.skyBlue,
                     ),
@@ -232,9 +232,9 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
                               _searchController.clear();
                               setState(() {});
                             },
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.close_rounded,
-                              color: Colors.white54,
+                              color: AppColors.white54,
                             ),
                           ),
                     filled: true,
@@ -286,7 +286,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
                   avatar: const Icon(Icons.visibility_off_outlined, size: 18),
                   selectedColor: AppColors.brandNightBlue,
                   checkmarkColor: AppColors.skyBlue,
-                  labelStyle: const TextStyle(
+                  labelStyle: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 12,
                   ),
@@ -365,11 +365,11 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
             shrinkWrap: true,
             children: [
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.clear_all_rounded,
                   color: AppColors.skyBlue,
                 ),
-                title: const Text(
+                title: Text(
                   'Tutti gli argomenti',
                   style: TextStyle(color: AppColors.pureWhite),
                 ),
@@ -377,13 +377,13 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
               ),
               for (final String argument in arguments)
                 ListTile(
-                  leading: const Icon(
+                  leading: Icon(
                     Icons.topic_outlined,
                     color: AppColors.skyBlue,
                   ),
                   title: Text(
                     argument,
-                    style: const TextStyle(color: AppColors.pureWhite),
+                    style: TextStyle(color: AppColors.pureWhite),
                   ),
                   onTap: () => Navigator.pop(context, argument),
                 ),
@@ -730,13 +730,13 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text(
+          title: Text(
             'Eliminare la domanda?',
             style: TextStyle(color: AppColors.pureWhite),
           ),
-          content: const Text(
+          content: Text(
             'La domanda verrà rimossa dal catalogo. Questa azione non modifica gli snapshot dei quiz già completati.',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: AppColors.white70),
           ),
           actions: [
             TextButton(
@@ -822,7 +822,7 @@ class _QuestionCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(17),
             border: Border.all(
               color: hidden
-                  ? Colors.amber.withValues(alpha: 0.24)
+                  ? AppColors.amber.withValues(alpha: 0.24)
                   : AppColors.skyBlue.withValues(alpha: 0.1),
             ),
           ),
@@ -843,7 +843,7 @@ class _QuestionCard extends StatelessWidget {
                     ),
                     child: Text(
                       '#$questionId',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.skyBlue,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -855,9 +855,9 @@ class _QuestionCard extends StatelessWidget {
                   PopupMenuButton<_QuestionAction>(
                     tooltip: 'Azioni',
                     color: AppColors.eleganceDeepNavy,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.more_vert_rounded,
-                      color: Colors.white70,
+                      color: AppColors.white70,
                     ),
                     onSelected: onAction,
                     itemBuilder: (BuildContext context) {
@@ -910,7 +910,7 @@ class _QuestionCard extends StatelessWidget {
                 text.isEmpty ? 'Domanda senza testo' : text,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
                   fontSize: 15,
                   height: 1.35,
@@ -972,15 +972,15 @@ class _StatusBadge extends StatelessWidget {
             icon,
             size: 14,
             color: hidden
-                ? Colors.amberAccent
+                ? AppColors.amberAccent
                 : active
-                ? Colors.greenAccent
-                : Colors.white54,
+                ? AppColors.greenAccent
+                : AppColors.white54,
           ),
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -1017,7 +1017,7 @@ class _InfoChip extends StatelessWidget {
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              style: TextStyle(color: AppColors.white70, fontSize: 10),
             ),
           ),
         ],
@@ -1045,7 +1045,7 @@ class _FilterChip extends StatelessWidget {
       label: Text(label),
       backgroundColor: AppColors.eleganceDeepNavy,
       side: BorderSide(color: AppColors.skyBlue.withValues(alpha: 0.15)),
-      labelStyle: const TextStyle(color: AppColors.pureWhite, fontSize: 12),
+      labelStyle: TextStyle(color: AppColors.pureWhite, fontSize: 12),
     );
   }
 }
@@ -1068,13 +1068,13 @@ class _MenuItem extends StatelessWidget {
         Icon(
           icon,
           size: 19,
-          color: destructive ? Colors.redAccent : AppColors.skyBlue,
+          color: destructive ? AppColors.redAccent : AppColors.skyBlue,
         ),
         const SizedBox(width: 10),
         Text(
           label,
           style: TextStyle(
-            color: destructive ? Colors.redAccent : AppColors.pureWhite,
+            color: destructive ? AppColors.redAccent : AppColors.pureWhite,
           ),
         ),
       ],
@@ -1110,7 +1110,7 @@ class _StateMessage extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -1120,8 +1120,8 @@ class _StateMessage extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white54,
+              style: TextStyle(
+                color: AppColors.white54,
                 fontSize: 12,
                 height: 1.35,
               ),

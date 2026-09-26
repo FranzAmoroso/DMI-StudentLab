@@ -132,7 +132,7 @@ class TeacherSubjectToolsPage extends StatelessWidget {
 
                 const SizedBox(height: 26),
 
-                const Text(
+                Text(
                   'Strumenti docente',
 
                   style: TextStyle(
@@ -410,7 +410,7 @@ class _SubjectHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
 
-            child: const Icon(
+            child: Icon(
               Icons.school_outlined,
 
               color: AppColors.skyBlue,
@@ -430,7 +430,7 @@ class _SubjectHeader extends StatelessWidget {
                   Text(
                     subjectCode.trim(),
 
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.skyBlue,
 
                       fontSize: 11,
@@ -444,7 +444,7 @@ class _SubjectHeader extends StatelessWidget {
                 Text(
                   subjectName,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
 
                     fontSize: 18,
@@ -546,7 +546,7 @@ class _ToolCard extends StatelessWidget {
               Text(
                 title,
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
 
                   fontSize: 16,
@@ -578,7 +578,7 @@ class _ToolCard extends StatelessWidget {
                   Text(
                     actionLabel,
 
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.skyBlue,
 
                       fontSize: 11,
@@ -589,7 +589,7 @@ class _ToolCard extends StatelessWidget {
 
                   const SizedBox(width: 5),
 
-                  const Icon(
+                  Icon(
                     Icons.arrow_forward_rounded,
 
                     color: AppColors.skyBlue,

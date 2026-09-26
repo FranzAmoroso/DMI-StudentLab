@@ -128,14 +128,14 @@ class _AssignedQuizzesPageState extends State<AssignedQuizzesPage> {
           children: <Widget>[
             Icon(
               icon,
-              color: showRetry ? Colors.redAccent : AppColors.skyBlue,
+              color: showRetry ? AppColors.redAccent : AppColors.skyBlue,
               size: 48,
             ),
             const SizedBox(height: 12),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
@@ -145,7 +145,7 @@ class _AssignedQuizzesPageState extends State<AssignedQuizzesPage> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54),
+              style: TextStyle(color: AppColors.white54),
             ),
             if (showRetry) ...<Widget>[
               const SizedBox(height: 14),
@@ -486,7 +486,7 @@ class _AssignedQuizCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   data['title']?.toString() ?? 'Quiz',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -499,7 +499,7 @@ class _AssignedQuizCard extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             data['subject']?.toString() ?? '',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.skyBlue,
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -509,8 +509,8 @@ class _AssignedQuizCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               description,
-              style: const TextStyle(
-                color: Colors.white54,
+              style: TextStyle(
+                color: AppColors.white54,
                 fontSize: 11,
                 height: 1.4,
               ),
@@ -625,9 +625,9 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color color = switch (tone) {
       _StatusTone.pending => AppColors.skyBlue,
-      _StatusTone.progress => Colors.amberAccent,
-      _StatusTone.completed => Colors.greenAccent,
-      _StatusTone.expired => Colors.redAccent,
+      _StatusTone.progress => AppColors.amberAccent,
+      _StatusTone.completed => AppColors.greenAccent,
+      _StatusTone.expired => AppColors.redAccent,
     };
 
     return Container(
@@ -669,7 +669,7 @@ class _InfoChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
+            style: TextStyle(color: AppColors.white70, fontSize: 10),
           ),
         ],
       ),

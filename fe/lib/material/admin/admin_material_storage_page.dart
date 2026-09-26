@@ -695,11 +695,11 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
     final confirmed = await showDialog<bool>(context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text('Elimina solo la copia Drive',
+        title: Text('Elimina solo la copia Drive',
           style: TextStyle(color: AppColors.pureWhite)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Il file Blob e i file locali degli studenti non saranno eliminati. Scrivi ELIMINA per confermare.',
-            style: TextStyle(color: Colors.white70)),
+          Text('Il file Blob e i file locali degli studenti non saranno eliminati. Scrivi ELIMINA per confermare.',
+            style: TextStyle(color: AppColors.white70)),
           TextField(controller: answer, decoration: const InputDecoration(
             labelText: 'Conferma')),
         ]),
@@ -729,7 +729,7 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
     final confirmed = await showDialog<bool>(context: context,
       builder: (dialogContext) => StatefulBuilder(builder: (context, update) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text('Destinatari del materiale',
+        title: Text('Destinatari del materiale',
           style: TextStyle(color: AppColors.pureWhite)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           DropdownButtonFormField<String>(value: audience,
@@ -780,15 +780,15 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
     final bool? confirmed = await showDialog<bool>(context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text('Classifica materiale',
+        title: Text('Classifica materiale',
           style: TextStyle(color: AppColors.pureWhite)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Modifica la posizione nel catalogo. Il file fisico non viene spostato.',
-            style: TextStyle(color: Colors.white70)),
+          Text('Modifica la posizione nel catalogo. Il file fisico non viene spostato.',
+            style: TextStyle(color: AppColors.white70)),
           TextField(controller: subjectId, keyboardType: TextInputType.number,
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
             decoration: const InputDecoration(labelText: 'ID materia')),
-          TextField(controller: folder, style: const TextStyle(color: AppColors.pureWhite),
+          TextField(controller: folder, style: TextStyle(color: AppColors.pureWhite),
             decoration: const InputDecoration(labelText: 'Cartelle (facoltative)',
               helperText: 'Esempio: Livello trasporto / TCP')),
         ]),
@@ -825,21 +825,21 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
     final bool? confirmed = await showDialog<bool>(context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text('Sposta intera cartella',
+        title: Text('Sposta intera cartella',
           style: TextStyle(color: AppColors.pureWhite)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Tutti i file e le sottocartelle seguiranno la cartella.',
-            style: TextStyle(color: Colors.white70)),
+          Text('Tutti i file e le sottocartelle seguiranno la cartella.',
+            style: TextStyle(color: AppColors.white70)),
           TextField(controller: sourceFolder,
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
             decoration: const InputDecoration(labelText: 'Cartella da spostare',
               helperText: 'Puoi scegliere anche una cartella superiore')),
           TextField(controller: destinationSubject,
             keyboardType: TextInputType.number,
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
             decoration: const InputDecoration(labelText: 'ID materia di destinazione')),
           TextField(controller: destinationFolder,
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
             decoration: const InputDecoration(
               labelText: 'Cartella di destinazione (facoltativa)',
               helperText: 'Esempio: Modulo 1 / Dispense')),

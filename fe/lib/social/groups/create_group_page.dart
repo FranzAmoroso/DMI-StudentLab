@@ -319,7 +319,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
               borderRadius: BorderRadius.circular(16),
             ),
 
-            child: const Icon(
+            child: Icon(
               Icons.groups_rounded,
 
               color: AppColors.skyBlue,
@@ -335,7 +335,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
-                const Text(
+                Text(
                   'Crea il tuo gruppo di studio',
 
                   style: TextStyle(
@@ -376,7 +376,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         Text(
           title,
 
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.pureWhite,
 
             fontSize: 18,
@@ -478,7 +478,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
 
-                child: const Icon(
+                child: Icon(
                   Icons.menu_book_outlined,
 
                   color: AppColors.skyBlue,
@@ -497,7 +497,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     Text(
                       _course.isEmpty ? 'Materia' : _course,
 
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
 
                         fontSize: 13,
@@ -557,10 +557,10 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
               isExpanded: true,
 
-              style: const TextStyle(color: AppColors.pureWhite, fontSize: 13),
+              style: TextStyle(color: AppColors.pureWhite, fontSize: 13),
 
               decoration: InputDecoration(
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.menu_book_outlined,
 
                   color: AppColors.skyBlue,
@@ -716,7 +716,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
 
-                child: const Icon(
+                child: Icon(
                   Icons.person_add_alt_1_rounded,
 
                   color: AppColors.skyBlue,
@@ -732,7 +732,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
-                    const Text(
+                    Text(
                       'Aggiungi partecipanti',
 
                       style: TextStyle(
@@ -766,7 +766,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
                 onPressed: _addParticipant,
 
-                icon: const Icon(Icons.add_rounded, color: AppColors.skyBlue),
+                icon: Icon(Icons.add_rounded, color: AppColors.skyBlue),
               ),
             ],
           ),
@@ -819,7 +819,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                 ),
               ),
 
-              child: const Row(
+              child: Row(
                 children: [
                   _MaterialUploadIcon(),
 
@@ -847,7 +847,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                         Text(
                           'PDF, DOCX, PPTX, TXT e ZIP.',
 
-                          style: TextStyle(color: Colors.white54, fontSize: 11),
+                          style: TextStyle(color: AppColors.white54, fontSize: 11),
                         ),
                       ],
                     ),
@@ -903,7 +903,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Text(
+          Text(
             'Riepilogo',
 
             style: TextStyle(
@@ -1001,7 +1001,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         onPressed: _creating ? null : _createGroup,
 
         icon: _creating
-            ? const SizedBox(
+            ? SizedBox(
                 width: 18,
 
                 height: 18,
@@ -1045,7 +1045,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         Text(
           label,
 
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.pureWhite,
 
             fontSize: 13,
@@ -1055,7 +1055,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         ),
 
         if (required)
-          const Text(' *', style: TextStyle(color: AppColors.skyBlue)),
+          Text(' *', style: TextStyle(color: AppColors.skyBlue)),
       ],
     );
   }
@@ -1074,7 +1074,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
       maxLines: maxLines,
 
-      style: const TextStyle(color: AppColors.pureWhite, fontSize: 13),
+      style: TextStyle(color: AppColors.pureWhite, fontSize: 13),
 
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: AppColors.skyBlue, size: 20),
@@ -1100,7 +1100,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
 
-          borderSide: const BorderSide(color: AppColors.skyBlue, width: 1),
+          borderSide: BorderSide(color: AppColors.skyBlue, width: 1),
         ),
 
         contentPadding: const EdgeInsets.symmetric(
@@ -1184,7 +1184,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'Aggiungi partecipanti',
 
@@ -1203,10 +1203,10 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                               Navigator.pop(sheetContext);
                             },
 
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.close_rounded,
 
-                              color: Colors.white54,
+                              color: AppColors.white54,
                             ),
                           ),
                         ],
@@ -1229,14 +1229,14 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                       TextField(
                         controller: _participantSearchController,
 
-                        style: const TextStyle(color: AppColors.pureWhite),
+                        style: TextStyle(color: AppColors.pureWhite),
 
                         decoration: InputDecoration(
                           hintText: 'Cerca utente...',
 
-                          hintStyle: const TextStyle(color: Colors.white38),
+                          hintStyle: TextStyle(color: AppColors.white38),
 
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.search_rounded,
 
                             color: AppColors.skyBlue,
@@ -1748,7 +1748,7 @@ class _PrivacyOption extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? AppColors.skyBlue.withValues(alpha: 0.30)
-                : Colors.white.withValues(alpha: 0.06),
+                : AppColors.white.withValues(alpha: 0.06),
           ),
         ),
 
@@ -1780,7 +1780,7 @@ class _PrivacyOption extends StatelessWidget {
                   Text(
                     title,
 
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.pureWhite,
 
                       fontSize: 13,
@@ -1817,7 +1817,7 @@ class _PrivacyOption extends StatelessWidget {
                   ? Icons.radio_button_checked_rounded
                   : Icons.radio_button_unchecked_rounded,
 
-              color: selected ? AppColors.skyBlue : Colors.white30,
+              color: selected ? AppColors.skyBlue : AppColors.white30,
 
               size: 21,
             ),
@@ -1848,7 +1848,7 @@ class _SocialUserOption extends StatelessWidget {
 
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
 
-      leading: const CircleAvatar(
+      leading: CircleAvatar(
         backgroundColor: AppColors.brandNightBlue,
 
         child: Icon(Icons.person_outline_rounded, color: AppColors.skyBlue),
@@ -1861,7 +1861,7 @@ class _SocialUserOption extends StatelessWidget {
 
         overflow: TextOverflow.ellipsis,
 
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.pureWhite,
 
           fontSize: 13,
@@ -1877,10 +1877,10 @@ class _SocialUserOption extends StatelessWidget {
 
         overflow: TextOverflow.ellipsis,
 
-        style: const TextStyle(color: Colors.white54, fontSize: 10),
+        style: TextStyle(color: AppColors.white54, fontSize: 10),
       ),
 
-      trailing: const Icon(Icons.add_rounded, color: AppColors.skyBlue),
+      trailing: Icon(Icons.add_rounded, color: AppColors.skyBlue),
     );
   }
 }
@@ -1910,7 +1910,7 @@ class _InvitedUserTile extends StatelessWidget {
 
             backgroundColor: AppColors.skyBlue.withValues(alpha: 0.12),
 
-            child: const Icon(
+            child: Icon(
               Icons.person_outline_rounded,
 
               color: AppColors.skyBlue,
@@ -1929,7 +1929,7 @@ class _InvitedUserTile extends StatelessWidget {
                 Text(
                   user.name,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
 
                     fontSize: 12,
@@ -1943,7 +1943,7 @@ class _InvitedUserTile extends StatelessWidget {
                 Text(
                   user.subtitle,
 
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                  style: TextStyle(color: AppColors.white54, fontSize: 10),
                 ),
               ],
             ),
@@ -1954,10 +1954,10 @@ class _InvitedUserTile extends StatelessWidget {
 
             onPressed: onRemove,
 
-            icon: const Icon(
+            icon: Icon(
               Icons.close_rounded,
 
-              color: Colors.white38,
+              color: AppColors.white38,
 
               size: 18,
             ),
@@ -1984,7 +1984,7 @@ class _MaterialUploadIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
 
-      child: const Icon(
+      child: Icon(
         Icons.upload_file_rounded,
 
         color: AppColors.skyBlue,
@@ -2053,7 +2053,7 @@ class _SelectedMaterialTile extends StatelessWidget {
 
                   overflow: TextOverflow.ellipsis,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
 
                     fontSize: 12,
@@ -2067,7 +2067,7 @@ class _SelectedMaterialTile extends StatelessWidget {
                 Text(
                   '${material.type} • ${material.size}',
 
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                  style: TextStyle(color: AppColors.white54, fontSize: 10),
                 ),
               ],
             ),
@@ -2078,10 +2078,10 @@ class _SelectedMaterialTile extends StatelessWidget {
 
             onPressed: onRemove,
 
-            icon: const Icon(
+            icon: Icon(
               Icons.close_rounded,
 
-              color: Colors.white38,
+              color: AppColors.white38,
 
               size: 18,
             ),
@@ -2135,7 +2135,7 @@ class _SummaryRow extends StatelessWidget {
 
             textAlign: TextAlign.right,
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
 
               fontSize: 11,
@@ -2168,24 +2168,24 @@ class _CreateGroupErrorCard extends StatelessWidget {
 
         borderRadius: BorderRadius.circular(18),
 
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.20)),
+        border: Border.all(color: AppColors.redAccent.withValues(alpha: 0.20)),
       ),
 
       child: Column(
         mainAxisSize: MainAxisSize.min,
 
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
 
-            color: Colors.redAccent,
+            color: AppColors.redAccent,
 
             size: 40,
           ),
 
           const SizedBox(height: 12),
 
-          const Text(
+          Text(
             'Impossibile caricare i dati',
 
             style: TextStyle(
@@ -2204,7 +2204,7 @@ class _CreateGroupErrorCard extends StatelessWidget {
 
             textAlign: TextAlign.center,
 
-            style: const TextStyle(color: Colors.white60, fontSize: 11),
+            style: TextStyle(color: AppColors.white60, fontSize: 11),
           ),
 
           const SizedBox(height: 16),
@@ -2294,14 +2294,14 @@ class _GroupNameModeOption extends StatelessWidget {
               selected
                   ? Icons.radio_button_checked_rounded
                   : Icons.radio_button_unchecked_rounded,
-              color: selected ? AppColors.skyBlue : Colors.white38,
+              color: selected ? AppColors.skyBlue : AppColors.white38,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Usa la materia come nome del gruppo',
                     style: TextStyle(
                       color: AppColors.pureWhite,

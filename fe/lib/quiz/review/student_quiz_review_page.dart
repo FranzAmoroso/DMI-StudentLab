@@ -426,7 +426,7 @@ class _StudentQuizReviewPageState
                   AppColors.adminMagenta.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.restart_alt_rounded,
               color: AppColors.adminMagenta,
               size: 29,
@@ -444,7 +444,7 @@ class _StudentQuizReviewPageState
                       : name.isEmpty
                           ? 'Il tuo Ripasso'
                           : 'Ripasso di $name',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -516,7 +516,7 @@ class _StudentQuizReviewPageState
               icon: Icons.close_rounded,
               value: '$wrong',
               label: 'Errori',
-              color: Colors.orangeAccent,
+              color: AppColors.orangeAccent,
             ),
             _ReviewMetric(
               width: width,
@@ -524,7 +524,7 @@ class _StudentQuizReviewPageState
               value:
                   '${accuracy.toStringAsFixed(1)}%',
               label: 'Precisione',
-              color: Colors.greenAccent,
+              color: AppColors.greenAccent,
             ),
           ],
         );
@@ -548,7 +548,7 @@ class _StudentQuizReviewPageState
       dropdownColor: AppColors.eleganceDeepNavy,
       decoration: InputDecoration(
         labelText: 'Materia',
-        prefixIcon: const Icon(
+        prefixIcon: Icon(
           Icons.menu_book_outlined,
           color: AppColors.skyBlue,
         ),
@@ -566,7 +566,7 @@ class _StudentQuizReviewPageState
             child: Text(
               _text(item, 'subject'),
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
               ),
             ),
@@ -597,7 +597,7 @@ class _StudentQuizReviewPageState
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.pureWhite,
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -676,7 +676,7 @@ class _WeakArgumentCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color:
-              Colors.orangeAccent.withValues(alpha: 0.20),
+              AppColors.orangeAccent.withValues(alpha: 0.20),
         ),
       ),
       child: Column(
@@ -685,16 +685,16 @@ class _WeakArgumentCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.warning_amber_rounded,
-                color: Colors.orangeAccent,
+                color: AppColors.orangeAccent,
                 size: 19,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   argument,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -703,8 +703,8 @@ class _WeakArgumentCard extends StatelessWidget {
               ),
               Text(
                 '${accuracy.toStringAsFixed(1)}%',
-                style: const TextStyle(
-                  color: Colors.orangeAccent,
+                style: TextStyle(
+                  color: AppColors.orangeAccent,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -718,8 +718,8 @@ class _WeakArgumentCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '$correct corrette · $wrong errate',
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: AppColors.white54,
               fontSize: 10,
             ),
           ),
@@ -817,7 +817,7 @@ class _ReviewQuestionCard extends StatelessWidget {
           if (argument.isNotEmpty)
             Text(
               argument,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.materialSky,
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
@@ -833,7 +833,7 @@ class _ReviewQuestionCard extends StatelessWidget {
             ),
             child: Text(
               sourceBadge,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.materialSky,
                 fontSize: 8,
                 fontWeight: FontWeight.bold,
@@ -845,7 +845,7 @@ class _ReviewQuestionCard extends StatelessWidget {
             question,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -859,23 +859,23 @@ class _ReviewQuestionCard extends StatelessWidget {
             children: [
               Text(
                 '$wrong errori',
-                style: const TextStyle(
-                  color: Colors.orangeAccent,
+                style: TextStyle(
+                  color: AppColors.orangeAccent,
                   fontSize: 9,
                 ),
               ),
               if (unanswered > 0)
                 Text(
                   '$unanswered senza risposta',
-                  style: const TextStyle(
-                    color: Colors.white54,
+                  style: TextStyle(
+                    color: AppColors.white54,
                     fontSize: 9,
                   ),
                 ),
               Text(
                 '${accuracy.toStringAsFixed(1)}% precisione',
-                style: const TextStyle(
-                  color: Colors.white38,
+                style: TextStyle(
+                  color: AppColors.white38,
                   fontSize: 9,
                 ),
               ),
@@ -949,7 +949,7 @@ class _StudentReviewQuestionPage
                   title: 'Domanda',
                   child: SelectableText(
                     question,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.pureWhite,
                       fontSize: 15,
                       height: 1.45,
@@ -961,12 +961,12 @@ class _StudentReviewQuestionPage
                 if (selected.isNotEmpty)
                   _ReviewDetailSection(
                     icon: Icons.close_rounded,
-                    iconColor: Colors.orangeAccent,
+                    iconColor: AppColors.orangeAccent,
                     title: 'Ultima risposta',
                     child: Text(
                       selected,
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: AppColors.white70,
                         fontSize: 12,
                         height: 1.4,
                       ),
@@ -976,14 +976,14 @@ class _StudentReviewQuestionPage
                   const SizedBox(height: 12),
                 _ReviewDetailSection(
                   icon: Icons.check_circle_outline_rounded,
-                  iconColor: Colors.greenAccent,
+                  iconColor: AppColors.greenAccent,
                   title: 'Risposta corretta',
                   child: Text(
                     correct.isEmpty
                         ? 'Non disponibile'
                         : correct,
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: AppColors.white70,
                       fontSize: 12,
                       height: 1.4,
                     ),
@@ -996,8 +996,8 @@ class _StudentReviewQuestionPage
                     title: 'Perché la risposta scelta non va bene',
                     child: SelectableText(
                       selectedExplanation,
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: AppColors.white70,
                         fontSize: 11,
                         height: 1.5,
                       ),
@@ -1008,12 +1008,12 @@ class _StudentReviewQuestionPage
                   const SizedBox(height: 12),
                   _ReviewDetailSection(
                     icon: Icons.lightbulb_outline_rounded,
-                    iconColor: Colors.greenAccent,
+                    iconColor: AppColors.greenAccent,
                     title: 'Spiegazione della risposta corretta',
                     child: SelectableText(
                       correctExplanation,
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: AppColors.white70,
                         fontSize: 11,
                         height: 1.5,
                       ),
@@ -1027,8 +1027,8 @@ class _StudentReviewQuestionPage
                     title: 'Spiegazione formale',
                     child: SelectableText(
                       formal,
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: AppColors.white70,
                         fontSize: 11,
                         height: 1.5,
                       ),
@@ -1042,8 +1042,8 @@ class _StudentReviewQuestionPage
                     title: 'Spiegazione semplice',
                     child: SelectableText(
                       informal,
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: AppColors.white70,
                         fontSize: 11,
                         height: 1.5,
                       ),
@@ -1099,7 +1099,7 @@ class _ReviewDetailSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -1144,7 +1144,7 @@ class _ArgumentSummaryCard extends StatelessWidget {
           Expanded(
             child: Text(
               argument,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -1154,8 +1154,8 @@ class _ArgumentSummaryCard extends StatelessWidget {
           Text(
             '$total risposte · '
             '${accuracy.toStringAsFixed(1)}%',
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: AppColors.white54,
               fontSize: 9,
             ),
           ),
@@ -1204,7 +1204,7 @@ class _ReviewMetric extends StatelessWidget {
                 children: [
                   Text(
                     value,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.pureWhite,
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -1212,8 +1212,8 @@ class _ReviewMetric extends StatelessWidget {
                   ),
                   Text(
                     label,
-                    style: const TextStyle(
-                      color: Colors.white38,
+                    style: TextStyle(
+                      color: AppColors.white38,
                       fontSize: 9,
                     ),
                   ),
@@ -1261,7 +1261,7 @@ class _EmptyReviewCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1270,8 +1270,8 @@ class _EmptyReviewCard extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   message,
-                  style: const TextStyle(
-                    color: Colors.white54,
+                  style: TextStyle(
+                    color: AppColors.white54,
                     fontSize: 10,
                     height: 1.4,
                   ),
@@ -1302,17 +1302,17 @@ class _ReviewErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
-              color: Colors.redAccent,
+              color: AppColors.redAccent,
               size: 38,
             ),
             const SizedBox(height: 10),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white60,
+              style: TextStyle(
+                color: AppColors.white60,
                 fontSize: 11,
               ),
             ),

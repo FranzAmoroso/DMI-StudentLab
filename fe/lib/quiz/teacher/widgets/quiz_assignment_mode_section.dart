@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fe/theme/nightTheme.dart';
 
 class QuizAssignmentModeSection extends StatelessWidget {
   final String executionMode;
@@ -153,14 +154,14 @@ class _ControlledQuizOptions extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.08),
+              color: AppColors.amber.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.amber.withValues(alpha: 0.22)),
+              border: Border.all(color: AppColors.amber.withValues(alpha: 0.22)),
             ),
-            child: const Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded, size: 18, color: Colors.amber),
+                Icon(Icons.info_outline_rounded, size: 18, color: AppColors.amber),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(

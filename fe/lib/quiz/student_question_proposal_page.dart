@@ -663,7 +663,7 @@ class _StudentQuestionProposalPageState
             heightFactor: 0.88,
             child: ListView(
               padding: const EdgeInsets.all(20),
-              children: const <Widget>[
+              children: <Widget>[
                 Text(
                   'Formato JSON',
                   style: TextStyle(
@@ -675,7 +675,7 @@ class _StudentQuestionProposalPageState
                 SizedBox(height: 12),
                 Text(
                   'Il file può contenere una domanda o una lista di domande. Gli allegati sono facoltativi. Se presenti devi indicare soltanto il nome del file con estensione.',
-                  style: TextStyle(color: Colors.white70, height: 1.45),
+                  style: TextStyle(color: AppColors.white70, height: 1.45),
                 ),
                 SizedBox(height: 16),
                 _FormatRow(
@@ -739,7 +739,7 @@ class _StudentQuestionProposalPageState
                   '  }\n'
                   ']',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: AppColors.white70,
                     fontFamily: 'monospace',
                     fontSize: 11,
                     height: 1.4,
@@ -786,7 +786,7 @@ class _StudentQuestionProposalPageState
               children: <Widget>[
                 _InfoCard(),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Materia',
                   style: TextStyle(
                     color: AppColors.pureWhite,
@@ -837,7 +837,7 @@ class _StudentQuestionProposalPageState
                         },
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Come vuoi proporla?',
                   style: TextStyle(
                     color: AppColors.pureWhite,
@@ -874,7 +874,7 @@ class _StudentQuestionProposalPageState
                       children: <Widget>[
                         Text(
                           _jsonName ?? 'File JSON',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.pureWhite,
                             fontWeight: FontWeight.w600,
                           ),
@@ -900,8 +900,8 @@ class _StudentQuestionProposalPageState
                           const SizedBox(height: 10),
                           Text(
                             '${_jsonAttachmentPaths.length} allegati selezionati',
-                            style: const TextStyle(
-                              color: Colors.white54,
+                            style: TextStyle(
+                              color: AppColors.white54,
                               fontSize: 11,
                             ),
                           ),
@@ -956,7 +956,7 @@ class _InfoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.12)),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Icon(Icons.volunteer_activism_outlined, color: AppColors.skyBlue),
@@ -965,7 +965,7 @@ class _InfoCard extends StatelessWidget {
             child: Text(
               'La domanda non viene pubblicata subito. Sarà revisionata da un docente verificato della materia oppure da un amministratore StudentLab.',
               style: TextStyle(
-                color: Colors.white70,
+                color: AppColors.white70,
                 fontSize: 12,
                 height: 1.45,
               ),
@@ -1029,7 +1029,7 @@ class _Selector<T> extends StatelessWidget {
             : null,
       ),
       dropdownColor: AppColors.eleganceDeepNavy,
-      style: const TextStyle(color: AppColors.pureWhite),
+      style: TextStyle(color: AppColors.pureWhite),
     );
   }
 }
@@ -1081,7 +1081,7 @@ class _ActionCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -1090,8 +1090,8 @@ class _ActionCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       description,
-                      style: const TextStyle(
-                        color: Colors.white54,
+                      style: TextStyle(
+                        color: AppColors.white54,
                         fontSize: 11,
                         height: 1.4,
                       ),
@@ -1099,9 +1099,9 @@ class _ActionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: Colors.white38,
+                color: AppColors.white38,
                 size: 15,
               ),
             ],
@@ -1129,7 +1129,7 @@ class _FormatRow extends StatelessWidget {
             width: 190,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.skyBlue,
                 fontFamily: 'monospace',
                 fontSize: 11,
@@ -1139,7 +1139,7 @@ class _FormatRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: Colors.white60, fontSize: 11),
+              style: TextStyle(color: AppColors.white60, fontSize: 11),
             ),
           ),
         ],

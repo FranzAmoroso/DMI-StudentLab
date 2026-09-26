@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/studentlab_brand.dart';
+
 import 'package:fe/services/api_service.dart';
 import 'package:fe/services/auth_session.dart';
 import 'package:fe/social/social_models.dart';
@@ -284,7 +286,7 @@ class SlBrandMark extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.asset(
-                    'assets/icons/favicon.png',
+                    StudentLabBrand.logo,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Icon(Icons.school_rounded, color: p.skyBlue, size: 22),
                   ),

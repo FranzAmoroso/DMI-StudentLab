@@ -78,6 +78,7 @@ flutter:
   assets:
     - assets/icons/favicon.png
     - assets/mascot/
+    - assets/mascot/themes/
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

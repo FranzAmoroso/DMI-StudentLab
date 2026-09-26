@@ -30,6 +30,7 @@ class AdminTeacherRequestCreate(BaseModel):
 class TeacherMaterialRequestResolve(BaseModel):
     action: str = Field(pattern="^(fulfilled|rejected)$")
     fulfilled_material_id: int | None = None
+    fulfilled_share_id: int | None = None
 
 
 class TeacherMaterialRequestResponse(BaseModel):
@@ -48,6 +49,7 @@ class TeacherMaterialRequestResponse(BaseModel):
     message: str
     status: str
     fulfilled_material_id: int | None
+    fulfilled_share_id: int | None = None
     resolved_by: int | None
     resolved_at: datetime | None
     created_at: datetime

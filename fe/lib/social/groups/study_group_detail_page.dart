@@ -703,7 +703,7 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Icon(
+          Icon(
             Icons.visibility_outlined,
 
             color: AppColors.materialSky,
@@ -745,7 +745,7 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
 
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.group_add_outlined,
 
             color: AppColors.materialSky,
@@ -1027,7 +1027,7 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
         return AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
 
-          title: const Text(
+          title: Text(
             'Elimina materiale',
 
             style: TextStyle(color: AppColors.pureWhite),
@@ -1036,7 +1036,7 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
           content: Text(
             'Vuoi eliminare "${material.originalName}"?',
 
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: AppColors.white70),
           ),
 
           actions: [
@@ -1053,10 +1053,10 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
                 Navigator.pop(dialogContext, true);
               },
 
-              child: const Text(
+              child: Text(
                 'Elimina',
 
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: AppColors.redAccent),
               ),
             ),
           ],
@@ -1125,16 +1125,16 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
 
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.exit_to_app_rounded,
 
-                        color: Colors.redAccent,
+                        color: AppColors.redAccent,
                       ),
 
-                title: const Text(
+                title: Text(
                   'Esci dal gruppo',
 
-                  style: TextStyle(color: Colors.redAccent),
+                  style: TextStyle(color: AppColors.redAccent),
                 ),
 
                 onTap: _leavingGroup
@@ -1174,7 +1174,7 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
         return AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
 
-          title: const Text(
+          title: Text(
             'Esci dal gruppo',
 
             style: TextStyle(color: AppColors.pureWhite),
@@ -1183,7 +1183,7 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
           content: Text(
             'Vuoi davvero uscire da "${group.name}"?',
 
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: AppColors.white70),
           ),
 
           actions: [
@@ -1200,10 +1200,10 @@ class _StudyGroupDetailPageState extends State<StudyGroupDetailPage> {
                 Navigator.pop(dialogContext, true);
               },
 
-              child: const Text(
+              child: Text(
                 'Esci',
 
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: AppColors.redAccent),
               ),
             ),
           ],
@@ -1615,7 +1615,7 @@ class _GroupActionCard extends StatelessWidget {
                 child: Icon(
                   icon,
 
-                  color: enabled ? AppColors.skyBlue : Colors.white24,
+                  color: enabled ? AppColors.skyBlue : AppColors.white24,
 
                   size: 22,
                 ),
@@ -1632,7 +1632,7 @@ class _GroupActionCard extends StatelessWidget {
                       title,
 
                       style: TextStyle(
-                        color: enabled ? AppColors.pureWhite : Colors.white38,
+                        color: enabled ? AppColors.pureWhite : AppColors.white38,
 
                         fontSize: 14,
 
@@ -1665,7 +1665,7 @@ class _GroupActionCard extends StatelessWidget {
                 counter,
 
                 style: TextStyle(
-                  color: enabled ? AppColors.materialSky : Colors.white24,
+                  color: enabled ? AppColors.materialSky : AppColors.white24,
 
                   fontSize: 10,
 
@@ -1678,7 +1678,7 @@ class _GroupActionCard extends StatelessWidget {
               Icon(
                 Icons.chevron_right_rounded,
 
-                color: enabled ? Colors.white38 : Colors.white12,
+                color: enabled ? AppColors.white38 : AppColors.white12,
               ),
             ],
           ),
@@ -1740,7 +1740,7 @@ class _GroupMaterialSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'Materiali',
 
@@ -1770,7 +1770,7 @@ class _GroupMaterialSection extends StatelessWidget {
                   onRefresh();
                 },
 
-                icon: const Icon(
+                icon: Icon(
                   Icons.refresh_rounded,
 
                   color: AppColors.materialSky,
@@ -1789,7 +1789,7 @@ class _GroupMaterialSection extends StatelessWidget {
               child: Text(
                 '${materials.length}',
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.materialSky,
 
                   fontSize: 11,
@@ -1938,7 +1938,7 @@ class _AddGroupMaterialCard extends StatelessWidget {
 
             children: [
               if (uploading)
-                const SizedBox(
+                SizedBox(
                   width: 35,
 
                   height: 35,
@@ -1950,7 +1950,7 @@ class _AddGroupMaterialCard extends StatelessWidget {
                   ),
                 )
               else
-                const Icon(
+                Icon(
                   Icons.add_circle_outline_rounded,
 
                   color: AppColors.skyBlue,
@@ -1963,7 +1963,7 @@ class _AddGroupMaterialCard extends StatelessWidget {
               Text(
                 uploading ? 'Caricamento...' : 'Aggiungi materiale',
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
 
                   fontSize: 16,
@@ -1979,15 +1979,15 @@ class _AddGroupMaterialCard extends StatelessWidget {
                     ? 'Invio del file in corso'
                     : 'Condividi un nuovo file',
 
-                style: const TextStyle(color: Colors.white60, fontSize: 11),
+                style: TextStyle(color: AppColors.white60, fontSize: 11),
               ),
 
               const Spacer(),
 
-              const Text(
+              Text(
                 'PDF · DOCX · PPTX · TXT · ZIP',
 
-                style: TextStyle(color: Colors.white30, fontSize: 9),
+                style: TextStyle(color: AppColors.white30, fontSize: 9),
               ),
             ],
           ),
@@ -2076,10 +2076,10 @@ class _GroupMaterialCard extends StatelessWidget {
                   const Spacer(),
 
                   if (downloaded)
-                    const Icon(
+                    Icon(
                       Icons.offline_pin_outlined,
 
-                      color: Colors.greenAccent,
+                      color: AppColors.greenAccent,
 
                       size: 18,
                     ),
@@ -2088,10 +2088,10 @@ class _GroupMaterialCard extends StatelessWidget {
                     PopupMenuButton<String>(
                       color: AppColors.eleganceDeepNavy,
 
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.more_vert_rounded,
 
-                        color: Colors.white38,
+                        color: AppColors.white38,
 
                         size: 20,
                       ),
@@ -2103,7 +2103,7 @@ class _GroupMaterialCard extends StatelessWidget {
                       },
 
                       itemBuilder: (BuildContext context) {
-                        return const [
+                        return [
                           PopupMenuItem<String>(
                             value: 'delete',
 
@@ -2112,7 +2112,7 @@ class _GroupMaterialCard extends StatelessWidget {
                                 Icon(
                                   Icons.delete_outline_rounded,
 
-                                  color: Colors.redAccent,
+                                  color: AppColors.redAccent,
 
                                   size: 18,
                                 ),
@@ -2122,7 +2122,7 @@ class _GroupMaterialCard extends StatelessWidget {
                                 Text(
                                   'Elimina',
 
-                                  style: TextStyle(color: Colors.redAccent),
+                                  style: TextStyle(color: AppColors.redAccent),
                                 ),
                               ],
                             ),
@@ -2142,7 +2142,7 @@ class _GroupMaterialCard extends StatelessWidget {
 
                 overflow: TextOverflow.ellipsis,
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
 
                   fontSize: 13,
@@ -2158,7 +2158,7 @@ class _GroupMaterialCard extends StatelessWidget {
               Text(
                 '${material.type} · ${material.formattedSize}',
 
-                style: const TextStyle(color: Colors.white38, fontSize: 9),
+                style: TextStyle(color: AppColors.white38, fontSize: 9),
               ),
 
               const Spacer(),
@@ -2196,7 +2196,7 @@ class _GroupMaterialCard extends StatelessWidget {
 
                     onPressed: onOpen,
 
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.open_in_new_rounded,
 
                       color: AppColors.materialSky,
@@ -2230,9 +2230,9 @@ class _EmptyGroupMaterials extends StatelessWidget {
         border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.08)),
       ),
 
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.folder_off_outlined, color: Colors.white30, size: 34),
+          Icon(Icons.folder_off_outlined, color: AppColors.white30, size: 34),
 
           SizedBox(height: 10),
 
@@ -2241,7 +2241,7 @@ class _EmptyGroupMaterials extends StatelessWidget {
 
             textAlign: TextAlign.center,
 
-            style: TextStyle(color: Colors.white54, fontSize: 12),
+            style: TextStyle(color: AppColors.white54, fontSize: 12),
           ),
         ],
       ),
@@ -2268,24 +2268,24 @@ class _GroupErrorCard extends StatelessWidget {
 
         borderRadius: BorderRadius.circular(18),
 
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.20)),
+        border: Border.all(color: AppColors.redAccent.withValues(alpha: 0.20)),
       ),
 
       child: Column(
         mainAxisSize: MainAxisSize.min,
 
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
 
-            color: Colors.redAccent,
+            color: AppColors.redAccent,
 
             size: 40,
           ),
 
           const SizedBox(height: 12),
 
-          const Text(
+          Text(
             'Impossibile caricare il gruppo',
 
             style: TextStyle(
@@ -2304,7 +2304,7 @@ class _GroupErrorCard extends StatelessWidget {
 
             textAlign: TextAlign.center,
 
-            style: const TextStyle(color: Colors.white60, fontSize: 11),
+            style: TextStyle(color: AppColors.white60, fontSize: 11),
           ),
 
           const SizedBox(height: 16),

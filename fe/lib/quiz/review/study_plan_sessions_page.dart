@@ -128,9 +128,9 @@ class _StudyPlanSessionsPageState extends State<StudyPlanSessionsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 38),
+              Icon(Icons.error_outline_rounded, color: AppColors.redAccent, size: 38),
               const SizedBox(height: 10),
-              Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white60)),
+              Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: AppColors.white60)),
               const SizedBox(height: 12),
               OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh_rounded), label: const Text('Riprova')),
             ],
@@ -155,10 +155,10 @@ class _StudyPlanSessionsPageState extends State<StudyPlanSessionsPage> {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.12)),
             ),
-            child: const Text(
+            child: Text(
               'Qui scegli quali sessioni contribuiscono al piano condiviso di questo dispositivo. '
               'Dissociare una sessione non elimina i quiz o le statistiche dell’account dal server.',
-              style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.45),
+              style: TextStyle(color: AppColors.white60, fontSize: 11, height: 1.45),
             ),
           ),
           const SizedBox(height: 22),
@@ -181,13 +181,13 @@ class _StudyPlanSessionsPageState extends State<StudyPlanSessionsPage> {
 
   Widget _title(String value) => Text(
         value,
-        style: const TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.bold, fontSize: 17),
+        style: TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.bold, fontSize: 17),
       );
 
   Widget _empty(String value) => Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: AppColors.eleganceMidnight, borderRadius: BorderRadius.circular(14)),
-        child: Text(value, style: const TextStyle(color: Colors.white54)),
+        child: Text(value, style: TextStyle(color: AppColors.white54)),
       );
 
   Widget _card(Map<String, dynamic> source, {required bool enabled}) {
@@ -209,7 +209,7 @@ class _StudyPlanSessionsPageState extends State<StudyPlanSessionsPage> {
       decoration: BoxDecoration(
         color: AppColors.eleganceMidnight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: (enabled ? AppColors.skyBlue : Colors.white38).withValues(alpha: 0.13)),
+        border: Border.all(color: (enabled ? AppColors.skyBlue : AppColors.white38).withValues(alpha: 0.13)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,7 +219,7 @@ class _StudyPlanSessionsPageState extends State<StudyPlanSessionsPage> {
               Icon(sourceType == 'guest' ? Icons.person_outline_rounded : Icons.devices_rounded, color: AppColors.materialSky),
               const SizedBox(width: 9),
               Expanded(
-                child: Text(label, style: const TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.w600)),
+                child: Text(label, style: TextStyle(color: AppColors.pureWhite, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -235,11 +235,11 @@ class _StudyPlanSessionsPageState extends State<StudyPlanSessionsPage> {
           ),
           if (last != null) ...<Widget>[
             const SizedBox(height: 9),
-            Text('Ultima attività: ${_date(last)}', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+            Text('Ultima attività: ${_date(last)}', style: TextStyle(color: AppColors.white38, fontSize: 10)),
           ],
           if (deviceId.isNotEmpty) ...<Widget>[
             const SizedBox(height: 3),
-            Text('Dispositivo: ${_shortId(deviceId)}', style: const TextStyle(color: Colors.white30, fontSize: 9)),
+            Text('Dispositivo: ${_shortId(deviceId)}', style: TextStyle(color: AppColors.white30, fontSize: 9)),
           ],
           const SizedBox(height: 12),
           Wrap(
@@ -270,7 +270,7 @@ class _StudyPlanSessionsPageState extends State<StudyPlanSessionsPage> {
           color: AppColors.brandNightBlue,
           borderRadius: BorderRadius.circular(999),
         ),
-        child: Text(text, style: const TextStyle(color: AppColors.materialSky, fontSize: 8, fontWeight: FontWeight.bold)),
+        child: Text(text, style: TextStyle(color: AppColors.materialSky, fontSize: 8, fontWeight: FontWeight.bold)),
       );
 
   bool _enabled(Map<String, dynamic> item) => _int(item['contribution_enabled']) != 0;

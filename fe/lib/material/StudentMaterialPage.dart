@@ -8,7 +8,6 @@ import 'package:fe/developer/theme/developer_ui_style.dart';
 import 'package:fe/theme/app_palette.dart';
 import 'package:fe/theme/nightTheme.dart';
 import 'package:fe/widgets/studentlab_ui/studentlab_ui.dart';
-import 'package:fe/social/widgets/academic_paths_page.dart';
 
 import 'package:fe/services/api_service.dart';
 import 'package:fe/services/auth_session.dart';
@@ -49,8 +48,13 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   final Set<int> _processingMaterialIds = <int>{};
   bool _usingOfflineCache = false;
   bool _exploreAllPublicCourses = false;
-  int _rootTab = 0;
+  bool _choosingBrowseCourse = false;
+  String? _browseCourseKey;
   Set<String> _enrolledCourseKeys = <String>{};
+
+  /// Percorso corrente dello studente (per la card "Il tuo percorso"),
+  /// anche quando il suo corso non ha ancora materiali.
+  SocialAcademicPath? _currentPath;
   String? _rootUniversityFilter;
   String? _rootDepartmentFilter;
 
@@ -162,22 +166,27 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           .getAvailableByUser(localUserId);
 
       Set<String> enrolledCourses = {};
+      SocialAcademicPath? currentPath;
       if (_authSession.isAuthenticated && _authSession.currentUserId != null) {
         try {
           final paths = await _apiService.getUserAcademicPaths(_authSession.currentUserId!);
-          enrolledCourses = paths.where((path) => path.status == AcademicPathStatus.enrolled)
+          final enrolled = paths.where((path) => path.status == AcademicPathStatus.enrolled).toList();
+          enrolledCourses = enrolled
             .map((path) => _courseKey(path.university, path.department, path.course)).toSet();
+          final current = enrolled.where((path) => path.isCurrent);
+          final primary = enrolled.where((path) => path.isPrimary);
+          currentPath = current.isNotEmpty
+              ? current.first
+              : (primary.isNotEmpty ? primary.first : (enrolled.isNotEmpty ? enrolled.first : null));
         } catch (_) {
           // The backend still enforces access to restricted files.
         }
       }
 
+      // Il backend applica i permessi dei singoli materiali. Conserviamo qui
+      // anche i corsi pubblici: "Cambia" filtra la vista senza cambiare il profilo.
       final List<MaterialLocal> materials = availableMaterials
           .where(_isDisplayableMaterial)
-          .where((material) => !_authSession.isAuthenticated || _exploreAllPublicCourses ||
-            enrolledCourses.isEmpty || material.source != MaterialSourceLocal.public ||
-            enrolledCourses.contains(_courseKey(material.university, material.department,
-              material.course)))
           .toList();
 
       final List<MaterialOfflineEntry> offline = await _downloadService
@@ -193,6 +202,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         _offlineMaterials = offline;
         _preferredByHash = preferred;
         _enrolledCourseKeys = enrolledCourses;
+        _currentPath = currentPath;
         _usingOfflineCache = syncFailed;
         _loading = false;
       });
@@ -890,9 +900,23 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           .putIfAbsent(key, () => <MaterialLocal>[])
           .add(material);
     }
-    final showOwn = signedIn && _rootTab == 0;
-    final showDevice = signedIn && _rootTab == 2;
-    final ownMaterial = ownCourses.values.expand((e) => e).toList();
+    final showOwn = signedIn;
+    final allCourses = <String, List<MaterialLocal>>{
+      ...publicCourses,
+      ...ownCourses,
+    };
+    final currentCourseKey = _currentPath == null
+        ? null
+        : _courseKey(_currentPath!.university,
+            _currentPath!.department, _currentPath!.course);
+    final activeCourseKey = _browseCourseKey ?? currentCourseKey;
+    final selectedCourseItems = allCourses.values
+        .where((items) => items.isNotEmpty &&
+            _courseKey(items.first.university, items.first.department,
+                items.first.course) == activeCourseKey)
+        .expand((items) => items)
+        .toList();
+    final ownMaterial = selectedCourseItems;
     final ownSubjects = <String, List<MaterialLocal>>{};
     for (final item in ownMaterial
         .where((m) => m.subjectName?.trim().isNotEmpty ?? false)) {
@@ -901,12 +925,14 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               () => <MaterialLocal>[])
           .add(item);
     }
-    final departmentCourses = publicCourses.values
+    final departmentCourses = allCourses.values
         .where((items) =>
             items.isNotEmpty &&
-            items.every((m) => m.subjectName?.trim().isEmpty ?? true))
+            items.every((m) => m.subjectName?.trim().isEmpty ?? true) &&
+            _courseKey(items.first.university, items.first.department,
+                items.first.course) == activeCourseKey)
         .toList();
-    final courses = showOwn ? ownCourses : publicCourses;
+    final courses = signedIn ? allCourses : publicCourses;
     final universities = courses.values
         .expand((items) => items.map((m) => m.displayUniversity))
         .toSet()
@@ -936,8 +962,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     shown.sort((a, b) => a.first.displayCourse
         .toLowerCase()
         .compareTo(b.first.displayCourse.toLowerCase()));
-    final List<MaterialLocal> ownFirstCourse =
-        ownCourses.values.isEmpty ? const <MaterialLocal>[] : ownCourses.values.first;
+    final List<MaterialLocal> ownFirstCourse = selectedCourseItems;
 
     return RefreshIndicator(
       onRefresh: _loadMaterials,
@@ -973,22 +998,38 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                   const SizedBox(height: 14),
                 ],
                 _buildPathCard(ownFirstCourse),
-                const SizedBox(height: 16),
-                _segmentedTabs(
-                  selected: _rootTab,
-                  labels: const <String>['Il mio corso', 'Corsi DMI', 'Dispositivo'],
-                  onSelected: (selected) {
-                    final explore = selected == 1;
-                    setState(() => _rootTab = selected);
-                    if (_exploreAllPublicCourses != explore) {
-                      _exploreAllPublicCourses = explore;
-                      _loadMaterials();
-                    }
-                  },
-                ),
+                if (_choosingBrowseCourse) ...[
+                  const SizedBox(height: 12),
+                  Text('Scegli il percorso da visualizzare',
+                      style: TextStyle(color: AppColors.pureWhite)),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 6, children: <Widget>[
+                    _dispenseFilter('Ateneo', selectedUniversity, universities,
+                        (value) => setState(() {
+                          _rootUniversityFilter = value;
+                          _rootDepartmentFilter = null;
+                        })),
+                    _dispenseFilter('Dipartimento', selectedDepartment, departments,
+                        (value) => setState(() => _rootDepartmentFilter = value)),
+                    _dispenseFilter('Corso', null,
+                        shown.map((items) => items.first.displayCourse).toSet().toList()..sort(),
+                        (value) {
+                          if (value == null) return;
+                          final matches = shown.where((items) =>
+                              items.first.displayCourse == value);
+                          if (matches.isEmpty) return;
+                          final first = matches.first.first;
+                          setState(() {
+                            _browseCourseKey = _courseKey(first.university,
+                                first.department, first.course);
+                            _choosingBrowseCourse = false;
+                          });
+                        }),
+                  ]),
+                ],
                 const SizedBox(height: 20),
               ],
-              if (!showDevice) ...[
+              ...[
                 if (showOwn) ...[
                   _sectionTitle('Materie'),
                   const SizedBox(height: 10),
@@ -1021,7 +1062,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                       : 'Corsi del $selectedDepartment'),
                   const SizedBox(height: 10),
                 ],
-                if (showOwn && ownSubjects.isNotEmpty) ...[
+                if (showOwn && ownMaterial.isNotEmpty) ...[
                   for (final group in ownSubjects.values)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -1073,26 +1114,15 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                         child: _deviceFileCard(material),
                       ),
                   ],
-                ] else if (shown.isEmpty)
+                ] else if (showOwn || shown.isEmpty)
                   _dispensePanel(
                     icon: Icons.menu_book_outlined,
                     title: showOwn
-                        ? 'Nessun materiale per il tuo percorso'
+                        ? 'Nessun materiale per questo corso'
                         : 'Nessun corso pubblico disponibile',
                     detail: showOwn
-                        ? 'Controlla il percorso nel profilo oppure esplora i corsi pubblici.'
-                        : 'Qui compariranno i file che StudentLab ha classificato e reso visibili nel catalogo.',
-                    action: showOwn
-                        ? OutlinedButton(
-                            style: _secondaryButtonStyle(),
-                            onPressed: () {
-                              setState(() => _rootTab = 1);
-                              _exploreAllPublicCourses = true;
-                              _loadMaterials();
-                            },
-                            child: const Text('Esplora corsi'),
-                          )
-                        : null,
+                        ? 'Puoi scegliere un altro corso con Cambia o aggiungere un file sul dispositivo.'
+                        : 'Qui compariranno i file che StudentLab ha reso visibili nel catalogo.',
                   )
                 else
                   ...shown.map((items) {
@@ -1117,7 +1147,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     );
                   }),
               ],
-              if (showDevice || !signedIn) ...[
+              ...[
                 const SizedBox(height: 20),
                 _sectionTitle('Sul dispositivo'),
                 const SizedBox(height: 10),
@@ -1410,11 +1440,24 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   Widget _buildPathCard(List<MaterialLocal> ownFirstCourse) {
     final MaterialLocal? first =
         ownFirstCourse.isEmpty ? null : ownFirstCourse.first;
+    final SocialAcademicPath? path = _currentPath;
+    String pick(String code, String name) => code.trim().isNotEmpty && code.trim().length <= 8 ? code.trim() : name.trim();
     final chips = <String>[
-      if (first != null) first.displayUniversity,
-      if (first != null) first.displayDepartment,
-      if (first != null) first.displayCourse,
-    ];
+      if (_browseCourseKey != null && first != null) ...[
+        first.displayUniversity,
+        first.displayDepartment,
+        first.displayCourse,
+      ] else if (path != null) ...[
+        pick(path.universityCode, path.university),
+        pick(path.departmentCode, path.department),
+        path.course,
+        if (path.startYear != null) 'dal ${path.startYear}',
+      ] else if (first != null) ...[
+        first.displayUniversity,
+        first.displayDepartment,
+        first.displayCourse,
+      ],
+    ].where((c) => c.trim().isNotEmpty).toList();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1434,12 +1477,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     letterSpacing: 0.6)),
             const Spacer(),
             TextButton(
-              onPressed: () async {
-                await Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => const AcademicPathsPage()));
-                if (mounted) await _loadMaterials();
-              },
-              child: const Text('Cambia'),
+              onPressed: () => setState(() => _choosingBrowseCourse = !_choosingBrowseCourse),
+              child: Text(_choosingBrowseCourse ? 'Chiudi' : 'Cambia'),
             ),
           ]),
           const SizedBox(height: 4),
@@ -1481,7 +1520,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                             fontSize: 13)),
                   ),
                 ],
-                if (_enrolledCourseKeys.length > 1)
+                if (_browseCourseKey == null && _enrolledCourseKeys.length > 1)
                   Text('+${_enrolledCourseKeys.length - 1}',
                       style: TextStyle(
                           color: AppColors.pureWhite.withValues(alpha: 0.60),
@@ -2346,17 +2385,17 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(builder: (context, updateDialog) => AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text(
+          title: Text(
             'Elimina materiale',
             style: TextStyle(color: AppColors.pureWhite),
           ),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('Vuoi eliminare "${material.originalName}" dalla libreria locale? Scrivi ELIMINA per confermare.',
-              style: const TextStyle(color: Colors.white70)),
+              style: TextStyle(color: AppColors.white70)),
             const SizedBox(height: 12),
             TextField(controller: confirmation,
               onChanged: (_) => updateDialog(() {}),
-              style: const TextStyle(color: AppColors.pureWhite),
+              style: TextStyle(color: AppColors.pureWhite),
               decoration: const InputDecoration(labelText: 'ELIMINA')),
           ]),
           actions: [
@@ -2370,9 +2409,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               onPressed: confirmation.text == 'ELIMINA' ? () {
                 Navigator.of(dialogContext).pop(true);
               } : null,
-              child: const Text(
+              child: Text(
                 'Elimina',
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: AppColors.redAccent),
               ),
             ),
           ],
@@ -2475,26 +2514,26 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     final String? choice = await showDialog<String>(context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text('Possibile duplicato',
+        title: Text('Possibile duplicato',
           style: TextStyle(color: AppColors.pureWhite)),
         content: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Il contenuto dei due file ha lo stesso hash SHA-256.',
-              style: TextStyle(color: Colors.white70)),
+            Text('Il contenuto dei due file ha lo stesso hash SHA-256.',
+              style: TextStyle(color: AppColors.white70)),
             const SizedBox(height: 12),
             Text('IL TUO FILE: ${local.originalName}',
-              style: const TextStyle(color: AppColors.pureWhite)),
+              style: TextStyle(color: AppColors.pureWhite)),
             Text('Offline · ${existing!.size ?? 0} byte · ${existing.mimeType ?? 'File'}',
-              style: const TextStyle(color: Colors.white60)),
+              style: TextStyle(color: AppColors.white60)),
             TextButton.icon(onPressed: () => Navigator.pop(dialogContext, 'openLocal'),
               icon: const Icon(Icons.open_in_new), label: const Text('Apri il mio')),
             const SizedBox(height: 12),
             Text('STUDENTLAB: ${remote.originalName}',
-              style: const TextStyle(color: AppColors.pureWhite)),
-            const Text('Online · puoi scaricarlo e aprirlo',
-              style: TextStyle(color: Colors.white60)),
+              style: TextStyle(color: AppColors.pureWhite)),
+            Text('Online · puoi scaricarlo e aprirlo',
+              style: TextStyle(color: AppColors.white60)),
             TextButton.icon(onPressed: () => Navigator.pop(dialogContext, 'openRemote'),
               icon: const Icon(Icons.open_in_new), label: const Text('Apri StudentLab')),
           ],
@@ -2535,10 +2574,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         final bool? deleteLocal = await showDialog<bool>(context: context,
           builder: (dialogContext) => AlertDialog(
             backgroundColor: AppColors.eleganceDeepNavy,
-            title: const Text('Conservare il tuo file?',
+            title: Text('Conservare il tuo file?',
               style: TextStyle(color: AppColors.pureWhite)),
             content: Text('Il file "${local.originalName}" resta nella tua libreria. Vuoi eliminarlo?',
-              style: const TextStyle(color: Colors.white70)),
+              style: TextStyle(color: AppColors.white70)),
             actions: [
               TextButton(onPressed: () => Navigator.pop(dialogContext, false),
                 child: const Text('Conserva')),
@@ -2660,7 +2699,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                   padding: const EdgeInsets.fromLTRB(20, 18, 12, 10),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Seleziona la materia',
                           style: TextStyle(
@@ -2672,7 +2711,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.close_rounded,
                           color: AppColors.pureWhite,
                         ),
@@ -2712,13 +2751,13 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                       final recipient = details['recipient_kind'] == 'studentlab'
                         ? 'StudentLab' : teacherNames;
                       return ListTile(
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.menu_book_outlined,
                           color: AppColors.materialSky,
                         ),
                         title: Text(
                           subject.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.pureWhite,
                             fontWeight: FontWeight.w600,
                           ),
@@ -2733,7 +2772,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                             fontSize: 11,
                           ),
                         ),
-                        trailing: const Icon(
+                        trailing: Icon(
                           Icons.chevron_right_rounded,
                           color: AppColors.pureWhite,
                         ),
@@ -2777,7 +2816,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       padding: const EdgeInsets.all(18),
       decoration: DeveloperUiStyle.panelDecoration(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('La tua biblioteca', style: TextStyle(
+        Text('La tua biblioteca', style: TextStyle(
           color: AppColors.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 5),
         Text(
@@ -2850,7 +2889,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: loading
-                  ? const Padding(
+                  ? Padding(
                       padding: EdgeInsets.all(15),
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
@@ -2866,7 +2905,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.pureWhite,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -2883,7 +2922,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+            Icon(Icons.chevron_right_rounded, color: AppColors.white38),
           ],
         ),
       ),
@@ -3140,7 +3179,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   Widget _provenanceIcon(MaterialSourceLocal source) {
     switch (source) {
       case MaterialSourceLocal.local:
-        return const Icon(
+        return Icon(
           Icons.school_rounded,
           size: 15,
           color: AppColors.materialSky,
@@ -3155,7 +3194,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
             fit: BoxFit.cover,
             errorBuilder:
                 (BuildContext context, Object error, StackTrace? stackTrace) {
-                  return const Icon(
+                  return Icon(
                     Icons.auto_awesome_rounded,
                     size: 15,
                     color: AppColors.materialSky,
@@ -3164,25 +3203,25 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           ),
         );
       case MaterialSourceLocal.teacher:
-        return const Icon(
+        return Icon(
           Icons.co_present_rounded,
           size: 15,
           color: AppColors.materialSky,
         );
       case MaterialSourceLocal.group:
-        return const Icon(
+        return Icon(
           Icons.groups_rounded,
           size: 15,
           color: AppColors.materialSky,
         );
       case MaterialSourceLocal.personalSync:
-        return const Icon(
+        return Icon(
           Icons.cloud_done_outlined,
           size: 15,
           color: AppColors.materialSky,
         );
       case MaterialSourceLocal.sharedUser:
-        return const Icon(
+        return Icon(
           Icons.share_outlined,
           size: 15,
           color: AppColors.materialSky,
@@ -3319,7 +3358,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
           const SizedBox(height: 14),
 
-          const Text(
+          Text(
             'Nessun materiale offline',
 
             textAlign: TextAlign.center,
@@ -3385,9 +3424,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         borderRadius: BorderRadius.circular(16),
       ),
 
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.folder_open_rounded, color: Colors.white38, size: 45),
+          Icon(Icons.folder_open_rounded, color: AppColors.white38, size: 45),
 
           SizedBox(height: 12),
 
@@ -3396,7 +3435,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
             textAlign: TextAlign.center,
 
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: TextStyle(color: AppColors.white70, fontSize: 14),
           ),
         ],
       ),
@@ -3419,10 +3458,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         mainAxisSize: MainAxisSize.min,
 
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
 
-            color: Colors.redAccent,
+            color: AppColors.redAccent,
 
             size: 40,
           ),
@@ -3434,7 +3473,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
             textAlign: TextAlign.center,
 
-            style: const TextStyle(color: Colors.white60, fontSize: 11),
+            style: TextStyle(color: AppColors.white60, fontSize: 11),
           ),
 
           const SizedBox(height: 15),
@@ -3636,7 +3675,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
+              Text(
                 'Condividi con',
                 style: TextStyle(
                   color: AppColors.pureWhite,
@@ -3649,13 +3688,13 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                   .where((u) => u.id != _authSession.currentUserId)
                   .map(
                     (SocialUser user) => ListTile(
-                      leading: const Icon(
+                      leading: Icon(
                         Icons.person_outline,
                         color: AppColors.skyBlue,
                       ),
                       title: Text(
                         '${user.firstName} ${user.lastName}'.trim(),
-                        style: const TextStyle(color: AppColors.pureWhite),
+                        style: TextStyle(color: AppColors.pureWhite),
                       ),
                       onTap: () => Navigator.pop(sheetContext, user),
                     ),
@@ -3711,10 +3750,10 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       final continueRequest = await showDialog<bool>(context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text('Materiale docente già disponibile',
+          title: Text('Materiale docente già disponibile',
             style: TextStyle(color: AppColors.pureWhite)),
           content: Text('Per questa materia ci sono già ${existing.length} materiali dei docenti. Controlla la cartella della materia prima di inviare una nuova richiesta.',
-            style: const TextStyle(color: Colors.white70)),
+            style: TextStyle(color: AppColors.white70)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Vedi materiali')),
@@ -3730,7 +3769,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         backgroundColor: AppColors.eleganceDeepNavy,
-        title: const Text(
+        title: Text(
           'Richiedi materiale',
           style: TextStyle(color: AppColors.pureWhite),
         ),
@@ -3739,7 +3778,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
           children: [
             TextField(
               controller: topic,
-              style: const TextStyle(color: AppColors.pureWhite),
+              style: TextStyle(color: AppColors.pureWhite),
               decoration: const InputDecoration(
                 labelText: 'Argomento facoltativo',
               ),
@@ -3749,7 +3788,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
               controller: message,
               minLines: 3,
               maxLines: 6,
-              style: const TextStyle(color: AppColors.pureWhite),
+              style: TextStyle(color: AppColors.pureWhite),
               decoration: const InputDecoration(
                 labelText: 'Di quale materiale hai bisogno?',
               ),
@@ -3811,16 +3850,16 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       final selected = await showDialog<Map<String, dynamic>>(context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
-          title: const Text('Associa al catalogo',
+          title: Text('Associa al catalogo',
             style: TextStyle(color: AppColors.pureWhite)),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min,
-            children: [const Text('Scegli una materia. Il file resta sul tuo dispositivo.',
-              style: TextStyle(color: Colors.white70)),
+            children: [Text('Scegli una materia. Il file resta sul tuo dispositivo.',
+              style: TextStyle(color: AppColors.white70)),
               for (final match in candidates) ListTile(
                 title: Text('${match['course']} / ${match['subject']}',
-                  style: const TextStyle(color: AppColors.pureWhite)),
+                  style: TextStyle(color: AppColors.pureWhite)),
                 subtitle: Text('${match['university']} / ${match['department']}',
-                  style: const TextStyle(color: Colors.white60)),
+                  style: TextStyle(color: AppColors.white60)),
                 onTap: () => Navigator.pop(dialogContext, match))])),
           actions: [TextButton(onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Lascia invariato'))]));
@@ -4040,16 +4079,16 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
           context: context,
           builder: (dialogContext) => AlertDialog(
             backgroundColor: AppColors.eleganceDeepNavy,
-            title: const Text('Possibili percorsi',
+            title: Text('Possibili percorsi',
               style: TextStyle(color: AppColors.pureWhite)),
             content: SingleChildScrollView(child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [for (final match in matches)
                 ListTile(
                   title: Text('${match['course']} · ${match['subject'] ?? 'Materiali del corso'}',
-                    style: const TextStyle(color: AppColors.pureWhite)),
+                    style: TextStyle(color: AppColors.pureWhite)),
                   subtitle: Text('${match['university']} / ${match['department']}',
-                    style: const TextStyle(color: Colors.white60)),
+                    style: TextStyle(color: AppColors.white60)),
                   onTap: () => Navigator.pop(dialogContext, match),
                 ),
               ],
@@ -4252,10 +4291,10 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                   SwitchListTile(
                     value: _additionalCourse,
                     onChanged: _saving ? null : (value) => setState(() => _additionalCourse = value),
-                    title: const Text('Corso aggiuntivo, separato da L-31',
+                    title: Text('Corso aggiuntivo, separato da L-31',
                       style: TextStyle(color: AppColors.pureWhite)),
-                    subtitle: const Text('Resta un percorso accademico nella stessa biblioteca.',
-                      style: TextStyle(color: Colors.white60)),
+                    subtitle: Text('Resta un percorso accademico nella stessa biblioteca.',
+                      style: TextStyle(color: AppColors.white60)),
                   ),
                   const SizedBox(height: 13),
                   if (_isCatalogCoursePath) ...[
@@ -4309,7 +4348,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                       TextFormField(
                         controller: _subjectController,
                         enabled: !_saving,
-                        style: const TextStyle(color: AppColors.pureWhite),
+                        style: TextStyle(color: AppColors.pureWhite),
                         decoration: InputDecoration(
                           labelText: 'Materia',
                           prefixIcon: const Icon(Icons.menu_book_outlined),
@@ -4331,7 +4370,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                       TextFormField(
                         controller: _foldersController,
                         enabled: !_saving,
-                        style: const TextStyle(color: AppColors.pureWhite),
+                        style: TextStyle(color: AppColors.pureWhite),
                         decoration: InputDecoration(
                           labelText: 'Argomento',
                           prefixIcon: const Icon(Icons.topic_outlined),
@@ -4364,7 +4403,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.attach_file_rounded,
                             color: AppColors.skyBlue,
                           ),
@@ -4376,14 +4415,14 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: _fileName == null
-                                    ? Colors.white54
+                                    ? AppColors.white54
                                     : AppColors.pureWhite,
                               ),
                             ),
                           ),
-                          const Icon(
+                          Icon(
                             Icons.chevron_right_rounded,
-                            color: Colors.white38,
+                            color: AppColors.white38,
                           ),
                         ],
                       ),
@@ -4393,8 +4432,8 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                     const SizedBox(height: 15),
                     Text(
                       _error!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
+                      style: TextStyle(
+                        color: AppColors.redAccent,
                         fontSize: 11,
                       ),
                     ),
@@ -4405,7 +4444,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                     child: ElevatedButton.icon(
                       onPressed: _saving ? null : _save,
                       icon: _saving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 17,
                               height: 17,
                               child: CircularProgressIndicator(
@@ -4898,7 +4937,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
         setState(() {});
       },
 
-      style: const TextStyle(color: AppColors.pureWhite),
+      style: TextStyle(color: AppColors.pureWhite),
 
       validator: (String? value) {
         if (requiredField && (value == null || value.trim().isEmpty)) {
@@ -4930,7 +4969,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
         prefixIcon: Icon(icon, color: AppColors.skyBlue),
 
         suffixIcon: loading
-            ? const Padding(
+            ? Padding(
                 padding: EdgeInsets.all(14),
                 child: SizedBox(
                   width: 18,
@@ -4948,7 +4987,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
 
                 color: AppColors.eleganceDeepNavy,
 
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_drop_down_rounded,
 
                   color: AppColors.materialSky,
@@ -4965,7 +5004,7 @@ class _LocalMaterialImportPageState extends State<_LocalMaterialImportPage> {
                           child: Text(
                             option,
 
-                            style: const TextStyle(color: AppColors.pureWhite),
+                            style: TextStyle(color: AppColors.pureWhite),
                           ),
                         ),
                       )
@@ -5654,7 +5693,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
                           maxLength: 180,
 
-                          style: const TextStyle(color: AppColors.pureWhite),
+                          style: TextStyle(color: AppColors.pureWhite),
 
                           validator: (String? value) {
                             if (value == null || value.trim().isEmpty) {
@@ -5686,7 +5725,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
                           maxLength: 1000,
 
-                          style: const TextStyle(color: AppColors.pureWhite),
+                          style: TextStyle(color: AppColors.pureWhite),
 
                           decoration: _decoration(
                             label: 'Descrizione',
@@ -5712,7 +5751,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Attribuzione pubblica',
                                 style: TextStyle(
                                   color: AppColors.pureWhite,
@@ -5743,10 +5782,10 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
                                       },
                               ),
                               const SizedBox(height: 8),
-                              const Text(
+                              Text(
                                 'L’amministratore può forzare la pubblicazione anonima durante la moderazione.',
                                 style: TextStyle(
-                                  color: Colors.white38,
+                                  color: AppColors.white38,
                                   fontSize: 9,
                                   height: 1.35,
                                 ),
@@ -5768,7 +5807,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
                             onPressed: _submitting ? null : _submit,
 
                             icon: _submitting
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 18,
 
                                     height: 18,
@@ -5825,7 +5864,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Icon(
+          Icon(
             Icons.fact_check_outlined,
 
             color: AppColors.skyBlue,
@@ -5889,7 +5928,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
             overflow: TextOverflow.ellipsis,
 
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
           ),
         );
       }).toList(),
@@ -5934,7 +5973,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
             overflow: TextOverflow.ellipsis,
 
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
           ),
         );
       }).toList(),
@@ -5980,7 +6019,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
             overflow: TextOverflow.ellipsis,
 
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
           ),
         );
       }).toList(),
@@ -6025,7 +6064,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
             overflow: TextOverflow.ellipsis,
 
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
           ),
         );
       }).toList(),
@@ -6063,7 +6102,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
         child: Row(
           children: [
-            const Icon(Icons.attach_file_rounded, color: AppColors.skyBlue),
+            Icon(Icons.attach_file_rounded, color: AppColors.skyBlue),
 
             const SizedBox(width: 12),
 
@@ -6079,7 +6118,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
 
                     overflow: TextOverflow.ellipsis,
 
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.pureWhite,
 
                       fontWeight: FontWeight.w600,
@@ -6103,7 +6142,7 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
               ),
             ),
 
-            const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+            Icon(Icons.chevron_right_rounded, color: AppColors.white38),
           ],
         ),
       ),
@@ -6115,21 +6154,21 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
       padding: const EdgeInsets.all(13),
 
       decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.08),
+        color: AppColors.redAccent.withValues(alpha: 0.08),
 
         borderRadius: BorderRadius.circular(12),
 
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.20)),
+        border: Border.all(color: AppColors.redAccent.withValues(alpha: 0.20)),
       ),
 
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
 
-            color: Colors.redAccent,
+            color: AppColors.redAccent,
 
             size: 19,
           ),
@@ -6140,8 +6179,8 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
             child: Text(
               _error!,
 
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: AppColors.white70,
 
                 fontSize: 11,
 
@@ -6191,19 +6230,19 @@ class _MaterialPublicationPageState extends State<_MaterialPublicationPage> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(13),
 
-        borderSide: const BorderSide(color: AppColors.socialBlue),
+        borderSide: BorderSide(color: AppColors.socialBlue),
       ),
 
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(13),
 
-        borderSide: const BorderSide(color: Colors.redAccent),
+        borderSide: BorderSide(color: AppColors.redAccent),
       ),
 
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(13),
 
-        borderSide: const BorderSide(color: Colors.redAccent),
+        borderSide: BorderSide(color: AppColors.redAccent),
       ),
     );
   }

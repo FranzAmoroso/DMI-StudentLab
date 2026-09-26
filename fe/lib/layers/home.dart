@@ -1,6 +1,8 @@
 import 'dart\:async';
 
 import 'package:flutter/material.dart';
+import '../theme/studentlab_brand.dart';
+import '../widgets/studentlab_ui/theme_picker.dart';
 
 import 'package:flutter/rendering.dart';
 
@@ -681,11 +683,11 @@ super.dispose();
 
       decoration: BoxDecoration(
 
-        color: Colors.amber.withValues(alpha: 0.10),
+        color: AppColors.amber.withValues(alpha: 0.10),
 
         borderRadius: BorderRadius.circular(14),
 
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.30)),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.30)),
 
       ),
 
@@ -707,11 +709,11 @@ super.dispose();
 
               children: [
 
-                const Icon(
+                Icon(
 
                   Icons.mark_email_unread_outlined,
 
-                  color: Colors.amber,
+                  color: AppColors.amber,
 
                 ),
 
@@ -725,7 +727,7 @@ super.dispose();
 
                     children: [
 
-                      const Text(
+                      Text(
 
                         'Conferma la tua email',
 
@@ -767,7 +769,7 @@ super.dispose();
 
                 _resumingRegistration
 
-                    ? const SizedBox(
+                    ? SizedBox(
 
                         width: 18,
 
@@ -777,17 +779,17 @@ super.dispose();
 
                           strokeWidth: 2,
 
-                          color: Colors.amber,
+                          color: AppColors.amber,
 
                         ),
 
                       )
 
-                    : const Icon(
+                    : Icon(
 
                         Icons.chevron_right_rounded,
 
-                        color: Colors.amber,
+                        color: AppColors.amber,
 
                       ),
 
@@ -815,11 +817,11 @@ super.dispose();
 
       decoration: BoxDecoration(
 
-        color: Colors.green.withValues(alpha: 0.10),
+        color: AppColors.green.withValues(alpha: 0.10),
 
         borderRadius: BorderRadius.circular(14),
 
-        border: Border.all(color: Colors.green.withValues(alpha: 0.30)),
+        border: Border.all(color: AppColors.green.withValues(alpha: 0.30)),
 
       ),
 
@@ -827,17 +829,17 @@ super.dispose();
 
         children: [
 
-          const Icon(
+          Icon(
 
             Icons.verified_outlined,
 
-            color: Colors.green,
+            color: AppColors.green,
 
           ),
 
           const SizedBox(width: 12),
 
-          const Expanded(
+          Expanded(
 
             child: Text(
 
@@ -924,7 +926,7 @@ super.dispose();
               ),
               const SizedBox(width: 8),
               if (_restoringSession)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   child: SizedBox(
                     width: 20,
@@ -1073,7 +1075,7 @@ super.dispose();
 
                       child: Image.asset(
 
-                        'assets/mascot/guest_profile.png',
+                        StudentLabBrand.guestAvatar,
 
                         width: 48,
 
@@ -1093,7 +1095,7 @@ super.dispose();
 
                             ) {
 
-                              return const CircleAvatar(
+                              return CircleAvatar(
 
                                 radius: 24,
 
@@ -1127,7 +1129,7 @@ super.dispose();
 
                         children: [
 
-                          const Text(
+                          Text(
 
                             'Guest',
 
@@ -1185,7 +1187,7 @@ super.dispose();
 
               ListTile(
 
-                leading: const Icon(
+                leading: Icon(
 
                   Icons.login_rounded,
 
@@ -1193,7 +1195,7 @@ super.dispose();
 
                 ),
 
-                title: const Text(
+                title: Text(
 
                   'Accedi',
 
@@ -1221,11 +1223,11 @@ super.dispose();
 
                 ),
 
-                trailing: const Icon(
+                trailing: Icon(
 
                   Icons.arrow_forward_ios_rounded,
 
-                  color: Colors.white30,
+                  color: AppColors.white30,
 
                   size: 14,
 
@@ -1243,7 +1245,7 @@ super.dispose();
 
               ListTile(
 
-                leading: const Icon(
+                leading: Icon(
 
                   Icons.person_add_alt_1_rounded,
 
@@ -1251,7 +1253,7 @@ super.dispose();
 
                 ),
 
-                title: const Text(
+                title: Text(
 
                   'Registrati',
 
@@ -1279,11 +1281,11 @@ super.dispose();
 
                 ),
 
-                trailing: const Icon(
+                trailing: Icon(
 
                   Icons.arrow_forward_ios_rounded,
 
-                  color: Colors.white30,
+                  color: AppColors.white30,
 
                   size: 14,
 
@@ -1612,7 +1614,7 @@ super.dispose();
 
           backgroundColor: AppColors.eleganceDeepNavy,
 
-          title: const Text(
+          title: Text(
 
             'Disconnetti account',
 
@@ -1658,11 +1660,11 @@ super.dispose();
 
               },
 
-              child: const Text(
+              child: Text(
 
                 'Esci',
 
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: AppColors.redAccent),
 
               ),
 
@@ -1778,7 +1780,7 @@ super.dispose();
 
                                 overflow: TextOverflow.ellipsis,
 
-                                style: const TextStyle(
+                                style: TextStyle(
 
                                   color: AppColors.pureWhite,
 
@@ -1854,6 +1856,24 @@ super.dispose();
 
                   _HomeUserMenuTile(
 
+                    icon: Icons.palette_outlined,
+
+                    label: 'Tema dell’app',
+
+                    subtitle: 'Colori, mascotte e logo',
+
+                    onTap: () {
+
+                      Navigator.pop(sheetContext);
+
+                      showStudentLabThemeSheet(context);
+
+                    },
+
+                  ),
+
+                  _HomeUserMenuTile(
+
                     icon: Icons.people_outline_rounded,
 
                     label: 'Colleghi',
@@ -1894,7 +1914,7 @@ super.dispose();
 
                       icon: Icons.cast_for_education_outlined,
 
-                      iconColor: Colors.greenAccent,
+                      iconColor: AppColors.greenAccent,
 
                       label: 'Area docente',
 
@@ -1916,7 +1936,7 @@ super.dispose();
 
                       icon: Icons.admin_panel_settings_outlined,
 
-                      iconColor: Colors.greenAccent,
+                      iconColor: AppColors.greenAccent,
 
                       label: 'Admin Panel',
 
@@ -2018,7 +2038,7 @@ this.iconColor,
 
   Widget build(BuildContext context) {
 
-    final Color textColor = danger ? Colors.redAccent : AppColors.pureWhite;
+    final Color textColor = danger ? AppColors.redAccent : AppColors.pureWhite;
 
     return ListTile(
 
@@ -2026,7 +2046,7 @@ this.iconColor,
 
         icon,
 
-        color: danger ? Colors.redAccent : iconColor ?? AppColors.skyBlue,
+        color: danger ? AppColors.redAccent : iconColor ?? AppColors.skyBlue,
 
       ),
 
@@ -2058,11 +2078,11 @@ this.iconColor,
 
       trailing: showArrow
 
-          ? const Icon(
+          ? Icon(
 
               Icons.arrow_forward_ios_rounded,
 
-              color: Colors.white30,
+              color: AppColors.white30,
 
               size: 14,
 

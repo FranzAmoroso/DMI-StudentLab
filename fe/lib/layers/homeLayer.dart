@@ -70,7 +70,7 @@ class HomeLayer extends StatelessWidget {
 
   final List<FeatureCard> _featureCards =
 
-      const <FeatureCard>[
+      <FeatureCard>[
 
     FeatureCard(
 
@@ -1125,7 +1125,7 @@ super.dispose();
 
                       style:
 
-                          const TextStyle(
+                          TextStyle(
 
                         color:
 

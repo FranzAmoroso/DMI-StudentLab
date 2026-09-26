@@ -257,7 +257,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
                 child: Text(
                   _error!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70),
+                  style: TextStyle(color: AppColors.white70),
                 ),
               ),
             )
@@ -356,7 +356,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
                           const SizedBox(height: 16),
                           Text(
                             _error!,
-                            style: const TextStyle(color: Colors.redAccent),
+                            style: TextStyle(color: AppColors.redAccent),
                           ),
                         ],
                         const SizedBox(height: 24),
@@ -402,7 +402,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.quiz_outlined, color: AppColors.skyBlue, size: 30),
+          Icon(Icons.quiz_outlined, color: AppColors.skyBlue, size: 30),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -410,7 +410,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
               children: [
                 Text(
                   widget.subject,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -419,7 +419,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
                 const SizedBox(height: 3),
                 Text(
                   '${widget.department} • ${widget.course}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  style: TextStyle(color: AppColors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -432,7 +432,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
   Widget _section(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         color: AppColors.pureWhite,
         fontSize: 17,
         fontWeight: FontWeight.bold,
@@ -448,20 +448,20 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
             value: 'random',
             groupValue: _selectionMode,
             onChanged: _setMode,
-            title: const Text(
+            title: Text(
               'Casuale',
               style: TextStyle(color: AppColors.pureWhite),
             ),
-            subtitle: const Text(
+            subtitle: Text(
               'Il server sceglie casualmente le domande.',
-              style: TextStyle(color: Colors.white54, fontSize: 11),
+              style: TextStyle(color: AppColors.white54, fontSize: 11),
             ),
           ),
           RadioListTile<String>(
             value: 'arguments',
             groupValue: _selectionMode,
             onChanged: _setMode,
-            title: const Text(
+            title: Text(
               'Per argomento',
               style: TextStyle(color: AppColors.pureWhite),
             ),
@@ -470,7 +470,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
             value: 'selected_questions',
             groupValue: _selectionMode,
             onChanged: _setMode,
-            title: const Text(
+            title: Text(
               'Domande specifiche',
               style: TextStyle(color: AppColors.pureWhite),
             ),
@@ -495,9 +495,9 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
 
     return _card(
       arguments.isEmpty
-          ? const Text(
+          ? Text(
               'Nessun argomento disponibile.',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: AppColors.white54),
             )
           : Wrap(
               spacing: 8,
@@ -550,7 +550,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
                 question['text']?.toString() ?? 'Domanda',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
                   fontSize: 12,
                 ),
@@ -565,12 +565,12 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
     return _card(
       Row(
         children: [
-          const Icon(Icons.event_outlined, color: AppColors.skyBlue),
+          Icon(Icons.event_outlined, color: AppColors.skyBlue),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               _dueAt == null ? 'Nessuna scadenza' : _formatDate(_dueAt!),
-              style: const TextStyle(color: AppColors.pureWhite),
+              style: TextStyle(color: AppColors.pureWhite),
             ),
           ),
           TextButton(onPressed: _pickDueAt, child: const Text('Imposta')),
@@ -594,7 +594,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Studenti',
             style: TextStyle(
               color: AppColors.pureWhite,
@@ -617,14 +617,14 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
               },
               title: Text(
                 user.name,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
                   fontSize: 12,
                 ),
               ),
             ),
           const Divider(),
-          const Text(
+          Text(
             'Gruppi',
             style: TextStyle(
               color: AppColors.pureWhite,
@@ -655,7 +655,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
                   },
                   title: Text(
                     group['name']?.toString() ?? 'Gruppo #$id',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.pureWhite,
                       fontSize: 12,
                     ),
@@ -695,7 +695,7 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
       minLines: minLines,
       maxLines: maxLines,
       keyboardType: keyboardType,
-      style: const TextStyle(color: AppColors.pureWhite),
+      style: TextStyle(color: AppColors.pureWhite),
       validator: (String? value) {
         if (required && (value == null || value.trim().isEmpty)) {
           return 'Campo obbligatorio.';

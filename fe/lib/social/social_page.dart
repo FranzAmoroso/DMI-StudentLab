@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/studentlab_brand.dart';
 
 import 'package:fe/widgets/studentlab_coming_soon_badge.dart';
 
@@ -397,7 +398,7 @@ class _SocialPageState extends State<SocialPage> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(24),
                       child: Image.asset(
-                        'assets/mascot/guest_profile.png',
+                        StudentLabBrand.guestAvatar,
                         width: 48,
                         height: 48,
                         fit: BoxFit.cover,
@@ -407,7 +408,7 @@ class _SocialPageState extends State<SocialPage> {
                               Object error,
                               StackTrace? stackTrace,
                             ) {
-                              return const CircleAvatar(
+                              return CircleAvatar(
                                 radius: 24,
                                 backgroundColor: AppColors.studentBlue,
                                 child: Icon(
@@ -424,7 +425,7 @@ class _SocialPageState extends State<SocialPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Guest',
                             style: TextStyle(
                               color: AppColors.pureWhite,
@@ -514,7 +515,7 @@ class _SocialPageState extends State<SocialPage> {
                               user.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.pureWhite,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -594,7 +595,7 @@ class _SocialPageState extends State<SocialPage> {
                 if (showAdminPanel)
                   _SocialUserMenuTile(
                     icon: Icons.admin_panel_settings_outlined,
-                    iconColor: Colors.greenAccent,
+                    iconColor: AppColors.greenAccent,
                     label: 'Admin Panel',
                     subtitle: 'Gestione e strumenti amministrativi',
                     onTap: () {
@@ -683,7 +684,7 @@ class _SocialPageState extends State<SocialPage> {
                         borderRadius: BorderRadius.circular(16),
 
                         child: Image.asset(
-                          'assets/mascot/guest_profile.png',
+                          StudentLabBrand.guestAvatar,
 
                           width: 32,
 
@@ -699,7 +700,7 @@ class _SocialPageState extends State<SocialPage> {
 
                                 StackTrace? stackTrace,
                               ) {
-                                return const CircleAvatar(
+                                return CircleAvatar(
                                   radius: 16,
 
                                   backgroundColor: AppColors.studentBlue,
@@ -716,7 +717,7 @@ class _SocialPageState extends State<SocialPage> {
                         ),
                       )
                     : currentUser == null
-                    ? const CircleAvatar(
+                    ? CircleAvatar(
                         radius: 16,
 
                         backgroundColor: AppColors.studentBlue,
@@ -1057,7 +1058,7 @@ class _TutorHubSectionState extends State<_TutorHubSection> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
         children: [
-          const Text(
+          Text(
             'Tutor',
             style: TextStyle(
               color: AppColors.pureWhite,
@@ -1080,11 +1081,11 @@ class _TutorHubSectionState extends State<_TutorHubSection> {
             onChanged: (_) {
               setState(() {});
             },
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
             decoration: InputDecoration(
               hintText: 'Cerca tutor o materia...',
-              hintStyle: const TextStyle(color: Colors.white38),
-              prefixIcon: const Icon(
+              hintStyle: TextStyle(color: AppColors.white38),
+              prefixIcon: Icon(
                 Icons.search_rounded,
                 color: AppColors.skyBlue,
               ),
@@ -1288,7 +1289,7 @@ class _ComingSoonSection extends StatelessWidget {
 
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -1342,12 +1343,12 @@ class _SocialUserMenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color = danger ? Colors.redAccent : AppColors.pureWhite;
+    final Color color = danger ? AppColors.redAccent : AppColors.pureWhite;
 
     return ListTile(
       leading: Icon(
         icon,
-        color: danger ? Colors.redAccent : iconColor ?? AppColors.skyBlue,
+        color: danger ? AppColors.redAccent : iconColor ?? AppColors.skyBlue,
       ),
       title: Text(
         label,
@@ -1363,9 +1364,9 @@ class _SocialUserMenuTile extends StatelessWidget {
               ),
             ),
       trailing: showArrow
-          ? const Icon(
+          ? Icon(
               Icons.arrow_forward_ios_rounded,
-              color: Colors.white30,
+              color: AppColors.white30,
               size: 14,
             )
           : null,
@@ -1525,7 +1526,7 @@ class _GuestSocialPageState extends State<_GuestSocialPage> {
 
                       const SizedBox(height: 28),
 
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.people_outline_rounded,
@@ -1610,7 +1611,7 @@ class _GuestSocialPageState extends State<_GuestSocialPage> {
               borderRadius: BorderRadius.circular(13),
             ),
 
-            child: const Icon(
+            child: Icon(
               Icons.explore_outlined,
 
               color: AppColors.skyBlue,
@@ -1626,7 +1627,7 @@ class _GuestSocialPageState extends State<_GuestSocialPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
-                const Text(
+                Text(
                   'Esplora la community',
 
                   style: TextStyle(
@@ -1696,7 +1697,7 @@ class _GuestSocialPageState extends State<_GuestSocialPage> {
                   borderRadius: BorderRadius.circular(13),
                 ),
 
-                child: const Icon(
+                child: Icon(
                   Icons.groups_2_outlined,
 
                   color: AppColors.skyBlue,
@@ -1712,7 +1713,7 @@ class _GuestSocialPageState extends State<_GuestSocialPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
-                    const Text(
+                    Text(
                       'Gruppi pubblici',
 
                       style: TextStyle(
@@ -2120,7 +2121,7 @@ class _SocialProfilePageState extends State<_SocialProfilePage> {
                     Text(
                       user.name.isEmpty ? 'Profilo StudentLab' : user.name,
 
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
 
                         fontSize: 21,
@@ -2150,10 +2151,10 @@ class _SocialProfilePageState extends State<_SocialProfilePage> {
                         if (isTeacher && user.isVerifiedTeacher) ...[
                           const SizedBox(width: 5),
 
-                          const Icon(
+                          Icon(
                             Icons.verified_rounded,
 
-                            color: Colors.greenAccent,
+                            color: AppColors.greenAccent,
 
                             size: 15,
                           ),
@@ -2216,7 +2217,7 @@ class _SocialProfilePageState extends State<_SocialProfilePage> {
 
             const SizedBox(height: 14),
 
-            const Text(
+            Text(
               'Titoli conseguiti',
 
               style: TextStyle(
@@ -2249,7 +2250,7 @@ class _SocialProfilePageState extends State<_SocialProfilePage> {
 
             const SizedBox(height: 14),
 
-            const Text(
+            Text(
               'Percorsi accademici',
 
               style: TextStyle(
@@ -2284,7 +2285,7 @@ class _SocialProfilePageState extends State<_SocialProfilePage> {
           Text(
             isTeacher ? 'Insegnamenti' : 'Materie',
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
 
               fontSize: 15,
@@ -2326,7 +2327,7 @@ class _SocialProfilePageState extends State<_SocialProfilePage> {
 
           const SizedBox(height: 14),
 
-          const Text(
+          Text(
             'Descrizione',
 
             style: TextStyle(
@@ -2594,16 +2595,16 @@ class _SocialUsersPageState extends State<_SocialUsersPage> {
                       setState(() {});
                     },
 
-                    style: const TextStyle(color: AppColors.pureWhite),
+                    style: TextStyle(color: AppColors.pureWhite),
 
                     decoration: InputDecoration(
                       hintText: widget.tutorOnly
                           ? 'Cerca tutor, materie, corsi...'
                           : 'Cerca studenti, insegnanti, materie...',
 
-                      hintStyle: const TextStyle(color: Colors.white38),
+                      hintStyle: TextStyle(color: AppColors.white38),
 
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.search_rounded,
 
                         color: AppColors.skyBlue,
@@ -2958,7 +2959,7 @@ class _SocialGroupsPageState extends State<_SocialGroupsPage> {
               borderRadius: BorderRadius.circular(14),
             ),
 
-            child: const Icon(
+            child: Icon(
               Icons.groups_2_rounded,
 
               color: AppColors.skyBlue,
@@ -2974,7 +2975,7 @@ class _SocialGroupsPageState extends State<_SocialGroupsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
-                const Text(
+                Text(
                   'I tuoi gruppi',
 
                   style: TextStyle(
@@ -3295,7 +3296,7 @@ class _UserGroupFilterChip extends StatelessWidget {
               child: Text(
                 '$count',
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.materialSky,
 
                   fontSize: 9,
@@ -3350,7 +3351,7 @@ class _EmptyGroupHubCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
 
-            child: const Icon(
+            child: Icon(
               Icons.groups_outlined,
 
               color: AppColors.skyBlue,
@@ -3368,7 +3369,7 @@ class _EmptyGroupHubCard extends StatelessWidget {
 
             textAlign: TextAlign.center,
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
 
               fontSize: 15,
@@ -3449,7 +3450,7 @@ class _AvailabilityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color = available ? Colors.greenAccent : Colors.white30;
+    final Color color = available ? AppColors.greenAccent : AppColors.white30;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -3506,7 +3507,7 @@ class _ProfileInfoRow extends StatelessWidget {
               Text(
                 title,
 
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                style: TextStyle(color: AppColors.white38, fontSize: 10),
               ),
 
               const SizedBox(height: 2),
@@ -3514,7 +3515,7 @@ class _ProfileInfoRow extends StatelessWidget {
               Text(
                 value,
 
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: TextStyle(color: AppColors.white70, fontSize: 12),
               ),
             ],
           ),
@@ -3543,7 +3544,7 @@ class _SubjectChip extends StatelessWidget {
       child: Text(
         label,
 
-        style: const TextStyle(color: Colors.white70, fontSize: 11),
+        style: TextStyle(color: AppColors.white70, fontSize: 11),
       ),
     );
   }
@@ -3580,7 +3581,7 @@ class _ProfileCapabilityChip extends StatelessWidget {
           Text(
             label,
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.materialSky,
 
               fontSize: 10,
@@ -3615,7 +3616,7 @@ class _ProfileAcademicTitleCard extends StatelessWidget {
 
         borderRadius: BorderRadius.circular(12),
 
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.18)),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.18)),
       ),
 
       child: Column(
@@ -3632,15 +3633,15 @@ class _ProfileAcademicTitleCard extends StatelessWidget {
                 height: 34,
 
                 decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.10),
+                  color: AppColors.amber.withValues(alpha: 0.10),
 
                   borderRadius: BorderRadius.circular(10),
                 ),
 
-                child: const Icon(
+                child: Icon(
                   Icons.workspace_premium_outlined,
 
-                  color: Colors.amber,
+                  color: AppColors.amber,
 
                   size: 19,
                 ),
@@ -3656,7 +3657,7 @@ class _ProfileAcademicTitleCard extends StatelessWidget {
                     Text(
                       label,
 
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
 
                         fontSize: 13,
@@ -3764,7 +3765,7 @@ class _ProfileAcademicPathCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
-              const Icon(
+              Icon(
                 Icons.account_balance_outlined,
 
                 color: AppColors.skyBlue,
@@ -3780,7 +3781,7 @@ class _ProfileAcademicPathCard extends StatelessWidget {
                       ? 'Ateneo non specificato'
                       : path.university,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
 
                     fontSize: 12,
@@ -3952,7 +3953,7 @@ class _ProfileAcademicStatusBadge extends StatelessWidget {
           Text(
             label,
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.materialSky,
 
               fontSize: 9,
@@ -4018,15 +4019,15 @@ class _ProfileVerificationBadge extends StatelessWidget {
 
     if (verified) {
       label = 'VERIFICATO';
-      color = Colors.greenAccent;
+      color = AppColors.greenAccent;
       icon = Icons.verified_rounded;
     } else if (rejected) {
       label = 'RIFIUTATO';
-      color = Colors.redAccent;
+      color = AppColors.redAccent;
       icon = Icons.cancel_outlined;
     } else if (pending) {
       label = 'DA VERIFICARE';
-      color = Colors.amber;
+      color = AppColors.amber;
       icon = Icons.schedule_rounded;
     } else {
       label = 'DICHIARATO';
@@ -4096,7 +4097,7 @@ class _ProfileSubjectCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.menu_book_outlined,
 
                 color: AppColors.skyBlue,
@@ -4110,7 +4111,7 @@ class _ProfileSubjectCard extends StatelessWidget {
                 child: Text(
                   subject.name,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.skyBlue,
 
                     fontSize: 13,
@@ -4224,7 +4225,7 @@ class _ProfileTeacherAssignmentCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
-              const Icon(
+              Icon(
                 Icons.school_outlined,
 
                 color: AppColors.skyBlue,
@@ -4238,7 +4239,7 @@ class _ProfileTeacherAssignmentCard extends StatelessWidget {
                 child: Text(
                   assignment.subject.name,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.skyBlue,
 
                     fontSize: 13,
@@ -4312,7 +4313,7 @@ class _ProfileSubjectBadge extends StatelessWidget {
           Text(
             label,
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.materialSky,
 
               fontSize: 8,
@@ -4346,12 +4347,12 @@ class _ProfileReviewSummary extends StatelessWidget {
 
       child: Row(
         children: [
-          const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
+          Icon(Icons.star_rounded, color: AppColors.amber, size: 20),
 
           const SizedBox(width: 6),
 
           if (user.reviews.isEmpty)
-            const Text(
+            Text(
               'Nessuna recensione',
 
               style: TextStyle(color: AppColors.pureWhite, fontSize: 12),
@@ -4360,7 +4361,7 @@ class _ProfileReviewSummary extends StatelessWidget {
             Text(
               user.averageRating.toStringAsFixed(1),
 
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
 
                 fontWeight: FontWeight.bold,
@@ -4419,7 +4420,7 @@ class _StatisticCard extends StatelessWidget {
           Text(
             value,
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
 
               fontSize: 17,
@@ -4431,7 +4432,7 @@ class _StatisticCard extends StatelessWidget {
           Text(
             label,
 
-            style: const TextStyle(color: Colors.white38, fontSize: 9),
+            style: TextStyle(color: AppColors.white38, fontSize: 9),
           ),
         ],
       ),
@@ -4459,10 +4460,10 @@ class _ErrorCard extends StatelessWidget {
 
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
 
-            color: Colors.redAccent,
+            color: AppColors.redAccent,
 
             size: 35,
           ),
@@ -4474,7 +4475,7 @@ class _ErrorCard extends StatelessWidget {
 
             textAlign: TextAlign.center,
 
-            style: const TextStyle(color: Colors.white60, fontSize: 11),
+            style: TextStyle(color: AppColors.white60, fontSize: 11),
           ),
 
           const SizedBox(height: 14),
@@ -4522,14 +4523,14 @@ class _EmptyCard extends StatelessWidget {
 
       child: Column(
         children: [
-          Icon(icon, color: Colors.white30, size: 40),
+          Icon(icon, color: AppColors.white30, size: 40),
 
           const SizedBox(height: 10),
 
           Text(
             title,
 
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
 
               fontSize: 14,
@@ -4545,7 +4546,7 @@ class _EmptyCard extends StatelessWidget {
 
             textAlign: TextAlign.center,
 
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: TextStyle(color: AppColors.white54, fontSize: 11),
           ),
         ],
       ),

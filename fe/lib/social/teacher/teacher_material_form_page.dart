@@ -170,7 +170,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Seleziona materia',
                         style: TextStyle(
                           color: AppColors.pureWhite,
@@ -181,7 +181,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                       const SizedBox(height: 12),
                       TextField(
                         autofocus: false,
-                        style: const TextStyle(color: AppColors.pureWhite),
+                        style: TextStyle(color: AppColors.pureWhite),
                         decoration: const InputDecoration(
                           hintText: 'Cerca materia, codice, corso...',
                           prefixIcon: Icon(Icons.search_rounded),
@@ -195,44 +195,44 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                       const SizedBox(height: 12),
                       Expanded(
                         child: visible.isEmpty
-                            ? const Center(
+                            ? Center(
                                 child: Text(
                                   'Nessuna materia verificata corrispondente.',
-                                  style: TextStyle(color: Colors.white54),
+                                  style: TextStyle(color: AppColors.white54),
                                 ),
                               )
                             : ListView.separated(
                                 itemCount: visible.length,
-                                separatorBuilder: (_, __) => const Divider(
+                                separatorBuilder: (_, __) => Divider(
                                   height: 1,
-                                  color: Colors.white10,
+                                  color: AppColors.white10,
                                 ),
                                 itemBuilder: (BuildContext context, int index) {
                                   final Map<String, dynamic> subject =
                                       visible[index];
                                   final int id = _toInt(subject['id'])!;
                                   return ListTile(
-                                    leading: const Icon(
+                                    leading: Icon(
                                       Icons.menu_book_outlined,
                                       color: AppColors.teacherIndigo,
                                     ),
                                     title: Text(
                                       _subjectLabel(subject),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: AppColors.pureWhite,
                                       ),
                                     ),
                                     subtitle: Text(
                                       _subjectContext(subject),
-                                      style: const TextStyle(
-                                        color: Colors.white38,
+                                      style: TextStyle(
+                                        color: AppColors.white38,
                                         fontSize: 10,
                                       ),
                                     ),
                                     trailing: _selectedSubjectId == id
-                                        ? const Icon(
+                                        ? Icon(
                                             Icons.check_rounded,
-                                            color: Colors.greenAccent,
+                                            color: AppColors.greenAccent,
                                           )
                                         : null,
                                     onTap: () =>
@@ -380,7 +380,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.darkElegance,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.teacherIndigo),
@@ -403,7 +403,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
               constraints: const BoxConstraints(maxWidth: 500),
               child: _messageCard(
                 icon: Icons.gpp_bad_outlined,
-                iconColor: Colors.redAccent,
+                iconColor: AppColors.redAccent,
                 title: 'Accesso non autorizzato',
                 message:
                     _error ??
@@ -449,7 +449,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                         controller: _titleController,
                         enabled: !_uploading,
                         maxLength: 255,
-                        style: const TextStyle(color: AppColors.pureWhite),
+                        style: TextStyle(color: AppColors.pureWhite),
                         decoration: const InputDecoration(
                           labelText: 'Titolo',
                           prefixIcon: Icon(Icons.title_rounded),
@@ -462,7 +462,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                         minLines: 4,
                         maxLines: 7,
                         maxLength: 5000,
-                        style: const TextStyle(color: AppColors.pureWhite),
+                        style: TextStyle(color: AppColors.pureWhite),
                         decoration: const InputDecoration(
                           labelText: 'Descrizione',
                           prefixIcon: Icon(Icons.notes_rounded),
@@ -545,12 +545,12 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                       foregroundColor: AppColors.pureWhite,
                     ),
                     icon: _uploading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                           )
                         : const Icon(Icons.cloud_upload_outlined),
@@ -588,7 +588,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
               color: AppColors.teacherIndigo.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(15),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.upload_file_outlined,
               color: AppColors.teacherIndigo,
               size: 28,
@@ -614,7 +614,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
     if (_subjects.isEmpty) {
       return _messageCard(
         icon: Icons.menu_book_outlined,
-        iconColor: Colors.orangeAccent,
+        iconColor: AppColors.orangeAccent,
         title: 'Nessuna materia verificata',
         message:
             'StudentLab non ha ricevuto materie verificabili per questo docente. Aggiorna l’elenco; se resta vuoto va controllata l’assegnazione docente nel backend.',
@@ -628,7 +628,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
       readOnly: true,
       enabled: !_uploading,
       onTap: _pickSubject,
-      style: const TextStyle(color: AppColors.pureWhite),
+      style: TextStyle(color: AppColors.pureWhite),
       decoration: InputDecoration(
         labelText: 'Materia',
         hintText: 'Seleziona una materia verificata',
@@ -656,7 +656,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
               color: AppColors.teacherIndigo.withValues(alpha: 0.22),
             ),
           ),
-          child: const Column(
+          child: Column(
             children: [
               Icon(
                 Icons.cloud_upload_outlined,
@@ -676,7 +676,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
               Text(
                 'PDF, TXT, ZIP, DOCX, PPTX · massimo 250 MB',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white38, fontSize: 9),
+                style: TextStyle(color: AppColors.white38, fontSize: 9),
               ),
             ],
           ),
@@ -695,7 +695,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.insert_drive_file_outlined,
             color: AppColors.teacherIndigo,
             size: 28,
@@ -709,7 +709,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                   file.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -718,7 +718,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                 const SizedBox(height: 3),
                 Text(
                   _formatFileSize(file.size),
-                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                  style: TextStyle(color: AppColors.white38, fontSize: 9),
                 ),
               ],
             ),
@@ -732,7 +732,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
                   _selectedFilePath = null;
                 });
               },
-              icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
+              icon: Icon(Icons.close_rounded, color: AppColors.redAccent),
             ),
         ],
       ),
@@ -760,7 +760,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -797,7 +797,7 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.pureWhite,
               fontWeight: FontWeight.bold,
             ),
@@ -806,8 +806,8 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: AppColors.white54,
               fontSize: 10,
               height: 1.4,
             ),
@@ -823,18 +823,18 @@ class _TeacherMaterialFormPageState extends State<TeacherMaterialFormPage> {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.07),
+        color: AppColors.redAccent.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.16)),
+        border: Border.all(color: AppColors.redAccent.withValues(alpha: 0.16)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.redAccent),
+          Icon(Icons.error_outline_rounded, color: AppColors.redAccent),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
               _error!,
-              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              style: TextStyle(color: AppColors.white70, fontSize: 10),
             ),
           ),
         ],

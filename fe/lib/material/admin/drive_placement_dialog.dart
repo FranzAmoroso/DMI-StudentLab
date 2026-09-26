@@ -64,7 +64,7 @@ class _DrivePlacementDialogState extends State<DrivePlacementDialog> {
   Widget _line(String label, Object? value) => Padding(
     padding: const EdgeInsets.only(bottom: 5),
     child: Text('$label: ${value ?? '—'}',
-      style: const TextStyle(color: Colors.white70, fontSize: 12)));
+      style: TextStyle(color: AppColors.white70, fontSize: 12)));
 
   @override
   Widget build(BuildContext context) {
@@ -80,15 +80,15 @@ class _DrivePlacementDialogState extends State<DrivePlacementDialog> {
         (conflicts.isEmpty || _acknowledged);
     return AlertDialog(
       backgroundColor: AppColors.eleganceDeepNavy,
-      title: const Text('Percorso e duplicati Drive',
+      title: Text('Percorso e duplicati Drive',
         style: TextStyle(color: AppColors.pureWhite)),
       content: SizedBox(width: 570, child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Controlla il file e scegli la cartella dentro StudentLab.',
-            style: TextStyle(color: Colors.white70)),
+          Text('Controlla il file e scegli la cartella dentro StudentLab.',
+            style: TextStyle(color: AppColors.white70)),
           const SizedBox(height: 10),
-          TextField(controller: _path, style: const TextStyle(color: Colors.white),
+          TextField(controller: _path, style: TextStyle(color: AppColors.white),
             onChanged: (_) => setState(() { _result = null; _acknowledged = false; }),
             decoration: const InputDecoration(labelText: 'Cartelle separate da /')),
           const SizedBox(height: 7),
@@ -100,21 +100,21 @@ class _DrivePlacementDialogState extends State<DrivePlacementDialog> {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.orangeAccent.withValues(alpha: 0.10),
+              color: AppColors.orangeAccent.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.35)),
+              border: Border.all(color: AppColors.orangeAccent.withValues(alpha: 0.35)),
             ),
             child: Row(children: [
-              const Icon(Icons.info_outline, color: Colors.orangeAccent),
+              Icon(Icons.info_outline, color: AppColors.orangeAccent),
               const SizedBox(width: 10),
-              Expanded(child: Text(_error!, style: const TextStyle(color: Colors.white70))),
+              Expanded(child: Text(_error!, style: TextStyle(color: AppColors.white70))),
               TextButton(onPressed: _loading ? null : () => _inspect(_segments.isEmpty ? null : _segments),
                 child: const Text('Riprova')),
             ]),
           ),
           if (_result != null) ...[
             const SizedBox(height: 14),
-            const Text('File proposto', style: TextStyle(color: Colors.white,
+            Text('File proposto', style: TextStyle(color: AppColors.white,
               fontWeight: FontWeight.bold)),
             _line('Percorso', proposed['path']),
             _line('Dimensione', proposed['size']),
@@ -129,8 +129,8 @@ class _DrivePlacementDialogState extends State<DrivePlacementDialog> {
             if (conflicts.isEmpty) const Text('Nessun nome o hash corrispondente nell’albero Drive.',
               style: TextStyle(color: Colors.lightGreenAccent))
             else ...[
-              const Text('Possibili corrispondenze trovate', style: TextStyle(
-                color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+              Text('Possibili corrispondenze trovate', style: TextStyle(
+                color: AppColors.orangeAccent, fontWeight: FontWeight.bold)),
               for (final match in conflicts) Card(color: AppColors.eleganceMidnight,
                 child: Padding(padding: const EdgeInsets.all(10), child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -147,12 +147,12 @@ class _DrivePlacementDialogState extends State<DrivePlacementDialog> {
                         icon: const Icon(Icons.visibility_outlined),
                         label: const Text('Apri il file trovato')),
                   ]))),
-              if (collision) const Text('Esiste già un omonimo nella cartella scelta: usa un altro percorso.',
-                style: TextStyle(color: Colors.orangeAccent)),
+              if (collision) Text('Esiste già un omonimo nella cartella scelta: usa un altro percorso.',
+                style: TextStyle(color: AppColors.orangeAccent)),
               CheckboxListTile(value: _acknowledged,
                 onChanged: (value) => setState(() => _acknowledged = value == true),
-                title: const Text('Ho confrontato i file. Confermo il caricamento nel percorso scelto.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13))),
+                title: Text('Ho confrontato i file. Confermo il caricamento nel percorso scelto.',
+                  style: TextStyle(color: AppColors.white70, fontSize: 13))),
             ],
           ],
         ]))),

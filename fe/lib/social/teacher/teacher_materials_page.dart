@@ -263,7 +263,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                 return AlertDialog(
                   backgroundColor: AppColors.eleganceDeepNavy,
 
-                  title: const Text(
+                  title: Text(
                     'Modifica materiale',
 
                     style: TextStyle(color: AppColors.pureWhite),
@@ -280,7 +280,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                           TextField(
                             controller: titleController,
 
-                            style: const TextStyle(color: AppColors.pureWhite),
+                            style: TextStyle(color: AppColors.pureWhite),
 
                             decoration: _inputDecoration(label: 'Titolo'),
                           ),
@@ -294,7 +294,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                             maxLines: 6,
 
-                            style: const TextStyle(color: AppColors.pureWhite),
+                            style: TextStyle(color: AppColors.pureWhite),
 
                             decoration: _inputDecoration(label: 'Descrizione'),
                           ),
@@ -306,7 +306,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                             dropdownColor: AppColors.eleganceDeepNavy,
 
-                            style: const TextStyle(color: AppColors.pureWhite),
+                            style: TextStyle(color: AppColors.pureWhite),
 
                             decoration: _inputDecoration(label: 'Visibilità'),
 
@@ -340,17 +340,17 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
 
-                            title: const Text(
+                            title: Text(
                               'Materiale attivo',
 
                               style: TextStyle(color: AppColors.pureWhite),
                             ),
 
-                            subtitle: const Text(
+                            subtitle: Text(
                               'Se disattivato non sarà disponibile agli studenti.',
 
                               style: TextStyle(
-                                color: Colors.white54,
+                                color: AppColors.white54,
 
                                 fontSize: 10,
                               ),
@@ -490,7 +490,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
         return AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
 
-          title: const Text(
+          title: Text(
             'Elimina materiale',
 
             style: TextStyle(color: AppColors.pureWhite),
@@ -501,7 +501,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                 ? 'Vuoi eliminare definitivamente questo materiale?'
                 : 'Vuoi eliminare definitivamente "$title"?',
 
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: AppColors.white70),
           ),
 
           actions: [
@@ -518,10 +518,10 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                 Navigator.pop(dialogContext, true);
               },
 
-              child: const Text(
+              child: Text(
                 'Elimina',
 
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: AppColors.redAccent),
               ),
             ),
           ],
@@ -699,7 +699,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.darkElegance,
 
         body: Center(
@@ -714,7 +714,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
               Text(
                 'Caricamento materiali...',
 
-                style: TextStyle(color: Colors.white60, fontSize: 12),
+                style: TextStyle(color: AppColors.white60, fontSize: 12),
               ),
             ],
           ),
@@ -751,24 +751,24 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                   borderRadius: BorderRadius.circular(20),
 
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.18)),
+                  border: Border.all(color: AppColors.redAccent.withOpacity(0.18)),
                 ),
 
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
 
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.gpp_bad_outlined,
 
-                      color: Colors.redAccent,
+                      color: AppColors.redAccent,
 
                       size: 46,
                     ),
 
                     const SizedBox(height: 16),
 
-                    const Text(
+                    Text(
                       'Accesso non autorizzato',
 
                       textAlign: TextAlign.center,
@@ -784,13 +784,13 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                     const SizedBox(height: 9),
 
-                    const Text(
+                    Text(
                       'Solo i docenti verificati e attivi possono gestire i materiali.',
 
                       textAlign: TextAlign.center,
 
                       style: TextStyle(
-                        color: Colors.white54,
+                        color: AppColors.white54,
 
                         fontSize: 11,
 
@@ -806,8 +806,8 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                         textAlign: TextAlign.center,
 
-                        style: const TextStyle(
-                          color: Colors.white30,
+                        style: TextStyle(
+                          color: AppColors.white30,
 
                           fontSize: 9,
                         ),
@@ -852,7 +852,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
         actions: [
           if (_busy)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(right: 14),
 
               child: Center(
@@ -930,7 +930,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                             Text(
                               '${materials.length} material${materials.length == 1 ? 'e' : 'i'}',
 
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.pureWhite,
 
                                 fontSize: 13,
@@ -944,8 +944,8 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                             Text(
                               '${_materials.length} totali',
 
-                              style: const TextStyle(
-                                color: Colors.white38,
+                              style: TextStyle(
+                                color: AppColors.white38,
 
                                 fontSize: 10,
                               ),
@@ -1037,7 +1037,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                   borderRadius: BorderRadius.circular(15),
                 ),
 
-                child: const Icon(
+                child: Icon(
                   Icons.folder_copy_outlined,
 
                   color: AppColors.teacherIndigo,
@@ -1053,7 +1053,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
-                    const Text(
+                    Text(
                       'I tuoi materiali',
 
                       style: TextStyle(
@@ -1086,19 +1086,19 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
 
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent.withOpacity(0.08),
+                  color: AppColors.greenAccent.withOpacity(0.08),
 
                   borderRadius: BorderRadius.circular(8),
                 ),
 
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
 
                   children: [
                     Icon(
                       Icons.verified_user_outlined,
 
-                      color: Colors.greenAccent,
+                      color: AppColors.greenAccent,
 
                       size: 12,
                     ),
@@ -1109,7 +1109,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                       'Accesso verificato',
 
                       style: TextStyle(
-                        color: Colors.greenAccent,
+                        color: AppColors.greenAccent,
 
                         fontSize: 8,
 
@@ -1170,7 +1170,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
     return Column(
       children: [
         TextField(
-          style: const TextStyle(color: AppColors.pureWhite, fontSize: 12),
+          style: TextStyle(color: AppColors.pureWhite, fontSize: 12),
 
           onChanged: (String value) {
             setState(() {
@@ -1181,12 +1181,12 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
           decoration: InputDecoration(
             hintText: 'Cerca materiale...',
 
-            hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+            hintStyle: TextStyle(color: AppColors.white38, fontSize: 11),
 
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.search_rounded,
 
-              color: Colors.white38,
+              color: AppColors.white38,
 
               size: 20,
             ),
@@ -1206,7 +1206,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
 
-              borderSide: const BorderSide(color: AppColors.teacherIndigo),
+              borderSide: BorderSide(color: AppColors.teacherIndigo),
             ),
           ),
         ),
@@ -1297,7 +1297,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
         border: Border.all(
           color: isActive
               ? AppColors.teacherIndigo.withOpacity(0.14)
-              : Colors.white.withOpacity(0.05),
+              : AppColors.white.withOpacity(0.05),
         ),
       ),
 
@@ -1321,7 +1321,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
             child: Icon(
               _fileIcon(originalName),
 
-              color: isActive ? AppColors.teacherIndigo : Colors.white24,
+              color: isActive ? AppColors.teacherIndigo : AppColors.white24,
 
               size: 25,
             ),
@@ -1347,7 +1347,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                         style: TextStyle(
                           color: isActive
                               ? AppColors.pureWhite
-                              : Colors.white38,
+                              : AppColors.white38,
 
                           fontSize: 14,
 
@@ -1359,10 +1359,10 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                     PopupMenuButton<String>(
                       color: AppColors.eleganceDeepNavy,
 
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.more_vert_rounded,
 
-                        color: Colors.white54,
+                        color: AppColors.white54,
                       ),
 
                       onSelected: (String value) {
@@ -1376,7 +1376,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                       },
 
                       itemBuilder: (BuildContext context) {
-                        return const [
+                        return [
                           PopupMenuItem<String>(
                             value: 'edit',
 
@@ -1409,7 +1409,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                                 Icon(
                                   Icons.delete_outline_rounded,
 
-                                  color: Colors.redAccent,
+                                  color: AppColors.redAccent,
 
                                   size: 18,
                                 ),
@@ -1419,7 +1419,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                                 Text(
                                   'Elimina',
 
-                                  style: TextStyle(color: Colors.redAccent),
+                                  style: TextStyle(color: AppColors.redAccent),
                                 ),
                               ],
                             ),
@@ -1442,7 +1442,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                         overflow: TextOverflow.ellipsis,
 
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.materialSky,
 
                           fontSize: 9,
@@ -1464,8 +1464,8 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                     overflow: TextOverflow.ellipsis,
 
-                    style: const TextStyle(
-                      color: Colors.white54,
+                    style: TextStyle(
+                      color: AppColors.white54,
 
                       fontSize: 10,
 
@@ -1519,12 +1519,12 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.attach_file_rounded,
 
                         size: 12,
 
-                        color: Colors.white30,
+                        color: AppColors.white30,
                       ),
 
                       const SizedBox(width: 4),
@@ -1537,8 +1537,8 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
                           overflow: TextOverflow.ellipsis,
 
-                          style: const TextStyle(
-                            color: Colors.white30,
+                          style: TextStyle(
+                            color: AppColors.white30,
 
                             fontSize: 8,
                           ),
@@ -1562,19 +1562,19 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
       padding: const EdgeInsets.all(12),
 
       decoration: BoxDecoration(
-        color: Colors.redAccent.withOpacity(0.07),
+        color: AppColors.redAccent.withOpacity(0.07),
 
         borderRadius: BorderRadius.circular(12),
 
-        border: Border.all(color: Colors.redAccent.withOpacity(0.14)),
+        border: Border.all(color: AppColors.redAccent.withOpacity(0.14)),
       ),
 
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
 
-            color: Colors.redAccent,
+            color: AppColors.redAccent,
 
             size: 18,
           ),
@@ -1585,7 +1585,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
             child: Text(
               _error!,
 
-              style: const TextStyle(color: Colors.white54, fontSize: 9),
+              style: TextStyle(color: AppColors.white54, fontSize: 9),
             ),
           ),
         ],
@@ -1613,7 +1613,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
                 borderRadius: BorderRadius.circular(21),
               ),
 
-              child: const Icon(
+              child: Icon(
                 Icons.folder_off_outlined,
 
                 color: AppColors.teacherIndigo,
@@ -1624,7 +1624,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
             const SizedBox(height: 16),
 
-            const Text(
+            Text(
               'Nessun materiale',
 
               style: TextStyle(
@@ -1645,8 +1645,8 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
 
               textAlign: TextAlign.center,
 
-              style: const TextStyle(
-                color: Colors.white38,
+              style: TextStyle(
+                color: AppColors.white38,
 
                 fontSize: 10,
 
@@ -1663,7 +1663,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
     return InputDecoration(
       labelText: label,
 
-      labelStyle: const TextStyle(color: Colors.white54),
+      labelStyle: TextStyle(color: AppColors.white54),
 
       filled: true,
 
@@ -1678,7 +1678,7 @@ class _TeacherMaterialsPageState extends State<TeacherMaterialsPage> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
 
-        borderSide: const BorderSide(color: AppColors.teacherIndigo),
+        borderSide: BorderSide(color: AppColors.teacherIndigo),
       ),
     );
   }
@@ -1783,7 +1783,7 @@ class _TeacherMaterialStat extends StatelessWidget {
               Text(
                 value,
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
 
                   fontSize: 13,
@@ -1795,7 +1795,7 @@ class _TeacherMaterialStat extends StatelessWidget {
               Text(
                 label,
 
-                style: const TextStyle(color: Colors.white38, fontSize: 8),
+                style: TextStyle(color: AppColors.white38, fontSize: 8),
               ),
             ],
           ),
@@ -1850,7 +1850,7 @@ class _FilterChipButton extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
 
           style: TextStyle(
-            color: selected ? AppColors.teacherIndigo : Colors.white54,
+            color: selected ? AppColors.teacherIndigo : AppColors.white54,
 
             fontSize: 9,
 
@@ -1884,14 +1884,14 @@ class _MaterialBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
 
         children: [
-          Icon(icon, color: Colors.white38, size: 10),
+          Icon(icon, color: AppColors.white38, size: 10),
 
           const SizedBox(width: 4),
 
           Text(
             text,
 
-            style: const TextStyle(color: Colors.white54, fontSize: 8),
+            style: TextStyle(color: AppColors.white54, fontSize: 8),
           ),
         ],
       ),

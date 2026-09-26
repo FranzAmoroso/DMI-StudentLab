@@ -4519,12 +4519,14 @@ class ApiService {
     required int requestId,
     required String action,
     int? fulfilledMaterialId,
+    int? fulfilledShareId,
   }) async {
     final http.Response response = await http.post(
       _apiUri('/teacher-material-requests/$requestId/resolve'),
       headers: _jsonHeaders,
       body: jsonEncode({
         'action': action,
+        'fulfilled_share_id': fulfilledShareId,
         'fulfilled_material_id': fulfilledMaterialId,
       }),
     );

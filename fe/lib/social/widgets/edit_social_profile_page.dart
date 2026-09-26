@@ -9,6 +9,8 @@ import '../social_models.dart';
 
 import 'manage_profile_subjects_page.dart';
 
+import '../../widgets/studentlab_ui/theme_picker.dart';
+
 class EditSocialProfilePage extends StatefulWidget {
   final SocialUser user;
 
@@ -412,7 +414,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
         return AlertDialog(
           backgroundColor: AppColors.eleganceDeepNavy,
 
-          title: const Text(
+          title: Text(
             'Rimuovi percorso',
 
             style: TextStyle(color: AppColors.pureWhite),
@@ -438,10 +440,10 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
                 Navigator.pop(dialogContext, true);
               },
 
-              child: const Text(
+              child: Text(
                 'Rimuovi',
 
-                style: TextStyle(color: Colors.redAccent),
+                style: TextStyle(color: AppColors.redAccent),
               ),
             ),
           ],
@@ -556,7 +558,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
           TextButton(
             onPressed: _saving || _academicWorking ? null : _save,
 
-            child: const Text(
+            child: Text(
               'Salva',
 
               style: TextStyle(
@@ -607,6 +609,11 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
 
                   _buildDescriptionSection(),
 
+                  const SizedBox(height: 16),
+
+                  // Tema dell'app: si applica subito ed è salvato sul dispositivo.
+                  const StudentLabThemeSection(),
+
                   if (_error != null) ...[
                     const SizedBox(height: 18),
 
@@ -622,7 +629,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
                       onPressed: _saving || _academicWorking ? null : _save,
 
                       icon: _saving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 18,
 
                               height: 18,
@@ -698,7 +705,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
             child: Text(
               name.isNotEmpty ? name[0].toUpperCase() : '?',
 
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
 
                 fontSize: 18,
@@ -718,7 +725,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
                 Text(
                   name.isEmpty ? 'Profilo StudentLab' : name,
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.pureWhite,
 
                     fontSize: 16,
@@ -732,7 +739,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
                 Text(
                   isTeacher ? 'Insegnante' : 'Studente',
 
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.materialSky,
 
                     fontSize: 10,
@@ -744,12 +751,12 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
                 if (isTeacher && _user.isVerifiedTeacher) ...[
                   const SizedBox(height: 4),
 
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         Icons.verified_rounded,
 
-                        color: Colors.greenAccent,
+                        color: AppColors.greenAccent,
 
                         size: 13,
                       ),
@@ -760,7 +767,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
                         'Docente verificato',
 
                         style: TextStyle(
-                          color: Colors.greenAccent,
+                          color: AppColors.greenAccent,
 
                           fontSize: 9,
 
@@ -799,7 +806,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
               setState(() {});
             },
 
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
 
             decoration: _inputDecoration(
               label: 'Nome',
@@ -823,7 +830,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
               setState(() {});
             },
 
-            style: const TextStyle(color: AppColors.pureWhite),
+            style: TextStyle(color: AppColors.pureWhite),
 
             decoration: _inputDecoration(
               label: 'Cognome',
@@ -1087,7 +1094,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
                   Text(
                     isTeacher ? 'Insegnante' : 'Studente',
 
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.pureWhite,
 
                       fontSize: 12,
@@ -1143,7 +1150,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
 
             activeColor: AppColors.skyBlue,
 
-            title: const Text(
+            title: Text(
               'Disponibile',
 
               style: TextStyle(
@@ -1185,7 +1192,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
 
             activeColor: AppColors.skyBlue,
 
-            title: const Text(
+            title: Text(
               'Disponibile ad aiutare',
 
               style: TextStyle(
@@ -1227,7 +1234,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
 
             activeColor: AppColors.skyBlue,
 
-            title: const Text(
+            title: Text(
               'Lezioni private',
 
               style: TextStyle(
@@ -1273,7 +1280,7 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
 
         maxLength: 1000,
 
-        style: const TextStyle(color: AppColors.pureWhite),
+        style: TextStyle(color: AppColors.pureWhite),
 
         decoration: _inputDecoration(
           label: 'Parla di te',
@@ -1291,21 +1298,21 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
       padding: const EdgeInsets.all(14),
 
       decoration: BoxDecoration(
-        color: Colors.redAccent.withOpacity(0.08),
+        color: AppColors.redAccent.withOpacity(0.08),
 
         borderRadius: BorderRadius.circular(12),
 
-        border: Border.all(color: Colors.redAccent.withOpacity(0.20)),
+        border: Border.all(color: AppColors.redAccent.withOpacity(0.20)),
       ),
 
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
 
-            color: Colors.redAccent,
+            color: AppColors.redAccent,
 
             size: 19,
           ),
@@ -1316,8 +1323,8 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
             child: Text(
               _error ?? 'Errore durante il salvataggio.',
 
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: AppColors.white70,
 
                 fontSize: 10,
 
@@ -1371,13 +1378,13 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(13),
 
-        borderSide: const BorderSide(color: Colors.redAccent),
+        borderSide: BorderSide(color: AppColors.redAccent),
       ),
 
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(13),
 
-        borderSide: const BorderSide(color: Colors.redAccent),
+        borderSide: BorderSide(color: AppColors.redAccent),
       ),
     );
   }
@@ -1422,7 +1429,7 @@ class _EditSection extends StatelessWidget {
               Text(
                 title,
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
 
                   fontSize: 14,
@@ -1464,7 +1471,7 @@ class _ProfileSubjectChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
 
         children: [
-          const Icon(
+          Icon(
             Icons.menu_book_outlined,
 
             color: AppColors.materialSky,
@@ -1482,7 +1489,7 @@ class _ProfileSubjectChip extends StatelessWidget {
 
               overflow: TextOverflow.ellipsis,
 
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.pureWhite,
 
                 fontSize: 9,
@@ -1498,7 +1505,7 @@ class _ProfileSubjectChip extends StatelessWidget {
             Text(
               '${subject.grade}/30',
 
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.materialSky,
 
                 fontSize: 8,
@@ -1511,7 +1518,7 @@ class _ProfileSubjectChip extends StatelessWidget {
           if (subject.canHelp) ...[
             const SizedBox(width: 5),
 
-            const Icon(
+            Icon(
               Icons.volunteer_activism_outlined,
 
               color: AppColors.materialSky,
@@ -1523,7 +1530,7 @@ class _ProfileSubjectChip extends StatelessWidget {
           if (subject.canGivePrivateLessons) ...[
             const SizedBox(width: 5),
 
-            const Icon(
+            Icon(
               Icons.cast_for_education_outlined,
 
               color: AppColors.materialSky,
@@ -1584,7 +1591,7 @@ class _AcademicPathCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.school_outlined,
 
                 color: AppColors.skyBlue,
@@ -1604,7 +1611,7 @@ class _AcademicPathCard extends StatelessWidget {
                           ? path.course
                           : '${path.course} ${path.degreeType}',
 
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.pureWhite,
 
                         fontSize: 12,
@@ -1631,10 +1638,10 @@ class _AcademicPathCard extends StatelessWidget {
               PopupMenuButton<String>(
                 enabled: !disabled,
 
-                icon: const Icon(
+                icon: Icon(
                   Icons.more_vert_rounded,
 
-                  color: Colors.white54,
+                  color: AppColors.white54,
                 ),
 
                 color: AppColors.eleganceDeepNavy,
@@ -1661,7 +1668,7 @@ class _AcademicPathCard extends StatelessWidget {
 
                 itemBuilder: (_) {
                   return [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'edit',
 
                       child: Text(
@@ -1672,7 +1679,7 @@ class _AcademicPathCard extends StatelessWidget {
                     ),
 
                     if (path.isEnrolled && !path.isCurrent)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'current',
 
                         child: Text(
@@ -1683,7 +1690,7 @@ class _AcademicPathCard extends StatelessWidget {
                       ),
 
                     if (!path.isPrimary)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'primary',
 
                         child: Text(
@@ -1693,13 +1700,13 @@ class _AcademicPathCard extends StatelessWidget {
                         ),
                       ),
 
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'remove',
 
                       child: Text(
                         'Rimuovi',
 
-                        style: TextStyle(color: Colors.redAccent),
+                        style: TextStyle(color: AppColors.redAccent),
                       ),
                     ),
                   ];
@@ -1723,44 +1730,44 @@ class _AcademicPathCard extends StatelessWidget {
               ),
 
               if (path.isPrimary)
-                const _AcademicPathBadge(
+                _AcademicPathBadge(
                   label: 'Principale',
 
                   icon: Icons.star_outline_rounded,
                 ),
 
               if (path.isCurrent)
-                const _AcademicPathBadge(
+                _AcademicPathBadge(
                   label: 'Corrente',
 
                   icon: Icons.play_circle_outline_rounded,
                 ),
 
               if (path.isGraduated && path.isVerified)
-                const _AcademicPathBadge(
+                _AcademicPathBadge(
                   label: 'Laurea verificata',
 
                   icon: Icons.verified_rounded,
 
-                  color: Colors.greenAccent,
+                  color: AppColors.greenAccent,
                 ),
 
               if (path.isGraduated && path.isVerificationPending)
-                const _AcademicPathBadge(
+                _AcademicPathBadge(
                   label: 'Verifica in corso',
 
                   icon: Icons.schedule_rounded,
 
-                  color: Colors.amber,
+                  color: AppColors.amber,
                 ),
 
               if (path.isGraduated && path.isVerificationRejected)
-                const _AcademicPathBadge(
+                _AcademicPathBadge(
                   label: 'Verifica rifiutata',
 
                   icon: Icons.cancel_outlined,
 
-                  color: Colors.redAccent,
+                  color: AppColors.redAccent,
                 ),
             ],
           ),
@@ -2121,7 +2128,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
                     ? 'Aggiungi percorso'
                     : 'Modifica percorso',
 
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.pureWhite,
 
                   fontSize: 19,
@@ -2145,8 +2152,8 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
                   Text(
                     _error!,
 
-                    style: const TextStyle(
-                      color: Colors.redAccent,
+                    style: TextStyle(
+                      color: AppColors.redAccent,
 
                       fontSize: 10,
                     ),
@@ -2186,7 +2193,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
 
                             overflow: TextOverflow.ellipsis,
 
-                            style: const TextStyle(color: AppColors.pureWhite),
+                            style: TextStyle(color: AppColors.pureWhite),
                           ),
                         ),
                       )
@@ -2242,7 +2249,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
 
                             overflow: TextOverflow.ellipsis,
 
-                            style: const TextStyle(color: AppColors.pureWhite),
+                            style: TextStyle(color: AppColors.pureWhite),
                           ),
                         ),
                       )
@@ -2302,7 +2309,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
 
                             overflow: TextOverflow.ellipsis,
 
-                            style: const TextStyle(color: AppColors.pureWhite),
+                            style: TextStyle(color: AppColors.pureWhite),
                           ),
                         ),
                       )
@@ -2328,7 +2335,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
                     icon: Icons.workspace_premium_outlined,
                   ),
 
-                  items: const [
+                  items: [
                     DropdownMenuItem(
                       value: AcademicPathStatus.enrolled,
 
@@ -2408,7 +2415,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
 
                   validator: _validateYear,
 
-                  style: const TextStyle(color: AppColors.pureWhite),
+                  style: TextStyle(color: AppColors.pureWhite),
 
                   decoration: _sheetDecoration(
                     label: 'Anno di inizio',
@@ -2429,7 +2436,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
 
                     validator: _validateGraduationYear,
 
-                    style: const TextStyle(color: AppColors.pureWhite),
+                    style: TextStyle(color: AppColors.pureWhite),
 
                     decoration: _sheetDecoration(
                       label: 'Anno di laurea',
@@ -2455,7 +2462,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
 
                     activeColor: AppColors.skyBlue,
 
-                    title: const Text(
+                    title: Text(
                       'Percorso corrente',
 
                       style: TextStyle(
@@ -2485,7 +2492,7 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
 
                   activeColor: AppColors.skyBlue,
 
-                  title: const Text(
+                  title: Text(
                     'Percorso principale',
 
                     style: TextStyle(
@@ -2557,9 +2564,9 @@ class _AcademicPathEditorSheetState extends State<_AcademicPathEditorSheet> {
 
       prefixIcon: Icon(icon, color: AppColors.skyBlue),
 
-      labelStyle: const TextStyle(color: Colors.white54),
+      labelStyle: TextStyle(color: AppColors.white54),
 
-      hintStyle: const TextStyle(color: Colors.white24),
+      hintStyle: TextStyle(color: AppColors.white24),
 
       filled: true,
 
@@ -2622,11 +2629,11 @@ class _AcademicPathBadge extends StatelessWidget {
 
   final Color color;
 
-  const _AcademicPathBadge({
+  _AcademicPathBadge({
     required this.label,
     required this.icon,
-    this.color = AppColors.materialSky,
-  });
+    Color? color,
+  }) : color = color ?? AppColors.materialSky;
 
   @override
   Widget build(BuildContext context) {
