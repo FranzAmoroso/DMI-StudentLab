@@ -4867,3 +4867,20 @@ _ensure_router_registered(
     dictionary_moderation_router,
     "/dictionary/drafts",
 )
+
+
+# Esercizi dei nuovi tipi, flashcard, banca esercizi (v18).
+from routes.exercises import router as exercises_router  # noqa: E402
+
+_ensure_router_registered(
+    exercises_router,
+    "/exercises/catalog",
+)
+
+# Allegati delle domande (immagini e documenti): l'app li chiedeva ma la route mancava (v18).
+from routes.exercises import question_content_router  # noqa: E402
+
+_ensure_router_registered(
+    question_content_router,
+    "/question-attachments/content",
+)

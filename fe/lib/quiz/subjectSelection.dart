@@ -12,6 +12,7 @@ import 'quiz.dart';
 
 import 'services/free_quiz_api_service.dart';
 import 'student_question_proposal_page.dart';
+import 'package:fe/quiz/exercises/exercise_catalog_page.dart';
 
 class SubjectSelection extends StatefulWidget {
   const SubjectSelection({super.key});
@@ -699,6 +700,27 @@ class _SubjectSelectionState extends State<SubjectSelection> {
     );
   }
 
+  /// v18: esercizi dei nuovi tipi e flashcard della materia scelta.
+  void _openExercises() {
+    final AcademicDepartment? department = _selectedDepartment;
+    final AcademicCourse? course = _selectedCourse;
+    final String? subject = _selectedSubject;
+    if (department == null || course == null || subject == null) {
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ExerciseCatalogPage(
+          department: department.code,
+          course: course.code,
+          subject: subject,
+          subjectLabel: _subjectLabel(subject),
+          initialArguments: List<String>.from(_selectedArguments),
+        ),
+      ),
+    );
+  }
+
   String _argumentsLabel() {
     if (_selectedSubject == null) {
       return 'Seleziona prima una materia';
@@ -993,6 +1015,20 @@ class _SubjectSelectionState extends State<SubjectSelection> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  height: 48,
+
+                  child: OutlinedButton.icon(
+                    onPressed: _selectedSubject == null ? null : _openExercises,
+
+                    icon: const Icon(Icons.extension_outlined),
+
+                    label: const Text('Esercizi e flashcard'),
                   ),
                 ),
               ],

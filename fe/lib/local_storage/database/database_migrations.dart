@@ -56,6 +56,54 @@ class DatabaseMigrations {
     if (oldVersion < 13) {
       await _migrationToVersion13(db);
     }
+
+    if (oldVersion < 14) {
+      await ensureExerciseSchema(db);
+    }
+  }
+
+  /// v14 · nuovi tipi di esercizio e flashcard. Solo aggiunte: i tentativi,
+  /// il ripasso e i materiali già salvati restano come sono.
+  static Future<void> ensureExerciseSchema(Database db) async {
+    if (await _tableExists(db, DatabaseTables.quizAttemptAnswers)) {
+      const Map<String, String> answerColumns = <String, String>{
+        'question_type': "TEXT NOT NULL DEFAULT 'multiple_choice'",
+        'answer_payload': 'TEXT',
+        'correct_payload': 'TEXT',
+        'score': 'REAL',
+      };
+      for (final MapEntry<String, String> column in answerColumns.entries) {
+        if (!await _columnExists(db, DatabaseTables.quizAttemptAnswers, column.key)) {
+          await db.execute('ALTER TABLE ${DatabaseTables.quizAttemptAnswers} ADD COLUMN ${column.key} ${column.value}');
+        }
+      }
+    }
+    if (await _tableExists(db, DatabaseTables.studyPlanItems) &&
+        !await _columnExists(db, DatabaseTables.studyPlanItems, 'question_type')) {
+      await db.execute(
+        "ALTER TABLE ${DatabaseTables.studyPlanItems} ADD COLUMN question_type TEXT NOT NULL DEFAULT 'multiple_choice'",
+      );
+    }
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DatabaseTables.flashcardReviewsLocal} (
+        card_key TEXT PRIMARY KEY,
+        department TEXT NOT NULL,
+        course TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        card_id TEXT NOT NULL,
+        argument TEXT,
+        ease REAL NOT NULL DEFAULT 2.5,
+        interval_days INTEGER NOT NULL DEFAULT 0,
+        due_at TEXT,
+        reviews INTEGER NOT NULL DEFAULT 0,
+        lapses INTEGER NOT NULL DEFAULT 0,
+        last_grade INTEGER,
+        updated_at TEXT NOT NULL
+      )
+      ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_flashcard_local_subject ON ${DatabaseTables.flashcardReviewsLocal}(department, course, subject, due_at)',
+    );
   }
 
   static Future<void> _migrationToVersion2(Database db) async {

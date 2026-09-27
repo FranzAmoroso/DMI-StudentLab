@@ -41,6 +41,9 @@ class StudyPlanItem(Base):
     formal_explanation = Column(Text, nullable=True)
     informal_explanation = Column(Text, nullable=True)
     correct_answer_explanation = Column(Text, nullable=True)
+    # v18 · tipo dell'elemento del ripasso ("multiple_choice" per le domande di sempre).
+    question_type = Column(String(30), nullable=False, default="multiple_choice", server_default="multiple_choice")
+    correct_payload = Column(JSON, nullable=True)
     mastery_percentage = Column(Float, nullable=False, default=0.0)
     status = Column(String(20), nullable=False, default="review", index=True)
     first_seen_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)

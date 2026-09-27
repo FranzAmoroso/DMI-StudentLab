@@ -42,4 +42,8 @@ class DatabaseTables {
   static const String studyPlanProgress =
       'study_plan_progress_local';
 
+  // v14 · flashcard con ripetizione dilazionata (ospite o prima della sincronizzazione)
+  static const String flashcardReviewsLocal =
+      'flashcard_reviews_local';
+
 }

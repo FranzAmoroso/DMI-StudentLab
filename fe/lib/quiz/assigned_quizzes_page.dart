@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/nightTheme.dart';
 import 'quiz.dart';
 import 'services/assigned_quiz_service.dart';
+import 'package:fe/quiz/exercises/exercise_session_page.dart';
 
 class AssignedQuizzesPage extends StatefulWidget {
   const AssignedQuizzesPage({super.key});
@@ -287,6 +288,17 @@ class _AssignedQuizzesPageState extends State<AssignedQuizzesPage> {
 
     if (questions.isEmpty) {
       _showMessage('Il quiz non contiene domande.');
+      return;
+    }
+
+    // v18: con esercizi dei nuovi tipi si apre la sessione esercizi (anche per le domande miste).
+    if (questions.any((Map<String, dynamic> q) =>
+        (q['type']?.toString() ?? 'multiple_choice') != 'multiple_choice')) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ExerciseSessionPage.attempt(attempt: attempt),
+        ),
+      );
       return;
     }
 

@@ -6,6 +6,8 @@ import '../../social/social_models.dart';
 import 'services/question_management_service.dart';
 import 'services/quiz_assignment_service.dart';
 import 'widgets/quiz_assignment_mode_section.dart';
+import 'package:fe/quiz/exercises/exercise_models.dart';
+import 'package:fe/quiz/exercises/teacher/exercise_types_section.dart';
 
 class QuizAssignmentFormPage extends StatefulWidget {
   final int subjectId;
@@ -72,6 +74,15 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
   final Set<int> _selectedQuestionIds = {};
 
   final Set<String> _selectedArguments = {};
+
+  // v18 · tipi di esercizio ("multiple_choice" da solo = assegnazione di sempre)
+  Set<String> _types = <String>{kMultipleChoice};
+
+  final Set<String> _selectedItemIds = <String>{};
+
+  int? _attemptsPerItem;
+
+  bool get _hasExercises => _types.any((String t) => t != kMultipleChoice);
 
   bool _loading = true;
 
@@ -186,6 +197,11 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
 
     if (questionIds is List) {
       for (final dynamic raw in questionIds) {
+        if (raw is String && raw.contains(':')) {
+          _selectedItemIds.add(raw);
+          continue;
+        }
+
         final int? id = _toInt(raw);
 
         if (id != null) {
@@ -193,6 +209,14 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
         }
       }
     }
+
+    final dynamic types = data['question_types'];
+
+    if (types is List && types.isNotEmpty) {
+      _types = types.map((dynamic t) => t.toString()).toSet();
+    }
+
+    _attemptsPerItem = _toInt(data['attempts_per_item']);
 
     final dynamic recipients = data['recipients'];
 
@@ -307,6 +331,18 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
                           },
                         ),
                         const SizedBox(height: 22),
+                        _section('Tipi di esercizio'),
+                        const SizedBox(height: 10),
+                        _card(
+                          ExerciseTypesSection(
+                            selected: _types,
+                            practice: _executionMode == 'practice',
+                            attemptsPerItem: _attemptsPerItem,
+                            onAttemptsChanged: (int? value) => setState(() => _attemptsPerItem = value),
+                            onChanged: (Set<String> value) => setState(() => _types = value),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
                         _section('Selezione domande'),
                         const SizedBox(height: 10),
                         _selectionModeCard(),
@@ -333,8 +369,27 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
                           ),
                         ],
                         if (_selectionMode == 'selected_questions') ...[
-                          const SizedBox(height: 14),
-                          _questionsCard(),
+                          if (_types.contains(kMultipleChoice)) ...[
+                            const SizedBox(height: 14),
+                            _questionsCard(),
+                          ],
+                          if (_hasExercises) ...[
+                            const SizedBox(height: 14),
+                            _card(
+                              ExerciseItemPicker(
+                                department: widget.department,
+                                course: widget.course,
+                                subject: widget.subject,
+                                types: _types,
+                                selected: _selectedItemIds,
+                                onChanged: (Set<String> value) => setState(() {
+                                  _selectedItemIds
+                                    ..clear()
+                                    ..addAll(value);
+                                }),
+                              ),
+                            ),
+                          ],
                         ],
                         const SizedBox(height: 22),
                         _section('Tempo e scadenza'),
@@ -774,9 +829,12 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
     }
 
     if (_selectionMode == 'selected_questions' &&
-        _selectedQuestionIds.isEmpty) {
+        _selectedQuestionIds.isEmpty &&
+        _selectedItemIds.isEmpty) {
       setState(() {
-        _error = 'Seleziona almeno una domanda.';
+        _error = _hasExercises
+            ? 'Seleziona almeno una domanda o un esercizio.'
+            : 'Seleziona almeno una domanda.';
       });
 
       return;
@@ -837,12 +895,21 @@ class _QuizAssignmentFormPageState extends State<QuizAssignmentFormPage> {
         'arguments': _selectionMode == 'arguments'
             ? _selectedArguments.toList()
             : <String>[],
-        'question_ids': _selectionMode == 'selected_questions'
+        'question_ids': _selectionMode == 'selected_questions' &&
+                _types.contains(kMultipleChoice)
             ? _selectedQuestionIds.toList()
             : <int>[],
         'question_count': _selectionMode == 'selected_questions'
-            ? _selectedQuestionIds.length
+            ? _selectedQuestionIds.length + _selectedItemIds.length
             : questionCount,
+        // v18 · null / ["multiple_choice"] = assegnazione di sempre
+        'question_types': _hasExercises ? _types.toList() : null,
+        'item_ids': _selectionMode == 'selected_questions' && _hasExercises
+            ? _selectedItemIds.toList()
+            : <String>[],
+        'attempts_per_item': _hasExercises && _executionMode == 'practice'
+            ? _attemptsPerItem
+            : null,
         'time_limit_seconds': minutes == null ? null : minutes * 60,
         'due_at': _dueAt?.toUtc().toIso8601String(),
         'user_ids': _selectedUserIds.toList(),

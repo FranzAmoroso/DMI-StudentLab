@@ -56,11 +56,15 @@ def api_start_quiz_attempt(
 @router.post("/assignments/{assignment_id}/start")
 def api_start_assigned_quiz_attempt(
     assignment_id: int,
+    supported_types: str | None = Query(default=None, max_length=400),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # v18: l'app dichiara quali tipi di esercizio sa mostrare (es. "ordina,abbina,grafo").
+    # Le versioni precedenti non lo mandano e ricevono solo domande a risposta multipla.
+    supported = {value.strip() for value in (supported_types or "").split(",") if value.strip()}
     try:
-        return start_assigned_quiz_attempt(db, current_user, assignment_id)
+        return start_assigned_quiz_attempt(db, current_user, assignment_id, supported)
     except (ValueError, PermissionError) as exc:
         _raise(exc)
     except Exception:

@@ -22,6 +22,9 @@ class StudyPlanContributionSync(BaseModel):
     formal_explanation: str | None = None
     informal_explanation: str | None = None
     correct_answer_explanation: str | None = None
+    # v18 · "multiple_choice" per le domande di sempre, oppure ordina/abbina/…
+    question_type: str = Field(default="multiple_choice", max_length=30)
+    correct_payload: dict[str, Any] | None = None
     correct_count: int = Field(default=0, ge=0)
     wrong_count: int = Field(default=0, ge=0)
     unanswered_count: int = Field(default=0, ge=0)

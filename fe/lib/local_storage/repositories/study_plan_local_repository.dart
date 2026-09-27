@@ -351,7 +351,7 @@ class StudyPlanLocalRepository {
     final List<Map<String, dynamic>> rows = await db.rawQuery('''
       SELECT c.contribution_uuid, i.department, i.course, i.subject, i.argument, i.question_id,
              i.question_text, i.correct_option_id, i.correct_option_text, i.formal_explanation,
-             i.informal_explanation, i.correct_answer_explanation,
+             i.informal_explanation, i.correct_answer_explanation, i.question_type,
              c.correct_count, c.wrong_count, c.unanswered_count, c.review_count,
              c.last_is_correct, c.last_selected_option_id, c.last_selected_option_text,
              c.last_selected_answer_explanation, c.first_seen_at, c.last_answered_at, c.client_revision
@@ -374,6 +374,7 @@ class StudyPlanLocalRepository {
       'correct_option_text': row['correct_option_text'], 'formal_explanation': row['formal_explanation'],
       'informal_explanation': row['informal_explanation'], 'correct_answer_explanation': row['correct_answer_explanation'],
       'first_seen_at': row['answered_at'], 'last_seen_at': row['answered_at'],
+      'question_type': row['question_type'],
     });
   }
 
@@ -391,12 +392,14 @@ class StudyPlanLocalRepository {
       'formal_explanation': item['formal_explanation']?.toString(), 'informal_explanation': item['informal_explanation']?.toString(),
       'correct_answer_explanation': item['correct_answer_explanation']?.toString(),
       'first_seen_at': item['first_seen_at']?.toString() ?? now, 'last_seen_at': item['last_seen_at']?.toString() ?? now, 'updated_at': now,
+      'question_type': item['question_type']?.toString() ?? 'multiple_choice',
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
     await db.update(DatabaseTables.studyPlanItems, <String, Object?>{
       'argument': item['argument']?.toString(), 'question_text': item['question_text']?.toString() ?? '',
       'correct_option_id': item['correct_option_id']?.toString(), 'correct_option_text': item['correct_option_text']?.toString(),
       'formal_explanation': item['formal_explanation']?.toString(), 'informal_explanation': item['informal_explanation']?.toString(),
       'correct_answer_explanation': item['correct_answer_explanation']?.toString(), 'last_seen_at': item['last_seen_at']?.toString() ?? now, 'updated_at': now,
+      if (item['question_type'] != null) 'question_type': item['question_type'].toString(),
     }, where: 'item_key = ?', whereArgs: <Object?>[key]);
     final List<Map<String, Object?>> rows = await db.query(DatabaseTables.studyPlanItems, columns: <String>['id'], where: 'item_key = ?', whereArgs: <Object?>[key], limit: 1);
     return _int(rows.first['id']);

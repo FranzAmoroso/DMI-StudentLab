@@ -554,6 +554,11 @@ def get_student_question_statistics(
                     answer.informal_explanation,
                 "correct_answer_explanation":
                     answer.correct_answer_explanation,
+                # v18 · tipo dell'esercizio (le domande di sempre sono "multiple_choice")
+                "question_type":
+                    getattr(answer, "question_type", None) or "multiple_choice",
+                "correct_payload":
+                    getattr(answer, "correct_payload", None),
                 "times_seen":
                     0,
                 "correct_count":

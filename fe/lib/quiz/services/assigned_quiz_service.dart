@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../services/auth_session.dart';
+import 'package:fe/quiz/exercises/exercise_models.dart';
 
 class AssignedQuizService {
   static const String _baseUrl = 'https://dmi-student-lab.vercel.app';
@@ -124,7 +125,10 @@ class AssignedQuizService {
 
   Future<Map<String, dynamic>> startAssignedQuiz(int assignmentId) async {
     final http.Response response = await http.post(
-      _uri('/quiz-attempts/assignments/$assignmentId/start'),
+      // v18: i tipi di esercizio che questa app sa mostrare
+      _uri('/quiz-attempts/assignments/$assignmentId/start').replace(
+        queryParameters: <String, String>{'supported_types': kExerciseTypes.join(',')},
+      ),
       headers: _headers,
     );
 

@@ -13,6 +13,7 @@ import 'services/quiz_attempt_api_service.dart';
 import 'services/question_moderation_service.dart';
 import 'teacher/widgets/quiz_execution_guard.dart';
 import 'widgets/question_attachment_image.dart';
+import 'package:fe/quiz/exercises/widgets/exercise_attachments.dart';
 
 class QuizPage extends StatefulWidget {
   final String department;
@@ -1078,6 +1079,18 @@ class _QuizPageState extends State<QuizPage> {
                               attachment: attachment,
                             ),
                           ),
+                      // v18: PDF, TXT, DOCX e PPTX si aprono con un tocco.
+                      if (_currentQuestionId.isNotEmpty)
+                        ExerciseAttachments.question(
+                          attachments: _currentAttachments
+                              .where((Map<String, dynamic> a) =>
+                                  a['type']?.toString().trim().toLowerCase() != 'image')
+                              .toList(),
+                          department: widget.department,
+                          course: widget.course,
+                          subject: widget.sub,
+                          questionId: _currentQuestionId,
+                        ),
                     ],
                     const SizedBox(height: 35),
                     ...options.map(

@@ -7,6 +7,7 @@ import '../../material/admin/admin_material_storage_page.dart';
 import '../../faq/admin_faq_moderation_page.dart';
 import '../../dictionary/dictionary_moderation_page.dart';
 import '../../calendar/calendar_home_page.dart';
+import 'package:fe/quiz/exercises/teacher/exercise_subjects_page.dart';
 
 import '../../quiz/teacher/question_moderation_page.dart';
 
@@ -549,6 +550,18 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
           onTap: () {
             _openProtectedPage(const DictionaryModerationPage());
+          },
+        ),
+
+        _AdminModuleCard(
+          icon: Icons.extension_outlined,
+
+          title: 'Esercizi e assegnazioni',
+
+          description: 'Banca esercizi di ogni materia, assegnazioni di quiz ed esercizi a studenti e gruppi.',
+
+          onTap: () {
+            _openProtectedPage(const ExerciseSubjectsPage(adminMode: true));
           },
         ),
 

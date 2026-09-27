@@ -92,6 +92,12 @@ class QuizAttemptAnswer(Base):
     informal_explanation = Column(Text, nullable=True)
     selected_answer_explanation = Column(Text, nullable=True)
     correct_answer_explanation = Column(Text, nullable=True)
+    # v18 · tipi di esercizio. Le domande a risposta multipla restano "multiple_choice"
+    # con i campi di sopra; gli altri tipi usano answer_payload/correct_payload/score.
+    question_type = Column(String(30), nullable=False, default="multiple_choice", server_default="multiple_choice", index=True)
+    answer_payload = Column(JSON, nullable=True)
+    correct_payload = Column(JSON, nullable=True)
+    score = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
 

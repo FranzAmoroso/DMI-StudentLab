@@ -95,6 +95,8 @@ def _ensure_item(db: Session, user_id: int, data) -> StudyPlanItem:
             formal_explanation=data.formal_explanation,
             informal_explanation=data.informal_explanation,
             correct_answer_explanation=data.correct_answer_explanation,
+            question_type=getattr(data, "question_type", None) or "multiple_choice",
+            correct_payload=getattr(data, "correct_payload", None),
             mastery_percentage=0.0,
             status="review",
             first_seen_at=data.first_seen_at or data.last_answered_at or now,
@@ -116,6 +118,10 @@ def _ensure_item(db: Session, user_id: int, data) -> StudyPlanItem:
     item.formal_explanation = data.formal_explanation or item.formal_explanation
     item.informal_explanation = data.informal_explanation or item.informal_explanation
     item.correct_answer_explanation = data.correct_answer_explanation or item.correct_answer_explanation
+    if getattr(data, "question_type", None) and data.question_type != "multiple_choice":
+        item.question_type = data.question_type
+    if getattr(data, "correct_payload", None):
+        item.correct_payload = data.correct_payload
     item.last_seen_at = data.last_answered_at or now
     item.updated_at = now
     return item
@@ -267,6 +273,8 @@ def _materialize_legacy_history(db: Session, user: User) -> None:
         data.formal_explanation = stats.get("formal_explanation") or None
         data.informal_explanation = stats.get("informal_explanation") or None
         data.correct_answer_explanation = stats.get("correct_answer_explanation") or None
+        data.question_type = stats.get("question_type") or "multiple_choice"
+        data.correct_payload = stats.get("correct_payload")
         data.first_seen_at = None
         data.last_answered_at = stats.get("last_answered_at")
         if not data.department or not data.course or not data.subject or not data.question_id:
@@ -331,6 +339,8 @@ def _serialize_item(item: StudyPlanItem) -> dict:
         "formal_explanation": item.formal_explanation,
         "informal_explanation": item.informal_explanation,
         "correct_answer_explanation": item.correct_answer_explanation,
+        "question_type": getattr(item, "question_type", None) or "multiple_choice",
+        "correct_payload": getattr(item, "correct_payload", None),
         "mastery_percentage": item.mastery_percentage or 0.0,
         "status": item.status,
         "first_seen_at": item.first_seen_at,

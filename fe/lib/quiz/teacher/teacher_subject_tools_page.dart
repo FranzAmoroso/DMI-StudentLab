@@ -11,6 +11,7 @@ import 'question_moderation_page.dart';
 import 'services/teacher_quiz_assignments_page.dart';
 
 import 'teacher_quiz_results_page.dart';
+import '../exercises/teacher/exercise_bank_page.dart';
 
 class TeacherSubjectToolsPage extends StatelessWidget {
   final int subjectId;
@@ -209,12 +210,38 @@ class TeacherSubjectToolsPage extends StatelessWidget {
                           width: width,
 
                           child: _ToolCard(
+                            icon: Icons.extension_outlined,
+
+                            title: 'Banca esercizi',
+
+                            description:
+                                'Ordina, abbina, completa, diagrammi, grafi, flashcard, codice e domande con allegati.',
+
+                            actionLabel: 'Apri banca esercizi',
+
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ExerciseBankPage(
+                                  department: departmentCode,
+                                  course: courseCode,
+                                  subject: subjectName,
+                                  subjectLabel: subjectName,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(
+                          width: width,
+
+                          child: _ToolCard(
                             icon: Icons.assignment_outlined,
 
                             title: 'Quiz',
 
                             description:
-                                'Crea quiz e assegnali a studenti o gruppi.',
+                                'Crea quiz ed esercizi e assegnali a studenti o gruppi.',
 
                             actionLabel: 'Gestisci quiz',
 
