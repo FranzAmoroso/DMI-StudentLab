@@ -5,10 +5,16 @@ import '../services/api_service.dart';
 import '../theme/app_palette.dart';
 import '../widgets/studentlab_ui/studentlab_ui.dart';
 import 'dictionary_api_service.dart';
+import 'dictionary_moderation_page.dart';
 
 /// Editor di un termine per un anno accademico (canvas: Dizionario · editor).
 /// Admin e docenti verificati della materia. Nome e data di chi scrive
 /// restano sul contenuto.
+///
+/// Dalla v17 ci sono due salvataggi:
+///  - "Salva bozza": la modifica va in moderazione, il testo pubblicato resta
+///    quello di prima finché non viene approvata;
+///  - "Salva e pubblica": diventa subito la versione pubblicata (confermata).
 class DictionaryEditorPage extends StatefulWidget {
   final int subjectId;
   final int? entryId;
@@ -98,7 +104,7 @@ class _DictionaryEditorPageState extends State<DictionaryEditorPage> {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
       .replaceAll(RegExp(r'^-+|-+$'), '');
 
-  Future<void> _save() async {
+  Future<void> _save({required bool publish}) async {
     if (_term.text.trim().isEmpty) {
       setState(() => _error = 'Scrivi il termine.');
       return;
@@ -128,14 +134,24 @@ class _DictionaryEditorPageState extends State<DictionaryEditorPage> {
           'exam_questions': _exams,
           'resources': _resources,
           'related': _related.map(_slug).toList(),
+          'publish': publish,
         },
       );
       if (!mounted) return;
-      final state = '${result['review_state']}';
+      final bool published = result['published'] != false;
+      final navigator = Navigator.of(context);   // resta valido dopo la chiusura dell'editor
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(state == 'to_review'
-            ? 'Salvato. È diverso dall’anno prima: StudentLab lo vedrà in revisione.'
-            : 'Termine salvato.'),
+        content: Text(published
+            ? 'Termine pubblicato.'
+            : 'Bozza salvata: la trovi in moderazione. Il testo pubblicato non cambia finché non la approvi.'),
+        action: published || result['draft_id'] == null
+            ? null
+            : SnackBarAction(
+                label: 'Apri',
+                onPressed: () => navigator.push(MaterialPageRoute<void>(
+                  builder: (_) => DictionaryModerationPage(subjectId: widget.subjectId),
+                )),
+              ),
       ));
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -417,7 +433,8 @@ class _DictionaryEditorPageState extends State<DictionaryEditorPage> {
         const SizedBox(height: 6),
         Text(
           'Il contenuto viene salvato con il tuo nome e la data. Restano anche quando non insegnerai più la materia; '
-          'StudentLab può affidarlo a un altro docente.',
+          'StudentLab può affidarlo a un altro docente. “Salva bozza” lo manda in moderazione senza cambiare '
+          'quello che vedono gli studenti.',
           style: SlText.muted(p).copyWith(height: 1.45),
         ),
       ]),
@@ -430,13 +447,21 @@ class _DictionaryEditorPageState extends State<DictionaryEditorPage> {
         title: Text(widget.entryId == null ? 'Nuovo termine' : 'Modifica termine'),
         actions: [
           Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: OutlinedButton(
+              onPressed: _saving || _loading ? null : () => _save(publish: false),
+              style: OutlinedButton.styleFrom(foregroundColor: p.pureWhite),
+              child: const Text('Salva bozza'),
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilledButton(
-              onPressed: _saving || _loading ? null : _save,
+              onPressed: _saving || _loading ? null : () => _save(publish: true),
               style: FilledButton.styleFrom(backgroundColor: p.skyBlue, foregroundColor: p.darkElegance),
               child: _saving
                   ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: p.darkElegance))
-                  : const Text('Salva', style: TextStyle(fontWeight: FontWeight.w700)),
+                  : const Text('Salva e pubblica', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
         ],

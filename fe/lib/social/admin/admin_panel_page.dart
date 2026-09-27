@@ -5,7 +5,7 @@ import '../../developer/pages/developer_entry_page.dart';
 import '../../material/admin/admin_material_storage_page.dart';
 
 import '../../faq/admin_faq_moderation_page.dart';
-import '../../dictionary/dictionary_review_page.dart';
+import '../../dictionary/dictionary_moderation_page.dart';
 import '../../calendar/calendar_home_page.dart';
 
 import '../../quiz/teacher/question_moderation_page.dart';
@@ -545,10 +545,10 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
           title: 'Dizionario',
 
-          description: 'Revisione tra anni accademici, affidamento ai docenti e passaggio al nuovo anno.',
+          description: 'Termini da moderare, fonti (JSON, PDF, web), revisione tra anni e affidamento ai docenti.',
 
           onTap: () {
-            _openProtectedPage(const DictionaryReviewPage());
+            _openProtectedPage(const DictionaryModerationPage());
           },
         ),
 

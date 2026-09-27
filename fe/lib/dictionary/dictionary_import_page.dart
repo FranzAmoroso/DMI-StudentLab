@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -7,9 +8,15 @@ import '../faq/faq_widgets.dart';
 import '../theme/app_palette.dart';
 import '../widgets/studentlab_ui/studentlab_ui.dart';
 import 'dictionary_api_service.dart';
+import 'dictionary_moderation_page.dart';
 
 /// Importa un dizionario JSON (canvas: Dizionario · importa JSON).
 /// Anteprima dal server: materia riconosciuta o candidati, anno, conteggi.
+///
+/// Dalla v17 i termini importati diventano BOZZE da moderare e il file viene
+/// registrato tra le fonti (nome, impronta sha256, dimensione, metadati).
+/// PDF e pagine web non passano da qui: li legge in locale
+/// scripts/fonti_dizionario.py, che manda al server solo i risultati.
 class DictionaryImportPage extends StatefulWidget {
   final int? subjectId;
 
@@ -24,6 +31,7 @@ class _DictionaryImportPageState extends State<DictionaryImportPage> {
   final TextEditingController _year = TextEditingController();
   Map<String, dynamic>? _dictionary;
   String? _fileName;
+  Map<String, dynamic>? _sourceInfo;
   Map<String, dynamic>? _preview;
   Map<String, dynamic>? _report;
   List<Map<String, dynamic>> _editable = [];
@@ -53,9 +61,24 @@ class _DictionaryImportPageState extends State<DictionaryImportPage> {
     try {
       final decoded = jsonDecode(utf8.decode(file!.bytes!));
       if (decoded is! Map) throw const FormatException();
+      final meta = decoded['metadata'] is Map ? Map<String, dynamic>.from(decoded['metadata'] as Map) : <String, dynamic>{};
       setState(() {
         _dictionary = Map<String, dynamic>.from(decoded);
         _fileName = file.name;
+        _sourceInfo = {
+          'kind': 'json',
+          'label': file.name,
+          'sha256': sha256.convert(file.bytes!).toString(),
+          'status': 'read',
+          'metadata': {
+            'file_name': file.name,
+            'size_bytes': file.bytes!.length,
+            'schema': '${decoded['schema'] ?? ''}',
+            'generated_from': '${meta['source'] ?? ''}',
+            'generated_at': '${meta['generated_at'] ?? ''}',
+            'uploaded_from': 'app',
+          },
+        };
         _report = null;
         _error = null;
       });
@@ -86,7 +109,7 @@ class _DictionaryImportPageState extends State<DictionaryImportPage> {
     setState(() => _busy = true);
     try {
       final result = await _api.importDictionary(_dictionary!, subjectId: _subjectId,
-          academicYear: _year.text.trim().isEmpty ? null : _year.text.trim());
+          academicYear: _year.text.trim().isEmpty ? null : _year.text.trim(), source: _sourceInfo);
       _report = result['report'] is Map ? Map<String, dynamic>.from(result['report'] as Map) : null;
       _error = null;
     } catch (e) {
@@ -197,8 +220,10 @@ class _DictionaryImportPageState extends State<DictionaryImportPage> {
               _panel('Anno in cui importare', [
                 TextField(controller: _year, decoration: const InputDecoration(labelText: 'Anno accademico', hintText: '2025/2026')),
                 const SizedBox(height: 8),
-                Text('I termini già presenti quell’anno vengono aggiornati; quelli uguali all’anno prima sono segnati '
-                    '“uguale all’anno precedente”, quelli diversi “da rivedere”.', style: SlText.muted(p)),
+                Text('Nessun termine diventa pubblico subito: finiscono tutti in moderazione, dove si possono '
+                    'correggere, spostare di materia o argomento, affidare a un docente e arricchire con esercizi e '
+                    'domande d’esame. Se un termine è identico a quello già pubblicato viene saltato.',
+                    style: SlText.muted(p)),
               ]),
             ],
             if (_report != null)
@@ -206,10 +231,24 @@ class _DictionaryImportPageState extends State<DictionaryImportPage> {
                 Text('${_report!['subject_name']} · A.A. ${_report!['academic_year']}',
                     style: TextStyle(color: p.pureWhite, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
-                Text('${_report!['created']} nuovi, ${_report!['updated']} aggiornati, ${_report!['skipped']} saltati '
-                    '(senza termine o senza definizione).', style: SlText.body(p)),
+                Text('${_report!['created'] ?? 0} bozze nuove, ${_report!['updated'] ?? 0} bozze aggiornate, '
+                    '${_report!['already_published'] ?? 0} già pubblicati uguali, '
+                    '${_report!['rejected_before'] ?? 0} scartati in passato, '
+                    '${_report!['skipped'] ?? 0} saltati (senza termine o senza definizione).', style: SlText.body(p)),
                 const SizedBox(height: 10),
-                FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Fine')),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+                      builder: (_) => DictionaryModerationPage(
+                        subjectId: int.tryParse('${_report!['subject_id']}'),
+                        sourceId: int.tryParse('${_report!['source_id']}'),
+                      ),
+                    )),
+                    icon: const Icon(Icons.fact_check_outlined),
+                    label: const Text('Modera i termini'),
+                  ),
+                  OutlinedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Fine')),
+                ]),
               ]),
           ]),
         ),

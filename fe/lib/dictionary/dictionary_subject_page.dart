@@ -8,13 +8,15 @@ import 'dictionary_api_service.dart';
 import 'dictionary_editor_page.dart';
 import 'dictionary_entry_page.dart';
 import 'dictionary_import_page.dart';
+import 'dictionary_moderation_page.dart';
 import 'dictionary_review_page.dart';
+import 'dictionary_sources_page.dart';
 
 /// Materia del Dizionario (canvas: Dizionario · materia).
 ///
 /// Anno accademico con i docenti di quell'anno, viste Per argomento / A–Z /
 /// Salvati, PDF di ogni argomento. Chi può scrivere vede "Nuovo termine",
-/// "Importa JSON" e (admin) "Revisione anni".
+/// "Importa JSON", "Modera i termini", "Fonti" e (admin) "Revisione anni".
 class DictionarySubjectPage extends StatefulWidget {
   final int subjectId;
 
@@ -225,6 +227,14 @@ class _DictionarySubjectPageState extends State<DictionarySubjectPage> {
                   await Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => DictionaryImportPage(subjectId: widget.subjectId),
                   ));
+                } else if (value == 'moderate') {
+                  await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => DictionaryModerationPage(subjectId: widget.subjectId, teacherMode: !isAdmin),
+                  ));
+                } else if (value == 'sources') {
+                  await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => DictionarySourcesPage(subjectId: widget.subjectId, teacherMode: !isAdmin),
+                  ));
                 } else if (value == 'review') {
                   await Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => DictionaryReviewPage(subjectId: widget.subjectId),
@@ -235,6 +245,8 @@ class _DictionarySubjectPageState extends State<DictionarySubjectPage> {
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'new', child: Text('Nuovo termine')),
                 const PopupMenuItem(value: 'import', child: Text('Importa JSON')),
+                const PopupMenuItem(value: 'moderate', child: Text('Modera i termini')),
+                const PopupMenuItem(value: 'sources', child: Text('Fonti')),
                 if (isAdmin) const PopupMenuItem(value: 'review', child: Text('Revisione tra anni')),
               ],
               icon: const Icon(Icons.edit_note_rounded),

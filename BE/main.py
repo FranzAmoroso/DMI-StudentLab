@@ -4858,3 +4858,12 @@ _ensure_router_registered(
     academic_calendar_router,
     "/calendar",
 )
+
+
+# Dizionario: registro delle fonti e moderazione delle bozze (v17).
+from routes.dictionary_moderation import router as dictionary_moderation_router  # noqa: E402
+
+_ensure_router_registered(
+    dictionary_moderation_router,
+    "/dictionary/drafts",
+)

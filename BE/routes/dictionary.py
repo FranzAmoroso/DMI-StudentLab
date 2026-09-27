@@ -20,8 +20,9 @@ from models.user import User
 from services.dictionary import (SCHEMA, apply_content, can_edit, clean_content, current_academic_year, display_name,
                                  import_dictionary, is_admin, match_subject, normalize_year, previous_version,
                                  quiz_questions, slugify, subject_teachers, topic_pdf, upsert_version,
-                                 PUBLIC_REVIEW_STATES, public_version_for_year,
-                                 version_content, version_for_year)
+                                 PUBLIC_REVIEW_STATES, public_version_for_year, public_content,
+                                 teacher_subject_ids, version_content, version_for_year)
+from services.dictionary_moderation import ModerationError, draft_from_editor, register_source, teachers_for
 
 router = APIRouter(prefix='/dictionary', tags=['dictionary'])
 
@@ -145,11 +146,12 @@ def dictionary_entry(entry_id: int, year: str | None = None,
         raise HTTPException(404, 'Termine non trovato.')
     subject = _subject_or_404(db, entry.subject_id)
     selected = _year_or_default(db, entry.subject_id, year)
-    version = (version_for_year(db, entry.id, selected) if is_admin(viewer)
+    editor = can_edit(db, viewer, entry.subject_id)
+    version = (version_for_year(db, entry.id, selected) if editor
                else public_version_for_year(db, entry.id, selected))
     if version is None:
         raise HTTPException(404, 'Termine senza contenuto.')
-    content = version_content(version)
+    content = version_content(version) if editor else public_content(version_content(version))
     related = []
     if content['related']:
         for item in db.query(DictionaryEntry).filter(DictionaryEntry.subject_id == entry.subject_id,
@@ -160,7 +162,7 @@ def dictionary_entry(entry_id: int, year: str | None = None,
             related.append({'id': item.id, 'term': item.term})
     topic = db.query(DictionaryTopic).filter(DictionaryTopic.id == entry.topic_id).first() if entry.topic_id else None
     all_versions_query = db.query(DictionaryVersion).filter(DictionaryVersion.entry_id == entry.id)
-    if not is_admin(viewer):
+    if not editor:
         all_versions_query = all_versions_query.filter(DictionaryVersion.review_state.in_(PUBLIC_REVIEW_STATES))
     all_versions = all_versions_query.order_by(DictionaryVersion.academic_year.desc()).all()
     return {
@@ -176,7 +178,7 @@ def dictionary_entry(entry_id: int, year: str | None = None,
         'years': [{'year': v.academic_year, 'author_name': v.author_name, 'review_state': v.review_state}
                   for v in all_versions],
         'related': related,
-        'can_edit': can_edit(db, viewer, entry.subject_id),
+        'can_edit': editor,
     }
 
 
@@ -223,6 +225,8 @@ class ImportRequest(BaseModel):
     subject_id: int | None = None
     academic_year: str | None = None
     preview: bool = False
+    # Fonte da registrare (nome del file, impronta, metadati, estratto del testo).
+    source: dict | None = None
 
 
 class EntryWrite(BaseModel):
@@ -239,16 +243,17 @@ class EntryWrite(BaseModel):
     related: list[str] = Field(default_factory=list)
     resources: list[dict] = Field(default_factory=list)
     teachers: list[str] | None = None
+    # True: pubblica subito (solo admin o docente verificato della materia).
+    # False: salva una bozza da moderare, il testo pubblicato resta visibile.
+    publish: bool = False
 
 
 @router.get('/editable-subjects')
 def editable_subjects(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     query = db.query(Subject).filter(Subject.is_active.is_(True))
     if not is_admin(current_user):
-        ids = [r[0] for r in db.query(TeacherAssignment.subject_id).filter(
-            TeacherAssignment.user_id == current_user.id, TeacherAssignment.verification_status == 'verified',
-            TeacherAssignment.is_current.is_(True)).all()]
-        query = query.filter(Subject.id.in_(ids or [-1]))
+        # Docente con profilo verificato e assegnazione corrente e verificata.
+        query = query.filter(Subject.id.in_(teacher_subject_ids(db, current_user) or {-1}))
     return [{'id': s.id, 'name': s.name, 'course': s.course, 'department': s.department,
              'university': s.university} for s in query.order_by(Subject.name).all()]
 
@@ -281,7 +286,15 @@ def dictionary_import(request: ImportRequest, current_user: User = Depends(get_c
     }
     if request.preview or subject is None:
         return {'preview': True, **summary}
-    report = import_dictionary(db, data, current_user, subject, request.academic_year)
+    source = None
+    if request.source:
+        try:
+            payload = {'kind': 'json', 'label': metadata.get('source') or 'JSON caricato dall’app',
+                       'academic_year': summary['academic_year'], 'status': 'read', **request.source}
+            source = register_source(db, current_user, payload, subject)
+        except ModerationError as exc:
+            raise HTTPException(exc.status, exc.message)
+    report = import_dictionary(db, data, current_user, subject, request.academic_year, source)
     return {'preview': False, **summary, 'report': report}
 
 
@@ -321,8 +334,29 @@ def _write(db: Session, entry: DictionaryEntry, data: EntryWrite, user: User) ->
                                                       DictionaryVersion.academic_year == year).first()
         teachers = json.loads(existing.teachers_json) if existing else [t['name'] for t in subject_teachers(db, entry.subject_id)]
     version, _ = upsert_version(db, entry, year, content, user, 'admin' if is_admin(user) else 'teacher', teachers)
+    # Pubblicazione diretta: chi scrive è già un moderatore della materia.
+    version.review_state = 'confirmed'
+    version.reviewed_by, version.reviewed_at = user.id, utc_now()
     db.commit()
-    return {'entry_id': entry.id, 'version_id': version.id, 'academic_year': year, 'review_state': version.review_state}
+    return {'entry_id': entry.id, 'version_id': version.id, 'academic_year': year, 'review_state': version.review_state,
+            'published': True}
+
+
+def _save_draft(db: Session, subject_id: int, entry: DictionaryEntry | None, data: EntryWrite, user: User) -> dict:
+    year = normalize_year(data.academic_year)
+    if year is None:
+        raise HTTPException(400, 'Anno accademico non valido (es. 2025/2026).')
+    content = clean_content(data.model_dump())
+    if not content['formal_definition'] and not content['informal_definition']:
+        raise HTTPException(400, 'Scrivi almeno una definizione.')
+    aliases = [a.strip() for a in data.aliases if a.strip()][:10]
+    if data.topic_id is not None and not db.query(DictionaryTopic.id).filter(
+            DictionaryTopic.id == data.topic_id, DictionaryTopic.subject_id == subject_id).first():
+        raise HTTPException(400, 'Argomento non valido.')
+    draft = draft_from_editor(db, user, subject_id, entry, data.term, aliases, data.topic_id,
+                              (data.new_topic_title or '').strip() or None, year, content, data.teachers)
+    return {'draft_id': draft.id, 'entry_id': entry.id if entry else None, 'academic_year': year,
+            'status': 'pending', 'published': False}
 
 
 @router.post('/subjects/{subject_id}/entries')
@@ -334,6 +368,8 @@ def create_entry(subject_id: int, data: EntryWrite, current_user: User = Depends
     slug = slugify(data.term)
     if db.query(DictionaryEntry.id).filter(DictionaryEntry.subject_id == subject_id, DictionaryEntry.slug == slug).first():
         raise HTTPException(409, 'Questo termine esiste già: aprilo e modificalo.')
+    if not data.publish:
+        return _save_draft(db, subject_id, None, data, current_user)
     entry = DictionaryEntry(subject_id=subject_id, slug=slug, term=data.term.strip())
     db.add(entry)
     db.flush()
@@ -348,6 +384,8 @@ def update_entry(entry_id: int, data: EntryWrite, current_user: User = Depends(g
         raise HTTPException(404, 'Termine non trovato.')
     if not can_edit(db, current_user, entry.subject_id):
         raise HTTPException(403, 'Puoi modificare solo le materie che insegni.')
+    if not data.publish:
+        return _save_draft(db, entry.subject_id, entry, data, current_user)
     return _write(db, entry, data, current_user)
 
 
@@ -362,15 +400,11 @@ def delete_entry(entry_id: int, current_user: User = Depends(get_admin_user), db
 
 
 @router.get('/subjects/{subject_id}/teachers')
-def dictionary_subject_teachers(subject_id: int, current_user: User = Depends(get_admin_user),
+def dictionary_subject_teachers(subject_id: int, current_user: User = Depends(get_current_user),
                                 db: Session = Depends(get_db)):
-    listed = subject_teachers(db, subject_id)
-    known = {t['id'] for t in listed}
-    for user in db.query(User).filter(User.role == 'teacher', User.is_active.is_(True)).order_by(
-            User.last_name).limit(300).all():
-        if user.id not in known:
-            listed.append({'id': user.id, 'name': display_name(user), 'other_subject': True})
-    return listed
+    if not can_edit(db, current_user, subject_id):
+        raise HTTPException(403, 'Puoi vedere i docenti solo delle materie che moderi.')
+    return teachers_for(db, current_user, subject_id)
 
 
 # ---------------------------------------------------------------------------

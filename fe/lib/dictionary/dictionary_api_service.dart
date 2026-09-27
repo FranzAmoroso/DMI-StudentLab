@@ -85,8 +85,10 @@ class DictionaryApiService {
   Future<List<Map<String, dynamic>>> editableSubjects() async => _list(
       _decode(await http.get(uri('/dictionary/editable-subjects'), headers: _headers), 'Materie non disponibili.'));
 
+  /// Importa un dizionario JSON: i termini diventano BOZZE da moderare.
+  /// [source] registra il file tra le fonti (nome, impronta, estratto).
   Future<Map<String, dynamic>> importDictionary(Map<String, dynamic> dictionary,
-          {int? subjectId, String? academicYear, bool preview = false}) async =>
+          {int? subjectId, String? academicYear, bool preview = false, Map<String, dynamic>? source}) async =>
       _map(_decode(
           await http.post(uri('/dictionary/import'),
               headers: _headers,
@@ -95,8 +97,89 @@ class DictionaryApiService {
                 if (subjectId != null) 'subject_id': subjectId,
                 if (academicYear != null) 'academic_year': academicYear,
                 'preview': preview,
+                if (source != null) 'source': source,
               })),
           'Importazione non riuscita.'));
+
+  // Fonti e moderazione --------------------------------------------------------
+
+  /// Materie che l'utente può moderare (admin: tutte; docente: le sue verificate).
+  Future<Map<String, dynamic>> moderationSubjects() async => _map(
+      _decode(await http.get(uri('/dictionary/moderation/subjects'), headers: _headers), 'Moderazione non disponibile.'));
+
+  Future<List<Map<String, dynamic>>> sources({int? subjectId, String? status, String? kind, String? query}) async =>
+      _list(_decode(
+          await http.get(
+              uri('/dictionary/sources', {
+                if (subjectId != null) 'subject_id': '$subjectId',
+                if (status != null) 'status': status,
+                if (kind != null) 'kind': kind,
+                if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+              }),
+              headers: _headers),
+          'Fonti non disponibili.'));
+
+  Future<Map<String, dynamic>> source(int id) async =>
+      _map(_decode(await http.get(uri('/dictionary/sources/$id'), headers: _headers), 'Fonte non disponibile.'));
+
+  Future<Map<String, dynamic>> createSource(Map<String, dynamic> body) async => _map(_decode(
+      await http.post(uri('/dictionary/sources'), headers: _headers, body: jsonEncode(body)), 'Fonte non salvata.'));
+
+  Future<Map<String, dynamic>> updateSource(int id, Map<String, dynamic> body) async => _map(_decode(
+      await http.patch(uri('/dictionary/sources/$id'), headers: _headers, body: jsonEncode(body)), 'Fonte non salvata.'));
+
+  Future<void> deleteSource(int id) async =>
+      _decode(await http.delete(uri('/dictionary/sources/$id'), headers: _headers), 'Fonte non eliminata.');
+
+  Future<Map<String, dynamic>> drafts({
+    int? subjectId,
+    String status = 'pending',
+    int? sourceId,
+    String? kind,
+    String? query,
+    int limit = 200,
+    int offset = 0,
+  }) async =>
+      _map(_decode(
+          await http.get(
+              uri('/dictionary/drafts', {
+                if (subjectId != null) 'subject_id': '$subjectId',
+                'status': status,
+                if (sourceId != null) 'source_id': '$sourceId',
+                if (kind != null) 'kind': kind,
+                if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+                'limit': '$limit',
+                'offset': '$offset',
+              }),
+              headers: _headers),
+          'Bozze non disponibili.'));
+
+  Future<Map<String, dynamic>> draft(int id) async =>
+      _map(_decode(await http.get(uri('/dictionary/drafts/$id'), headers: _headers), 'Bozza non disponibile.'));
+
+  Future<Map<String, dynamic>> updateDraft(int id, Map<String, dynamic> body) async => _map(_decode(
+      await http.put(uri('/dictionary/drafts/$id'), headers: _headers, body: jsonEncode(body)), 'Bozza non salvata.'));
+
+  Future<Map<String, dynamic>> approveDraft(int id, {int? mergeIntoEntryId}) async => _map(_decode(
+      await http.post(uri('/dictionary/drafts/$id/approve'),
+          headers: _headers, body: jsonEncode({if (mergeIntoEntryId != null) 'merge_into_entry_id': mergeIntoEntryId})),
+      'Pubblicazione non riuscita.'));
+
+  Future<Map<String, dynamic>> rejectDraft(int id, {String? note}) async => _map(_decode(
+      await http.post(uri('/dictionary/drafts/$id/reject'),
+          headers: _headers, body: jsonEncode({if (note != null && note.trim().isNotEmpty) 'note': note.trim()})),
+      'Operazione non riuscita.'));
+
+  Future<Map<String, dynamic>> bulkDrafts(List<int> ids, String action, {String? note}) async => _map(_decode(
+      await http.post(uri('/dictionary/drafts/bulk'),
+          headers: _headers,
+          body: jsonEncode({'ids': ids, 'action': action, if (note != null && note.trim().isNotEmpty) 'note': note.trim()})),
+      'Operazione non riuscita.'));
+
+  Future<List<Map<String, dynamic>>> questionBank(int subjectId, String query) async => _list(_decode(
+      await http.get(uri('/dictionary/moderation/question-bank', {'subject_id': '$subjectId', 'q': query}),
+          headers: _headers),
+      'Banca domande non disponibile.'));
 
   Future<Map<String, dynamic>> saveEntry({int? entryId, required int subjectId, required Map<String, dynamic> body}) async {
     final response = entryId == null

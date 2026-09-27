@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'teacher_materials_page.dart';
 import 'teacher_material_requests_page.dart';
 import '../../material/teacher/teacher_materials_section.dart';
+import '../../dictionary/dictionary_moderation_page.dart';
 import '../../services/api_service.dart';
 import '../../theme/nightTheme.dart';
 import '../news/public_news_editor_page.dart';
@@ -368,6 +369,19 @@ class _TeacherAreaPageState extends State<TeacherAreaPage> {
                 await Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const TeacherMaterialRequestsPage(),
+                  ),
+                );
+              },
+            ),
+            _TeacherActionCard(
+              icon: Icons.menu_book_outlined,
+              title: 'Dizionario delle mie materie',
+              description:
+                  'Modera i termini trovati nelle fonti, correggili e aggiungi esercizi e domande d’esame.',
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const DictionaryModerationPage(teacherMode: true),
                   ),
                 );
               },

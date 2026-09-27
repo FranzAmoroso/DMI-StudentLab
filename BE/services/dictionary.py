@@ -63,12 +63,24 @@ def is_admin(user: User | None) -> bool:
     return user is not None and (user.role or '') in ADMIN_ROLES
 
 
+def is_verified_teacher(user: User | None) -> bool:
+    """Ruolo docente e profilo docente verificato (come nei quiz)."""
+    return (user is not None and str(user.role or '').strip().lower() == 'teacher'
+            and str(getattr(user, 'teacher_verification_status', '') or '').strip().lower() == 'verified')
+
+
+def teacher_subject_ids(db: Session, user: User | None) -> set[int]:
+    """Materie con assegnazione corrente e verificata di un docente verificato."""
+    if not is_verified_teacher(user):
+        return set()
+    rows = db.query(TeacherAssignment.subject_id).join(Subject, Subject.id == TeacherAssignment.subject_id).filter(
+        TeacherAssignment.user_id == user.id, TeacherAssignment.verification_status == 'verified',
+        TeacherAssignment.is_current.is_(True), Subject.is_active.is_(True)).all()
+    return {r[0] for r in rows}
+
+
 def is_teacher_of(db: Session, user: User | None, subject_id: int) -> bool:
-    if user is None:
-        return False
-    return db.query(TeacherAssignment.id).filter(
-        TeacherAssignment.user_id == user.id, TeacherAssignment.subject_id == subject_id,
-        TeacherAssignment.verification_status == 'verified', TeacherAssignment.is_current.is_(True)).first() is not None
+    return subject_id in teacher_subject_ids(db, user)
 
 
 def can_edit(db: Session, user: User | None, subject_id: int) -> bool:
@@ -137,7 +149,7 @@ def _clean_items(items, keys: tuple[str, ...]) -> list[dict]:
                 clean['difficulty'] = max(1, min(5, int(item['difficulty'])))
             except (TypeError, ValueError):
                 pass
-        for extra in ('material_id',):
+        for extra in ('material_id', 'calendar_event_id'):
             if isinstance(item.get(extra), int):
                 clean[extra] = item[extra]
         if isinstance(item.get('catalog_path'), list):
@@ -153,11 +165,19 @@ def clean_content(data: dict) -> dict:
         'informal_definition': (data.get('informal_definition') or '').strip()[:8000] or None,
         'examples': _clean_items(data.get('examples'), ('title', 'body')),
         'exercises': _clean_items(data.get('exercises'), ('text', 'solution', 'difficulty')),
-        'exam_questions': _clean_items(data.get('exam_questions'), ('text', 'kind', 'source')),
+        # kind: past (esame passato) | possible (domanda possibile) | reports (dai racconti)
+        'exam_questions': _clean_items(data.get('exam_questions'),
+                                       ('text', 'kind', 'source', 'solution', 'exam_date', 'format', 'teacher')),
         'related': [slugify(str(r)) for r in _list(data.get('related'))[:30] if str(r).strip()],
         'resources': _clean_items(data.get('resources'), ('type', 'title', 'url')),
+        'quiz_source': (str(data.get('quiz_source') or '').strip()[:500] or None),
         'quiz_question_ids': [q for q in _list(data.get('quiz_question_ids'))[:200] if isinstance(q, (int, str))],
     }
+
+
+def public_content(content: dict) -> dict:
+    """Contenuto per gli studenti: senza i riferimenti interni alle fonti."""
+    return {**content, 'resources': [r for r in content.get('resources') or [] if r.get('type') != 'source']}
 
 
 def version_content(version: DictionaryVersion) -> dict:
@@ -235,53 +255,13 @@ def upsert_version(db: Session, entry: DictionaryEntry, year: str, content: dict
     return version, created
 
 
-def import_dictionary(db: Session, data: dict, user: User, subject: Subject, year_override: str | None) -> dict:
-    metadata = data.get('metadata') or {}
-    year = normalize_year(year_override) or normalize_year(metadata.get('academic_year')) or current_academic_year()
-    role = 'admin' if is_admin(user) else 'teacher'
-    teachers = [str(t).strip() for t in _list(metadata.get('teachers')) if str(t).strip()][:20]
-    quiz_source = metadata.get('source')
-    topics: dict[str, DictionaryTopic] = {}
-    for position, raw in enumerate(_list(data.get('topics'))):
-        if not isinstance(raw, dict) or not (raw.get('title') or '').strip():
-            continue
-        slug = slugify(raw.get('id') or raw['title'])
-        topic = db.query(DictionaryTopic).filter(DictionaryTopic.subject_id == subject.id,
-                                                 DictionaryTopic.slug == slug).first()
-        if topic is None:
-            topic = DictionaryTopic(subject_id=subject.id, slug=slug, title=raw['title'].strip()[:200])
-            db.add(topic)
-        topic.sort_order = int(raw.get('order') or position + 1)
-        db.flush()
-        topics[slug] = topic
-    created = updated = skipped = 0
-    for raw in _list(data.get('entries')):
-        if not isinstance(raw, dict) or not (raw.get('term') or '').strip():
-            skipped += 1
-            continue
-        content = clean_content(raw)
-        if not content['formal_definition'] and not content['informal_definition']:
-            skipped += 1
-            continue
-        slug = slugify(raw.get('id') or raw['term'])
-        entry = db.query(DictionaryEntry).filter(DictionaryEntry.subject_id == subject.id,
-                                                 DictionaryEntry.slug == slug).first()
-        if entry is None:
-            entry = DictionaryEntry(subject_id=subject.id, slug=slug, term=raw['term'].strip()[:200])
-            db.add(entry)
-        entry.term = raw['term'].strip()[:200]
-        entry.aliases_json = json.dumps([str(a).strip()[:200] for a in _list(raw.get('aliases')) if str(a).strip()][:10],
-                                        ensure_ascii=False)
-        topic_slug = slugify(raw.get('topic') or '') if raw.get('topic') else None
-        if topic_slug and topic_slug in topics:
-            entry.topic_id = topics[topic_slug].id
-        db.flush()
-        _, is_new = upsert_version(db, entry, year, content, user, role, teachers, quiz_source)
-        created += 1 if is_new else 0
-        updated += 0 if is_new else 1
-    db.commit()
-    return {'subject_id': subject.id, 'subject_name': subject.name, 'academic_year': year,
-            'topics': len(topics), 'created': created, 'updated': updated, 'skipped': skipped}
+def import_dictionary(db: Session, data: dict, user: User, subject: Subject, year_override: str | None,
+                      source=None) -> dict:
+    """Un dizionario JSON diventa un insieme di BOZZE da moderare: nessun
+    termine è visibile agli studenti prima dell'approvazione (admin o docente
+    verificato della materia)."""
+    from services.dictionary_moderation import drafts_from_dictionary
+    return drafts_from_dictionary(db, data, user, subject, year_override, source)
 
 
 def quiz_questions(version: DictionaryVersion, limit: int = 20) -> list[dict]:

@@ -11,6 +11,7 @@ import '../widgets/studentlab_ui/studentlab_ui.dart';
 import 'dictionary_api_service.dart';
 import 'dictionary_entry_page.dart';
 import 'dictionary_import_page.dart';
+import 'dictionary_moderation_page.dart';
 import 'dictionary_subject_page.dart';
 
 /// Dizionario (canvas: Dizionario · home). Per ospiti e utenti.
@@ -179,6 +180,17 @@ class _DictionaryHomePageState extends State<DictionaryHomePage> {
                 if (mounted) await _load();
               },
               icon: const Icon(Icons.upload_file_rounded),
+            ),
+          if (_canWrite)
+            IconButton(
+              tooltip: 'Modera i termini',
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const DictionaryModerationPage(),
+                ));
+                if (mounted) await _load();
+              },
+              icon: const Icon(Icons.fact_check_outlined),
             ),
           IconButton(tooltip: 'Aggiorna', onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh_rounded)),
         ],
