@@ -220,7 +220,9 @@ class HomeLayer extends StatelessWidget {
   @override
 
   Widget build(BuildContext context) {
-    final List<FeatureCard> visibleCards = _featureCards;
+    final List<FeatureCard> visibleCards = _featureCards
+        .where((card) => card.type != HomeFeatureType.calendar)
+        .toList();
 
     return SafeArea(
 
