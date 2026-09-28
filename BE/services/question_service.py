@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
+from services.question_json_storage import read_question_json, write_question_json
 
 from schemas.question import (
     QuestionCreate,
@@ -138,6 +139,10 @@ def _read_questions(
         subject,
     )
 
+    archived = read_question_json(path)
+    if archived is not None:
+        return archived
+
     if not path.exists():
         return []
 
@@ -194,6 +199,9 @@ def _write_questions(
         course,
         subject,
     )
+
+    if write_question_json(path, questions):
+        return
 
     path.parent.mkdir(
         parents=True,

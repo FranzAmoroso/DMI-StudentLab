@@ -4,6 +4,7 @@ import re
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
+from services.question_json_storage import read_question_json
 
 
 DATA_ROOT = Path("data")
@@ -61,6 +62,10 @@ def load_questions(
         course=course,
         subject=subject,
     )
+
+    archived = read_question_json(path)
+    if archived is not None:
+        return archived
 
     if not path.is_file():
         return []
