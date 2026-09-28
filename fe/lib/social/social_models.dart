@@ -2731,6 +2731,7 @@ class SocialUser {
   final bool availableForHelp;
   final bool availableForPrivateLessons;
   final String institutionalTutorStatus;
+  final String studentVerificationStatus;
   final bool isActive;
   final List<SocialReview> reviews;
 
@@ -2756,6 +2757,7 @@ class SocialUser {
     required this.availableForHelp,
     required this.availableForPrivateLessons,
     this.institutionalTutorStatus = 'none',
+    this.studentVerificationStatus = 'none',
     required this.isActive,
     this.reviews = const [],
   });
@@ -2764,6 +2766,7 @@ class SocialUser {
       '$firstName $lastName'.trim();
 
   bool get isVerifiedInstitutionalTutor => institutionalTutorStatus == 'verified';
+  bool get isVerifiedStudent => role == 'student' && studentVerificationStatus == 'verified';
 
   String get role {
     final String normalized = accountRole.trim().toLowerCase();
@@ -3092,6 +3095,7 @@ class SocialUser {
       availableForHelp: availableForHelp,
       availableForPrivateLessons: availableForPrivateLessons,
       institutionalTutorStatus: json['institutional_tutor_status']?.toString() ?? 'none',
+      studentVerificationStatus: json['student_verification_status']?.toString() ?? 'none',
       isActive: _toBool(json['is_active']) ?? true,
       reviews: parsedReviews,
     );
@@ -3128,6 +3132,7 @@ class SocialUser {
       'available_for_help': availableForHelp,
       'available_for_private_lessons': availableForPrivateLessons,
       'institutional_tutor_status': institutionalTutorStatus,
+      'student_verification_status': studentVerificationStatus,
       'willing_to_teach': availableForPrivateLessons,
       'is_active': isActive,
       'reviews': reviews
@@ -3160,6 +3165,7 @@ class SocialUser {
     bool? availableForHelp,
     bool? availableForPrivateLessons,
     String? institutionalTutorStatus,
+    String? studentVerificationStatus,
     bool? isActive,
     List<SocialReview>? reviews,
   }) {
@@ -3191,6 +3197,7 @@ class SocialUser {
       availableForPrivateLessons:
           availableForPrivateLessons ?? this.availableForPrivateLessons,
       institutionalTutorStatus: institutionalTutorStatus ?? this.institutionalTutorStatus,
+      studentVerificationStatus: studentVerificationStatus ?? this.studentVerificationStatus,
       isActive: isActive ?? this.isActive,
       reviews: reviews ?? this.reviews,
     );

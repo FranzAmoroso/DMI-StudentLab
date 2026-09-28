@@ -60,6 +60,16 @@ class DatabaseMigrations {
     if (oldVersion < 14) {
       await ensureExerciseSchema(db);
     }
+    if (oldVersion < 15) {
+      await ensureReviewOptions(db);
+    }
+  }
+
+  static Future<void> ensureReviewOptions(Database db) async {
+    if (await _tableExists(db, DatabaseTables.studyPlanItems) &&
+        !await _columnExists(db, DatabaseTables.studyPlanItems, 'options_snapshot')) {
+      await db.execute('ALTER TABLE ${DatabaseTables.studyPlanItems} ADD COLUMN options_snapshot TEXT');
+    }
   }
 
   /// v14 · nuovi tipi di esercizio e flashcard. Solo aggiunte: i tentativi,

@@ -621,6 +621,22 @@ class ApiService {
     _decodeMapResponse(response, 'Richiesta di verifica non riuscita.');
   }
 
+  Future<void> requestStudentVerification() async {
+    final response = await http.post(_apiUri('/student-verifications/request'), headers: _jsonHeaders);
+    _decodeMapResponse(response, 'Richiesta di verifica non riuscita.');
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingStudentVerifications() async {
+    final response = await http.get(_apiUri('/student-verifications/admin/pending'), headers: _jsonHeaders);
+    return _decodeListResponse(response, 'Impossibile caricare le verifiche studenti.');
+  }
+
+  Future<void> decideStudentVerification(int userId, bool approved) async {
+    final response = await http.patch(_apiUri('/student-verifications/admin/$userId'),
+      headers: _jsonHeaders, body: jsonEncode({'approved': approved}));
+    _decodeMapResponse(response, 'Impossibile aggiornare la verifica studente.');
+  }
+
   Future<List<Map<String, dynamic>>> getPendingInstitutionalTutors() async {
     final response = await http.get(_apiUri('/institutional-tutors/admin/pending'), headers: _jsonHeaders);
     return _decodeListResponse(response, 'Impossibile caricare i tutor da verificare.');

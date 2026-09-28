@@ -998,9 +998,6 @@ class _SubjectSelectionState extends State<SubjectSelection> {
 
                 const SizedBox(height: 28),
 
-                Align(alignment: Alignment.centerLeft, child: Text('Esercitazione',
-                  style: Theme.of(context).textTheme.titleLarge)),
-                const SizedBox(height: 12),
                 SizedBox(
                   height: 52,
 

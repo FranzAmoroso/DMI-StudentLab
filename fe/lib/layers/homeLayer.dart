@@ -220,10 +220,7 @@ class HomeLayer extends StatelessWidget {
   @override
 
   Widget build(BuildContext context) {
-    final bool isCreator = AuthSession.instance.currentUser?.isCreator == true;
-    final List<FeatureCard> visibleCards = _featureCards
-        .where((card) => card.type != HomeFeatureType.institution || isCreator)
-        .toList();
+    final List<FeatureCard> visibleCards = _featureCards;
 
     return SafeArea(
 

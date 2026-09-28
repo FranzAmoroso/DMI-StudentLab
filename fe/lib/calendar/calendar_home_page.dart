@@ -19,8 +19,9 @@ import 'academic_year_2026_27.dart';
 class CalendarHomePage extends StatefulWidget {
   final int? subjectId;
   final String? subjectName;
+  final bool embedded;
 
-  const CalendarHomePage({super.key, this.subjectId, this.subjectName});
+  const CalendarHomePage({super.key, this.subjectId, this.subjectName, this.embedded = false});
 
   @override
   State<CalendarHomePage> createState() => _CalendarHomePageState();
@@ -322,7 +323,7 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
     final later = filtered.where((e) => !(calendarDate(e['starts_at']) ?? now).isBefore(weekEnd)).toList();
     return Scaffold(
       backgroundColor: p.darkElegance,
-      appBar: AppBar(
+      appBar: widget.embedded ? null : AppBar(
         backgroundColor: p.eleganceMidnight,
         foregroundColor: p.pureWhite,
         title: Text(widget.subjectName == null ? 'Calendario' : 'Calendario · ${widget.subjectName}',

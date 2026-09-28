@@ -9,6 +9,7 @@ from routes.developer_architecture import (
 from routes.dmi_external_notice import router as dmi_external_notice_router
 from routes.contact import router as contact_router
 from routes.institutional_tutors import router as institutional_tutors_router
+from routes.student_verifications import router as student_verifications_router
 
 from fastapi import (
     Depends,
@@ -610,6 +611,7 @@ app.include_router(
 app.include_router(dmi_external_notice_router)
 app.include_router(contact_router)
 app.include_router(institutional_tutors_router)
+app.include_router(student_verifications_router)
 
 app.include_router(
     public_news_report_router,

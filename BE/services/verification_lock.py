@@ -16,6 +16,8 @@ def has_pending_verifications(db: Session, user: User) -> bool:
         return True
     if (user.institutional_tutor_status or '').lower() == 'pending':
         return True
+    if (user.student_verification_status or '').lower() == 'pending':
+        return True
     if db.query(UserAcademicPath.id).filter(UserAcademicPath.user_id == user.id,
                                             UserAcademicPath.verification_status == 'pending').first():
         return True

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:convert';
 
 import 'package:sqflite_common/sqlite_api.dart';
 
@@ -281,7 +282,13 @@ class StudyPlanLocalRepository {
       GROUP BY i.id
       ORDER BY p.wrong_count DESC, p.mastery_percentage ASC
     ''', args);
-    return rows.where((Map<String, dynamic> row) => includeCorrect || _int(row['wrong_count']) > 0 || _int(row['unanswered_count']) > 0).toList();
+    return rows.where((Map<String, dynamic> row) => includeCorrect || _int(row['wrong_count']) > 0 || _int(row['unanswered_count']) > 0)
+      .map((row) {
+        final value = Map<String, dynamic>.from(row);
+        try { value['options'] = jsonDecode(row['options_snapshot']?.toString() ?? '[]'); }
+        catch (_) { value['options'] = <dynamic>[]; }
+        return value;
+      }).toList();
   }
 
   Future<List<Map<String, dynamic>>> getSources() async {
@@ -389,6 +396,7 @@ class StudyPlanLocalRepository {
       'item_key': key, 'department': department, 'course': course, 'subject': subject,
       'argument': item['argument']?.toString(), 'question_id': questionId, 'question_text': item['question_text']?.toString() ?? '',
       'correct_option_id': item['correct_option_id']?.toString(), 'correct_option_text': item['correct_option_text']?.toString(),
+      'options_snapshot': jsonEncode(item['options'] is List ? item['options'] : []),
       'formal_explanation': item['formal_explanation']?.toString(), 'informal_explanation': item['informal_explanation']?.toString(),
       'correct_answer_explanation': item['correct_answer_explanation']?.toString(),
       'first_seen_at': item['first_seen_at']?.toString() ?? now, 'last_seen_at': item['last_seen_at']?.toString() ?? now, 'updated_at': now,
@@ -397,6 +405,8 @@ class StudyPlanLocalRepository {
     await db.update(DatabaseTables.studyPlanItems, <String, Object?>{
       'argument': item['argument']?.toString(), 'question_text': item['question_text']?.toString() ?? '',
       'correct_option_id': item['correct_option_id']?.toString(), 'correct_option_text': item['correct_option_text']?.toString(),
+      if (item['options'] is List && (item['options'] as List).isNotEmpty)
+        'options_snapshot': jsonEncode(item['options']),
       'formal_explanation': item['formal_explanation']?.toString(), 'informal_explanation': item['informal_explanation']?.toString(),
       'correct_answer_explanation': item['correct_answer_explanation']?.toString(), 'last_seen_at': item['last_seen_at']?.toString() ?? now, 'updated_at': now,
       if (item['question_type'] != null) 'question_type': item['question_type'].toString(),

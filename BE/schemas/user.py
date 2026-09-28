@@ -275,6 +275,7 @@ class PublicUserResponse(BaseModel):
     teacher_verification_status: str
 
     institutional_tutor_status: str = 'none'
+    student_verification_status: str = 'none'
 
     available: bool
 
@@ -331,6 +332,7 @@ class UserResponse(BaseModel):
     teacher_verification_status: str
 
     institutional_tutor_status: str = 'none'
+    student_verification_status: str = 'none'
 
     teacher_verified_by: int | None
 

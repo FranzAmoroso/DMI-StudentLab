@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/studentlab_brand.dart';
+import '../calendar/calendar_home_page.dart';
 
 import 'package:fe/widgets/studentlab_coming_soon_badge.dart';
 
@@ -747,29 +748,11 @@ class _SocialPageState extends State<SocialPage> {
                   constraints: const BoxConstraints(maxWidth: 1180),
                   child: IndexedStack(
                     index: _currentIndex,
-                    children: _session.isGuest
-                        ? [
-                            const InstitutionalNewsPage(embedded: true),
-                            _TutorHubSection(onLogin: _openLogin),
-                            _GuestNetworkSection(
-                              onLogin: _openLogin,
-                              onProfileCreated: _onProfileCreated,
-                            ),
-                          ]
-                        : [
-                            const InstitutionalNewsPage(embedded: true),
-                            _TutorHubSection(onLogin: _openLogin),
-                            const _ComingSoonSection(
-                              icon: Icons.menu_book_outlined,
-                              title: 'Libri',
-                              description: 'La sezione Libri è in arrivo.',
-                            ),
-                            const _ComingSoonSection(
-                              icon: Icons.work_outline_rounded,
-                              title: 'Lavori',
-                              description: 'La sezione Lavori è in arrivo.',
-                            ),
-                          ],
+                    children: [
+                      const InstitutionalNewsPage(embedded: true),
+                      _TutorHubSection(onLogin: _openLogin),
+                      const CalendarHomePage(embedded: true),
+                    ],
                   ),
                 ),
               ),
@@ -788,8 +771,7 @@ class _SocialPageState extends State<SocialPage> {
   }
 
   Widget _buildNavigation() {
-    final sections = _session.isGuest
-        ? const [
+    const sections = [
             (
               icon: Icons.newspaper_outlined,
               selectedIcon: Icons.newspaper_rounded,
@@ -801,31 +783,9 @@ class _SocialPageState extends State<SocialPage> {
               label: 'Tutor',
             ),
             (
-              icon: Icons.hub_outlined,
-              selectedIcon: Icons.hub_rounded,
-              label: 'Network',
-            ),
-          ]
-        : const [
-            (
-              icon: Icons.newspaper_outlined,
-              selectedIcon: Icons.newspaper_rounded,
-              label: 'Avvisi',
-            ),
-            (
-              icon: Icons.volunteer_activism_outlined,
-              selectedIcon: Icons.volunteer_activism_rounded,
-              label: 'Tutor',
-            ),
-            (
-              icon: Icons.menu_book_outlined,
-              selectedIcon: Icons.menu_book_rounded,
-              label: 'Libri',
-            ),
-            (
-              icon: Icons.work_outline_rounded,
-              selectedIcon: Icons.work_rounded,
-              label: 'Lavori',
+              icon: Icons.edit_calendar_outlined,
+              selectedIcon: Icons.edit_calendar_rounded,
+              label: 'Calendario',
             ),
           ];
 
@@ -863,7 +823,7 @@ class _SocialPageState extends State<SocialPage> {
 
                 decoration: BoxDecoration(
                   color: selected
-                      ? AppColors.skyBlue.withValues(alpha: 0.16)
+                      ? (index == 2 ? AppColors.adminCoral : AppColors.skyBlue).withValues(alpha: 0.16)
                       : Colors.transparent,
 
                   borderRadius: BorderRadius.circular(12),
@@ -876,7 +836,7 @@ class _SocialPageState extends State<SocialPage> {
                       selected ? section.selectedIcon : section.icon,
                       size: 19,
                       color: selected
-                          ? AppColors.materialSky
+                          ? (index == 2 ? AppColors.adminCoral : AppColors.materialSky)
                           : AppColors.pureWhite.withValues(alpha: 0.45),
                     ),
 
@@ -926,6 +886,7 @@ class _TutorHubSectionState extends State<_TutorHubSection> {
   List<SocialUser> _users = [];
 
   int _selectedFilter = 0;
+  bool _onlyMyCourse = true;
 
   bool _loading = true;
 
@@ -982,7 +943,7 @@ class _TutorHubSectionState extends State<_TutorHubSection> {
             .where(
               (SocialUser user) =>
                   user.id != currentUserId &&
-                  (_canHelp(user) || _offersPrivateLessons(user)),
+                  (_offersPrivateLessons(user) || user.isVerifiedInstitutionalTutor),
             )
             .toList();
 
@@ -1002,17 +963,23 @@ class _TutorHubSectionState extends State<_TutorHubSection> {
 
   List<SocialUser> get _filteredUsers {
     final String query = _searchController.text.trim().toLowerCase();
+    final SocialUser? viewer = AuthSession.instance.currentUser;
+    final enrolled = viewer?.academicPaths.where((path) => path.status == AcademicPathStatus.enrolled).toList() ?? [];
+    final currentPath = enrolled.where((path) => path.isCurrent).firstOrNull ?? enrolled.firstOrNull;
+    final String myCourse = (currentPath?.course ?? viewer?.course ?? '').trim().toLowerCase();
 
     return _users.where((SocialUser user) {
-      final bool canHelp = _canHelp(user);
-
       final bool privateLessons = _offersPrivateLessons(user);
-
-      if (_selectedFilter == 1 && !canHelp) {
+      if (_onlyMyCourse && viewer?.role == 'student' && myCourse.isNotEmpty &&
+          user.course.trim().toLowerCase() != myCourse &&
+          !user.academicPaths.any((path) => path.status == AcademicPathStatus.enrolled &&
+              path.course.trim().toLowerCase() == myCourse)) {
         return false;
       }
-
-      if (_selectedFilter == 2 && !privateLessons) {
+      if (_selectedFilter == 1 && !privateLessons) {
+        return false;
+      }
+      if (_selectedFilter == 2 && !user.isVerifiedInstitutionalTutor) {
         return false;
       }
 
@@ -1068,7 +1035,7 @@ class _TutorHubSectionState extends State<_TutorHubSection> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Trova utenti disponibili ad aiutarti nello studio o a offrire lezioni private.',
+            'Trova chi offre lezioni private o tutoraggio universitario verificato.',
             style: TextStyle(
               color: AppColors.pureWhite.withValues(alpha: 0.50),
               fontSize: 11,
@@ -1098,14 +1065,21 @@ class _TutorHubSectionState extends State<_TutorHubSection> {
             ),
           ),
           const SizedBox(height: 14),
+          if (AuthSession.instance.currentUser?.role == 'student' &&
+              ((AuthSession.instance.currentUser?.course.trim().isNotEmpty ?? false) ||
+               (AuthSession.instance.currentUser?.academicPaths.isNotEmpty ?? false)))
+            Padding(padding: const EdgeInsets.only(bottom: 10), child: FilterChip(
+              label: const Text('Il mio corso'), selected: _onlyMyCourse,
+              onSelected: (value) => setState(() => _onlyMyCourse = value))),
+          if (_users.where((user) => user.isVerifiedInstitutionalTutor).length > 1)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: List.generate(3, (int index) {
                 const List<String> labels = [
                   'Tutti',
-                  'Aiuto',
                   'Lezioni private',
+                  'Tutoraggio UNICT',
                 ];
 
                 return Padding(

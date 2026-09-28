@@ -30,6 +30,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   List<PublicNews> _items = [];
   List<DmiExternalNotice> _officialNotices = [];
+  bool _hasOfficialSource = false;
   bool _loading = true;
   bool _loadingMore = false;
   String? _error;
@@ -147,6 +148,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       setState(() {
         _items = items;
         _officialNotices = official.where(_matchesOfficialNotice).toList();
+        _hasOfficialSource = official.isNotEmpty;
         _total = manualSubject == null ? result.total : items.length;
         _offset = result.items.length;
         _loading = false;
@@ -166,8 +168,9 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     final String course = _selectedCourse?.toLowerCase() ?? '';
     if (university.isNotEmpty && !university.contains('catania') && university != 'unict') return false;
     if (department.isNotEmpty && !department.contains('matematica') && department != 'dmi') return false;
-    if (course.isNotEmpty && !course.contains('informatica') && !course.contains('l-31') && course != 'l31') return false;
-    if (_selectedSubjectName != null) return false;
+    if (course.isNotEmpty && !course.contains('informatica') &&
+        !course.contains('informatiche') && !course.contains('l-31') &&
+        course != 'l31') return false;
     final String search = _searchController.text.trim().toLowerCase();
     return search.isEmpty || '${notice.title} ${notice.content} ${notice.teacher ?? ''}'.toLowerCase().contains(search);
   }
@@ -220,6 +223,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   List<String> get _universities {
     final Set<String> values = {};
+    if (_hasOfficialSource) values.add('Università di Catania');
     final String current = _currentUser?.university.trim() ?? '';
     if (current.isNotEmpty) values.add(current);
     for (final PublicNews news in _items) {
@@ -230,6 +234,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   List<String> get _departments {
     final Set<String> values = {};
+    if (_hasOfficialSource) values.add('Dipartimento di Matematica e Informatica');
     final String current = _currentUser?.department.trim() ?? '';
     if (current.isNotEmpty) values.add(current);
     for (final PublicNews news in _items) {
@@ -245,6 +250,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   List<String> get _courses {
     final Set<String> values = {};
+    if (_hasOfficialSource) values.add('Informatica L-31');
     final String current = _currentUser?.course.trim() ?? '';
     if (current.isNotEmpty) values.add(current);
     for (final PublicNews news in _items) {
@@ -721,13 +727,6 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
               },
             ),
           ),
-          const SizedBox(width: 8),
-          _FilterButton(
-            icon: Icons.menu_book_outlined,
-            label: _selectedSubjectName ?? 'Materia',
-            active: _selectedSubjectName != null,
-            onTap: _selectSubjectFilter,
-          ),
           if (_currentUser != null) ...[
             const SizedBox(width: 8),
             _FilterButton(
@@ -999,7 +998,7 @@ class _DmiNoticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return SizedBox(width: double.infinity, child: Card(
       color: AppColors.eleganceMidnight,
       child: InkWell(
         onTap: onOpen,
@@ -1022,7 +1021,7 @@ class _DmiNoticeCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -1030,6 +1029,38 @@ class _DmiNoticeDetailPage extends StatelessWidget {
   final DmiExternalNotice notice;
 
   const _DmiNoticeDetailPage({required this.notice});
+
+  List<Widget> _formattedContent() {
+    // La fonte fornisce talvolta testo senza ritorni a capo. Separiamo i
+    // canali e le coppie matricola/esito conservando integralmente i valori.
+    final String content = notice.content.replaceAll(RegExp(r'[ \t]+'), ' ')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+    final RegExp channel = RegExp(r'\bCanale\s+[A-Z]{1,3}(?:\s*[-/]\s*[A-Z]{1,3})?\b', caseSensitive: false);
+    final matches = channel.allMatches(content).toList();
+    final parts = <Widget>[];
+    void addBody(String value) {
+      final String formatted = value.trim().replaceAllMapped(
+        RegExp(r'(\b\d{7,10}\s*[:–-]\s*[^\s,;]+)(?=\s+\d{7,10}\b)'),
+        (match) => '${match.group(1)}\n',
+      );
+      if (formatted.isEmpty) return;
+      parts.add(Padding(padding: const EdgeInsets.only(bottom: 14),
+        child: SelectableText(formatted, style: TextStyle(color: AppColors.pureWhite, height: 1.65))));
+    }
+    if (matches.isEmpty) {
+      addBody(content);
+    } else {
+      addBody(content.substring(0, matches.first.start));
+      for (int i = 0; i < matches.length; i++) {
+        parts.add(Padding(padding: const EdgeInsets.only(top: 8, bottom: 10),
+          child: Text(matches[i].group(0)!, style: TextStyle(color: AppColors.materialSky,
+            fontSize: 14, fontWeight: FontWeight.w700))));
+        addBody(content.substring(matches[i].end,
+          i + 1 < matches.length ? matches[i + 1].start : content.length));
+      }
+    }
+    return parts;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1047,7 +1078,7 @@ class _DmiNoticeDetailPage extends StatelessWidget {
             Text(notice.teacher!, style: TextStyle(color: AppColors.white70)),
           Text(_dmiDate(notice.publishedOn), style: TextStyle(color: AppColors.white54)),
           const SizedBox(height: 22),
-          SelectableText(notice.content, style: TextStyle(color: AppColors.pureWhite, height: 1.5)),
+          ..._formattedContent(),
           const SizedBox(height: 28),
           Divider(color: AppColors.white38),
           Text('Fonte: DMI – Università di Catania', style: TextStyle(color: AppColors.white70)),

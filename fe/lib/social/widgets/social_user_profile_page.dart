@@ -45,6 +45,8 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
   bool _reportingProfile = false;
   bool _reportingError = false;
   bool _deletingAccount = false;
+  bool _requestingBadge = false;
+  bool _requestingTutor = false;
 
   @override
   void initState() {
@@ -188,6 +190,10 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
 
                     children: [
                       _buildProfileHeader(),
+                      if (_isOwnProfile && _user.role == 'student') ...[
+                        const SizedBox(height: 16),
+                        _buildStudentVerificationActions(),
+                      ],
 
                       const SizedBox(height: 16),
 
@@ -260,6 +266,64 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
               ),
       ),
     );
+  }
+
+  Widget _buildStudentVerificationActions() {
+    final badgeStatus = _user.studentVerificationStatus;
+    final tutorStatus = _user.institutionalTutorStatus;
+    return Card(color: AppColors.eleganceMidnight, child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Verifiche del profilo', style: TextStyle(color: AppColors.pureWhite,
+          fontSize: 17, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        ListTile(contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.verified_user_outlined, color: AppColors.materialSky),
+          title: Text('Studente verificato', style: TextStyle(color: AppColors.pureWhite)),
+          subtitle: Text(switch (badgeStatus) {
+            'verified' => 'Profilo verificato dall’amministratore.',
+            'pending' => 'Nome, cognome ed email inviati: verifica in corso.',
+            _ => 'Invia nome, cognome ed email all’amministratore per richiedere il badge.',
+          }, style: TextStyle(color: AppColors.white70)),
+          trailing: badgeStatus == 'verified' || badgeStatus == 'pending' ? null
+              : TextButton(onPressed: _requestingBadge ? null : () async {
+                  setState(() => _requestingBadge = true);
+                  try {
+                    await _apiService.requestStudentVerification();
+                    if (mounted) setState(() => _user = _user.copyWith(studentVerificationStatus: 'pending'));
+                  } catch (error) {
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(error.toString())));
+                  } finally {
+                    if (mounted) setState(() => _requestingBadge = false);
+                  }
+                }, child: const Text('Richiedi')),
+        ),
+        Divider(color: AppColors.white38),
+        ListTile(contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.cast_for_education_outlined, color: AppColors.materialSky),
+          title: Text('Tutoraggio UNICT', style: TextStyle(color: AppColors.pureWhite)),
+          subtitle: Text(switch (tutorStatus) {
+            'verified' => 'Tutor universitario verificato.',
+            'pending' => 'Richiesta in verifica.',
+            _ => 'Richiedi la verifica per offrire tutoraggio ufficiale UNICT. Serve un percorso UNICT attivo.',
+          }, style: TextStyle(color: AppColors.white70)),
+          trailing: tutorStatus == 'verified' || tutorStatus == 'pending' ? null
+              : TextButton(onPressed: _requestingTutor ? null : () async {
+                  setState(() => _requestingTutor = true);
+                  try {
+                    await _apiService.requestInstitutionalTutor();
+                    if (mounted) setState(() => _user = _user.copyWith(institutionalTutorStatus: 'pending'));
+                  } catch (error) {
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(error.toString())));
+                  } finally {
+                    if (mounted) setState(() => _requestingTutor = false);
+                  }
+                }, child: const Text('Richiedi')),
+        ),
+      ]),
+    ));
   }
 
   Widget _buildOwnAccountActions() {
@@ -674,6 +738,14 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
 
                             color: AppColors.greenAccent,
                           ),
+
+                        if (_user.isVerifiedStudent)
+                          _StatusBadge(label: 'Studente verificato',
+                            icon: Icons.verified_rounded, color: AppColors.greenAccent),
+
+                        if (_user.isVerifiedInstitutionalTutor)
+                          _StatusBadge(label: 'Tutor UNICT',
+                            icon: Icons.verified_rounded, color: AppColors.greenAccent),
 
                         if (_isTeacher && _user.isTeacherPending)
                           _StatusBadge(

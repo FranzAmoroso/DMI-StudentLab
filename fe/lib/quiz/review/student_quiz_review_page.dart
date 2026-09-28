@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../services/auth_session.dart';
 import '../../theme/nightTheme.dart';
-import '../quiz.dart';
 import 'review_flashcards_page.dart';
+import 'review_quiz_page.dart';
 import 'services/student_quiz_review_service.dart';
 import 'study_plan_sessions_page.dart';
 
@@ -219,25 +219,18 @@ class _StudentQuizReviewPageState
       _showMessage('Impossibile caricare le domande da ripassare. Riprova.');
       return;
     }
-    final List<String> questionIds = review
-        .map((item) => _text(item, 'question_id'))
-        .where((id) => id.isNotEmpty).toSet().toList();
+    final List<Map<String, dynamic>> questions = review.where((item) =>
+      _text(item, 'question_text').isNotEmpty &&
+      _text(item, 'correct_option_text').isNotEmpty).take(10).toList();
     if (!mounted) return;
-    if (questionIds.isEmpty) {
+    if (questions.isEmpty) {
       _showMessage('Non ci sono domande da ripassare per questo argomento.');
       return;
     }
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => QuizPage(
-          department: department,
-          course: course,
-          sub: subject,
-          arguments: argumentName == 'Senza argomento' ? const <String>[] : <String>[argumentName],
-          numberOfQuestions: questionIds.length.clamp(1, 10),
-          reviewQuestionIds: questionIds.take(10).toList(),
-        ),
+        builder: (_) => ReviewQuizPage(subject: subject, items: questions),
       ),
     );
   }
