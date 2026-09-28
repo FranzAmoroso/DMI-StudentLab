@@ -8,7 +8,7 @@ from models.subject import Subject
 from models.teacher_assignment import TeacherAssignment
 from models.user import User
 from schemas.public_news import PublicNewsCreate
-from services.news_filter_scope import COURSES, code, matches
+from services.news_filter_scope import COURSES, code, matches, teacher_name_key
 from services.user_block import get_mutually_restricted_user_ids
 
 
@@ -171,6 +171,7 @@ def get_public_news_feed(
     university: str | None = None,
     department: str | None = None,
     course: str | None = None,
+    teacher: str | None = None,
     subject_id: int | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -214,14 +215,25 @@ def get_public_news_feed(
     if university:
         query = query.filter(or_(PublicNews.target_type == 'all',
             matches(PublicNews.university, PublicNews.university_code, university, 'university')))
-    if department:
-        query = query.filter(or_(PublicNews.target_type.in_(('all', 'university')),
-            matches(PublicNews.department, PublicNews.department_code, department, 'department')))
     if course:
-        query = query.filter(or_(PublicNews.target_type.in_(('all', 'university', 'department')),
-            matches(PublicNews.course, PublicNews.course_code, course, 'course')))
-    if viewer_user_id is None and not department and not course:
+        # Choosing a course excludes university and department broadcasts.
+        query = query.filter(PublicNews.target_type.in_(('course', 'subject')),
+            matches(PublicNews.course, PublicNews.course_code, course, 'course'))
+        if department:
+            query = query.filter(matches(PublicNews.department, PublicNews.department_code,
+                                         department, 'department'))
+    elif department:
+        query = query.filter(PublicNews.target_type == 'department',
+            matches(PublicNews.department, PublicNews.department_code, department, 'department'))
+    else:
         query = query.filter(PublicNews.target_type.in_(('all', 'university')))
+    if teacher:
+        wanted = teacher_name_key(teacher)
+        authors = db.query(User.id, User.first_name, User.last_name).filter(
+            User.role == 'teacher', User.teacher_verification_status == 'verified').all()
+        author_ids = [author.id for author in authors if wanted and
+                      teacher_name_key(f'{author.first_name} {author.last_name}') == wanted]
+        query = query.filter(PublicNews.author_user_id.in_(author_ids))
     if subject_id is not None:
         query = query.filter(PublicNews.subject_id == subject_id)
 

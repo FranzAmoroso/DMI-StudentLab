@@ -4,6 +4,7 @@ class DmiExternalNotice {
   final String content;
   final String? teacher;
   final String originalUrl;
+  final String? sourceUrl;
   final String university;
   final String? department;
   final String? course;
@@ -15,6 +16,7 @@ class DmiExternalNotice {
     required this.content,
     required this.teacher,
     required this.originalUrl,
+    this.sourceUrl,
     required this.university,
     required this.department,
     required this.course,
@@ -28,6 +30,7 @@ class DmiExternalNotice {
       content: json['content'] as String? ?? '',
       teacher: json['teacher'] as String?,
       originalUrl: json['original_url'] as String? ?? '',
+      sourceUrl: json['source_url'] as String?,
       university: json['university'] as String? ?? 'Università di Catania',
       department: json['department'] as String?,
       course: json['course'] as String?,

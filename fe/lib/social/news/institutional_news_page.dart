@@ -30,6 +30,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   List<PublicNews> _items = [];
   List<DmiExternalNotice> _officialNotices = [];
+  List<String> _availableTeachers = [];
   bool _hasOfficialSource = false;
   bool _loading = true;
   bool _loadingMore = false;
@@ -41,6 +42,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
   String? _selectedUniversity;
   String? _selectedDepartment;
   String? _selectedCourse;
+  String? _selectedTeacher;
   String? _selectedSubjectName;
   int? _selectedSubjectId;
 
@@ -65,6 +67,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       _selectedUniversity != null ||
       _selectedDepartment != null ||
       _selectedCourse != null ||
+      _selectedTeacher != null ||
       _selectedSubjectName != null;
 
   String _universityKey(String value) {
@@ -101,6 +104,11 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     return names[_courseKey(value)] ?? value.trim();
   }
 
+  String _teacherKey(String value) => value.trim().toLowerCase()
+      .replaceFirst(RegExp(r'^(?:(?:prof(?:\.ssa|essoressa|essore|ssa)?|dott(?:\.ssa|oressa|ore|ssa)?)\.?\s+)+'), '')
+      .replaceAll(RegExp(r'[^a-zà-ÿ0-9]+'), ' ')
+      .trim();
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +136,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       _selectedUniversity = null;
       _selectedDepartment = null;
       _selectedCourse = null;
+      _selectedTeacher = null;
       _selectedSubjectName = null;
       _selectedSubjectId = null;
       return;
@@ -139,6 +148,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         user.department.trim().isEmpty ? null : user.department.trim();
     _selectedCourse =
         user.course.trim().isEmpty ? null : _courseLabel(user.course);
+    _selectedTeacher = null;
     _selectedSubjectName = null;
     _selectedSubjectId = null;
   }
@@ -162,6 +172,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         university: _selectedUniversity ?? '',
         department: _selectedDepartment ?? '',
         course: _selectedCourse ?? '',
+        teacher: _selectedTeacher,
         subjectId: _selectedSubjectId,
         limit: _limit,
         offset: 0,
@@ -171,10 +182,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       if (!mounted) return;
 
       List<PublicNews> items = result.items;
-      if (_isGuest && _selectedDepartment == null && _selectedCourse == null) {
-        items = items.where((news) => news.department.trim().isEmpty &&
-            news.course.trim().isEmpty).toList();
-      }
+      items = items.where(_matchesAcademicScope).toList();
       final String? manualSubject =
           _selectedSubjectId == null ? _selectedSubjectName : null;
 
@@ -187,6 +195,17 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
       setState(() {
         _items = items;
+        _availableTeachers = _selectedCourse == null
+            ? []
+            : _selectedTeacher != null
+            ? _availableTeachers
+            : ({for (final notice in official)
+                if ((notice.teacher ?? '').trim().isNotEmpty)
+                  _teacherKey(notice.teacher!): notice.teacher!.trim(),
+                for (final news in result.items)
+                  if (news.author.isVerifiedTeacher && _matchesCourseOnly(news))
+                    _teacherKey(news.author.fullName): news.author.fullName,
+              }.values.toList()..sort());
         _officialNotices = official.where(_matchesOfficialNotice).toList();
         _hasOfficialSource = official.isNotEmpty;
         _total = manualSubject == null ? result.total : items.length;
@@ -203,9 +222,57 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
   }
 
   bool _matchesOfficialNotice(DmiExternalNotice notice) {
+    if (_selectedTeacher != null && _teacherKey(notice.teacher ?? '') != _teacherKey(_selectedTeacher!)) {
+      return false;
+    }
+    final source = Uri.tryParse(notice.sourceUrl ?? notice.originalUrl);
+    if (source == null) return false;
+    final path = source.path.toLowerCase().replaceFirst('/it/corsi/', '/corsi/');
+    final courseMatch = RegExp(r'^/corsi/(l-31|l-35|lm-18|lm-40|l-13)/(?:avvisi|avvisi-docente)(?:/|$)')
+        .firstMatch(path);
+    final courseCode = courseMatch?.group(1) ??
+        (source.host.toLowerCase() == 'www.unict.it' && notice.course != null
+            ? _courseKey(notice.course!) : null);
+    final sourceDepartment = courseCode == 'l-13' ? 'dsbga' : 'dmi';
+    final host = source.host.toLowerCase();
+    if (_selectedCourse != null) {
+      if (courseCode == null || _courseKey(_selectedCourse!) != courseCode ||
+          (host != 'www.unict.it' &&
+              host != (courseCode == 'l-13' ? 'www.dsbga.unict.it' : 'web.dmi.unict.it'))) {
+        return false;
+      }
+      if (_selectedDepartment != null && _departmentKey(_selectedDepartment!) != sourceDepartment) return false;
+    } else if (_selectedDepartment != null) {
+      return false; // Nessun feed ufficiale autonomo per il dipartimento.
+    } else if (notice.course != null || host != 'www.unict.it' ||
+        !(path == '/it/news' || path == '/it/news/' ||
+          RegExp(r'^/it/(?:[^/]+/)?news/[^/]+').hasMatch(path))) {
+      return false;
+    }
     final String search = _searchController.text.trim().toLowerCase();
     return search.isEmpty || '${notice.title} ${notice.content} ${notice.teacher ?? ''}'.toLowerCase().contains(search);
   }
+
+  bool _matchesAcademicScope(PublicNews news) {
+    if (_selectedTeacher != null && (!news.author.isVerifiedTeacher ||
+        _teacherKey(news.author.fullName) != _teacherKey(_selectedTeacher!))) {
+      return false;
+    }
+    if (_selectedCourse != null) {
+      return (news.targetType == 'course' || news.targetType == 'subject') &&
+          _matchesCourseOnly(news);
+    }
+    if (_selectedDepartment != null) {
+      return news.targetType == 'department' &&
+          _departmentKey(news.departmentCode.isNotEmpty ? news.departmentCode : news.department) ==
+              _departmentKey(_selectedDepartment!);
+    }
+    return news.targetType == 'all' || news.targetType == 'university';
+  }
+
+  bool _matchesCourseOnly(PublicNews news) => _selectedCourse != null &&
+      _courseKey(news.courseCode.isNotEmpty ? news.courseCode : news.course) ==
+          _courseKey(_selectedCourse!);
 
   Future<void> _loadMore() async {
     if (_loading || _loadingMore || _items.length >= _total) return;
@@ -220,6 +287,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         university: _selectedUniversity ?? '',
         department: _selectedDepartment ?? '',
         course: _selectedCourse ?? '',
+        teacher: _selectedTeacher,
         subjectId: _selectedSubjectId,
         limit: _limit,
         offset: _offset,
@@ -238,9 +306,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       setState(() {
-        _items = (_isGuest && _selectedDepartment == null && _selectedCourse == null)
-            ? values.where((news) => news.department.trim().isEmpty && news.course.trim().isEmpty).toList()
-            : values;
+        _items = values.where(_matchesAcademicScope).toList();
         _total = result.total;
         _offset = result.offset + result.items.length;
       });
@@ -578,6 +644,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       _selectedUniversity = null;
       _selectedDepartment = null;
       _selectedCourse = null;
+      _selectedTeacher = null;
       _selectedSubjectName = null;
       _selectedSubjectId = null;
     });
@@ -733,6 +800,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                   _selectedUniversity = value;
                   _selectedDepartment = null;
                   _selectedCourse = null;
+                  _selectedTeacher = null;
                   _selectedSubjectName = null;
                   _selectedSubjectId = null;
                 });
@@ -752,6 +820,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
                 setState(() {
                   _selectedDepartment = value;
                   _selectedCourse = null;
+                  _selectedTeacher = null;
                   _selectedSubjectName = null;
                   _selectedSubjectId = null;
                 });
@@ -770,12 +839,27 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
               onSelected: (value) {
                 setState(() {
                   _selectedCourse = value;
+                  _selectedTeacher = null;
                   _selectedSubjectName = null;
                   _selectedSubjectId = null;
                 });
               },
             ),
           ),
+          if (_selectedCourse != null && _availableTeachers.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            _FilterButton(
+              icon: Icons.person_search_outlined,
+              label: _selectedTeacher ?? 'Docente',
+              active: _selectedTeacher != null,
+              onTap: () => _selectStringFilter(
+                title: 'Seleziona docente',
+                values: _availableTeachers,
+                selected: _selectedTeacher,
+                onSelected: (value) => setState(() => _selectedTeacher = value),
+              ),
+            ),
+          ],
           if (_currentUser != null) ...[
             const SizedBox(width: 8),
             _FilterButton(

@@ -24,6 +24,7 @@ class DmiExternalNotice(Base):
     category = Column(String(40), nullable=False, default="altro")
     published_on = Column(Date, nullable=False, index=True)
     original_url = Column(Text, nullable=False)
+    source_url = Column(Text, nullable=True)
     content_hash = Column(String(64), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)

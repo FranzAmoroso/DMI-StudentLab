@@ -147,9 +147,11 @@ def is_notice_url(url: str, source: str) -> bool:
     course, kind = source.split("_", 1)
     expected_host = "www.dsbga.unict.it" if course == "l13" else "web.dmi.unict.it"
     path = path.removeprefix("/it")
-    slug = f"lm-{course[2:]}" if course.startswith('lm') else f"l-{course[1:]}"
-    return host == expected_host and path.startswith(
-        f"/corsi/{slug}/avvisi{'-docente' if kind == 'docente' else ''}/")
+    allowed_courses = r'l-13' if course == 'l13' else r'(?:l-31|l-35|lm-18|lm-40)'
+    # The listing page is authoritative: an article can be cross-posted
+    # under another course URL, while remaining part of this listing.
+    return host == expected_host and bool(re.match(
+        rf'^/corsi/{allowed_courses}/avvisi(?:-docente)?/[^/]+', path))
 
 
 def find_date_before(element: Tag) -> str | None:
@@ -449,9 +451,7 @@ def scrape_source(
 
             course = source.split("_", 1)[0]
             record = {
-                "external_id": external_id(
-                    item["url"]
-                ),
+                "external_id": external_id(f"{item['url']}|{list_url}"),
                 "fonte": source.split("_", 1)[-1] if source != "ateneo" else "ateneo",
                 "external_source": "dmi_unict",
                 "istituzione": (
@@ -470,6 +470,7 @@ def scrape_source(
                     content,
                 ),
                 "url": item["url"],
+                "source_url": list_url,
                 "content_hash": content_hash(
                     title,
                     content,
