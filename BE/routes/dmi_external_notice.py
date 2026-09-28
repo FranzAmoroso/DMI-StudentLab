@@ -5,11 +5,13 @@ from datetime import datetime
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from core.database import get_db
 from models.dmi_external_notice import DmiExternalNotice, utc_now
 from schemas.dmi_external_notice import DmiNoticeResponse, DmiNoticeSyncRequest
+from services.news_filter_scope import code as academic_code, matches
 
 
 router = APIRouter(prefix="/institutional-notices", tags=["Institutional notices"])
@@ -31,6 +33,9 @@ SOURCES = {
 
 def _scope(value: str, dimension: str = "course") -> str:
     import re
+    known = academic_code(value, dimension)
+    if known is not None:
+        return known.casefold()
     text = value.casefold()
     if dimension == "department":
         if "dsbga" in text or "scienze biologiche" in text or "dipbiogeo" in text:
@@ -66,13 +71,23 @@ def _scope(value: str, dimension: str = "course") -> str:
 def list_notices(limit: int = Query(default=200, ge=1, le=500),
                  university: str | None = None, department: str | None = None,
                  course: str | None = None, db: Session = Depends(get_db)):
-    rows = (db.query(DmiExternalNotice)
-            .order_by(DmiExternalNotice.published_on.desc(), DmiExternalNotice.id.desc())
-            .limit(limit).all())
     if university and _scope(university, "university") != "unict":
         return []
+    query = db.query(DmiExternalNotice)
+    if department:
+        query = query.filter(or_(DmiExternalNotice.department.is_(None),
+            matches(DmiExternalNotice.department, DmiExternalNotice.department,
+                    department, 'department')))
+    if course:
+        query = query.filter(or_(DmiExternalNotice.course.is_(None),
+            matches(DmiExternalNotice.course, DmiExternalNotice.course,
+                    course, 'course')))
     if not department and not course:
-        return [row for row in rows if row.department is None]
+        query = query.filter(DmiExternalNotice.department.is_(None))
+    rows = (query.order_by(DmiExternalNotice.published_on.desc(), DmiExternalNotice.id.desc())
+            .limit(limit).all())
+    if not department and not course:
+        return rows
     return [row for row in rows if row.department is None or
             (not department or _scope(department, "department") == _scope(row.department or "", "department")) and
             (not course or row.course is None or _scope(course) == _scope(row.course))]

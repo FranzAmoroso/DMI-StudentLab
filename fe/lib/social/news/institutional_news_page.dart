@@ -67,6 +67,40 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       _selectedCourse != null ||
       _selectedSubjectName != null;
 
+  String _universityKey(String value) {
+    final String text = value.trim().toLowerCase();
+    return text == 'unict' || text.contains('università di catania') ||
+            text.contains('università degli studi di catania')
+        ? 'unict' : text;
+  }
+
+  String _departmentKey(String value) {
+    final String text = value.trim().toLowerCase();
+    if (text == 'dmi' || text.contains('matematica e informatica')) return 'dmi';
+    if (text == 'dsbga' || text.contains('scienze biologiche, geologiche')) return 'dsbga';
+    return text;
+  }
+
+  String _courseKey(String value) {
+    final String text = value.trim().toLowerCase();
+    if (RegExp(r'\blm[ -]?40\b').hasMatch(text) || text.contains('matematica magistrale')) return 'lm-40';
+    if (RegExp(r'\blm[ -]?18\b').hasMatch(text) || text.contains('informatica magistrale')) return 'lm-18';
+    if (RegExp(r'\bl[ -]?35\b').hasMatch(text) || text == 'matematica') return 'l-35';
+    if (RegExp(r'\bl[ -]?13\b').hasMatch(text) || text == 'scienze biologiche') return 'l-13';
+    if (RegExp(r'\bl[ -]?31\b').hasMatch(text) || text == 'informatica' ||
+        text == 'scienze e tecnologie informatiche') return 'l-31';
+    return text;
+  }
+
+  String _courseLabel(String value) {
+    const Map<String, String> names = {
+      'l-31': 'Informatica L-31', 'lm-18': 'Informatica magistrale (LM-18)',
+      'l-35': 'Matematica L-35', 'lm-40': 'Matematica magistrale (LM-40)',
+      'l-13': 'Scienze Biologiche L-13',
+    };
+    return names[_courseKey(value)] ?? value.trim();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -104,7 +138,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     _selectedDepartment =
         user.department.trim().isEmpty ? null : user.department.trim();
     _selectedCourse =
-        user.course.trim().isEmpty ? null : user.course.trim();
+        user.course.trim().isEmpty ? null : _courseLabel(user.course);
     _selectedSubjectName = null;
     _selectedSubjectId = null;
   }
@@ -222,53 +256,61 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
   }
 
   List<String> get _universities {
-    final Set<String> values = {};
-    values.add('Università di Catania');
+    final Map<String, String> values = {'unict': 'Università di Catania'};
     final String current = _currentUser?.university.trim() ?? '';
-    if (current.isNotEmpty) values.add(current);
+    if (current.isNotEmpty) values.putIfAbsent(_universityKey(current), () => current);
     for (final PublicNews news in _items) {
-      if (news.university.trim().isNotEmpty) values.add(news.university.trim());
+      if (news.university.trim().isNotEmpty) {
+        values.putIfAbsent(_universityKey(news.university), () => news.university.trim());
+      }
     }
-    return values.toList()..sort();
+    return values.values.toList()..sort();
   }
 
   List<String> get _departments {
-    final Set<String> values = {};
-    values.addAll(const ['Dipartimento di Matematica e Informatica',
-      'Dipartimento di Scienze Biologiche, Geologiche e Ambientali']);
+    final Map<String, String> values = {
+      'dmi': 'Dipartimento di Matematica e Informatica',
+      'dsbga': 'Dipartimento di Scienze Biologiche, Geologiche e Ambientali',
+    };
     final String current = _currentUser?.department.trim() ?? '';
-    if (current.isNotEmpty) values.add(current);
+    if (current.isNotEmpty) values.putIfAbsent(_departmentKey(current), () => current);
     for (final PublicNews news in _items) {
       if (_selectedUniversity != null &&
-          news.university.trim().toLowerCase() !=
-              _selectedUniversity!.trim().toLowerCase()) {
+          _universityKey(news.university) != _universityKey(_selectedUniversity!)) {
         continue;
       }
-      if (news.department.trim().isNotEmpty) values.add(news.department.trim());
+      if (news.department.trim().isNotEmpty) {
+        values.putIfAbsent(_departmentKey(news.department), () => news.department.trim());
+      }
     }
-    return values.toList()..sort();
+    return values.values.toList()..sort();
   }
 
   List<String> get _courses {
-    final Set<String> values = {};
-    if (_selectedDepartment == null || _selectedDepartment!.toLowerCase().contains('matematica')) {
-      values.addAll(const ['Informatica L-31', 'Informatica magistrale (LM-18)',
-        'Matematica L-35', 'Matematica magistrale (LM-40)']);
+    final Map<String, String> values = {};
+    if (_selectedDepartment == null || _departmentKey(_selectedDepartment!) == 'dmi') {
+      values.addAll(const {'l-31': 'Informatica L-31',
+        'lm-18': 'Informatica magistrale (LM-18)',
+        'l-35': 'Matematica L-35', 'lm-40': 'Matematica magistrale (LM-40)'});
     }
-    if (_selectedDepartment == null || _selectedDepartment!.toLowerCase().contains('biologiche')) {
-      values.add('Scienze Biologiche L-13');
+    if (_selectedDepartment == null || _departmentKey(_selectedDepartment!) == 'dsbga') {
+      values['l-13'] = 'Scienze Biologiche L-13';
     }
     final String current = _currentUser?.course.trim() ?? '';
-    if (current.isNotEmpty) values.add(current);
+    if (current.isNotEmpty && (_selectedDepartment == null ||
+        _departmentKey(_currentUser?.department ?? '') == _departmentKey(_selectedDepartment!))) {
+      values.putIfAbsent(_courseKey(current), () => _courseLabel(current));
+    }
     for (final PublicNews news in _items) {
       if (_selectedDepartment != null &&
-          news.department.trim().toLowerCase() !=
-              _selectedDepartment!.trim().toLowerCase()) {
+          _departmentKey(news.department) != _departmentKey(_selectedDepartment!)) {
         continue;
       }
-      if (news.course.trim().isNotEmpty) values.add(news.course.trim());
+      if (news.course.trim().isNotEmpty) {
+        values.putIfAbsent(_courseKey(news.course), () => _courseLabel(news.course));
+      }
     }
-    return values.toList()..sort();
+    return values.values.toList()..sort();
   }
 
   List<_SubjectFilterValue> get _subjects {

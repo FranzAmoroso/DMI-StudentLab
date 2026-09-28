@@ -39,6 +39,12 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
   String _view = 'next';
   String? _kind;
   String? _curriculum;
+  String _section = 'events';
+  DateTime _week = _monday(DateTime.now());
+  List<Map<String, dynamic>> _lessons = [];
+
+  static DateTime _monday(DateTime day) =>
+      DateTime(day.year, day.month, day.day).subtract(Duration(days: day.weekday - 1));
   static const _lm18Curricula = <String>[
     'ARTIFICIAL INTELLIGENCE AND MACHINE LEARNING',
     'COMPUTER VISION AND MULTIMEDIA TECHNOLOGIES',
@@ -72,6 +78,38 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
   bool _canWrite = false;
   List<int> _reminders = const [7, 1];
 
+  String _pathKey(String key, String value) {
+    final text = value.trim().toLowerCase();
+    if (key == 'university' && (text == 'unict' || text.contains('università di catania') ||
+        text.contains('università degli studi di catania'))) return 'unict';
+    if (key == 'department') {
+      if (text == 'dmi' || text.contains('matematica e informatica')) return 'dmi';
+      if (text == 'dsbga' || text.contains('scienze biologiche, geologiche')) return 'dsbga';
+    }
+    if (key == 'course') {
+      if (RegExp(r'\blm[ -]?18\b').hasMatch(text) || text.contains('informatica magistrale')) return 'lm-18';
+      if (RegExp(r'\blm[ -]?40\b').hasMatch(text) || text.contains('matematica magistrale')) return 'lm-40';
+      if (RegExp(r'\bl[ -]?31\b').hasMatch(text) || text == 'informatica' ||
+          text == 'scienze e tecnologie informatiche') return 'l-31';
+      if (RegExp(r'\bl[ -]?35\b').hasMatch(text) || text == 'matematica') return 'l-35';
+      if (RegExp(r'\bl[ -]?13\b').hasMatch(text) || text == 'scienze biologiche') return 'l-13';
+    }
+    return text;
+  }
+
+  String _displayPath(String key, String value) {
+    const names = <String, String>{'unict': 'Università di Catania',
+      'dmi': 'Dipartimento di Matematica e Informatica',
+      'dsbga': 'Dipartimento di Scienze Biologiche, Geologiche e Ambientali',
+      'l-31': 'Informatica L-31', 'lm-18': 'Informatica magistrale (LM-18)',
+      'l-35': 'Matematica L-35', 'lm-40': 'Matematica magistrale (LM-40)',
+      'l-13': 'Scienze Biologiche L-13'};
+    return names[_pathKey(key, value)] ?? value.trim();
+  }
+
+  bool _samePath(String key, Object? first, Object? second) =>
+      _pathKey(key, '$first') == _pathKey(key, '$second');
+
   @override
   void initState() {
     super.initState();
@@ -86,9 +124,9 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
     if (_subjectId != null) {
       final s = _subjects.where((s) => s['id'] == _subjectId).firstOrNull;
       if (s != null) {
-        _university = '${s['university']}';
-        _department = '${s['department']}';
-        _course = '${s['course']}';
+        _university = _displayPath('university', '${s['university']}');
+        _department = _displayPath('department', '${s['department']}');
+        _course = _displayPath('course', '${s['course']}');
       }
     } else if (AuthSession.instance.isAuthenticated && AuthSession.instance.currentUserId != null) {
       try {
@@ -97,20 +135,20 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
         final current = enrolled.where((p) => p.isCurrent);
         final SocialAcademicPath? path = current.isNotEmpty ? current.first : enrolled.firstOrNull;
         if (path != null) {
-          _university = path.university;
-          _department = path.department;
-          _course = path.course;
+          _university = _displayPath('university', path.university);
+          _department = _displayPath('department', path.department);
+          _course = _displayPath('course', path.course);
         } else {
           final user = AuthSession.instance.currentUser;
-          _university = user?.university.trim().isEmpty == true ? null : user?.university;
-          _department = user?.department.trim().isEmpty == true ? null : user?.department;
-          _course = user?.course.trim().isEmpty == true ? null : user?.course;
+          _university = user?.university.trim().isEmpty == true ? null : _displayPath('university', user!.university);
+          _department = user?.department.trim().isEmpty == true ? null : _displayPath('department', user!.department);
+          _course = user?.course.trim().isEmpty == true ? null : _displayPath('course', user!.course);
         }
       } catch (_) {
         final user = AuthSession.instance.currentUser;
-        _university = user?.university.trim().isEmpty == true ? null : user?.university;
-        _department = user?.department.trim().isEmpty == true ? null : user?.department;
-        _course = user?.course.trim().isEmpty == true ? null : user?.course;
+        _university = user?.university.trim().isEmpty == true ? null : _displayPath('university', user!.university);
+        _department = user?.department.trim().isEmpty == true ? null : _displayPath('department', user!.department);
+        _course = user?.course.trim().isEmpty == true ? null : _displayPath('course', user!.course);
       }
     } else {
       // Il guest apre il calendario didattico generale dell'ateneo.
@@ -133,6 +171,7 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
     try {
       final from = _view == 'month' ? DateTime(_month.year, _month.month, 1) : DateTime.now().subtract(const Duration(days: 1));
       final to = _view == 'month' ? DateTime(_month.year, _month.month + 1, 0) : DateTime.now().add(const Duration(days: 500));
+      final bool hasWeeklyCourse = _api.isAuthenticated && (_course != null || _subjectId != null);
       final results = await Future.wait<dynamic>([
         _api.events(
             university: _subjectId == null ? _university : null,
@@ -140,14 +179,24 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
             course: _subjectId == null ? _course : null,
             subjectId: _subjectId,
             curriculum: _isLm18 || _isL31 ? _curriculum : null,
+            excludeTimetable: true,
             from: from,
             to: to),
         _api.currentPeriods(university: _university, department: _department, course: _course),
+        if (hasWeeklyCourse) _api.events(
+            university: _subjectId == null ? _university : null,
+            department: _subjectId == null ? _department : null,
+            course: _subjectId == null ? _course : null,
+            subjectId: _subjectId,
+            curriculum: _isLm18 || _isL31 ? _curriculum : null,
+            timetableOnly: true, from: _week,
+            to: _week.add(const Duration(days: 6))),
         if (_api.isAuthenticated) _api.followed(),
       ]);
       _events = results[0] as List<Map<String, dynamic>>;
       _periods = results[1] as List<Map<String, dynamic>>;
-      _followed = results.length > 2 ? results[2] as List<Map<String, dynamic>> : [];
+      _lessons = hasWeeklyCourse ? results[2] as List<Map<String, dynamic>> : [];
+      _followed = _api.isAuthenticated ? results[hasWeeklyCourse ? 3 : 2] as List<Map<String, dynamic>> : [];
     } catch (e) {
       _error = calendarError(e, 'Calendario non disponibile.');
     }
@@ -159,8 +208,14 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
     if (mounted) await _load();
   }
 
-  List<String> _distinct(String key, bool Function(Map<String, dynamic>) where) =>
-      _subjects.where(where).map((s) => '${s[key] ?? ''}').where((v) => v.isNotEmpty).toSet().toList()..sort();
+  List<String> _distinct(String key, bool Function(Map<String, dynamic>) where) {
+    final values = <String, String>{};
+    for (final subject in _subjects.where(where)) {
+      final value = '${subject[key] ?? ''}'.trim();
+      if (value.isNotEmpty) values[_pathKey(key, value)] = _displayPath(key, value);
+    }
+    return values.values.toList()..sort();
+  }
 
   Future<void> _editReminders() async {
     final p = context.palette;
@@ -233,6 +288,122 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
     );
   }
 
+  Widget _weeklyTimetable() {
+    final p = context.palette;
+    final days = List<DateTime>.generate(7, (index) => _week.add(Duration(days: index)));
+    final byDay = <int, List<Map<String, dynamic>>>{};
+    for (final lesson in _lessons) {
+      final start = calendarDate(lesson['starts_at']);
+      if (start != null) byDay.putIfAbsent(start.weekday, () => []).add(lesson);
+    }
+    for (final lessons in byDay.values) {
+      lessons.sort((a, b) => '${a['starts_at']}'.compareTo('${b['starts_at']}'));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        IconButton(tooltip: 'Settimana precedente',
+          onPressed: () { setState(() => _week = _week.subtract(const Duration(days: 7))); _load(); },
+          icon: const Icon(Icons.chevron_left_rounded)),
+        Expanded(child: Text('Settimana del ${calendarLong(_week)}',
+          style: TextStyle(color: p.pureWhite, fontSize: 16, fontWeight: FontWeight.w700))),
+        IconButton(tooltip: 'Settimana successiva',
+          onPressed: () { setState(() => _week = _week.add(const Duration(days: 7))); _load(); },
+          icon: const Icon(Icons.chevron_right_rounded)),
+      ]),
+      if (_course == null && _subjectId == null)
+        const SlEmptyState(icon: Icons.school_outlined, title: 'Scegli un corso',
+          message: 'Seleziona il corso nei filtri per vedere il suo orario settimanale.')
+      else if (_lessons.isEmpty)
+        const SlEmptyState(icon: Icons.schedule_outlined, title: 'Nessuna lezione questa settimana',
+          message: 'Verifica il periodo didattico oppure passa a un’altra settimana.')
+      else SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (final day in days) SizedBox(
+            width: 172,
+            child: Padding(padding: const EdgeInsets.only(right: 8), child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: p.skyBlue.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: Text(calendarLong(day), maxLines: 2,
+                    style: TextStyle(color: p.pureWhite, fontWeight: FontWeight.w700, fontSize: 12)),
+                ),
+                const SizedBox(height: 7),
+                for (final lesson in byDay[day.weekday] ?? const <Map<String, dynamic>>[])
+                  Padding(padding: const EdgeInsets.only(bottom: 7), child: Material(
+                    color: p.skyBlue.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(11),
+                    child: InkWell(onTap: () => _open(lesson),
+                      borderRadius: BorderRadius.circular(11),
+                      child: Padding(padding: const EdgeInsets.all(10), child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(_lessonClock(lesson), style: TextStyle(color: p.skyBlue,
+                            fontWeight: FontWeight.w800, fontSize: 12)),
+                          const SizedBox(height: 5),
+                          Text('${lesson['subject_name'] ?? lesson['title'] ?? ''}',
+                            style: TextStyle(color: p.pureWhite, fontWeight: FontWeight.w700, fontSize: 12)),
+                          if ('${lesson['room'] ?? ''}'.trim().isNotEmpty)
+                            Text('${lesson['room']}', style: SlText.muted(p).copyWith(fontSize: 11)),
+                          if (lesson['teachers'] is List && (lesson['teachers'] as List).isNotEmpty)
+                            Text((lesson['teachers'] as List).join(', '),
+                              style: SlText.muted(p).copyWith(fontSize: 11)),
+                          if (lesson['curricula'] is List && (lesson['curricula'] as List).isNotEmpty)
+                            Text((lesson['curricula'] as List).join(', '),
+                              style: SlText.muted(p).copyWith(fontSize: 10)),
+                        ]))),
+                    ),
+                  ),
+              ],
+            ))),
+        ]),
+      ),
+    ]);
+  }
+
+  String _lessonClock(Map<String, dynamic> lesson) {
+    String time(Object? value) {
+      final date = calendarDate(value);
+      return date == null ? '--:--' :
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+    return '${time(lesson['starts_at'])}–${time(lesson['ends_at'])}';
+  }
+
+  Future<void> _openCalendarDay(DateTime day, List<Map<String, dynamic>> events) async {
+    setState(() => _selectedDay = day);
+    final p = context.palette;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: p.eleganceDeepNavy,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetContext) => SafeArea(child: SizedBox(
+        height: MediaQuery.sizeOf(sheetContext).height * 0.78,
+        child: Column(children: [
+          Padding(padding: const EdgeInsets.fromLTRB(16, 18, 8, 12),
+            child: Row(children: [
+              Expanded(child: Text(calendarLong(day), style: TextStyle(
+                color: p.pureWhite, fontSize: 18, fontWeight: FontWeight.w700))),
+              IconButton(tooltip: 'Chiudi', icon: const Icon(Icons.close_rounded),
+                onPressed: () => Navigator.pop(sheetContext)),
+            ])),
+          Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: events.isEmpty
+              ? [const SlEmptyState(icon: Icons.event_busy_outlined,
+                  title: 'Nessun evento', message: 'Non ci sono eventi per questo giorno.')]
+              : [for (final event in events)
+                  CalendarEventCard(event: event, onTap: () {
+                    Navigator.pop(sheetContext);
+                    _open(event);
+                  })])),
+        ]),
+      )),
+    );
+  }
+
   Widget _monthGrid() {
     final p = context.palette;
     final first = DateTime(_month.year, _month.month, 1);
@@ -251,7 +422,6 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
       }
     }
     final selected = _selectedDay;
-    final dayEvents = selected == null ? const <Map<String, dynamic>>[] : (byDay[selected.day] ?? const []);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
         Expanded(
@@ -305,7 +475,8 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
               ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
-                onTap: () => setState(() => _selectedDay = DateTime(_month.year, _month.month, d)),
+                onTap: () => _openCalendarDay(DateTime(_month.year, _month.month, d),
+                    byDay[d] ?? const <Map<String, dynamic>>[]),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text('$d',
                       style: TextStyle(
@@ -341,13 +512,6 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
             Text(k.value.$1, style: SlText.muted(p).copyWith(fontSize: 11)),
           ]),
       ]),
-      if (selected != null) ...[
-        const SizedBox(height: 14),
-        SlOverline(calendarLong(selected).toUpperCase()),
-        const SizedBox(height: 8),
-        if (dayEvents.isEmpty) Text('Nessun evento.', style: SlText.muted(p)),
-        for (final e in dayEvents) CalendarEventCard(event: e, onTap: () => _open(e)),
-      ],
     ]);
   }
 
@@ -423,7 +587,7 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                     if (_api.isAuthenticated) FaqFilterChip(
                       label: 'Dipartimento',
                       selected: _department,
-                      options: _distinct('department', (s) => _university == null || s['university'] == _university),
+                      options: _distinct('department', (s) => _university == null || _samePath('university', s['university'], _university)),
                       onChanged: (v) {
                         setState(() {
                           _department = v;
@@ -438,8 +602,8 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                       label: 'Corso',
                       selected: _course,
                       options: _distinct('course', (s) =>
-                          (_university == null || s['university'] == _university) &&
-                          (_department == null || s['department'] == _department)),
+                          (_university == null || _samePath('university', s['university'], _university)) &&
+                          (_department == null || _samePath('department', s['department'], _department))),
                       onChanged: (v) {
                         setState(() {
                           _course = v;
@@ -463,17 +627,30 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                       selected: _subjectId == null ? null :
                           _subjects.where((s) => s['id'] == _subjectId).firstOrNull?['name']?.toString(),
                       options: _distinct('name', (s) =>
-                          (_university == null || s['university'] == _university) &&
-                          (_department == null || s['department'] == _department) &&
-                          s['course'] == _course),
+                          (_university == null || _samePath('university', s['university'], _university)) &&
+                          (_department == null || _samePath('department', s['department'], _department)) &&
+                          _samePath('course', s['course'], _course)),
                       onChanged: (v) {
                         setState(() => _subjectId = _subjects.where((s) =>
-                            s['name'] == v && s['course'] == _course).firstOrNull?['id'] as int?);
+                            s['name'] == v && _samePath('course', s['course'], _course) &&
+                            (_department == null || _samePath('department', s['department'], _department)) &&
+                            (_university == null || _samePath('university', s['university'], _university))).firstOrNull?['id'] as int?);
                         _load();
                       },
                     ),
                   ]),
                   const SizedBox(height: 12),
+                  SlFilterBar<String>(
+                    selected: _section,
+                    options: [
+                      const SlFilterOption(value: 'events', label: 'Calendario accademico'),
+                      if (_api.isAuthenticated)
+                        const SlFilterOption(value: 'lessons', label: 'Orario lezioni'),
+                    ],
+                    onSelected: (value) => setState(() => _section = value),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_section == 'events') ...[
                   if (_university == null || (_university ?? '').toLowerCase().contains('catania') ||
                       (_university ?? '').toLowerCase() == 'unict') ...[
                     const AcademicYear2026Card(),
@@ -497,8 +674,8 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                     Wrap(spacing: 6, runSpacing: 6, children: [
                       ChoiceChip(label: const Text('Tutti'), selected: _kind == null, onSelected: (_) => setState(() => _kind = null)),
                       for (final k in _api.isAuthenticated
-                          ? const ['exam', 'lessons', 'session', 'closure', 'event']
-                          : const ['lessons', 'session', 'closure'])
+                          ? const ['exam', 'session', 'closure', 'event']
+                          : const ['session', 'closure'])
                         ChoiceChip(
                           label: Text(calendarKinds[k]!.$1),
                           selected: _kind == k,
@@ -539,6 +716,13 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                       for (final e in later) CalendarEventCard(event: e, onTap: () => _open(e)),
                     ],
                   ],
+                  ] else if (_loading)
+                    Padding(padding: const EdgeInsets.all(30),
+                      child: Center(child: CircularProgressIndicator(color: p.skyBlue)))
+                  else if (_error != null)
+                    SlErrorCard(title: 'Orario lezioni non disponibile', message: _error!, onRetry: _load)
+                  else
+                    _weeklyTimetable(),
                   if (!_api.isAuthenticated) ...[
                     const SizedBox(height: 10),
                     Text('Accedi per seguire gli appelli e ricevere i promemoria.', style: SlText.muted(p).copyWith(fontSize: 12)),

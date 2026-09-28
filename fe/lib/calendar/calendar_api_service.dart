@@ -60,6 +60,8 @@ class CalendarApiService {
     int? subjectId,
     String? kind,
     String? curriculum,
+    bool excludeTimetable = false,
+    bool timetableOnly = false,
     DateTime? from,
     DateTime? to,
   }) async =>
@@ -72,6 +74,8 @@ class CalendarApiService {
                 if (subjectId != null) 'subject_id': '$subjectId',
                 if (kind != null) 'kind': kind,
                 if (curriculum != null) 'curriculum': curriculum,
+                if (excludeTimetable) 'exclude_timetable': 'true',
+                if (timetableOnly) 'timetable_only': 'true',
                 if (from != null) 'from': _day(from),
                 if (to != null) 'to': _day(to),
               }),

@@ -29,6 +29,7 @@ from models.teacher_assignment import TeacherAssignment
 from models.user import User
 from services.calendar_import import parse_upload
 from services.notification import create_notification
+from services.news_filter_scope import COURSES, DEPARTMENTS, UNIVERSITIES, code, matches
 
 router = APIRouter(prefix='/calendar', tags=['calendar'])
 
@@ -102,27 +103,12 @@ def _context_filter(db: Session, university: str | None, department: str | None,
     def wide(column, value):
         if not value:
             return true()
-        normalized = value.casefold()
-        alternatives = []
-        if column.key == 'university' and ('catania' in normalized or normalized == 'unict'):
-            alternatives = ['Università di Catania', 'Università degli Studi di Catania']
-        elif column.key == 'department':
-            if 'dsbga' in normalized or 'scienze biologiche' in normalized or 'dipbiogeo' in normalized:
-                alternatives = ['DSBGA']
-            elif 'dmi' in normalized or 'matematica' in normalized:
-                alternatives = ['DMI']
-        elif column.key == 'course':
-            if 'lm-18' in normalized or ('informatica' in normalized and 'magistrale' in normalized):
-                alternatives = ['LM-18']
-            elif 'lm-40' in normalized or ('matematica' in normalized and 'magistrale' in normalized):
-                alternatives = ['LM-40']
-            elif 'l-13' in normalized or 'scienze biologiche' in normalized:
-                alternatives = ['L-13']
-            elif 'l-31' in normalized or 'informatica' in normalized:
-                alternatives = ['L-31']
-            elif 'l-35' in normalized or 'matematica' in normalized:
-                alternatives = ['L-35']
-        return or_(column.is_(None), column.in_([value, *alternatives]))
+        dimension = column.key
+        known = code(value, dimension)
+        aliases = {'university': UNIVERSITIES, 'department': DEPARTMENTS, 'course': COURSES}[dimension]
+        options = (aliases[known][1] if dimension == 'course' else aliases[known]) if known else ()
+        names = (known, *options) if known else (value,)
+        return or_(column.is_(None), *(column.ilike(name) for name in names))
 
     subject = db.query(Subject).filter(Subject.id == subject_id).first() if subject_id else None
     if subject is not None:
@@ -133,24 +119,11 @@ def _context_filter(db: Session, university: str | None, department: str | None,
         return or_(general, CalendarEvent.subject_id == subject.id)
     subject_query = db.query(Subject.id).filter(Subject.is_active.is_(True))
     if university:
-        subject_query = subject_query.filter(Subject.university == university)
+        subject_query = subject_query.filter(matches(Subject.university, Subject.university_code, university, 'university'))
     if department:
-        subject_query = subject_query.filter(Subject.department == department)
+        subject_query = subject_query.filter(matches(Subject.department, Subject.department_code, department, 'department'))
     if course:
-        normalized_course = course.strip().casefold()
-        code = course.strip().upper()
-        if 'informatica' in normalized_course and 'magistrale' in normalized_course:
-            code = 'LM-18'
-        elif 'matematica' in normalized_course and 'magistrale' in normalized_course:
-            code = 'LM-40'
-        elif 'informatica' in normalized_course:
-            code = 'L-31'
-        elif 'matematica' in normalized_course:
-            code = 'L-35'
-        if code in ('LM-18', 'LM-40', 'L-31', 'L-35', 'L-13'):
-            subject_query = subject_query.filter(or_(Subject.course == course, Subject.course_code == code))
-        else:
-            subject_query = subject_query.filter(Subject.course == course)
+        subject_query = subject_query.filter(matches(Subject.course, Subject.course_code, course, 'course'))
     ids = [r[0] for r in subject_query.limit(2000).all()] if (university or department or course) else None
     return or_(general, CalendarEvent.subject_id.in_(ids)) if ids is not None else true()
 
@@ -163,7 +136,8 @@ def _context_filter(db: Session, university: str | None, department: str | None,
 def list_events(university: str | None = None, department: str | None = None, course: str | None = None,
                 subject_id: int | None = None, kind: str | None = None, curriculum: str | None = None,
                 start: date | None = Query(default=None, alias='from'), end: date | None = Query(default=None, alias='to'),
-                include_cancelled: bool = False, viewer: User | None = Depends(get_optional_current_user),
+                include_cancelled: bool = False, exclude_timetable: bool = False,
+                timetable_only: bool = False, viewer: User | None = Depends(get_optional_current_user),
                 db: Session = Depends(get_db)):
     start = start or (date.today() - timedelta(days=1))
     end = end or (date.today() + timedelta(days=500))
@@ -175,6 +149,12 @@ def list_events(university: str | None = None, department: str | None = None, co
         query = query.filter(CalendarEvent.kind.in_(('lessons', 'session', 'closure')),
                              CalendarEvent.department.is_(None), CalendarEvent.course.is_(None),
                              CalendarEvent.subject_id.is_(None))
+    if exclude_timetable:
+        query = query.filter(or_(CalendarEvent.kind != 'lessons',
+            and_(CalendarEvent.course.is_(None), CalendarEvent.subject_id.is_(None))))
+    if timetable_only:
+        query = query.filter(CalendarEvent.kind == 'lessons',
+            or_(CalendarEvent.course.isnot(None), CalendarEvent.subject_id.isnot(None)))
     if kind in EVENT_KINDS:
         query = query.filter(CalendarEvent.kind == kind)
     if curriculum:

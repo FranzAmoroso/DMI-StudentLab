@@ -8,6 +8,7 @@ from models.subject import Subject
 from models.teacher_assignment import TeacherAssignment
 from models.user import User
 from schemas.public_news import PublicNewsCreate
+from services.news_filter_scope import COURSES, code, matches
 from services.user_block import get_mutually_restricted_user_ids
 
 
@@ -198,15 +199,27 @@ def get_public_news_feed(
 
     if city:
         query = query.filter(PublicNews.city.ilike(city.strip()))
+    known_course = code(course, 'course') if course else None
+    # A course also determines its department and university if the client
+    # supplied only one chip. Never expose another department's announcements.
+    if known_course:
+        expected_department = COURSES[known_course][0]
+        if department and code(department, 'department') != expected_department:
+            query = query.filter(False)
+        else:
+            department = department or expected_department
+        university = university or 'UNICT'
+    if department and code(department, 'department') in ('DMI', 'DSBGA'):
+        university = university or 'UNICT'
     if university:
         query = query.filter(or_(PublicNews.target_type == 'all',
-                                 PublicNews.university.ilike(university.strip())))
+            matches(PublicNews.university, PublicNews.university_code, university, 'university')))
     if department:
         query = query.filter(or_(PublicNews.target_type.in_(('all', 'university')),
-                                 PublicNews.department.ilike(department.strip())))
+            matches(PublicNews.department, PublicNews.department_code, department, 'department')))
     if course:
         query = query.filter(or_(PublicNews.target_type.in_(('all', 'university', 'department')),
-                                 PublicNews.course.ilike(course.strip())))
+            matches(PublicNews.course, PublicNews.course_code, course, 'course')))
     if viewer_user_id is None and not department and not course:
         query = query.filter(PublicNews.target_type.in_(('all', 'university')))
     if subject_id is not None:
