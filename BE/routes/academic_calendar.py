@@ -84,6 +84,7 @@ def _serialize(db: Session, event: CalendarEvent, viewer: User | None = None, fo
         'teachers': json.loads(event.teachers_json or '[]'), 'booking_url': event.booking_url,
         'booking_deadline': event.booking_deadline.isoformat() if event.booking_deadline else None,
         'notes': event.notes, 'status': event.status, 'source': event.source,
+        'curricula': json.loads(event.curricula_json or '[]'),
         'university': event.university or (subject.university if subject else None),
         'department': event.department or (subject.department if subject else None),
         'course': event.course or (subject.course if subject else None),
@@ -99,7 +100,29 @@ def _context_filter(db: Session, university: str | None, department: str | None,
                     subject_id: int | None):
     """Eventi dell'ambito e di quelli più ampi (ateneo > dipartimento > corso > materia)."""
     def wide(column, value):
-        return or_(column.is_(None), column == value) if value else true()
+        if not value:
+            return true()
+        normalized = value.casefold()
+        alternatives = []
+        if column.key == 'university' and ('catania' in normalized or normalized == 'unict'):
+            alternatives = ['Università di Catania', 'Università degli Studi di Catania']
+        elif column.key == 'department':
+            if 'dsbga' in normalized or 'scienze biologiche' in normalized or 'dipbiogeo' in normalized:
+                alternatives = ['DSBGA']
+            elif 'dmi' in normalized or 'matematica' in normalized:
+                alternatives = ['DMI']
+        elif column.key == 'course':
+            if 'lm-18' in normalized or ('informatica' in normalized and 'magistrale' in normalized):
+                alternatives = ['LM-18']
+            elif 'lm-40' in normalized or ('matematica' in normalized and 'magistrale' in normalized):
+                alternatives = ['LM-40']
+            elif 'l-13' in normalized or 'scienze biologiche' in normalized:
+                alternatives = ['L-13']
+            elif 'l-31' in normalized or 'informatica' in normalized:
+                alternatives = ['L-31']
+            elif 'l-35' in normalized or 'matematica' in normalized:
+                alternatives = ['L-35']
+        return or_(column.is_(None), column.in_([value, *alternatives]))
 
     subject = db.query(Subject).filter(Subject.id == subject_id).first() if subject_id else None
     if subject is not None:
@@ -114,7 +137,20 @@ def _context_filter(db: Session, university: str | None, department: str | None,
     if department:
         subject_query = subject_query.filter(Subject.department == department)
     if course:
-        subject_query = subject_query.filter(Subject.course == course)
+        normalized_course = course.strip().casefold()
+        code = course.strip().upper()
+        if 'informatica' in normalized_course and 'magistrale' in normalized_course:
+            code = 'LM-18'
+        elif 'matematica' in normalized_course and 'magistrale' in normalized_course:
+            code = 'LM-40'
+        elif 'informatica' in normalized_course:
+            code = 'L-31'
+        elif 'matematica' in normalized_course:
+            code = 'L-35'
+        if code in ('LM-18', 'LM-40', 'L-31', 'L-35', 'L-13'):
+            subject_query = subject_query.filter(or_(Subject.course == course, Subject.course_code == code))
+        else:
+            subject_query = subject_query.filter(Subject.course == course)
     ids = [r[0] for r in subject_query.limit(2000).all()] if (university or department or course) else None
     return or_(general, CalendarEvent.subject_id.in_(ids)) if ids is not None else true()
 
@@ -125,21 +161,28 @@ def _context_filter(db: Session, university: str | None, department: str | None,
 
 @router.get('/events')
 def list_events(university: str | None = None, department: str | None = None, course: str | None = None,
-                subject_id: int | None = None, kind: str | None = None,
+                subject_id: int | None = None, kind: str | None = None, curriculum: str | None = None,
                 start: date | None = Query(default=None, alias='from'), end: date | None = Query(default=None, alias='to'),
                 include_cancelled: bool = False, viewer: User | None = Depends(get_optional_current_user),
                 db: Session = Depends(get_db)):
     start = start or (date.today() - timedelta(days=1))
-    end = end or (date.today() + timedelta(days=366))
+    end = end or (date.today() + timedelta(days=500))
     query = db.query(CalendarEvent).filter(_context_filter(db, university, department, course, subject_id),
         or_(CalendarEvent.starts_at >= datetime.combine(start, datetime.min.time()),
             CalendarEvent.ends_at >= datetime.combine(start, datetime.min.time())),
         CalendarEvent.starts_at <= datetime.combine(end, datetime.max.time()))
+    if viewer is None:
+        query = query.filter(CalendarEvent.kind.in_(('lessons', 'session', 'closure')),
+                             CalendarEvent.department.is_(None), CalendarEvent.course.is_(None),
+                             CalendarEvent.subject_id.is_(None))
     if kind in EVENT_KINDS:
         query = query.filter(CalendarEvent.kind == kind)
+    if curriculum:
+        query = query.filter(or_(CalendarEvent.curricula_json.is_(None),
+                                 CalendarEvent.curricula_json.contains(json.dumps(curriculum))))
     if not include_cancelled:
         query = query.filter(CalendarEvent.status != 'cancelled')
-    events = query.order_by(CalendarEvent.starts_at).limit(600).all()
+    events = query.order_by(CalendarEvent.starts_at).limit(1500).all()
     follows = {}
     if viewer is not None and events:
         follows = {f.event_id: f for f in db.query(CalendarFollow).filter(CalendarFollow.user_id == viewer.id,
@@ -151,13 +194,17 @@ def list_events(university: str | None = None, department: str | None = None, co
 
 @router.get('/current-periods')
 def current_periods(university: str | None = None, department: str | None = None, course: str | None = None,
-                    db: Session = Depends(get_db)):
+                    viewer: User | None = Depends(get_optional_current_user), db: Session = Depends(get_db)):
     """Periodi in corso (lezioni, sessione, straordinaria, chiusura)."""
     now = _now()
     rows = db.query(CalendarEvent).filter(_context_filter(db, university, department, course, None),
         CalendarEvent.kind.in_(PERIOD_KINDS), CalendarEvent.status != 'cancelled',
+        or_(CalendarEvent.kind != 'lessons', CalendarEvent.subject_id.is_(None)),
         CalendarEvent.starts_at <= now, or_(CalendarEvent.ends_at >= now,
         and_(CalendarEvent.ends_at.is_(None), CalendarEvent.starts_at >= now - timedelta(days=1)))).all()
+    if viewer is None:
+        rows = [row for row in rows if row.department is None and row.course is None and
+                row.subject_id is None and row.kind in ('lessons', 'session', 'closure')]
     priority = {'closure': 0, 'extraordinary': 1, 'session': 2, 'lessons': 3}
     rows.sort(key=lambda e: priority.get(e.kind, 9))
     return [_serialize(db, e) for e in rows]
@@ -166,7 +213,8 @@ def current_periods(university: str | None = None, department: str | None = None
 @router.get('/events/{event_id}')
 def event_detail(event_id: int, viewer: User | None = Depends(get_optional_current_user), db: Session = Depends(get_db)):
     event = db.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
-    if event is None:
+    if event is None or (viewer is None and (event.kind not in ('lessons', 'session', 'closure')
+                        or event.department or event.course or event.subject_id)):
         raise HTTPException(404, 'Evento non trovato.')
     follow = db.query(CalendarFollow).filter(CalendarFollow.user_id == viewer.id,
                                              CalendarFollow.event_id == event.id).first() if viewer else None
@@ -205,9 +253,10 @@ def _ics(events: list[CalendarEvent], db: Session) -> str:
 
 
 @router.get('/events/{event_id}/ics')
-def event_ics(event_id: int, db: Session = Depends(get_db)):
+def event_ics(event_id: int, viewer: User | None = Depends(get_optional_current_user), db: Session = Depends(get_db)):
     event = db.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
-    if event is None:
+    if event is None or (viewer is None and (event.kind not in ('lessons', 'session', 'closure')
+                        or event.department or event.course or event.subject_id)):
         raise HTTPException(404, 'Evento non trovato.')
     return Response(content=_ics([event], db), media_type='text/calendar; charset=utf-8',
                     headers={'Content-Disposition': f'attachment; filename="studentlab-{event.id}.ics"'})

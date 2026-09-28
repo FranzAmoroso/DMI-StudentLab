@@ -11,8 +11,17 @@ from bs4 import BeautifulSoup, Tag
 BASE_URL = "https://web.dmi.unict.it"
 
 URLS = {
-    "corso": "https://web.dmi.unict.it/corsi/l-31/avvisi",
-    "docente": "https://web.dmi.unict.it/corsi/l-31/avvisi-docente",
+    "ateneo": "https://www.unict.it/it/news",
+    "l31_corso": "https://web.dmi.unict.it/corsi/l-31/avvisi",
+    "l31_docente": "https://web.dmi.unict.it/corsi/l-31/avvisi-docente",
+    "l35_corso": "https://web.dmi.unict.it/corsi/l-35/avvisi",
+    "l35_docente": "https://web.dmi.unict.it/corsi/l-35/avvisi-docente",
+    "lm40_corso": "https://web.dmi.unict.it/corsi/lm-40/avvisi",
+    "lm40_docente": "https://web.dmi.unict.it/corsi/lm-40/avvisi-docente",
+    "lm18_corso": "https://web.dmi.unict.it/corsi/lm-18/avvisi",
+    "lm18_docente": "https://web.dmi.unict.it/corsi/lm-18/avvisi-docente",
+    "l13_corso": "https://www.dsbga.unict.it/corsi/l-13/avvisi",
+    "l13_docente": "https://www.dsbga.unict.it/corsi/l-13/avvisi-docente",
 }
 
 OUTPUT_FILE = Path("avvisi_dmi.json")
@@ -41,11 +50,11 @@ def clean(value: str | None) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
-def normalize_url(url: str) -> str:
+def normalize_url(url: str, base: str = BASE_URL) -> str:
     if not url:
         return ""
 
-    return urljoin(BASE_URL, url)
+    return urljoin(base, url)
 
 
 def external_id(url: str) -> str:
@@ -132,17 +141,15 @@ def get_soup(url: str) -> BeautifulSoup:
 
 def is_notice_url(url: str, source: str) -> bool:
     path = urlparse(url).path.lower()
-
-    if source == "docente":
-        return "/avvisi-docente/" in path
-
-    if source == "corso":
-        return (
-            "/corsi/l-31/avvisi/" in path
-            or "/it/corsi/l-31/avvisi/" in path
-        )
-
-    return False
+    host = urlparse(url).hostname
+    if source == "ateneo":
+        return host == "www.unict.it" and bool(re.match(r"^/it/[^/]+/news/[^/]+", path))
+    course, kind = source.split("_", 1)
+    expected_host = "www.dsbga.unict.it" if course == "l13" else "web.dmi.unict.it"
+    path = path.removeprefix("/it")
+    slug = f"lm-{course[2:]}" if course.startswith('lm') else f"l-{course[1:]}"
+    return host == expected_host and path.startswith(
+        f"/corsi/{slug}/avvisi{'-docente' if kind == 'docente' else ''}/")
 
 
 def find_date_before(element: Tag) -> str | None:
@@ -219,7 +226,7 @@ def extract_listing(source: str, url: str) -> list[dict]:
     seen_urls = set()
 
     for link in soup.find_all("a", href=True):
-        href = normalize_url(link.get("href"))
+        href = normalize_url(link.get("href"), url)
         title = clean(link.get_text(" ", strip=True))
 
         if not title or not href:
@@ -231,14 +238,14 @@ def extract_listing(source: str, url: str) -> list[dict]:
         if href in seen_urls:
             continue
 
-        date = find_date_before(link)
+        date = find_date_before(link) if source != "ateneo" else None
 
-        if not date:
+        if not date and source != "ateneo":
             continue
 
         teacher = None
 
-        if source == "docente":
+        if source.endswith("docente"):
             teacher = find_teacher_near_link(link)
 
         results.append(
@@ -344,7 +351,7 @@ def extract_detail(
 
     teacher = None
 
-    if source == "docente":
+    if source.endswith("docente"):
         # Prima cerchiamo link a pagine docente.
         for link in detail_container.find_all(
             "a",
@@ -370,7 +377,7 @@ def extract_detail(
     )
 
     # Fallback docente tramite regex.
-    if source == "docente" and not teacher:
+    if source.endswith("docente") and not teacher:
         matches = list(TEACHER_RE.finditer(text))
 
         if matches:
@@ -392,6 +399,9 @@ def extract_detail(
         "titolo": title,
         "testo": text,
         "docente": teacher,
+        "data": (DATE_RE.search(soup.get_text(" ", strip=True).split("Ultima modifica:")[-1]).group(0)
+                 if source == "ateneo" and "Ultima modifica:" in soup.get_text(" ", strip=True)
+                 and DATE_RE.search(soup.get_text(" ", strip=True).split("Ultima modifica:")[-1]) else None),
     }
 
 
@@ -437,18 +447,21 @@ def scrape_source(
             title = detail["titolo"]
             content = detail["testo"]
 
+            course = source.split("_", 1)[0]
             record = {
                 "external_id": external_id(
                     item["url"]
                 ),
-                "fonte": source,
+                "fonte": source.split("_", 1)[-1] if source != "ateneo" else "ateneo",
                 "external_source": "dmi_unict",
                 "istituzione": (
                     "Università degli Studi di Catania"
                 ),
-                "dipartimento": "DMI",
-                "corso": "L-31",
-                "data": item["data"],
+                "dipartimento": ("DSBGA" if course == "l13" else "DMI") if source != "ateneo" else None,
+                "corso": (f"LM-{course[2:]}" if course.startswith("lm")
+                          else course.upper().replace("L", "L-", 1))
+                         if source != "ateneo" else None,
+                "data": item["data"] or detail.get("data"),
                 "titolo": title,
                 "testo": content,
                 "docente": teacher,
@@ -463,7 +476,8 @@ def scrape_source(
                 ),
             }
 
-            results.append(record)
+            if record["data"]:
+                results.append(record)
 
         except requests.RequestException as exc:
             print(

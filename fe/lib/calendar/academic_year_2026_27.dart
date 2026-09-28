@@ -21,6 +21,13 @@ class AcademicYear2026Card extends StatelessWidget {
     ('Terza sessione d’esami', '30/08/2027', '30/09/2027'),
   ];
 
+  static bool _notFinished(String end) {
+    final parts = end.split('/');
+    final last = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+    final now = DateTime.now();
+    return !last.isBefore(DateTime(now.year, now.month, now.day));
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
@@ -29,7 +36,7 @@ class AcademicYear2026Card extends StatelessWidget {
       title: const Text('Calendario didattico 2026/27'),
       subtitle: const Text('Università di Catania · date comprese'),
       children: [
-        for (final (title, start, end) in periods)
+        for (final (title, start, end) in periods.where((p) => _notFinished(p.$3)))
           ListTile(
             dense: true,
             title: Text(title),

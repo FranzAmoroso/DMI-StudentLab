@@ -2252,6 +2252,24 @@ class ApiService {
     return data.map(SocialAcademicPath.fromJson).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getAcademicCatalogRequests({bool admin = false}) async {
+    final url = Uri.parse('$baseUrl/academic-catalog/${admin ? 'admin/requests' : 'requests/me'}');
+    return _decodeListResponse(await http.get(url, headers: _jsonHeaders),
+        'Richieste sui percorsi non disponibili');
+  }
+
+  Future<Map<String, dynamic>> decideAcademicCatalogRequest(int id, Map<String, dynamic> decision) async {
+    final url = Uri.parse('$baseUrl/academic-catalog/admin/requests/$id');
+    return _decodeMapResponse(await http.patch(url, headers: _jsonHeaders,
+        body: jsonEncode(decision)), 'Impossibile aggiornare il corso');
+  }
+
+  Future<Map<String, dynamic>> retryAcademicCatalogRequest(int id) async {
+    final url = Uri.parse('$baseUrl/academic-catalog/admin/requests/$id/auto');
+    return _decodeMapResponse(await http.post(url, headers: _jsonHeaders),
+        'Il corso non ha ancora una corrispondenza certa');
+  }
+
   Future<SocialAcademicPath> updateAcademicPathVerification({
     required int academicPathId,
     required bool verified,

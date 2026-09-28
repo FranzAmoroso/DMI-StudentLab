@@ -24,6 +24,7 @@ class _AcademicPathsPageState extends State<AcademicPathsPage> {
   SocialUser? _currentUser;
 
   List<SocialAcademicPath> _paths = [];
+  List<Map<String, dynamic>> _catalogRequests = [];
 
   bool _loading = true;
 
@@ -45,6 +46,7 @@ class _AcademicPathsPageState extends State<AcademicPathsPage> {
       _paths = List<SocialAcademicPath>.from(initialPaths);
 
       _loading = false;
+      _loadCatalogRequests();
     } else {
       _load();
     }
@@ -78,6 +80,7 @@ class _AcademicPathsPageState extends State<AcademicPathsPage> {
       });
 
       _authSession.updateUser(completeUser);
+      await _loadCatalogRequests();
     } catch (e) {
       if (!mounted) {
         return;
@@ -110,6 +113,16 @@ class _AcademicPathsPageState extends State<AcademicPathsPage> {
     });
 
     _authSession.updateUser(completeUser);
+    await _loadCatalogRequests();
+  }
+
+  Future<void> _loadCatalogRequests() async {
+    try {
+      final result = await _apiService.getAcademicCatalogRequests();
+      if (mounted) setState(() => _catalogRequests = result);
+    } catch (_) {
+      // The academic path list remains available if review status cannot load.
+    }
   }
 
   Future<void> _addPath() async {
@@ -472,6 +485,17 @@ class _AcademicPathsPageState extends State<AcademicPathsPage> {
                   ],
 
                   const SizedBox(height: 22),
+                  for (final request in _catalogRequests.where((item) =>
+                      item['status'] == 'pending' || item['status'] == 'rejected'))
+                    Card(color: Colors.amber.withValues(alpha: 0.14), child: Padding(
+                      padding: const EdgeInsets.all(12), child: Text(
+                        request['status'] == 'pending'
+                          ? 'Corso ${request['course']}: registrazione completata. '
+                            'Stiamo associando il percorso al catalogo; riceverai una notifica.'
+                          : 'Corso ${request['course']}: verifica i dati e modifica il percorso. '
+                            '${request['admin_note'] ?? ''}',
+                        style: const TextStyle(color: Colors.amberAccent),
+                      ))),
 
                   if (_paths.isEmpty)
                     _EmptyPaths(onAdd: _addPath)

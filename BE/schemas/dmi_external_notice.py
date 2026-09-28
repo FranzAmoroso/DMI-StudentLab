@@ -5,13 +5,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class DmiNoticeImport(BaseModel):
-    fonte: Literal["corso", "docente"]
+    fonte: Literal["ateneo", "corso", "docente"]
     data: str
     titolo: str = Field(min_length=1, max_length=500)
     testo: str = Field(min_length=1, max_length=50000)
     docente: str | None = Field(default=None, max_length=255)
     tipo: str = Field(default="altro", max_length=40)
     url: str = Field(min_length=1, max_length=2048)
+    istituzione: str = Field(default="Università di Catania", max_length=255)
+    dipartimento: str | None = Field(default=None, max_length=255)
+    corso: str | None = Field(default=None, max_length=255)
 
 
 class DmiNoticeSyncRequest(BaseModel):
@@ -23,6 +26,9 @@ class DmiNoticeResponse(BaseModel):
 
     id: int
     source_kind: str
+    university: str
+    department: str | None
+    course: str | None
     title: str
     content: str
     teacher: str | None

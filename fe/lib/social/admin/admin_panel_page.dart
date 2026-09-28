@@ -22,6 +22,7 @@ import '../news/public_news_editor_page.dart';
 import '../social_models.dart';
 
 import 'admin_academic_paths_page.dart';
+import 'admin_academic_catalog_page.dart';
 
 import 'admin_grades_page.dart';
 
@@ -631,6 +632,12 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           onTap: () {
             _openProtectedPage(const AdminAcademicPathsPage());
           },
+        ),
+        _AdminModuleCard(
+          icon: Icons.school_outlined,
+          title: 'Corsi da associare',
+          description: 'Riconosci i corsi mancanti e assegna il percorso agli studenti.',
+          onTap: () => _openProtectedPage(const AdminAcademicCatalogPage()),
         ),
 
         _AdminModuleCard(

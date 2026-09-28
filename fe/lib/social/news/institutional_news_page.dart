@@ -119,7 +119,9 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     });
 
     try {
-      final Future<List<DmiExternalNotice>> officialFuture = _newsApi.getDmiNotices()
+      final Future<List<DmiExternalNotice>> officialFuture = _newsApi.getDmiNotices(
+        university: _selectedUniversity, department: _selectedDepartment,
+        course: _selectedCourse)
           .catchError((Object _) => <DmiExternalNotice>[]);
       final PublicNewsFeedResult result = await _newsApi.getFeed(
         search: _searchController.text,
@@ -135,6 +137,10 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       if (!mounted) return;
 
       List<PublicNews> items = result.items;
+      if (_isGuest && _selectedDepartment == null && _selectedCourse == null) {
+        items = items.where((news) => news.department.trim().isEmpty &&
+            news.course.trim().isEmpty).toList();
+      }
       final String? manualSubject =
           _selectedSubjectId == null ? _selectedSubjectName : null;
 
@@ -163,14 +169,6 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
   }
 
   bool _matchesOfficialNotice(DmiExternalNotice notice) {
-    final String university = _selectedUniversity?.toLowerCase() ?? '';
-    final String department = _selectedDepartment?.toLowerCase() ?? '';
-    final String course = _selectedCourse?.toLowerCase() ?? '';
-    if (university.isNotEmpty && !university.contains('catania') && university != 'unict') return false;
-    if (department.isNotEmpty && !department.contains('matematica') && department != 'dmi') return false;
-    if (course.isNotEmpty && !course.contains('informatica') &&
-        !course.contains('informatiche') && !course.contains('l-31') &&
-        course != 'l31') return false;
     final String search = _searchController.text.trim().toLowerCase();
     return search.isEmpty || '${notice.title} ${notice.content} ${notice.teacher ?? ''}'.toLowerCase().contains(search);
   }
@@ -206,7 +204,9 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       setState(() {
-        _items = values;
+        _items = (_isGuest && _selectedDepartment == null && _selectedCourse == null)
+            ? values.where((news) => news.department.trim().isEmpty && news.course.trim().isEmpty).toList()
+            : values;
         _total = result.total;
         _offset = result.offset + result.items.length;
       });
@@ -223,7 +223,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   List<String> get _universities {
     final Set<String> values = {};
-    if (_hasOfficialSource) values.add('Università di Catania');
+    values.add('Università di Catania');
     final String current = _currentUser?.university.trim() ?? '';
     if (current.isNotEmpty) values.add(current);
     for (final PublicNews news in _items) {
@@ -234,7 +234,8 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   List<String> get _departments {
     final Set<String> values = {};
-    if (_hasOfficialSource) values.add('Dipartimento di Matematica e Informatica');
+    values.addAll(const ['Dipartimento di Matematica e Informatica',
+      'Dipartimento di Scienze Biologiche, Geologiche e Ambientali']);
     final String current = _currentUser?.department.trim() ?? '';
     if (current.isNotEmpty) values.add(current);
     for (final PublicNews news in _items) {
@@ -250,7 +251,13 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
   List<String> get _courses {
     final Set<String> values = {};
-    if (_hasOfficialSource) values.add('Informatica L-31');
+    if (_selectedDepartment == null || _selectedDepartment!.toLowerCase().contains('matematica')) {
+      values.addAll(const ['Informatica L-31', 'Informatica magistrale (LM-18)',
+        'Matematica L-35', 'Matematica magistrale (LM-40)']);
+    }
+    if (_selectedDepartment == null || _selectedDepartment!.toLowerCase().contains('biologiche')) {
+      values.add('Scienze Biologiche L-13');
+    }
     final String current = _currentUser?.course.trim() ?? '';
     if (current.isNotEmpty) values.add(current);
     for (final PublicNews news in _items) {
@@ -1010,7 +1017,7 @@ class _DmiNoticeCard extends StatelessWidget {
             children: [
               Text(notice.title, style: TextStyle(color: AppColors.pureWhite, fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text('DMI · Università di Catania', style: TextStyle(color: AppColors.materialSky)),
+              Text(notice.sourceLabel, style: TextStyle(color: AppColors.materialSky)),
               if (notice.teacher != null && notice.teacher!.trim().isNotEmpty)
                 Text(notice.teacher!, style: TextStyle(color: AppColors.white70)),
               Text(_dmiDate(notice.publishedOn), style: TextStyle(color: AppColors.white54)),
@@ -1073,7 +1080,7 @@ class _DmiNoticeDetailPage extends StatelessWidget {
         child: ListView(padding: const EdgeInsets.all(20), children: [
           Text(notice.title, style: TextStyle(color: AppColors.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          Text('DMI · Università di Catania', style: TextStyle(color: AppColors.materialSky)),
+          Text(notice.sourceLabel, style: TextStyle(color: AppColors.materialSky)),
           if (notice.teacher != null && notice.teacher!.trim().isNotEmpty)
             Text(notice.teacher!, style: TextStyle(color: AppColors.white70)),
           Text(_dmiDate(notice.publishedOn), style: TextStyle(color: AppColors.white54)),
@@ -1081,12 +1088,13 @@ class _DmiNoticeDetailPage extends StatelessWidget {
           ..._formattedContent(),
           const SizedBox(height: 28),
           Divider(color: AppColors.white38),
-          Text('Fonte: DMI – Università di Catania', style: TextStyle(color: AppColors.white70)),
+          Text('Fonte: ${notice.sourceLabel}', style: TextStyle(color: AppColors.white70)),
           const SizedBox(height: 8),
           Align(alignment: Alignment.centerLeft, child: TextButton.icon(
             onPressed: () async {
               final Uri? url = Uri.tryParse(notice.originalUrl);
-              if (url == null || url.scheme != 'https' || url.host != 'web.dmi.unict.it') return;
+              if (url == null || url.scheme != 'https' ||
+                  !const ['web.dmi.unict.it', 'www.dsbga.unict.it', 'www.unict.it'].contains(url.host)) return;
               if (!await launchUrl(url, mode: LaunchMode.externalApplication) && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossibile aprire l’avviso originale.')));
               }

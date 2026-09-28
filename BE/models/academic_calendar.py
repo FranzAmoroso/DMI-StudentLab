@@ -38,6 +38,7 @@ class CalendarEvent(Base):
     status = Column(String(20), nullable=False, default='confirmed', server_default='confirmed', index=True)
     source = Column(String(20), nullable=False, default='manual', server_default='manual')
     source_ref = Column(String(500), nullable=True)
+    curricula_json = Column(Text, nullable=True)
     created_by = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_by_name = Column(String(200), nullable=True)
     updated_by_name = Column(String(200), nullable=True)

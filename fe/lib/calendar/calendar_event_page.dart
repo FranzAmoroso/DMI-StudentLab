@@ -240,6 +240,8 @@ class _CalendarEventPageState extends State<CalendarEventPage> {
               decoration: BoxDecoration(color: p.eleganceMidnight, borderRadius: BorderRadius.circular(16)),
               child: Column(children: [
                 if ('${e['room'] ?? ''}'.isNotEmpty) _row('Aula', '${e['room']}'),
+                if (e['curricula'] is List && (e['curricula'] as List).isNotEmpty)
+                  _row('Curricula', (e['curricula'] as List).join(', ')),
                 if ((e['teachers'] as List? ?? []).isNotEmpty) _row('Docenti', (e['teachers'] as List).join(', ')),
                 if (e['booking_deadline'] != null || e['booking_url'] != null)
                   _row(

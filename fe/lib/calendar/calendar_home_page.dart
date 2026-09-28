@@ -38,6 +38,29 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
   int? _subjectId;
   String _view = 'next';
   String? _kind;
+  String? _curriculum;
+  static const _lm18Curricula = <String>[
+    'ARTIFICIAL INTELLIGENCE AND MACHINE LEARNING',
+    'COMPUTER VISION AND MULTIMEDIA TECHNOLOGIES',
+    'DISTRIBUTED ARCHITECTURES AND CYBERSECURITY',
+    'HEALTH INFORMATICS',
+    'QUANTUM PROGRAMMING AND HPC',
+    'THEORETICAL COMPUTER SCIENCE',
+  ];
+  static const _l31Channels = <String>[
+    '1° A-E', '1° F-N', '1° O-Z', '2° A-L', '2° M-Z',
+    '3° A-L (AI AND ROBOTICS)', '3° A-L (COMP. TH. AND Q. ALG.)',
+    '3° A-L (COMP. GR. AND GAMES)', '3° A-L (CYBERSECURITY AND D. F.)',
+    '3° A-L (DATA SCIENCE)', '3° A-L (PROG. WEB, MOBILE AND V.E.)',
+    '3° M-Z (AI AND ROBOTICS)', '3° M-Z (COMP. TH. AND Q. ALG.)',
+    '3° M-Z (COMP. GR. AND GAMES)', '3° M-Z (CYBERSECURITY AND D. F.)',
+    '3° M-Z (DATA SCIENCE)', '3° M-Z (PROG. WEB, MOBILE AND V.E.)',
+  ];
+  bool get _isLm18 => (_course ?? '').toLowerCase().contains('lm-18') ||
+      (_course ?? '').toLowerCase().contains('informatica magistrale');
+  bool get _isL31 => (_course ?? '').toLowerCase().contains('l-31') ||
+      ((_course ?? '').toLowerCase().contains('informatica') && !_isLm18);
+  bool _showAcademicFilters = false;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
 
@@ -77,8 +100,21 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
           _university = path.university;
           _department = path.department;
           _course = path.course;
+        } else {
+          final user = AuthSession.instance.currentUser;
+          _university = user?.university.trim().isEmpty == true ? null : user?.university;
+          _department = user?.department.trim().isEmpty == true ? null : user?.department;
+          _course = user?.course.trim().isEmpty == true ? null : user?.course;
         }
-      } catch (_) {}
+      } catch (_) {
+        final user = AuthSession.instance.currentUser;
+        _university = user?.university.trim().isEmpty == true ? null : user?.university;
+        _department = user?.department.trim().isEmpty == true ? null : user?.department;
+        _course = user?.course.trim().isEmpty == true ? null : user?.course;
+      }
+    } else {
+      // Il guest apre il calendario didattico generale dell'ateneo.
+      _university = 'Università di Catania';
     }
     if (_api.isAuthenticated) {
       try {
@@ -96,13 +132,14 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
     });
     try {
       final from = _view == 'month' ? DateTime(_month.year, _month.month, 1) : DateTime.now().subtract(const Duration(days: 1));
-      final to = _view == 'month' ? DateTime(_month.year, _month.month + 1, 0) : DateTime.now().add(const Duration(days: 366));
+      final to = _view == 'month' ? DateTime(_month.year, _month.month + 1, 0) : DateTime.now().add(const Duration(days: 500));
       final results = await Future.wait<dynamic>([
         _api.events(
             university: _subjectId == null ? _university : null,
             department: _subjectId == null ? _department : null,
             course: _subjectId == null ? _course : null,
             subjectId: _subjectId,
+            curriculum: _isLm18 || _isL31 ? _curriculum : null,
             from: from,
             to: to),
         _api.currentPeriods(university: _university, department: _department, course: _course),
@@ -186,7 +223,8 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('${e['title']}', style: TextStyle(color: p.pureWhite, fontSize: 14, fontWeight: FontWeight.w700)),
-              Text('${calendarWhen(e)}${followedCount > 0 ? ' · $followedCount eventi seguiti' : ''}',
+              Text('${calendarWhen(e)}${(e['room']?.toString() ?? '').isEmpty ? '' : ' · ${e['room']}'}'
+                  '${followedCount > 0 ? ' · $followedCount eventi seguiti' : ''}',
                   style: SlText.muted(p).copyWith(fontSize: 12)),
             ]),
           ),
@@ -361,7 +399,12 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
                 children: [
-                  Wrap(spacing: 6, runSpacing: 6, children: [
+                  Align(alignment: Alignment.centerRight, child: OutlinedButton.icon(
+                    icon: const Icon(Icons.filter_list),
+                    label: Text(_showAcademicFilters ? 'Chiudi filtri' : 'Filtri percorso'),
+                    onPressed: () => setState(() => _showAcademicFilters = !_showAcademicFilters),
+                  )),
+                  if (_showAcademicFilters) Wrap(spacing: 6, runSpacing: 6, children: [
                     FaqFilterChip(
                       label: 'Ateneo',
                       selected: _university,
@@ -372,11 +415,12 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                           _department = null;
                           _course = null;
                           _subjectId = null;
+                          _curriculum = null;
                         });
                         _load();
                       },
                     ),
-                    FaqFilterChip(
+                    if (_api.isAuthenticated) FaqFilterChip(
                       label: 'Dipartimento',
                       selected: _department,
                       options: _distinct('department', (s) => _university == null || s['university'] == _university),
@@ -385,11 +429,12 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                           _department = v;
                           _course = null;
                           _subjectId = null;
+                          _curriculum = null;
                         });
                         _load();
                       },
                     ),
-                    FaqFilterChip(
+                    if (_api.isAuthenticated) FaqFilterChip(
                       label: 'Corso',
                       selected: _course,
                       options: _distinct('course', (s) =>
@@ -399,13 +444,37 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                         setState(() {
                           _course = v;
                           _subjectId = null;
+                          _curriculum = null;
                         });
+                        _load();
+                      },
+                    ),
+                    if (_api.isAuthenticated && (_isLm18 || _isL31)) FaqFilterChip(
+                      label: _isLm18 ? 'Curriculum' : 'Canale / percorso',
+                      selected: _curriculum,
+                      options: _isLm18 ? _lm18Curricula : _l31Channels,
+                      onChanged: (v) {
+                        setState(() => _curriculum = v);
+                        _load();
+                      },
+                    ),
+                    if (_api.isAuthenticated && _course != null) FaqFilterChip(
+                      label: 'Materia',
+                      selected: _subjectId == null ? null :
+                          _subjects.where((s) => s['id'] == _subjectId).firstOrNull?['name']?.toString(),
+                      options: _distinct('name', (s) =>
+                          (_university == null || s['university'] == _university) &&
+                          (_department == null || s['department'] == _department) &&
+                          s['course'] == _course),
+                      onChanged: (v) {
+                        setState(() => _subjectId = _subjects.where((s) =>
+                            s['name'] == v && s['course'] == _course).firstOrNull?['id'] as int?);
                         _load();
                       },
                     ),
                   ]),
                   const SizedBox(height: 12),
-                  if ((_university ?? '').toLowerCase().contains('catania') ||
+                  if (_university == null || (_university ?? '').toLowerCase().contains('catania') ||
                       (_university ?? '').toLowerCase() == 'unict') ...[
                     const AcademicYear2026Card(),
                     const SizedBox(height: 12),
@@ -427,7 +496,9 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                   if (_view != 'followed')
                     Wrap(spacing: 6, runSpacing: 6, children: [
                       ChoiceChip(label: const Text('Tutti'), selected: _kind == null, onSelected: (_) => setState(() => _kind = null)),
-                      for (final k in const ['exam', 'lessons', 'session', 'closure', 'event'])
+                      for (final k in _api.isAuthenticated
+                          ? const ['exam', 'lessons', 'session', 'closure', 'event']
+                          : const ['lessons', 'session', 'closure'])
                         ChoiceChip(
                           label: Text(calendarKinds[k]!.$1),
                           selected: _kind == k,

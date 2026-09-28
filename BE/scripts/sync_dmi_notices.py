@@ -1,4 +1,4 @@
-"""Import DMI L-31 notices into StudentLab. Run with an hourly external scheduler."""
+"""Sincronizza news UNICT e avvisi dei corsi L-31, L-35 e L-13 ogni ora."""
 
 import os
 import sys

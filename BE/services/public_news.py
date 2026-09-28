@@ -199,11 +199,16 @@ def get_public_news_feed(
     if city:
         query = query.filter(PublicNews.city.ilike(city.strip()))
     if university:
-        query = query.filter(PublicNews.university.ilike(university.strip()))
+        query = query.filter(or_(PublicNews.target_type == 'all',
+                                 PublicNews.university.ilike(university.strip())))
     if department:
-        query = query.filter(PublicNews.department.ilike(department.strip()))
+        query = query.filter(or_(PublicNews.target_type.in_(('all', 'university')),
+                                 PublicNews.department.ilike(department.strip())))
     if course:
-        query = query.filter(PublicNews.course.ilike(course.strip()))
+        query = query.filter(or_(PublicNews.target_type.in_(('all', 'university', 'department')),
+                                 PublicNews.course.ilike(course.strip())))
+    if viewer_user_id is None and not department and not course:
+        query = query.filter(PublicNews.target_type.in_(('all', 'university')))
     if subject_id is not None:
         query = query.filter(PublicNews.subject_id == subject_id)
 

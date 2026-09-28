@@ -16,9 +16,12 @@ class PublicNewsApiService {
     AuthSession? session,
   }) : _session = session ?? AuthSession.instance;
 
-  Future<List<DmiExternalNotice>> getDmiNotices() async {
+  Future<List<DmiExternalNotice>> getDmiNotices({String? university, String? department, String? course}) async {
     final http.Response response = await http.get(
-      _uri('/institutional-notices', query: {'limit': 200}),
+      _uri('/institutional-notices', query: {'limit': 500,
+        if (university != null) 'university': university,
+        if (department != null) 'department': department,
+        if (course != null) 'course': course}),
       headers: _headers,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {

@@ -59,6 +59,7 @@ class CalendarApiService {
     String? course,
     int? subjectId,
     String? kind,
+    String? curriculum,
     DateTime? from,
     DateTime? to,
   }) async =>
@@ -70,6 +71,7 @@ class CalendarApiService {
                 if (course != null) 'course': course,
                 if (subjectId != null) 'subject_id': '$subjectId',
                 if (kind != null) 'kind': kind,
+                if (curriculum != null) 'curriculum': curriculum,
                 if (from != null) 'from': _day(from),
                 if (to != null) 'to': _day(to),
               }),

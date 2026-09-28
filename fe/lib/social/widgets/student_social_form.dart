@@ -3077,6 +3077,14 @@ class _StudentSocialFormState
                                 );
                               },
                             ),
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: Text(
+                                'Se il corso non è nell’elenco, scrivilo: puoi registrarti ugualmente. '
+                                'StudentLab proverà a riconoscerlo e, se necessario, invierà una richiesta all’admin.',
+                                style: TextStyle(fontSize: 12, color: Colors.amberAccent),
+                              ),
+                            ),
 
                             const SizedBox(
                               height:

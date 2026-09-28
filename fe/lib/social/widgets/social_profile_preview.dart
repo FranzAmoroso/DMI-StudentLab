@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../../theme/nightTheme.dart';
 
@@ -778,6 +780,28 @@ class _SocialProfilePreviewState
     Object error,
 
   ) {
+
+    final String raw = error.toString();
+    final int responseStart = raw.indexOf('400 - ');
+    if (responseStart >= 0) {
+      try {
+        final dynamic body = jsonDecode(raw.substring(responseStart + 6));
+        final String? detail = body is Map && body['detail'] is String
+            ? body['detail'] as String : null;
+        if (detail != null && (
+            detail.startsWith('I dati del percorso accademico') ||
+            detail.startsWith('La versione della Policy') ||
+            detail.startsWith('È necessario') ||
+            detail.startsWith('Devi avere almeno') ||
+            detail.startsWith('La data di nascita') ||
+            detail.startsWith("L'anno di conseguimento") ||
+            detail.startsWith("Inserisci l'anno di conseguimento"))) {
+          return detail;
+        }
+      } catch (_) {
+        // La risposta inattesa usa il messaggio generico qui sotto.
+      }
+    }
 
     final String message =
 

@@ -497,7 +497,11 @@ from routes.news_report import (
 )
 
 
+from routes.academic_catalog import router as academic_catalog_router
+from services.academic_catalog import classify_path, course_options
+
 app = FastAPI()
+app.include_router(academic_catalog_router)
 
 
 app.include_router(
@@ -848,7 +852,7 @@ def api_universities(
         .all()
     )
 
-    return [
+    universities = [
         {
             "code":
                 code,
@@ -857,7 +861,10 @@ def api_universities(
         }
         for code, name in rows
     ]
-    
+    for option in course_options(db):
+        if not any(u['code'] == option['university_code'] for u in universities):
+            universities.append({'code': option['university_code'], 'name': option['university']})
+    return universities
 
 
 @app.get(
@@ -888,7 +895,7 @@ def api_departments(
         .all()
     )
 
-    return [
+    departments = [
         {
             "code":
                 code,
@@ -897,6 +904,11 @@ def api_departments(
         }
         for code, name in rows
     ]
+    for option in course_options(db):
+        if option['university_code'].casefold() == university_code.casefold() and not any(
+                d['code'] == option['department_code'] for d in departments):
+            departments.append({'code': option['department_code'], 'name': option['department']})
+    return departments
 
 
 @app.get(
@@ -931,7 +943,7 @@ def api_courses(
         .all()
     )
 
-    return [
+    courses = [
         {
             "code":
                 code,
@@ -946,6 +958,25 @@ def api_courses(
             degree_type,
         ) in rows
     ]
+
+    # I corsi magistrali restano selezionabili prima dell'importazione delle materie.
+    if university_code.strip().upper() == "UNICT" and department_code.strip().upper() == "DMI":
+        for code, name in (("LM-40", "Matematica magistrale (LM-40)"),
+                           ("LM-18", "Informatica magistrale (LM-18)")):
+            magistrale = next((item for item in courses
+                               if str(item["code"]).strip().upper() == code), None)
+            if magistrale is None:
+                courses.append({"code": code, "name": name, "degree_type": code})
+            else:
+                magistrale["name"] = name
+                magistrale["degree_type"] = code
+    for option in course_options(db):
+        if (option['university_code'].casefold() == university_code.casefold() and
+                option['department_code'].casefold() == department_code.casefold() and
+                not any(c['code'] == option['course_code'] for c in courses)):
+            courses.append({'code': option['course_code'], 'name': option['course'],
+                            'degree_type': option['degree_type']})
+    return courses
 
 
 @app.get(
@@ -1139,22 +1170,18 @@ def api_create_academic_path(
         get_db,
     ),
 ):
-    existing = (
-        db.query(
-            UserAcademicPath,
-        )
-        .filter(
-            UserAcademicPath.user_id ==
-            current_user.id,
-            UserAcademicPath.university_code ==
-            request.university_code,
-            UserAcademicPath.department_code ==
-            request.department_code,
-            UserAcademicPath.course_code ==
-            request.course_code,
-        )
-        .first()
-    )
+    existing_query = db.query(UserAcademicPath).filter(UserAcademicPath.user_id == current_user.id)
+    if request.university_code and request.department_code and request.course_code:
+        existing_query = existing_query.filter(
+            UserAcademicPath.university_code == request.university_code,
+            UserAcademicPath.department_code == request.department_code,
+            UserAcademicPath.course_code == request.course_code)
+    else:
+        existing_query = existing_query.filter(
+            func.lower(UserAcademicPath.university) == request.university.strip().lower(),
+            func.lower(UserAcademicPath.department) == request.department.strip().lower(),
+            func.lower(UserAcademicPath.course) == request.course.strip().lower())
+    existing = existing_query.first()
 
     if existing is not None:
         raise HTTPException(
@@ -1163,11 +1190,14 @@ def api_create_academic_path(
         )
 
     try:
-        return create_academic_path(
+        created_path = create_academic_path(
             db,
             current_user,
             request,
         )
+        classify_path(db, current_user, created_path)
+        db.commit()
+        return created_path
 
     except ValueError as exception:
         db.rollback()
@@ -1221,12 +1251,15 @@ def api_update_academic_path(
     )
 
     try:
-        return update_academic_path(
+        updated_path = update_academic_path(
             db,
             current_user,
             academic_path,
             request,
         )
+        classify_path(db, current_user, updated_path)
+        db.commit()
+        return updated_path
 
     except ValueError as exception:
         db.rollback()
@@ -3297,12 +3330,10 @@ def api_register(
         for value in academic_values
     )
 
+    # Con l'inserimento manuale i tre nomi servono, i codici di catalogo no.
     has_complete_academic_data = all(
-        value is not None
-        and str(
-            value,
-        ).strip()
-        for value in academic_values
+        value is not None and str(value).strip()
+        for value in (request.university, request.department, request.course)
     )
 
     if (
@@ -3485,21 +3516,15 @@ def api_register(
                 university=(
                     request.university
                 ),
-                university_code=(
-                    request.university_code
-                ),
+                university_code=(request.university_code or ""),
                 department=(
                     request.department
                 ),
-                department_code=(
-                    request.department_code
-                ),
+                department_code=(request.department_code or ""),
                 course=(
                     request.course
                 ),
-                course_code=(
-                    request.course_code
-                ),
+                course_code=(request.course_code or ""),
                 degree_type=(
                     request.degree_type
                 ),
@@ -3530,6 +3555,8 @@ def api_register(
             db.add(
                 academic_path,
             )
+            db.flush()
+            classify_path(db, user, academic_path)
 
         db.commit()
 
