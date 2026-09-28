@@ -6,6 +6,9 @@ from datetime import (
 from routes.developer_architecture import (
     router as developer_architecture_router,
 )
+from routes.dmi_external_notice import router as dmi_external_notice_router
+from routes.contact import router as contact_router
+from routes.institutional_tutors import router as institutional_tutors_router
 
 from fastapi import (
     Depends,
@@ -604,6 +607,9 @@ app.include_router(
 app.include_router(
     public_news_router,
 )
+app.include_router(dmi_external_notice_router)
+app.include_router(contact_router)
+app.include_router(institutional_tutors_router)
 
 app.include_router(
     public_news_report_router,
@@ -728,7 +734,7 @@ def api_shuffle_filter(
 ):
     selected_arguments = (
         []
-        if request.all_arguments
+        if request.all_arguments or request.question_ids
         else request.arguments
     )
 
@@ -738,6 +744,7 @@ def api_shuffle_filter(
         subject=request.subject,
         selected_arguments=selected_arguments,
         number_of_questions=request.number_of_questions,
+        question_ids=request.question_ids,
     )
 
 
@@ -1001,10 +1008,14 @@ def api_users(
     db: Session = Depends(
         get_db,
     ),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
-    return get_available_users(
-        db,
-    )
+    users = get_available_users(db)
+    if current_user is None:
+        return users
+    from services.user_block import get_mutually_restricted_user_ids
+    excluded = get_mutually_restricted_user_ids(db, current_user.id)
+    return [user for user in users if user.id not in excluded]
 
 
 @app.get(
@@ -1016,7 +1027,12 @@ def api_user(
     db: Session = Depends(
         get_db,
     ),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
+    if current_user is not None:
+        from services.user_block import is_block_relationship_present
+        if is_block_relationship_present(db, current_user.id, user_id):
+            raise HTTPException(status_code=404, detail="Utente non trovato.")
     user = get_available_user_by_id(
         db,
         user_id,
@@ -1064,6 +1080,14 @@ def api_update_user(
             status_code=404,
             detail="Utente non trovato.",
         )
+
+    if ((request.first_name is not None and request.first_name.strip() != user.first_name)
+            or (request.last_name is not None and request.last_name.strip() != user.last_name)):
+        from services.verification_lock import require_identifiers_editable, PENDING_MESSAGE
+        try:
+            require_identifiers_editable(db, user)
+        except ValueError:
+            raise HTTPException(status_code=409, detail=PENDING_MESSAGE)
 
     return update_user(
         db,

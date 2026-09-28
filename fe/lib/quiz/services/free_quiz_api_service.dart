@@ -302,6 +302,7 @@ class FreeQuizApiService {
     required String subject,
     required List<String> arguments,
     required int numberOfQuestions,
+    List<String> questionIds = const <String>[],
   }) async {
     final http.Response response =
         await http.post(
@@ -321,6 +322,7 @@ class FreeQuizApiService {
               arguments.isEmpty,
           'number_of_questions':
               numberOfQuestions,
+          if (questionIds.isNotEmpty) 'question_ids': questionIds,
         },
       ),
     );

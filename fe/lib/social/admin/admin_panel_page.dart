@@ -39,6 +39,7 @@ import 'admin_security_page.dart';
 import 'admin_support_sessions_page.dart';
 
 import 'admin_teachers_page.dart';
+import 'admin_institutional_tutors_page.dart';
 
 import 'admin_teacher_assignments_page.dart';
 
@@ -600,6 +601,9 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
             _openProtectedPage(const AdminTeachersPage());
           },
         ),
+        _AdminModuleCard(icon: Icons.verified_outlined,
+          title: 'Tutor UNICT', description: 'Verifica i tutoraggi universitari richiesti dagli studenti.',
+          onTap: () => _openProtectedPage(const AdminInstitutionalTutorsPage())),
 
         _AdminModuleCard(
           icon: Icons.workspace_premium_outlined,

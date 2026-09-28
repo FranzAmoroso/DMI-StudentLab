@@ -468,9 +468,11 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
+    final bool pending = message.toLowerCase().contains('in verifica');
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(SnackBar(backgroundColor: pending ? Colors.amber.shade800 : null,
+          content: Text(message)));
   }
 
   Widget _accountTile({

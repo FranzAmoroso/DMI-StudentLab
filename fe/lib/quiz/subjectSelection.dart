@@ -774,7 +774,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Quiz libero')),
+      appBar: AppBar(title: const Text('Esercitazione')),
 
       body: SafeArea(
         child: Center(
@@ -998,6 +998,9 @@ class _SubjectSelectionState extends State<SubjectSelection> {
 
                 const SizedBox(height: 28),
 
+                Align(alignment: Alignment.centerLeft, child: Text('Esercitazione',
+                  style: Theme.of(context).textTheme.titleLarge)),
+                const SizedBox(height: 12),
                 SizedBox(
                   height: 52,
 
@@ -1007,7 +1010,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
                     icon: const Icon(Icons.play_arrow_rounded),
 
                     label: const Text(
-                      'Avvia Quiz',
+                      'Avvia quiz',
 
                       style: TextStyle(
                         fontSize: 16,
@@ -1020,7 +1023,8 @@ class _SubjectSelectionState extends State<SubjectSelection> {
 
                 const SizedBox(height: 10),
 
-                SizedBox(
+                // L'accesso al catalogo rimane disponibile nel codice per il rilascio successivo.
+                if (false) SizedBox(
                   height: 48,
 
                   child: OutlinedButton.icon(

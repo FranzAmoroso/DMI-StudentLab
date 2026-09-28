@@ -122,6 +122,7 @@ class _UserBlockActionState extends State<UserBlockAction> {
       setState(() {
         _blocked = !_blocked;
       });
+      if (_blocked) Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
       _showError(_friendlyError(error));

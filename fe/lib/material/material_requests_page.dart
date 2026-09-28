@@ -7,7 +7,7 @@ import '../social/social_models.dart';
 import '../theme/nightTheme.dart';
 import '../widgets/studentlab_ui/studentlab_ui.dart';
 import '../developer/theme/developer_ui_style.dart';
-import '../developer/widgets/developer_section_card.dart';
+import 'StudentMaterialPage.dart';
 
 class MaterialRequestsPage extends StatefulWidget {
   final int? initialSubjectId;
@@ -45,6 +45,8 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
   List<Map<String, dynamic>> _sentStudentRequests = [];
   List<Map<String, dynamic>> _receivedStudentRequests = [];
   List<SocialUser> _students = [];
+  Map<int, String> _subjectNames = {};
+  int _statusFilter = 0;
   int? _subjectId;
   String? _subjectName;
   bool _hasTeacherMaterials = false;
@@ -92,6 +94,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
         _api.getMyStudentMaterialRequests(),
         _api.getReceivedStudentMaterialRequests(),
         _api.getSocialUsers().catchError((Object _) => <SocialUser>[]),
+        _api.getMaterialRequestSubjects().catchError((Object _) => <Map<String, dynamic>>[]),
       ]);
       if (!mounted) return;
       setState(() {
@@ -109,6 +112,11 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
               ..sort(
                 (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
               );
+        _subjectNames = {
+          for (final option in List<Map<String, dynamic>>.from(results[4] as List))
+            if (int.tryParse('${option['subject_id']}') != null)
+              int.parse('${option['subject_id']}'): '${option['subject_name'] ?? 'Materia'}',
+        };
       });
     } catch (e) {
       if (mounted) setState(() => _error = _friendly(e));
@@ -161,6 +169,41 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     }
   }
 
+  bool _matchesStatus(String status) => switch (_statusFilter) {
+    1 => status == 'pending',
+    2 => status == 'declined' || status == 'rejected',
+    3 => status == 'fulfilled',
+    _ => true,
+  };
+
+  Future<void> _showRequestActions() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(leading: const Icon(Icons.school_outlined), title: const Text('Richiedi a un docente'),
+          onTap: () => Navigator.pop(context, 'teacher')),
+        ListTile(leading: const Icon(Icons.person_outline), title: const Text('Richiedi a uno studente'),
+          onTap: () => Navigator.pop(context, 'student')),
+        ListTile(leading: const Icon(Icons.upload_file_outlined), title: const Text('Pubblica materiale'),
+          onTap: () => Navigator.pop(context, 'publish')),
+      ])),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'publish') {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => const StudentMaterialPage(initialAction: 'publish')));
+      return;
+    }
+    // Ogni richiesta parte dalla scelta della materia del proprio corso.
+    setState(() { _subjectId = null; _subjectName = null; });
+    if (!await _ensureSubject() || !mounted) return;
+    if (action == 'student') {
+      await _createStudentRequest();
+    } else {
+      await _createTeacherRequest();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -182,6 +225,11 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _busy ? null : _showRequestActions,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Richiedi o pubblica'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -215,27 +263,17 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
                     ]),
                   )),
                 ),
-                Padding(padding: const EdgeInsets.all(16),
-                  child: DeveloperSectionCard(
-                    title: 'Richiedi e condividi',
-                    subtitle: _subjectId == null
-                        ? 'Scegli una materia del tuo corso per inviare una richiesta. Puoi consultare subito quelle ricevute.'
-                        : 'Materia: ${_subjectName ?? 'selezionata'}. Consulta e gestisci le richieste qui sotto.',
-                    icon: Icons.people_outline_rounded,
-                    child: Wrap(spacing: 8, runSpacing: 8, children: [
-                      FilledButton.icon(onPressed: _busy ? null : () async {
-                        if (await _ensureSubject()) await _createTeacherRequest();
-                      },
-                        icon: const Icon(Icons.school_outlined),
-                        label: const Text('Chiedi a un docente')),
-                      OutlinedButton.icon(onPressed: _busy ? null : () async {
-                        if (await _ensureSubject()) await _createStudentRequest();
-                      },
-                        icon: const Icon(Icons.person_search_rounded),
-                        label: const Text('Chiedi a uno studente')),
-                      if (_subjectId != null) TextButton.icon(
-                        onPressed: _busy ? null : () { setState(() => _subjectId = null); _ensureSubject(); },
-                        icon: const Icon(Icons.swap_horiz), label: const Text('Cambia materia')),
+                Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+                    child: Row(children: [
+                      for (var i = 0; i < 4; i++) Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(const ['Tutte', 'In attesa', 'Rifiutate', 'Accettate'][i]),
+                          selected: _statusFilter == i,
+                          onSelected: (_) => setState(() => _statusFilter = i),
+                        ),
+                      ),
                     ]))),
                 Expanded(child: TabBarView(controller: _tabs,
                   children: [_buildSent(), _buildReceived()])),
@@ -253,6 +291,7 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
             b.data['created_at'],
           ).compareTo(_date(a.data['created_at'])),
         );
+    items.removeWhere((item) => !_matchesStatus('${item.data['status'] ?? 'pending'}'));
 
     if (items.isEmpty) {
       return const _EmptyState(
@@ -274,9 +313,10 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
           final status = data['status']?.toString() ?? 'pending';
           final pending = status == 'pending';
           return _RequestCard(
+            subject: data['subject_name']?.toString() ?? _subjectNames[_toInt(data['subject_id'])] ?? 'Materia',
             title: item.kind == 'teacher'
-                ? (data['recipient_kind'] == 'studentlab' ? 'Richiesta a StudentLab' : 'Richiesta ai docenti')
-                : 'Richiesta a studente',
+                ? (data['recipient_kind'] == 'studentlab' ? 'Richiesta a StudentLab' : 'Richiesta a ${data['teacher_name'] ?? 'docenti della materia'}')
+                : 'Richiesta a ${data['recipient_name'] ?? _userName(_toInt(data['recipient_user_id'])) ?? 'studente'}',
             topic: data['topic']?.toString(),
             message: '${data['message']?.toString() ?? ''}${data['staff_response'] == null ? '' : '\n\nRisposta StudentLab: ${data['staff_response']}'}',
             status: status,
@@ -294,7 +334,8 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
   }
 
   Widget _buildReceived() {
-    if (_receivedStudentRequests.isEmpty) {
+    final received = _receivedStudentRequests.where((data) => _matchesStatus('${data['status'] ?? 'pending'}')).toList();
+    if (received.isEmpty) {
       return const _EmptyState(
         icon: Icons.inbox_outlined,
         title: 'Nessuna richiesta ricevuta',
@@ -307,15 +348,16 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _receivedStudentRequests.length,
+        itemCount: received.length,
         itemBuilder: (context, index) {
-          final data = _receivedStudentRequests[index];
+          final data = received[index];
           final status = data['status']?.toString() ?? 'pending';
           final requesterId = _toInt(data['requester_user_id']);
           final requester = _userName(requesterId);
           return _RequestCard(
+            subject: data['subject_name']?.toString() ?? _subjectNames[_toInt(data['subject_id'])] ?? 'Materia',
             title: requester == null
-                ? 'Richiesta ricevuta'
+                ? '${data['requester_name'] ?? 'Uno studente'} ti ha richiesto un materiale'
                 : '$requester ti ha richiesto un materiale',
             topic: data['topic']?.toString(),
             message: data['message']?.toString() ?? '',
@@ -719,6 +761,7 @@ class _RequestViewItem {
 }
 
 class _RequestCard extends StatelessWidget {
+  final String subject;
   final String title;
   final String? topic;
   final String message;
@@ -727,6 +770,7 @@ class _RequestCard extends StatelessWidget {
   final Widget? trailing;
 
   const _RequestCard({
+    required this.subject,
     required this.title,
     required this.topic,
     required this.message,
@@ -745,6 +789,9 @@ class _RequestCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(subject, style: TextStyle(color: AppColors.skyBlue, fontSize: 13,
+              fontWeight: FontWeight.w700)),
+            const SizedBox(height: 5),
             Row(
               children: [
                 Expanded(
@@ -802,7 +849,18 @@ class _StatusChip extends StatelessWidget {
       'cancelled' => 'Annullata',
       _ => status,
     };
-    return Chip(label: Text(label, style: const TextStyle(fontSize: 10)));
+    final color = switch (status) {
+      'pending' => AppColors.pendingAmber,
+      'fulfilled' => AppColors.correct,
+      'declined' || 'rejected' => AppColors.wrong,
+      _ => AppColors.white70,
+    };
+    return Chip(
+      backgroundColor: color.withValues(alpha: 0.16),
+      side: BorderSide(color: color.withValues(alpha: 0.55)),
+      label: Text(label, style: TextStyle(fontSize: 11, color: color,
+        fontWeight: FontWeight.w700)),
+    );
   }
 }
 

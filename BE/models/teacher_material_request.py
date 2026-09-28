@@ -41,6 +41,14 @@ class TeacherMaterialRequest(Base):
     subject = relationship("Subject")
     fulfilled_material = relationship("TeacherMaterial")
 
+    @property
+    def subject_name(self):
+        return self.subject.name if self.subject else None
+
+    @property
+    def teacher_name(self):
+        return f"{self.teacher.first_name} {self.teacher.last_name}".strip() if self.teacher else None
+
     __table_args__ = (
         CheckConstraint("status IN ('pending','fulfilled','rejected','cancelled')", name="chk_teacher_material_request_status"),
     )

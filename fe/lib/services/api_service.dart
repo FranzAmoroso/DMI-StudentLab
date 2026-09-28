@@ -616,6 +616,22 @@ class ApiService {
     return data.map(SocialUser.fromJson).toList();
   }
 
+  Future<void> requestInstitutionalTutor() async {
+    final response = await http.post(_apiUri('/institutional-tutors/request'), headers: _jsonHeaders);
+    _decodeMapResponse(response, 'Richiesta di verifica non riuscita.');
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingInstitutionalTutors() async {
+    final response = await http.get(_apiUri('/institutional-tutors/admin/pending'), headers: _jsonHeaders);
+    return _decodeListResponse(response, 'Impossibile caricare i tutor da verificare.');
+  }
+
+  Future<void> decideInstitutionalTutor(int userId, bool approved) async {
+    final response = await http.patch(_apiUri('/institutional-tutors/admin/$userId'),
+      headers: _jsonHeaders, body: jsonEncode({'approved': approved}));
+    _decodeMapResponse(response, 'Impossibile aggiornare la verifica.');
+  }
+
   Future<SocialUser> getSocialUser(int userId) async {
     final Uri url = Uri.parse('$baseUrl/user/$userId');
 

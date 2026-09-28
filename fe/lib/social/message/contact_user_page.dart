@@ -4,7 +4,7 @@ import '../../services/auth_service.dart';
 import '../../theme/nightTheme.dart';
 import '../social_models.dart';
 
-enum ContactRequestType { general, help, privateLesson }
+enum ContactRequestType { general, help, privateLesson, institutionalTutoring }
 
 class ContactUserPage extends StatefulWidget {
   final SocialUser user;
@@ -45,6 +45,9 @@ class _ContactUserPageState extends State<ContactUserPage> {
     if (widget.user.availableForPrivateLessons) {
       return ContactRequestType.privateLesson;
     }
+    if (widget.user.isVerifiedInstitutionalTutor) {
+      return ContactRequestType.institutionalTutoring;
+    }
     return ContactRequestType.general;
   }
 
@@ -58,6 +61,8 @@ class _ContactUserPageState extends State<ContactUserPage> {
         return widget.user.subjects
             .where((subject) => subject.canGivePrivateLessons)
             .toList();
+      case ContactRequestType.institutionalTutoring:
+        return widget.user.subjects.where((subject) => subject.canHelp).toList();
       case ContactRequestType.general:
         return const [];
     }
@@ -65,7 +70,8 @@ class _ContactUserPageState extends State<ContactUserPage> {
 
   bool get _requiresSubject =>
       _requestType == ContactRequestType.help ||
-      _requestType == ContactRequestType.privateLesson;
+      _requestType == ContactRequestType.privateLesson ||
+      _requestType == ContactRequestType.institutionalTutoring;
 
   bool get _requestAvailable {
     switch (_requestType) {
@@ -75,13 +81,15 @@ class _ContactUserPageState extends State<ContactUserPage> {
         return widget.user.availableForHelp;
       case ContactRequestType.privateLesson:
         return widget.user.availableForPrivateLessons;
+      case ContactRequestType.institutionalTutoring:
+        return widget.user.isVerifiedInstitutionalTutor;
     }
   }
 
   bool get _hasAnyContactOption =>
       widget.user.available ||
       widget.user.availableForHelp ||
-      widget.user.availableForPrivateLessons;
+      widget.user.availableForPrivateLessons || widget.user.isVerifiedInstitutionalTutor;
 
   SocialSubject? get _selectedSubject {
     final int? id = _selectedSubjectId;
@@ -102,6 +110,8 @@ class _ContactUserPageState extends State<ContactUserPage> {
         return 'Richiesta di aiuto';
       case ContactRequestType.privateLesson:
         return 'Lezione privata';
+      case ContactRequestType.institutionalTutoring:
+        return 'Tutoraggio UNICT';
     }
   }
 
@@ -113,6 +123,8 @@ class _ContactUserPageState extends State<ContactUserPage> {
         return 'help';
       case ContactRequestType.privateLesson:
         return 'private_lesson';
+      case ContactRequestType.institutionalTutoring:
+        return 'institutional_tutoring';
     }
   }
 
@@ -412,6 +424,15 @@ class _ContactUserPageState extends State<ContactUserPage> {
             enabled: widget.user.availableForPrivateLessons,
             onTap: () => _changeRequestType(ContactRequestType.privateLesson),
           ),
+          if (widget.user.isVerifiedInstitutionalTutor) ...[
+            const SizedBox(height: 8),
+            _RequestTypeTile(icon: Icons.verified_outlined,
+              title: 'Tutoraggio UNICT · verificato',
+              description: 'Richiedi supporto a un tutor verificato dall’amministrazione.',
+              selected: _requestType == ContactRequestType.institutionalTutoring,
+              enabled: true,
+              onTap: () => _changeRequestType(ContactRequestType.institutionalTutoring)),
+          ],
         ],
       ),
     );
@@ -425,6 +446,8 @@ class _ContactUserPageState extends State<ContactUserPage> {
       ContactRequestType.help => widget.user.availableForHelp,
       ContactRequestType.privateLesson =>
         widget.user.availableForPrivateLessons,
+      ContactRequestType.institutionalTutoring =>
+        widget.user.isVerifiedInstitutionalTutor,
     };
 
     if (!enabled) {

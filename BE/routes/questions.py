@@ -148,6 +148,14 @@ def _require_question_manager(
         subject,
     )
 
+    # Le domande storiche possono esistere nell'archivio quiz prima che la
+    # materia sia stata inserita nel catalogo PostgreSQL. Il creator può
+    # correggere solo un archivio già esistente; il docente resta vincolato
+    # alla materia verificata nel catalogo.
+    if subject_record is None and (current_user.role or '').strip().lower() in {'admin', 'creator'}:
+        if get_questions_for_management(department, course, subject):
+            return None
+
     if subject_record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -277,7 +285,7 @@ def api_manage_questions(
         )
     )
 
-    _require_question_manager(
+    subject_record = _require_question_manager(
         db,
         current_user,
         department,
@@ -451,7 +459,7 @@ def api_update_question(
         )
     )
 
-    _require_question_manager(
+    subject_record = _require_question_manager(
         db,
         current_user,
         department,
@@ -466,6 +474,10 @@ def api_update_question(
             subject=subject,
             question_id=question_id,
             data=request,
+            default_university=(subject_record.university if subject_record is not None
+                                else 'Università degli Studi di Catania'
+                                if department.strip().lower() == 'dmi' and course.strip().lower() in {'l31', 'l-31', 'informatica'}
+                                else None),
         )
 
     except ValueError as exception:

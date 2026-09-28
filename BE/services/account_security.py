@@ -218,6 +218,9 @@ def complete_password_reset(
     if user is None or not user.is_active:
         raise ValueError("Account non disponibile.")
 
+    from services.verification_lock import require_identifiers_editable
+    require_identifiers_editable(db, user)
+
     user.password_hash = hash_password(new_password)
     request.used_at = _now()
 

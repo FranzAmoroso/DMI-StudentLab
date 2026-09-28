@@ -22,6 +22,9 @@ class StudentMaterialRequestResponse(BaseModel):
     requester_user_id: int
     recipient_user_id: int
     subject_id: int | None
+    subject_name: str | None = None
+    recipient_name: str | None = None
+    requester_name: str | None = None
     topic: str | None
     message: str
     status: str

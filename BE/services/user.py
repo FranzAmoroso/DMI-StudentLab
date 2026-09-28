@@ -3,6 +3,7 @@ from datetime import (
     timezone,
 )
 
+from sqlalchemy import or_
 from sqlalchemy.orm import (
     Session,
     joinedload,
@@ -252,9 +253,7 @@ def get_available_users(
             User.email_verified_at.is_not(
                 None,
             ),
-            User.available.is_(
-                True,
-            ),
+            or_(User.available.is_(True), User.institutional_tutor_status == 'verified'),
             User.role.in_(
                 [
                     "student",
@@ -287,9 +286,7 @@ def get_available_user_by_id(
             User.email_verified_at.is_not(
                 None,
             ),
-            User.available.is_(
-                True,
-            ),
+            or_(User.available.is_(True), User.institutional_tutor_status == 'verified'),
             User.role.in_(
                 [
                     "student",

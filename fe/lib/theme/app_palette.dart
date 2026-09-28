@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 /// Palette di StudentLab come [ThemeExtension].
 ///
 /// Ogni tema usa gli STESSI nomi di [AppColors]; cambiano solo i valori.
-/// Il tema principale è [AppPalette.night]. Per un nuovo tema basta creare
+/// Il tema iniziale è [AppPalette.kiwi]. Per un nuovo tema basta creare
 /// un'altra istanza, ad esempio `AppPalette.night.copyWith(...)`.
 ///
 /// Nei widget nuovi leggi i colori con `context.palette.eleganceMidnight`
@@ -140,10 +140,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
 
   /// Palette in uso. La imposta StudentLabThemeController; `AppColors.x`
   /// legge da qui, quindi cambiando tema cambiano i colori di tutta l'app.
-  static AppPalette current = night;
+  static AppPalette current = kiwi;
 
   /// True quando il tema attivo è chiaro (testo scuro su fondo chiaro).
-  static bool currentIsLight = false;
+  static bool currentIsLight = true;
 
   static const AppPalette night = AppPalette(
     brandNightBlue: Color(0xFF1C2841),
@@ -1253,9 +1253,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
 }
 
 extension AppPaletteContext on BuildContext {
-  /// Palette del tema corrente; se il tema non la registra usa [AppPalette.night].
+  /// Palette del tema corrente; se il tema non la registra usa [AppPalette.kiwi].
   AppPalette get palette =>
-      Theme.of(this).extension<AppPalette>() ?? AppPalette.night;
+      Theme.of(this).extension<AppPalette>() ?? AppPalette.kiwi;
 }
 
 /// Temi disponibili. L'`id` viene salvato sul dispositivo: non rinominarlo.
@@ -1300,5 +1300,5 @@ enum StudentLabTheme {
       };
 
   static StudentLabTheme fromId(String? id) =>
-      StudentLabTheme.values.firstWhere((t) => t.id == id, orElse: () => StudentLabTheme.notte);
+      StudentLabTheme.values.firstWhere((t) => t.id == id, orElse: () => StudentLabTheme.kiwi);
 }

@@ -374,8 +374,8 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
           ),
           const SizedBox(height: 7),
           Text(
-            'Puoi bloccare questo utente oppure segnalarne il profilo. '
-            'Il blocco limita le interazioni private anche lato server.',
+              'Il blocco nasconde i profili reciproci e impedisce i contatti. '
+              'È una scelta personale e non invia una segnalazione agli amministratori.',
             style: TextStyle(
               color: AppColors.pureWhite.withOpacity(0.46),
               fontSize: 10,
@@ -823,10 +823,7 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
   }
 
   Widget _buildActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
+    return ElevatedButton.icon(
             onPressed: _openMessages,
 
             icon: const Icon(Icons.chat_bubble_outline_rounded),
@@ -844,33 +841,6 @@ class _SocialUserProfilePageState extends State<SocialUserProfilePage> {
                 borderRadius: BorderRadius.circular(13),
               ),
             ),
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _requestConnection,
-
-            icon: const Icon(Icons.person_add_alt_1_rounded),
-
-            label: const Text('Collegati'),
-
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.materialSky,
-
-              side: BorderSide(color: AppColors.skyBlue.withOpacity(0.28)),
-
-              padding: const EdgeInsets.symmetric(vertical: 13),
-
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(13),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/api_service.dart';
 import '../../services/auth_session.dart';
@@ -6,6 +7,7 @@ import '../../services/public_news_api_service.dart';
 import '../../theme/nightTheme.dart';
 import '../social_models.dart';
 import 'models/public_news.dart';
+import 'models/dmi_external_notice.dart';
 import 'public_news_editor_page.dart';
 
 class InstitutionalNewsPage extends StatefulWidget {
@@ -27,6 +29,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
   final TextEditingController _searchController = TextEditingController();
 
   List<PublicNews> _items = [];
+  List<DmiExternalNotice> _officialNotices = [];
   bool _loading = true;
   bool _loadingMore = false;
   String? _error;
@@ -115,6 +118,8 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     });
 
     try {
+      final Future<List<DmiExternalNotice>> officialFuture = _newsApi.getDmiNotices()
+          .catchError((Object _) => <DmiExternalNotice>[]);
       final PublicNewsFeedResult result = await _newsApi.getFeed(
         search: _searchController.text,
         university: _selectedUniversity ?? '',
@@ -124,6 +129,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         limit: _limit,
         offset: 0,
       );
+      final List<DmiExternalNotice> official = await officialFuture;
 
       if (!mounted) return;
 
@@ -140,6 +146,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
       setState(() {
         _items = items;
+        _officialNotices = official.where(_matchesOfficialNotice).toList();
         _total = manualSubject == null ? result.total : items.length;
         _offset = result.items.length;
         _loading = false;
@@ -151,6 +158,18 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
         _error = _friendlyError(error);
       });
     }
+  }
+
+  bool _matchesOfficialNotice(DmiExternalNotice notice) {
+    final String university = _selectedUniversity?.toLowerCase() ?? '';
+    final String department = _selectedDepartment?.toLowerCase() ?? '';
+    final String course = _selectedCourse?.toLowerCase() ?? '';
+    if (university.isNotEmpty && !university.contains('catania') && university != 'unict') return false;
+    if (department.isNotEmpty && !department.contains('matematica') && department != 'dmi') return false;
+    if (course.isNotEmpty && !course.contains('informatica') && !course.contains('l-31') && course != 'l31') return false;
+    if (_selectedSubjectName != null) return false;
+    final String search = _searchController.text.trim().toLowerCase();
+    return search.isEmpty || '${notice.title} ${notice.content} ${notice.teacher ?? ''}'.toLowerCase().contains(search);
   }
 
   Future<void> _loadMore() async {
@@ -736,7 +755,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
     return Row(
       children: [
         Text(
-          '$_total ${_total == 1 ? 'avviso' : 'avvisi'}',
+          '${_total + _officialNotices.length} ${_total + _officialNotices.length == 1 ? 'avviso' : 'avvisi'}',
           style: TextStyle(
             color: AppColors.pureWhite,
             fontSize: 13,
@@ -770,7 +789,7 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
       );
     }
 
-    if (_items.isEmpty) {
+    if (_items.isEmpty && _officialNotices.isEmpty) {
       return const _StateCard(
         icon: Icons.newspaper_outlined,
         title: 'Nessun avviso',
@@ -780,6 +799,15 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
 
     return Column(
       children: [
+        for (final DmiExternalNotice notice in _officialNotices)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _DmiNoticeCard(notice: notice, onOpen: () {
+              Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => _DmiNoticeDetailPage(notice: notice),
+              ));
+            }),
+          ),
         for (final PublicNews news in _items)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -958,6 +986,85 @@ class _InstitutionalNewsPageState extends State<InstitutionalNewsPage> {
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+String _dmiDate(DateTime date) => '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+class _DmiNoticeCard extends StatelessWidget {
+  final DmiExternalNotice notice;
+  final VoidCallback onOpen;
+
+  const _DmiNoticeCard({required this.notice, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AppColors.eleganceMidnight,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(notice.title, style: TextStyle(color: AppColors.pureWhite, fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('DMI · Università di Catania', style: TextStyle(color: AppColors.materialSky)),
+              if (notice.teacher != null && notice.teacher!.trim().isNotEmpty)
+                Text(notice.teacher!, style: TextStyle(color: AppColors.white70)),
+              Text(_dmiDate(notice.publishedOn), style: TextStyle(color: AppColors.white54)),
+              const SizedBox(height: 10),
+              Text(notice.content, maxLines: 3, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: AppColors.white70)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DmiNoticeDetailPage extends StatelessWidget {
+  final DmiExternalNotice notice;
+
+  const _DmiNoticeDetailPage({required this.notice});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.darkElegance,
+      appBar: AppBar(backgroundColor: AppColors.brandNightBlue, foregroundColor: AppColors.pureWhite,
+        title: const Text('Avviso')),
+      body: SafeArea(child: Center(child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: ListView(padding: const EdgeInsets.all(20), children: [
+          Text(notice.title, style: TextStyle(color: AppColors.pureWhite, fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Text('DMI · Università di Catania', style: TextStyle(color: AppColors.materialSky)),
+          if (notice.teacher != null && notice.teacher!.trim().isNotEmpty)
+            Text(notice.teacher!, style: TextStyle(color: AppColors.white70)),
+          Text(_dmiDate(notice.publishedOn), style: TextStyle(color: AppColors.white54)),
+          const SizedBox(height: 22),
+          SelectableText(notice.content, style: TextStyle(color: AppColors.pureWhite, height: 1.5)),
+          const SizedBox(height: 28),
+          Divider(color: AppColors.white38),
+          Text('Fonte: DMI – Università di Catania', style: TextStyle(color: AppColors.white70)),
+          const SizedBox(height: 8),
+          Align(alignment: Alignment.centerLeft, child: TextButton.icon(
+            onPressed: () async {
+              final Uri? url = Uri.tryParse(notice.originalUrl);
+              if (url == null || url.scheme != 'https' || url.host != 'web.dmi.unict.it') return;
+              if (!await launchUrl(url, mode: LaunchMode.externalApplication) && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossibile aprire l’avviso originale.')));
+              }
+            },
+            icon: const Icon(Icons.open_in_new), label: const Text('Apri avviso originale'),
+          )),
+        ]),
+      ))),
+    );
   }
 }
 

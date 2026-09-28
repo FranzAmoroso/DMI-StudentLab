@@ -11,6 +11,7 @@ import 'package:fe/social/social_page.dart';
 import 'package:fe/faq/faq_home_page.dart';
 import 'package:fe/dictionary/dictionary_home_page.dart';
 import 'package:fe/calendar/calendar_home_page.dart';
+import 'package:fe/services/auth_session.dart';
 
 import 'package:fe/theme/nightTheme.dart';
 
@@ -84,11 +85,11 @@ class HomeLayer extends StatelessWidget {
 
       type: HomeFeatureType.exercise,
 
-      title: 'Esercitazione',
+      title: 'Esercitazioni',
 
       description:
 
-          'Allenati senza pressione, scegliendo materia e argomenti su cui vuoi concentrarti.',
+          'Scegli materia e argomenti e avvia un quiz senza pressione.',
 
       icon: Icons.quiz_outlined,
 
@@ -219,6 +220,10 @@ class HomeLayer extends StatelessWidget {
   @override
 
   Widget build(BuildContext context) {
+    final bool isCreator = AuthSession.instance.currentUser?.isCreator == true;
+    final List<FeatureCard> visibleCards = _featureCards
+        .where((card) => card.type != HomeFeatureType.institution || isCreator)
+        .toList();
 
     return SafeArea(
 
@@ -352,9 +357,7 @@ class HomeLayer extends StatelessWidget {
 
                         ) {
 
-                          final FeatureCard card =
-
-                              _featureCards[index];
+                          final FeatureCard card = visibleCards[index];
 
                           return _FeatureCardView(
 
@@ -384,7 +387,7 @@ class HomeLayer extends StatelessWidget {
 
                         childCount:
 
-                            _featureCards.length,
+                            visibleCards.length,
 
                       ),
 

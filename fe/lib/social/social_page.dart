@@ -569,7 +569,7 @@ class _SocialPageState extends State<SocialPage> {
                   },
                 ),
 
-                _SocialUserMenuTile(
+                if (_session.currentUser?.isCreator == true) _SocialUserMenuTile(
                   icon: Icons.groups_2_outlined,
                   label: 'Gruppi',
                   subtitle: 'I tuoi gruppi e quelli pubblici',
@@ -2411,6 +2411,7 @@ class _SocialUsersPageState extends State<_SocialUsersPage> {
   List<SocialUser> _users = [];
 
   int _selectedFilter = 0;
+  int _academicScope = 0;
 
   bool _loading = true;
 
@@ -2481,6 +2482,12 @@ class _SocialUsersPageState extends State<_SocialUsersPage> {
 
   List<SocialUser> get _filteredUsers {
     final String query = _searchController.text.trim().toLowerCase();
+    final current = AuthSession.instance.currentUser;
+    final enrolled = current?.academicPaths.where((p) => p.status == AcademicPathStatus.enrolled).toList() ?? [];
+    final path = enrolled.where((p) => p.isCurrent).firstOrNull ?? enrolled.firstOrNull;
+    final university = path?.university.trim().toLowerCase() ?? current?.university.trim().toLowerCase() ?? '';
+    final department = path?.department.trim().toLowerCase() ?? current?.department.trim().toLowerCase() ?? '';
+    final course = path?.course.trim().toLowerCase() ?? current?.course.trim().toLowerCase() ?? '';
 
     return _users.where((SocialUser user) {
       final bool canHelp = _canHelp(user);
@@ -2488,15 +2495,16 @@ class _SocialUsersPageState extends State<_SocialUsersPage> {
       final bool privateLessons = _offersPrivateLessons(user);
 
       if (widget.tutorOnly) {
-        if (!canHelp && !privateLessons) {
+        final structured = user.isVerifiedInstitutionalTutor;
+        if (!structured && !privateLessons) {
           return false;
         }
 
-        if (_selectedFilter == 1 && !canHelp) {
+        if (_selectedFilter == 1 && !structured) {
           return false;
         }
 
-        if (_selectedFilter == 2 && !privateLessons) {
+        if (_selectedFilter == 2 && (structured || !privateLessons)) {
           return false;
         }
       } else {
@@ -2511,6 +2519,21 @@ class _SocialUsersPageState extends State<_SocialUsersPage> {
         if (_selectedFilter == 3 && !canHelp && !privateLessons) {
           return false;
         }
+      }
+
+      if (!widget.tutorOnly && _academicScope != 0) {
+        if (university.isEmpty || department.isEmpty || (_academicScope == 1 && course.isEmpty)) return false;
+        final candidatePaths = user.academicPaths.where((p) => p.status == AcademicPathStatus.enrolled).toList();
+        final matches = candidatePaths.isEmpty
+            ? [(university: user.university.trim().toLowerCase(), department: user.department.trim().toLowerCase(), course: user.course.trim().toLowerCase())]
+            : candidatePaths.map((p) => (university: p.university.trim().toLowerCase(), department: p.department.trim().toLowerCase(), course: p.course.trim().toLowerCase()));
+        if (!matches.any((p) => switch (_academicScope) {
+          1 => p.university == university && p.department == department && p.course == course,
+          2 => p.university == university && p.department == department && p.course != course,
+          3 => p.university == university && p.department != department,
+          4 => p.university.isNotEmpty && p.university != university,
+          _ => true,
+        })) return false;
       }
 
       if (query.isEmpty) {
@@ -2626,6 +2649,21 @@ class _SocialUsersPageState extends State<_SocialUsersPage> {
 
                   _buildFilters(),
 
+                  if (!widget.tutorOnly) ...[
+                    const SizedBox(height: 10),
+                    SingleChildScrollView(scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        for (var i = 0; i < 5; i++) Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(const ['Tutti i percorsi', 'Il mio corso', 'Altri corsi del dipartimento', 'Altri dipartimenti', 'Altre università'][i]),
+                            selected: _academicScope == i,
+                            onSelected: (_) => setState(() => _academicScope = i),
+                          ),
+                        ),
+                      ])),
+                  ],
+
                   const SizedBox(height: 22),
 
                   _buildUserList(),
@@ -2640,7 +2678,7 @@ class _SocialUsersPageState extends State<_SocialUsersPage> {
 
   Widget _buildFilters() {
     final List<String> labels = widget.tutorOnly
-        ? const ['Tutti', 'Aiuto', 'Lezioni private']
+        ? const ['Tutti', 'Tutor UNICT verificati', 'Lezioni private']
         : const ['Tutti', 'Studenti', 'Insegnanti', 'Disponibili'];
 
     return SingleChildScrollView(

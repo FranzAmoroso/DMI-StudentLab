@@ -42,6 +42,7 @@ class QuizAttemptApiService {
     required String subject,
     required List<String> arguments,
     required int numberOfQuestions,
+    List<String> questionIds = const <String>[],
   }) async {
     final response = await http.post(
       _uri('/quiz-attempts/start'),
@@ -53,6 +54,7 @@ class QuizAttemptApiService {
         'arguments': arguments.map((value) => value.trim()).where((value) => value.isNotEmpty).toList(),
         'all_arguments': arguments.isEmpty,
         'number_of_questions': numberOfQuestions,
+        if (questionIds.isNotEmpty) 'question_ids': questionIds,
         'time_limit_seconds': null,
       }),
     );

@@ -2730,6 +2730,7 @@ class SocialUser {
   final bool available;
   final bool availableForHelp;
   final bool availableForPrivateLessons;
+  final String institutionalTutorStatus;
   final bool isActive;
   final List<SocialReview> reviews;
 
@@ -2754,12 +2755,15 @@ class SocialUser {
     required this.available,
     required this.availableForHelp,
     required this.availableForPrivateLessons,
+    this.institutionalTutorStatus = 'none',
     required this.isActive,
     this.reviews = const [],
   });
 
   String get name =>
       '$firstName $lastName'.trim();
+
+  bool get isVerifiedInstitutionalTutor => institutionalTutorStatus == 'verified';
 
   String get role {
     final String normalized = accountRole.trim().toLowerCase();
@@ -3087,6 +3091,7 @@ class SocialUser {
       available: available,
       availableForHelp: availableForHelp,
       availableForPrivateLessons: availableForPrivateLessons,
+      institutionalTutorStatus: json['institutional_tutor_status']?.toString() ?? 'none',
       isActive: _toBool(json['is_active']) ?? true,
       reviews: parsedReviews,
     );
@@ -3122,6 +3127,7 @@ class SocialUser {
       'available': available,
       'available_for_help': availableForHelp,
       'available_for_private_lessons': availableForPrivateLessons,
+      'institutional_tutor_status': institutionalTutorStatus,
       'willing_to_teach': availableForPrivateLessons,
       'is_active': isActive,
       'reviews': reviews
@@ -3153,6 +3159,7 @@ class SocialUser {
     bool? available,
     bool? availableForHelp,
     bool? availableForPrivateLessons,
+    String? institutionalTutorStatus,
     bool? isActive,
     List<SocialReview>? reviews,
   }) {
@@ -3183,6 +3190,7 @@ class SocialUser {
       availableForHelp: availableForHelp ?? this.availableForHelp,
       availableForPrivateLessons:
           availableForPrivateLessons ?? this.availableForPrivateLessons,
+      institutionalTutorStatus: institutionalTutorStatus ?? this.institutionalTutorStatus,
       isActive: isActive ?? this.isActive,
       reviews: reviews ?? this.reviews,
     );

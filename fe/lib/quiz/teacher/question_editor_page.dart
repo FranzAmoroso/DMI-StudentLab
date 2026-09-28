@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../theme/nightTheme.dart';
 import '../../services/blob_upload_service.dart';
 import '../../services/picked_file_bridge.dart';
+import '../../services/auth_session.dart';
 import 'services/question_management_service.dart';
 
 class QuestionEditorPage extends StatefulWidget {
@@ -750,6 +751,11 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
       );
     }
 
+    if ((metadata['university']?.toString().trim() ?? '').isEmpty) {
+      final String selectedUniversity = widget.metadataBase['university']?.toString().trim() ?? '';
+      if (selectedUniversity.isNotEmpty) metadata['university'] = selectedUniversity;
+    }
+
     metadata['argoment'] = _argumentController.text.trim();
 
     final List<Map<String, String>> options = const ['a', 'b', 'c', 'd']
@@ -820,7 +826,9 @@ class _QuestionEditorPageState extends State<QuestionEditorPage> {
 
     final String university = metadata['university']?.toString().trim() ?? '';
 
-    if (university.isEmpty) {
+    // Creator e admin possono modificare domande storiche prive di ateneo:
+    // il backend ricava l'ateneo dalla materia canonica selezionata.
+    if (university.isEmpty && AuthSession.instance.currentUser?.isAdmin != true) {
       setState(() {
         _error =
             'I dati accademici della materia sono incompleti: manca l’ateneo associato al profilo docente.';

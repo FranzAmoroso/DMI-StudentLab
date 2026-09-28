@@ -1900,7 +1900,7 @@ super.dispose();
 
                   ),
 
-                  _HomeUserMenuTile(
+                  if (role == 'creator') _HomeUserMenuTile(
 
                     icon: Icons.groups_2_outlined,
 

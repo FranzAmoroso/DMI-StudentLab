@@ -178,6 +178,20 @@ def _create_quiz_attempt(
 
 def start_quiz_attempt(db: Session, user: User, data: QuizAttemptStart):
     selected_arguments = [] if data.all_arguments else data.arguments
+    requested_ids = {str(value).strip() for value in data.question_ids if str(value).strip()}
+    if requested_ids:
+        questions = shuffle_filter(
+            department=data.department, course=data.course, subject=data.subject,
+            selected_arguments=[], question_ids=list(requested_ids),
+            number_of_questions=min(data.number_of_questions, len(requested_ids)),
+        )
+        if not questions:
+            raise ValueError('Le domande da ripassare non sono più disponibili.')
+        return _create_quiz_attempt(
+            db, user, department=data.department, course=data.course,
+            subject=data.subject, questions=questions, time_limit_seconds=data.time_limit_seconds,
+            execution_mode='practice', external_activity_policy='disabled',
+        )
     available = question_count(
         department=data.department,
         course=data.course,

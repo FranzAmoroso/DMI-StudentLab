@@ -12,6 +12,7 @@ import 'calendar_editor_page.dart';
 import 'calendar_event_page.dart';
 import 'calendar_import_page.dart';
 import 'calendar_widgets.dart';
+import 'academic_year_2026_27.dart';
 
 /// Calendario accademico (canvas: Calendario · prossimi / mese).
 /// Per ospiti e utenti; chi ha l'account parte dal proprio percorso.
@@ -403,6 +404,11 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
                     ),
                   ]),
                   const SizedBox(height: 12),
+                  if ((_university ?? '').toLowerCase().contains('catania') ||
+                      (_university ?? '').toLowerCase() == 'unict') ...[
+                    const AcademicYear2026Card(),
+                    const SizedBox(height: 12),
+                  ],
                   _periodBanner(),
                   SlFilterBar<String>(
                     selected: _view,

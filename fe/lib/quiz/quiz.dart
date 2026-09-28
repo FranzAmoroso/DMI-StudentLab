@@ -21,6 +21,7 @@ class QuizPage extends StatefulWidget {
   final String sub;
   final List<String> arguments;
   final int numberOfQuestions;
+  final List<String> reviewQuestionIds;
   final int? attemptId;
   final List<Map<String, dynamic>>? assignedQuestions;
   final int? timeLimitSeconds;
@@ -35,6 +36,7 @@ class QuizPage extends StatefulWidget {
     required this.sub,
     required this.arguments,
     required this.numberOfQuestions,
+    this.reviewQuestionIds = const <String>[],
   }) : attemptId = null,
        assignedQuestions = null,
        timeLimitSeconds = null,
@@ -54,7 +56,8 @@ class QuizPage extends StatefulWidget {
     this.executionMode = 'practice',
     this.externalActivityPolicy = 'disabled',
   }) : arguments = const <String>[],
-       numberOfQuestions = 0;
+       numberOfQuestions = 0,
+       reviewQuestionIds = const <String>[];
 
   bool get isAssigned => attemptId != null && assignedQuestions != null;
 
@@ -78,6 +81,7 @@ class _QuizPageState extends State<QuizPage> {
 
   int? _freeAttemptId;
   bool load = true;
+  String? _loadError;
   bool isLocked = false;
   bool modalIsOpen = false;
   bool _completing = false;
@@ -177,6 +181,7 @@ class _QuizPageState extends State<QuizPage> {
               subject: widget.sub,
               arguments: widget.arguments,
               numberOfQuestions: widget.numberOfQuestions,
+              questionIds: widget.reviewQuestionIds,
             );
 
         final dynamic rawAttemptId = attempt['attempt_id'];
@@ -205,6 +210,7 @@ class _QuizPageState extends State<QuizPage> {
           subject: widget.sub,
           arguments: widget.arguments,
           numberOfQuestions: widget.numberOfQuestions,
+          questionIds: widget.reviewQuestionIds,
         );
       }
 
@@ -215,11 +221,14 @@ class _QuizPageState extends State<QuizPage> {
         load = false;
         _questionStartedAt = DateTime.now();
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
 
       setState(() {
         load = false;
+        _loadError = widget.reviewQuestionIds.isNotEmpty
+            ? 'Le domande dello storico non sono più disponibili per questo percorso. Aggiorna il Ripasso o apri le Flashcard.'
+            : 'Impossibile caricare le domande. Riprova.';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -946,7 +955,7 @@ class _QuizPageState extends State<QuizPage> {
         ),
         body: Center(
           child: Text(
-            'Non sono state trovate domande.',
+            _loadError ?? 'Non sono state trovate domande.',
             style: TextStyle(color: AppColors.white, fontSize: 16),
           ),
         ),

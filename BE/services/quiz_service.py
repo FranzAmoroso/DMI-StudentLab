@@ -164,6 +164,7 @@ def shuffle_filter(
     subject: str,
     selected_arguments: list[str] | None = None,
     number_of_questions: int | None = None,
+    question_ids: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     filtered_questions = get_available_questions(
         department=department,
@@ -171,6 +172,11 @@ def shuffle_filter(
         subject=subject,
         selected_arguments=selected_arguments,
     )
+
+    if question_ids:
+        wanted = {str(value).strip() for value in question_ids if str(value).strip()}
+        filtered_questions = [question for question in filtered_questions
+                              if str(question.get('id_question')) in wanted]
 
     result = deepcopy(filtered_questions)
 

@@ -8,7 +8,7 @@ from models.subject import Subject
 from models.teacher_assignment import TeacherAssignment
 from models.user import User
 from schemas.public_news import PublicNewsCreate
-from services.user_block import get_blocked_user_ids
+from services.user_block import get_mutually_restricted_user_ids
 
 
 def utc_now():
@@ -187,7 +187,7 @@ def get_public_news_feed(
     )
 
     if viewer_user_id is not None:
-        blocked_ids = set(get_blocked_user_ids(db, viewer_user_id))
+        blocked_ids = get_mutually_restricted_user_ids(db, viewer_user_id)
         if blocked_ids:
             query = query.filter(
                 or_(

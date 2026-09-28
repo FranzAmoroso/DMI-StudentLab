@@ -931,6 +931,7 @@ def update_question(
     subject: str,
     question_id: str,
     data: QuestionUpdate,
+    default_university: str | None = None,
 ) -> dict[str, Any]:
     question_id = str(
         question_id
@@ -1010,6 +1011,13 @@ def update_question(
     merged.update(
         update_data
     )
+
+    # Compatibilità con domande esistenti che non avevano ancora l'ateneo.
+    # L'origine è la materia validata dalla route, mai il profilo docente.
+    metadata = merged.get("metadata")
+    if isinstance(metadata, dict) and not str(metadata.get("university") or "").strip():
+        if default_university:
+            merged["metadata"] = {**metadata, "university": default_university}
 
     try:
         validated = QuestionCreate.model_validate(

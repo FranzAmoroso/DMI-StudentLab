@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/auth_session.dart';
 import '../../theme/nightTheme.dart';
 import '../quiz.dart';
+import 'review_flashcards_page.dart';
 import 'services/student_quiz_review_service.dart';
 import 'study_plan_sessions_page.dart';
 
@@ -189,9 +190,9 @@ class _StudentQuizReviewPageState
     }
   }
 
-  void _trainArgument(
+  Future<void> _trainArgument(
     Map<String, dynamic> argument,
-  ) {
+  ) async {
     final String department =
         _text(argument, 'department');
     final String course =
@@ -203,18 +204,29 @@ class _StudentQuizReviewPageState
 
     if (department.isEmpty ||
         course.isEmpty ||
-        subject.isEmpty ||
-        argumentName.isEmpty ||
-        argumentName == 'Senza argomento') {
+        subject.isEmpty) {
       _showMessage(
         'Questo argomento non può essere utilizzato per avviare un quiz.',
       );
       return;
     }
 
-    final int questions =
-        (_toInt(argument['total_questions']) ?? 0)
-            .clamp(1, 10);
+    late final List<Map<String, dynamic>> review;
+    try {
+      review = await _service.getReview(department: department, course: course,
+        subject: subject, argument: argumentName);
+    } catch (_) {
+      _showMessage('Impossibile caricare le domande da ripassare. Riprova.');
+      return;
+    }
+    final List<String> questionIds = review
+        .map((item) => _text(item, 'question_id'))
+        .where((id) => id.isNotEmpty).toSet().toList();
+    if (!mounted) return;
+    if (questionIds.isEmpty) {
+      _showMessage('Non ci sono domande da ripassare per questo argomento.');
+      return;
+    }
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -222,11 +234,39 @@ class _StudentQuizReviewPageState
           department: department,
           course: course,
           sub: subject,
-          arguments: <String>[argumentName],
-          numberOfQuestions: questions,
+          arguments: argumentName == 'Senza argomento' ? const <String>[] : <String>[argumentName],
+          numberOfQuestions: questionIds.length.clamp(1, 10),
+          reviewQuestionIds: questionIds.take(10).toList(),
         ),
       ),
     );
+  }
+
+  Future<void> _trainFlashcards(Map<String, dynamic> argument) async {
+    final department = _text(argument, 'department');
+    final course = _text(argument, 'course');
+    final subject = _text(argument, 'subject');
+    final topic = _text(argument, 'argument');
+    if (department.isEmpty || course.isEmpty || subject.isEmpty) {
+      _showMessage('Seleziona una materia per ripassare con le flashcard.');
+      return;
+    }
+    late final List<Map<String, dynamic>> review;
+    try {
+      review = await _service.getReview(department: department, course: course,
+        subject: subject, argument: topic);
+    } catch (_) {
+      _showMessage('Impossibile caricare le flashcard da ripassare. Riprova.');
+      return;
+    }
+    if (!mounted) return;
+    if (review.isEmpty) {
+      _showMessage('Non ci sono domande da ripassare per questo argomento.');
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ReviewFlashcardsPage(subject: subject, items: review),
+    ));
   }
 
   Future<void> _openQuestion(
@@ -337,6 +377,7 @@ class _StudentQuizReviewPageState
                   _text(item, 'argument'),
                 ),
                 onTrain: () => _trainArgument(item),
+                onFlashcards: () => _trainFlashcards(item),
               ),
             ),
           const SizedBox(height: 22),
@@ -650,11 +691,13 @@ class _WeakArgumentCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final VoidCallback onReview;
   final VoidCallback onTrain;
+  final VoidCallback onFlashcards;
 
   const _WeakArgumentCard({
     required this.data,
     required this.onReview,
     required this.onTrain,
+    required this.onFlashcards,
   });
 
   @override
@@ -724,20 +767,19 @@ class _WeakArgumentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onReview,
+            icon: const Icon(Icons.visibility_outlined, size: 17),
+            label: const Text('Vedi errori'),
+          ),
+          const SizedBox(height: 12),
+          Text('Allenati', style: TextStyle(color: AppColors.pureWhite,
+            fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
-                onPressed: onReview,
-                icon: const Icon(
-                  Icons.visibility_outlined,
-                  size: 17,
-                ),
-                label: const Text(
-                  'Vedi errori',
-                ),
-              ),
               FilledButton.icon(
                 onPressed: onTrain,
                 icon: const Icon(
@@ -745,8 +787,13 @@ class _WeakArgumentCard extends StatelessWidget {
                   size: 17,
                 ),
                 label: const Text(
-                  'Allenati',
+                  'Quiz',
                 ),
+              ),
+              OutlinedButton.icon(
+                onPressed: onFlashcards,
+                icon: const Icon(Icons.style_outlined, size: 17),
+                label: const Text('Flashcard'),
               ),
             ],
           ),

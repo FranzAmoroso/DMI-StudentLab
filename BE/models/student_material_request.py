@@ -30,6 +30,18 @@ class StudentMaterialRequest(Base):
     subject = relationship("Subject")
     fulfilled_share = relationship("MaterialShare")
 
+    @property
+    def subject_name(self):
+        return self.subject.name if self.subject else None
+
+    @property
+    def recipient_name(self):
+        return f"{self.recipient.first_name} {self.recipient.last_name}".strip() if self.recipient else None
+
+    @property
+    def requester_name(self):
+        return f"{self.requester.first_name} {self.requester.last_name}".strip() if self.requester else None
+
     __table_args__ = (
         CheckConstraint("requester_user_id != recipient_user_id", name="chk_student_material_request_different_users"),
         CheckConstraint("status IN ('pending','fulfilled','declined','cancelled')", name="chk_student_material_request_status"),

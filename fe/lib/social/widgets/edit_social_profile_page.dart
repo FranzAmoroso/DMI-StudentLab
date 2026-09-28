@@ -1258,6 +1258,30 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
               ),
             ),
           ),
+          if (_user.type == SocialUserType.student) ...[
+            Divider(color: AppColors.pureWhite.withOpacity(0.06)),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.verified_outlined, color: AppColors.materialSky),
+              title: Text('Tutoraggio UNICT', style: TextStyle(color: AppColors.pureWhite)),
+              subtitle: Text(switch (_user.institutionalTutorStatus) {
+                'verified' => 'Tutor UNICT verificato.',
+                'pending' => 'Richiesta in verifica: attendi la decisione.',
+                _ => 'Richiedi la verifica per offrire tutoraggio universitario.',
+              }, style: TextStyle(color: AppColors.white70)),
+              trailing: _user.institutionalTutorStatus == 'pending' ||
+                  _user.institutionalTutorStatus == 'verified'
+                  ? null : TextButton(onPressed: _saving ? null : () async {
+                      try {
+                        await _apiService.requestInstitutionalTutor();
+                        if (!mounted) return;
+                        setState(() => _user = _user.copyWith(institutionalTutorStatus: 'pending'));
+                      } catch (error) {
+                        if (mounted) setState(() => _error = _cleanErrorMessage(error));
+                      }
+                    }, child: const Text('Richiedi')),
+            ),
+          ],
         ],
       ),
     );
@@ -1294,15 +1318,17 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
   }
 
   Widget _buildError() {
+    final bool pending = (_error ?? '').toLowerCase().contains('in verifica');
+    final Color tone = pending ? Colors.amber : AppColors.redAccent;
     return Container(
       padding: const EdgeInsets.all(14),
 
       decoration: BoxDecoration(
-        color: AppColors.redAccent.withOpacity(0.08),
+        color: tone.withOpacity(0.12),
 
         borderRadius: BorderRadius.circular(12),
 
-        border: Border.all(color: AppColors.redAccent.withOpacity(0.20)),
+        border: Border.all(color: tone.withOpacity(0.48)),
       ),
 
       child: Row(
@@ -1310,9 +1336,9 @@ class _EditSocialProfilePageState extends State<EditSocialProfilePage> {
 
         children: [
           Icon(
-            Icons.error_outline_rounded,
+            pending ? Icons.info_outline_rounded : Icons.error_outline_rounded,
 
-            color: AppColors.redAccent,
+            color: tone,
 
             size: 19,
           ),

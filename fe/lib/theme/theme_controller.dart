@@ -20,17 +20,17 @@ class StudentLabThemeController extends ChangeNotifier {
   static const String _storageKey = 'studentlab.theme';
 
   final FlutterSecureStorage _storage;
-  StudentLabTheme _theme = StudentLabTheme.notte;
+  StudentLabTheme _theme = StudentLabTheme.kiwi;
 
   StudentLabTheme get theme => _theme;
   AppPalette get palette => _theme.palette;
 
-  /// Legge il tema salvato. Se la lettura fallisce resta Notte.
+  /// Legge il tema salvato; Kiwi è il valore iniziale per le nuove installazioni.
   Future<void> load() async {
     try {
       _theme = StudentLabTheme.fromId(await _storage.read(key: _storageKey));
     } catch (_) {
-      _theme = StudentLabTheme.notte;
+      _theme = StudentLabTheme.kiwi;
     }
     _apply(_theme);
     notifyListeners();

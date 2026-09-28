@@ -31,6 +31,7 @@ class QuizAttemptStart(BaseModel):
     course: str = Field(min_length=1, max_length=100)
     subject: str = Field(min_length=1, max_length=255)
     arguments: list[str] = Field(default_factory=list)
+    question_ids: list[str] = Field(default_factory=list, max_length=30)
     all_arguments: bool = False
     number_of_questions: int = Field(gt=0)
     time_limit_seconds: int | None = Field(default=None, gt=0)

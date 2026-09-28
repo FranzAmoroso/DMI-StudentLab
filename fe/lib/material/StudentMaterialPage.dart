@@ -8,7 +8,6 @@ import 'package:fe/developer/theme/developer_ui_style.dart';
 import 'package:fe/theme/app_palette.dart';
 import 'package:fe/theme/nightTheme.dart';
 import 'package:fe/widgets/studentlab_ui/studentlab_ui.dart';
-import 'package:fe/social/widgets/academic_paths_page.dart';
 
 import 'package:fe/services/api_service.dart';
 import 'package:fe/services/auth_session.dart';
@@ -30,7 +29,8 @@ import 'package:fe/local_storage/services/material_sync_service.dart';
 import 'package:fe/local_storage/services/material_preference_service.dart';
 
 class StudentMaterialPage extends StatefulWidget {
-  const StudentMaterialPage({super.key});
+  final String? initialAction;
+  const StudentMaterialPage({super.key, this.initialAction});
 
   @override
   State<StudentMaterialPage> createState() => _StudentMaterialPageState();
@@ -52,7 +52,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   final Set<int> _processingMaterialIds = <int>{};
   bool _usingOfflineCache = false;
   bool _exploreAllPublicCourses = false;
-  int _rootTab = 0;
+  String? _browseCourseKey;
+  bool _choosingBrowseCourse = false;
   Set<String> _enrolledCourseKeys = <String>{};
 
   /// Percorso corrente dello studente (per la card "Il tuo percorso"),
@@ -103,7 +104,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
 
     _authSession.addListener(_onAuthChanged);
 
-    _loadMaterials();
+    _loadMaterials().then((_) {
+      if (mounted && widget.initialAction == 'publish') _openPublication();
+    });
   }
 
   @override
@@ -902,18 +905,22 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     final publicCourses = <String, List<MaterialLocal>>{};
     final deviceFiles =
         _materials.where((m) => m.source == MaterialSourceLocal.local).toList();
+    final currentKey = _currentPath == null ? null : _courseKey(
+        _currentPath!.university, _currentPath!.department, _currentPath!.course);
+    final selectedKey = _browseCourseKey ?? currentKey;
     for (final material in _materials) {
       if (material.source == MaterialSourceLocal.local) continue;
       final academicKey =
           _courseKey(material.university, material.department, material.course);
       final key = '$academicKey\u0000${material.courseScope}';
-      final own = _enrolledCourseKeys.contains(academicKey);
+      final own = signedIn && selectedKey != null && academicKey == selectedKey;
       (own ? ownCourses : publicCourses)
           .putIfAbsent(key, () => <MaterialLocal>[])
           .add(material);
     }
-    final showOwn = signedIn && _rootTab == 0;
-    final showDevice = signedIn && _rootTab == 2;
+    final showOwn = signedIn;
+    // I file locali si vedono sotto le materie, senza cambiare schermata.
+    final showDevice = false;
     final ownMaterial = ownCourses.values.expand((e) => e).toList();
     final ownSubjects = <String, List<MaterialLocal>>{};
     for (final item in ownMaterial
@@ -926,6 +933,8 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     final departmentCourses = publicCourses.values
         .where((items) =>
             items.isNotEmpty &&
+            (selectedKey == null || selectedKey.startsWith(
+                _courseKey(items.first.university, items.first.department, ''))) &&
             items.every((m) => m.subjectName?.trim().isEmpty ?? true))
         .toList();
     final courses = showOwn ? ownCourses : publicCourses;
@@ -995,19 +1004,6 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                   const SizedBox(height: 14),
                 ],
                 _buildPathCard(ownFirstCourse),
-                const SizedBox(height: 16),
-                _segmentedTabs(
-                  selected: _rootTab,
-                  labels: const <String>['Il mio corso', 'Corsi DMI', 'Dispositivo'],
-                  onSelected: (selected) {
-                    final explore = selected == 1;
-                    setState(() => _rootTab = selected);
-                    if (_exploreAllPublicCourses != explore) {
-                      _exploreAllPublicCourses = explore;
-                      _loadMaterials();
-                    }
-                  },
-                ),
                 const SizedBox(height: 20),
               ],
               if (!showDevice) ...[
@@ -1085,16 +1081,6 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                         ),
                       ),
                   ],
-                  if (deviceFiles.any(_isUnclassified)) ...[
-                    const SizedBox(height: 14),
-                    _sectionTitle('Sul dispositivo, da sistemare'),
-                    const SizedBox(height: 10),
-                    for (final material in deviceFiles.where(_isUnclassified))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _deviceFileCard(material),
-                      ),
-                  ],
                 ] else if (shown.isEmpty)
                   _dispensePanel(
                     icon: Icons.menu_book_outlined,
@@ -1108,11 +1094,13 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                         ? OutlinedButton(
                             style: _secondaryButtonStyle(),
                             onPressed: () {
-                              setState(() => _rootTab = 1);
-                              _exploreAllPublicCourses = true;
-                              _loadMaterials();
+                              setState(() => _choosingBrowseCourse = true);
+                              if (!_exploreAllPublicCourses) {
+                                _exploreAllPublicCourses = true;
+                                _loadMaterials();
+                              }
                             },
-                            child: const Text('Esplora corsi'),
+                            child: const Text('Cambia percorso'),
                           )
                         : null,
                   )
@@ -1139,11 +1127,11 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     );
                   }),
               ],
-              if (showDevice || !signedIn) ...[
+              ...[
                 const SizedBox(height: 20),
-                _sectionTitle('Sul dispositivo'),
+                _sectionTitle(signedIn ? 'Sul dispositivo, da sistemare' : 'Sul dispositivo'),
                 const SizedBox(height: 10),
-                if (deviceFiles.isEmpty)
+                if ((signedIn ? deviceFiles.where(_isUnclassified).toList() : deviceFiles).isEmpty)
                   _dispensePanel(
                     icon: Icons.insert_drive_file_outlined,
                     title: 'Nessun file importato',
@@ -1179,7 +1167,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     ),
                   )
                 else
-                  ...deviceFiles.map((material) => Padding(
+                  ...deviceFiles.where(_isUnclassified).map((material) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _deviceFileCard(material),
                       )),
@@ -1364,67 +1352,6 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
     );
   }
 
-  /// Schede a tutta larghezza (Il mio corso / Corsi DMI / Dispositivo).
-  Widget _segmentedTabs({
-    required int selected,
-    required List<String> labels,
-    required ValueChanged<int> onSelected,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.eleganceMidnight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.pureWhite.withValues(alpha: 0.06)),
-      ),
-      child: Row(children: [
-        for (int i = 0; i < labels.length; i++) ...[
-          if (i > 0) const SizedBox(width: 4),
-          Expanded(
-            child: Semantics(
-              selected: i == selected,
-              button: true,
-              child: Material(
-                color: i == selected
-                    ? AppColors.skyBlue.withValues(alpha: 0.14)
-                    : Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9),
-                  side: BorderSide(
-                    color: i == selected
-                        ? AppColors.skyBlue.withValues(alpha: 0.40)
-                        : Colors.transparent,
-                  ),
-                ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(9),
-                  onTap: () => onSelected(i),
-                  child: SizedBox(
-                    height: 38,
-                    child: Center(
-                      child: Text(
-                        labels[i],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: i == selected
-                              ? AppColors.diamondDust
-                              : AppColors.pureWhite.withValues(alpha: 0.72),
-                          fontSize: 13,
-                          fontWeight: i == selected ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ]),
-    );
-  }
-
   /// Domande e "Com'è l'esame" della materia (sezione Domande).
   Widget _buildSubjectFaqLinks(_LocalSubject subject) {
     Widget link(IconData icon, SlTone tone, String title, String subtitle, Widget page) {
@@ -1482,7 +1409,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   Widget _buildPathCard(List<MaterialLocal> ownFirstCourse) {
     final MaterialLocal? first =
         ownFirstCourse.isEmpty ? null : ownFirstCourse.first;
-    final SocialAcademicPath? path = _currentPath;
+    final SocialAcademicPath? path = _browseCourseKey == null ? _currentPath : null;
     String pick(String code, String name) => code.trim().isNotEmpty && code.trim().length <= 8 ? code.trim() : name.trim();
     final chips = <String>[
       if (path != null) ...[
@@ -1515,14 +1442,61 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
                     letterSpacing: 0.6)),
             const Spacer(),
             TextButton(
-              onPressed: () async {
-                await Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => const AcademicPathsPage()));
-                if (mounted) await _loadMaterials();
+              onPressed: () {
+                final opening = !_choosingBrowseCourse;
+                setState(() => _choosingBrowseCourse = opening);
+                if (opening && !_exploreAllPublicCourses) {
+                  _exploreAllPublicCourses = true;
+                  _loadMaterials();
+                }
               },
-              child: const Text('Cambia'),
+              child: Text(_choosingBrowseCourse ? 'Chiudi' : 'Cambia'),
             ),
           ]),
+          if (_choosingBrowseCourse) ...[
+            const SizedBox(height: 8),
+            Text('Scegli il corso da visualizzare',
+                style: TextStyle(color: AppColors.pureWhite.withValues(alpha: 0.70), fontSize: 12)),
+            const SizedBox(height: 8),
+            Builder(builder: (context) {
+              final options = _materials.where((m) => m.source != MaterialSourceLocal.local).toList();
+              final universities = options.map((m) => m.displayUniversity).toSet().toList()..sort();
+              final departments = options
+                  .where((m) => _rootUniversityFilter == null || m.displayUniversity == _rootUniversityFilter)
+                  .map((m) => m.displayDepartment).toSet().toList()..sort();
+              final courses = options
+                  .where((m) => (_rootUniversityFilter == null || m.displayUniversity == _rootUniversityFilter) &&
+                      (_rootDepartmentFilter == null || m.displayDepartment == _rootDepartmentFilter))
+                  .fold(<String, MaterialLocal>{}, (Map<String, MaterialLocal> result, MaterialLocal m) {
+                    result.putIfAbsent(_courseKey(m.university, m.department, m.course), () => m);
+                    return result;
+                  }).values.toList()..sort((a, b) => a.displayCourse.compareTo(b.displayCourse));
+              return Wrap(spacing: 6, runSpacing: 6, children: <Widget>[
+                _dispenseFilter('Ateneo', _rootUniversityFilter, universities, (value) => setState(() {
+                  _rootUniversityFilter = value;
+                  _rootDepartmentFilter = null;
+                })),
+                _dispenseFilter('Dipartimento', _rootDepartmentFilter, departments,
+                    (value) => setState(() => _rootDepartmentFilter = value)),
+                _dispenseFilter('Corso', null, courses.map((m) => m.displayCourse).toList(), (value) {
+                  if (value == null) return;
+                  for (final course in courses) {
+                    if (course.displayCourse != value) continue;
+                    setState(() {
+                      _browseCourseKey = _courseKey(course.university, course.department, course.course);
+                      _choosingBrowseCourse = false;
+                    });
+                    break;
+                  }
+                }),
+                if (_browseCourseKey != null)
+                  TextButton(onPressed: () => setState(() {
+                    _browseCourseKey = null;
+                    _choosingBrowseCourse = false;
+                  }), child: const Text('Il mio percorso')),
+              ]);
+            }),
+          ],
           const SizedBox(height: 4),
           if (chips.isEmpty)
             Text(
