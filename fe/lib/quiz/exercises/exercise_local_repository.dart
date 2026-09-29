@@ -66,6 +66,33 @@ class ExerciseLocalRepository {
     await _attempts.completeAttempt(attemptId);
   }
 
+  /// Storico da ospite per la scelta degli esercizi: per ogni risposta id, tipo ed esito
+  /// (niente testo delle domande, niente risposte date). Il server lo usa solo per contare
+  /// "nuovi" e "da rivedere" e non lo salva.
+  Future<List<Map<String, dynamic>>> guestHistory(String department, String course, String subject,
+      {int limit = 3000}) async {
+    final Database db = await _database.database;
+    final List<Map<String, Object?>> rows = await db.rawQuery('''
+      SELECT a.question_id, a.question_type, a.score, a.is_correct, a.answered_at
+      FROM ${DatabaseTables.quizAttemptAnswers} a
+      JOIN ${DatabaseTables.quizAttempts} t ON t.id = a.attempt_id
+      WHERE t.user_id = ? AND lower(t.department) = ? AND lower(t.course) = ? AND lower(t.subject) = ?
+        AND t.status = 'completed' AND trim(a.question_id) <> ''
+      ORDER BY a.answered_at DESC
+      LIMIT ?
+    ''', <Object?>[_attempts.guestUserId, department.trim().toLowerCase(), course.trim().toLowerCase(),
+        subject.trim().toLowerCase(), limit]);
+    return rows.reversed
+        .map((Map<String, Object?> r) => <String, dynamic>{
+              'id': r['question_id'].toString().trim(),
+              if (r['question_type'] != null) 'type': r['question_type'].toString(),
+              if (r['score'] != null) 'score': ((r['score'] as num).toDouble()).clamp(0.0, 1.0),
+              'correct': (r['is_correct'] as num?) == 1,
+              if (r['answered_at'] != null) 'at': r['answered_at'].toString(),
+            })
+        .toList();
+  }
+
   // ------------------------------------------------------------------ flashcard
   String _key(String department, String course, String subject, String cardId) =>
       '${department.toLowerCase()}|${course.toLowerCase()}|${subject.toLowerCase()}|$cardId';
@@ -167,6 +194,20 @@ String answerSummary(ExerciseItem item, Map<String, dynamic> answer) {
       return const <String>['Per niente', 'A fatica', 'Bene', 'Facile'][(int.tryParse('${answer['grade']}') ?? 0).clamp(0, 3)];
     case 'codice':
       return 'Codice consegnato';
+    case 'caso':
+      return '${asMap(answer['steps']).length} passi risposti';
+    case 'vero_falso':
+      return asMap(answer['answers']).values.map((dynamic a) => asMap(a)['value'] == true ? 'V' : 'F').join(' ');
+    case 'categorizza':
+      final Map<String, String> items = {for (final i in asMapList(item.data['items'])) i['id'].toString(): '${i['text']}'};
+      final Map<String, String> cats = {for (final c in asMapList(item.data['categories'])) c['id'].toString(): '${c['text']}'};
+      return asMap(answer['placement']).entries.map((MapEntry<String, dynamic> e) => '${items[e.key]} → ${cats['${e.value}']}').join('; ');
+    case 'linea_tempo':
+      final Map<String, String> events = {for (final e in asMapList(item.data['events'])) e['id'].toString(): '${e['text']}'};
+      return asStringList(answer['order']).map((String id) => events[id] ?? id).join(' → ');
+    case 'risposta_breve':
+      final String text = answer['text']?.toString().trim() ?? '';
+      return text.length > 160 ? '${text.substring(0, 160)}…' : text;
     case 'scelta':
       final Map<String, String> texts = {
         for (final Map<String, dynamic> o in asMapList(item.data['options'])) o['id'].toString(): o['text']?.toString() ?? ''

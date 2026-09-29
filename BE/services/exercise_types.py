@@ -32,6 +32,12 @@ TYPES: dict[str, dict[str, str]] = {
     'traccia': {'label': 'Traccia l’algoritmo', 'category': 'strategia'},
     'numerica': {'label': 'Risposta numerica', 'category': 'pratica'},
     'codice': {'label': 'Scrivi il codice', 'category': 'pratica'},
+    # tipi generici (v24): adatti a qualunque corso, il contenuto lo scrive il docente
+    'caso': {'label': 'Caso pratico a passi', 'category': 'ragionamento'},
+    'vero_falso': {'label': 'Vero o falso motivato', 'category': 'logico'},
+    'categorizza': {'label': 'Categorizza', 'category': 'logico'},
+    'linea_tempo': {'label': 'Linea del tempo', 'category': 'logico'},
+    'risposta_breve': {'label': 'Risposta breve con griglia', 'category': 'ragionamento'},
 }
 # multiple_choice = le domande attuali dei quiz (non passano da qui).
 EXERCISE_TYPES = tuple(TYPES)
@@ -834,6 +840,324 @@ def _grade_codice(data: dict, answer: dict, scope: Any = None) -> dict:
     return _result(good == total, good / total if total else 0, feedback, None)
 
 
+
+# ===================================================================== tipi generici (v24)
+def _bool(value: Any, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = normalize_answer(value)
+    if text in ('true', 'vero', 'v', '1', 'si', 'sì', 'yes'):
+        return True
+    if text in ('false', 'falso', 'f', '0', 'no'):
+        return False
+    raise ValueError(f'{name}: scrivi vero o falso.')
+
+
+def _weight(value: Any) -> int:
+    try:
+        number = int(value if value not in (None, '') else 1)
+    except (TypeError, ValueError):
+        raise ValueError('Peso del passo: usa un numero da 1 a 5.') from None
+    return max(1, min(5, number))
+
+
+def _pick(value: Any, options: list[tuple[str, str]], name: str) -> str:
+    """Ritrova un elemento scritto dal docente come id, posizione (0, 1, …) o testo."""
+    if isinstance(value, bool):
+        raise ValueError(f'{name} non valido.')
+    if isinstance(value, int) and 0 <= value < len(options):
+        return options[value][0]
+    text = str(value if value is not None else '').strip()
+    # prima il testo della voce (una categoria può chiamarsi "1"), poi l'id, poi la posizione
+    for key, label in options:
+        if text and normalize_answer(text) == normalize_answer(label):
+            return key
+    for key, label in options:
+        if text == key:
+            return key
+    if text.isdigit() and int(text) < len(options):
+        return options[int(text)][0]
+    raise ValueError(f'{name}: non corrisponde a nessuna delle voci.')
+
+
+# --------------------------------------------------------------------- caso pratico a passi
+def _clean_caso_step(raw: dict, index: int) -> dict:
+    if not isinstance(raw, dict):
+        raise ValueError('Passi: ogni passo è un oggetto.')
+    kind = raw.get('kind') or ('numerica' if raw.get('answer') not in (None, '') and not raw.get('options') else 'scelta')
+    if kind not in ('scelta', 'numerica'):
+        raise ValueError('Passi: il tipo del passo è "scelta" o "numerica".')
+    step = {'id': _id(raw.get('id') or f's{index + 1}', 'id del passo'), 'kind': kind,
+            'prompt': _text(raw.get('prompt'), 1000, name='domanda del passo'),
+            'weight': _weight(raw.get('weight')), 'note': _text(raw.get('note'), 1500, False)}
+    if kind == 'scelta':
+        raw = dict(raw)
+        options = _as_list(raw.get('options'))
+        if options and all(isinstance(o, str) for o in options):
+            # forma breve: risposte come testi e risposte giuste come posizioni (0, 1, …) o testi
+            raw['options'] = [{'id': f'o{i}', 'text': o} for i, o in enumerate(options)]
+            pairs = [(f'o{i}', o) for i, o in enumerate(options)]
+            correct = raw.get('correct')
+            correct = correct if isinstance(correct, list) else [correct]
+            raw['correct'] = [_pick(c, pairs, 'Risposta giusta del passo') for c in correct if c is not None]
+        step.update(_clean_scelta(raw))
+    else:
+        answer = parse_number(raw.get('answer'))
+        if answer is None:
+            raise ValueError(f'Passo {index + 1}: serve la risposta numerica.')
+        step.update({'answer': answer, 'tolerance': abs(float(raw.get('tolerance') or 0)),
+                     'tolerance_pct': abs(float(raw.get('tolerance_pct') or 0)),
+                     'unit': _text(raw.get('unit'), 20, False)})
+    return step
+
+
+def _clean_caso(data: dict) -> dict:
+    steps = [_clean_caso_step(raw, i) for i, raw in enumerate(_list(data.get('steps'), 'Passi', 1, 8))]
+    _unique([s['id'] for s in steps], 'Passi')
+    return {'scenario': _text(data.get('scenario'), 3000, name='il caso'), 'steps': steps}
+
+
+def _public_caso(data: dict, rng: random.Random) -> dict:
+    steps = []
+    for step in data['steps']:
+        public = {'id': step['id'], 'kind': step['kind'], 'prompt': step['prompt'], 'weight': step['weight']}
+        if step['kind'] == 'scelta':
+            public.update(_public_scelta(step, rng))
+        else:
+            public['unit'] = step['unit']
+        steps.append(public)
+    return {'scenario': data['scenario'], 'steps': steps}
+
+
+def _grade_caso_step(step: dict, answer: Any) -> tuple[bool, float]:
+    answer = _as_dict(answer)
+    if step['kind'] == 'scelta':
+        result = _grade_scelta(step, answer)
+        return result['is_correct'], result['score']
+    number = parse_number(answer.get('value'))
+    ok = number is not None and _within(number, step['answer'], step['tolerance'], step['tolerance_pct'])
+    return ok, 1.0 if ok else 0.0
+
+
+def _caso_solution(step: dict) -> dict:
+    if step['kind'] == 'scelta':
+        return {'correct': list(step['correct'])}
+    return {'value': _fmt(step['answer']), 'unit': step['unit']}
+
+
+def _grade_caso(data: dict, answer: dict, scope: Any = None) -> dict:
+    given = _as_dict(answer.get('steps'))
+    target = str(_as_dict(scope).get('step') or '') if scope else ''
+    if target:
+        # controllo di un solo passo (esercitazione): dice se è giusto, non qual è la risposta
+        step = next((s for s in data['steps'] if s['id'] == target), None)
+        if step is None:
+            return _result(False, 0, {'error': 'unknown_step'}, None)
+        ok, score = _grade_caso_step(step, given.get(step['id']))
+        return _result(ok, score, {'steps': {step['id']: ok}}, None)
+    oks, scores, notes = {}, {}, {}
+    total = weighted = 0.0
+    for step in data['steps']:
+        ok, score = _grade_caso_step(step, given.get(step['id']))
+        oks[step['id']], scores[step['id']] = ok, round(score, 4)
+        if step['note']:
+            notes[step['id']] = step['note']
+        total += step['weight']
+        weighted += step['weight'] * score
+    return _result(all(oks.values()), weighted / total if total else 0,
+                   {'steps': oks, 'scores': scores, 'notes': notes},
+                   {'steps': {s['id']: _caso_solution(s) for s in data['steps']}})
+
+
+# --------------------------------------------------------------------- vero o falso motivato
+def _clean_vero_falso(data: dict) -> dict:
+    claims = []
+    for raw in _list(data.get('claims'), 'Affermazioni', 1, 10):
+        if not isinstance(raw, dict):
+            raise ValueError('Affermazioni: ogni affermazione ha "text" e "value".')
+        text = _text(raw.get('text'), 800, name='affermazione')
+        reasons_in = []
+        for i, reason in enumerate(_as_list(raw.get('reasons'))[:5]):
+            if isinstance(reason, dict):
+                reasons_in.append((str(reason.get('id') or i), _text(reason.get('text'), 400, name='motivo')))
+            else:
+                reasons_in.append((str(i), _text(reason, 400, name='motivo')))
+        if len(reasons_in) == 1:
+            raise ValueError('Motivi: scrivine almeno 2 (o nessuno).')
+        claim = {'id': _opaque('c', text), 'text': text, 'value': _bool(raw.get('value'), 'Vero o falso'),
+                 'explanation': _text(raw.get('explanation'), 1500, False), 'reasons': [], 'correct_reason': None}
+        if reasons_in:
+            correct = _pick(raw.get('correct_reason'), reasons_in, 'Motivo corretto')
+            remap = {key: _opaque('m', text, label) for key, label in reasons_in}
+            if len(set(remap.values())) != len(remap):
+                raise ValueError('Motivi: due motivi sono identici.')
+            claim['reasons'] = [{'id': remap[key], 'text': label} for key, label in reasons_in]
+            claim['correct_reason'] = remap[correct]
+        claims.append(claim)
+    _unique([c['id'] for c in claims], 'Affermazioni (testi ripetuti)')
+    return {'claims': claims}
+
+
+def _public_vero_falso(data: dict, rng: random.Random) -> dict:
+    return {'claims': [{'id': c['id'], 'text': c['text'], 'reasons': _shuffled(c['reasons'], rng)}
+                       for c in data['claims']]}
+
+
+def _grade_vero_falso(data: dict, answer: dict, scope: Any = None) -> dict:
+    given = _as_dict(answer.get('answers'))
+    marks, explanations, total = {}, {}, 0.0
+    for claim in data['claims']:
+        mine = _as_dict(given.get(claim['id']))
+        value = mine.get('value')
+        value_ok = isinstance(value, bool) and value == claim['value']
+        reason_ok = None
+        if claim['reasons']:
+            reason_ok = value_ok and str(mine.get('reason') or '') == claim['correct_reason']
+            total += (0.5 if value_ok else 0) + (0.5 if reason_ok else 0)
+        else:
+            total += 1.0 if value_ok else 0
+        marks[claim['id']] = {'value': value_ok, 'reason': reason_ok}
+        if claim['explanation']:
+            explanations[claim['id']] = claim['explanation']
+    exact = all(m['value'] and m['reason'] is not False for m in marks.values())
+    return _result(exact, total / len(data['claims']), {'claims': marks, 'explanations': explanations},
+                   {'claims': {c['id']: {'value': c['value'], 'reason': c['correct_reason']} for c in data['claims']}})
+
+
+# --------------------------------------------------------------------- categorizza
+def _clean_categorizza(data: dict) -> dict:
+    if isinstance(data.get('placement'), dict) and isinstance(data.get('items'), list):
+        # forma già salvata: la riporto alla forma di scrittura
+        data = {'categories': [c for c in _as_list(data.get('categories')) if isinstance(c, dict)],
+                'items': [{'text': i.get('text'), 'category': str(data['placement'].get(str(i.get('id'))) or '')}
+                          for i in data['items'] if isinstance(i, dict)]}
+    categories_in = []
+    for i, raw in enumerate(_list(data.get('categories'), 'Categorie', 2, 6)):
+        label = raw.get('text') if isinstance(raw, dict) else raw
+        key = str(raw.get('id') or i) if isinstance(raw, dict) else str(i)
+        categories_in.append((key, _text(label, 120, name='categoria')))
+    categories = [{'id': _opaque('k', label), 'text': label} for _, label in categories_in]
+    _unique([c['id'] for c in categories], 'Categorie (nomi ripetuti)')
+    by_key = {key: _opaque('k', label) for key, label in categories_in}
+    items, placement = [], {}
+    for raw in _list(data.get('items'), 'Elementi', 2, 24):
+        if not isinstance(raw, dict):
+            raise ValueError('Elementi: ogni elemento ha "text" e "category".')
+        text = _text(raw.get('text'), 300, name='elemento')
+        item_id = _opaque('i', text)
+        items.append({'id': item_id, 'text': text})
+        placement[item_id] = by_key[_pick(raw.get('category'), categories_in, f'Categoria di “{text[:40]}”')]
+    _unique([i['id'] for i in items], 'Elementi (testi ripetuti)')
+    return {'categories': categories, 'items': items, 'placement': placement}
+
+
+def _public_categorizza(data: dict, rng: random.Random) -> dict:
+    return {'categories': data['categories'], 'items': _shuffled(data['items'], rng)}
+
+
+def _grade_categorizza(data: dict, answer: dict, scope: Any = None) -> dict:
+    given = _as_dict(answer.get('placement'))
+    marks = {item_id: str(given.get(item_id) or '') == cat for item_id, cat in data['placement'].items()}
+    good = sum(marks.values())
+    return _result(good == len(marks), good / len(marks), {'items': marks}, {'placement': dict(data['placement'])})
+
+
+# --------------------------------------------------------------------- linea del tempo
+def _clean_linea_tempo(data: dict) -> dict:
+    events = []
+    for raw in _list(data.get('events'), 'Eventi', 3, 12):   # con 2 eventi il mescolamento direbbe l'ordine
+        if isinstance(raw, str):
+            raw = {'text': raw}
+        if not isinstance(raw, dict):
+            raise ValueError('Eventi: ogni evento ha "text" e, se vuoi, "date".')
+        text = _text(raw.get('text'), 400, name='evento')
+        events.append({'id': _opaque('e', text), 'text': text, 'date': _text(raw.get('date'), 60, False)})
+    _unique([e['id'] for e in events], 'Eventi (testi ripetuti)')
+    # l'ordine giusto è quello in cui il docente li scrive (dal primo all'ultimo)
+    return {'events': events, 'order': [e['id'] for e in events]}
+
+
+def _public_linea_tempo(data: dict, rng: random.Random) -> dict:
+    events = [{'id': e['id'], 'text': e['text']} for e in _shuffled(data['events'], rng)]
+    if [e['id'] for e in events] == data['order']:
+        events = events[1:] + events[:1]
+    return {'events': events}
+
+
+def _grade_linea_tempo(data: dict, answer: dict, scope: Any = None) -> dict:
+    given = [str(x) for x in _as_list(answer.get('order'))][:MAX_ITEMS]
+    ids = data['order']
+    dates = {e['id']: e['date'] for e in data['events'] if e['date']}
+    if sorted(given) != sorted(ids):
+        return _result(False, 0, {'error': 'incomplete'}, {'order': ids, 'dates': dates})
+    positions = [given[i] == ids[i] for i in range(len(ids))]
+    exact = given == ids
+    return _result(exact, 1.0 if exact else _lcs(given, ids) / len(ids), {'positions': positions},
+                   {'order': ids, 'dates': dates})
+
+
+# --------------------------------------------------------------------- risposta breve con griglia
+def _fold(value: Any) -> str:
+    text = unicodedata.normalize('NFKD', normalize_answer(value))
+    return ''.join(ch for ch in text if not unicodedata.combining(ch))
+
+
+def _keywords(value: Any) -> list[str]:
+    raw = value if isinstance(value, list) else re.split(r'[,;\n]', str(value or ''))
+    result = []
+    for word in raw:
+        word = _text(word, 80, False)
+        if word and word not in result:
+            result.append(word)
+    return result[:10]
+
+
+def _clean_risposta_breve(data: dict) -> dict:
+    criteria = []
+    for raw in _list(data.get('criteria'), 'Griglia', 1, 6):
+        if not isinstance(raw, dict):
+            raise ValueError('Griglia: ogni punto ha "text", "points" e "keywords".')
+        text = _text(raw.get('text'), 300, name='punto della griglia')
+        keywords = _keywords(raw.get('keywords'))
+        if not keywords:
+            raise ValueError(f'Griglia: “{text[:40]}” ha bisogno di almeno una parola chiave.')
+        criteria.append({'id': _opaque('g', text), 'text': text, 'points': _weight(raw.get('points')),
+                         'keywords': keywords, 'min_matches': max(1, min(len(keywords), int(raw.get('min_matches') or 1)))})
+    _unique([c['id'] for c in criteria], 'Griglia (punti ripetuti)')
+    max_chars = max(80, min(2000, int(data.get('max_chars') or 600)))
+    min_chars = max(0, min(max_chars, int(data.get('min_chars') or 40)))
+    return {'model_answer': _text(data.get('model_answer'), 2000, name='la risposta modello'),
+            'criteria': criteria, 'min_chars': min_chars, 'max_chars': max_chars}
+
+
+def _public_risposta_breve(data: dict, rng: random.Random) -> dict:
+    return {'criteria': [{'id': c['id'], 'text': c['text'], 'points': c['points']} for c in data['criteria']],
+            'min_chars': data['min_chars'], 'max_chars': data['max_chars']}
+
+
+def _keyword_found(text: str, keyword: str) -> bool:
+    # "filtr" trova anche "filtrazione": la parola chiave vale come inizio di parola
+    return re.search(r'(?<![\w])' + re.escape(_fold(keyword)), text) is not None
+
+
+def _grade_risposta_breve(data: dict, answer: dict, scope: Any = None) -> dict:
+    raw = str(answer.get('text') or '')[:data['max_chars'] + 200]
+    text = _fold(raw)
+    solution = {'model_answer': data['model_answer'],
+                'criteria': {c['id']: c['keywords'] for c in data['criteria']}}
+    if len(text.strip()) < data['min_chars']:
+        return _result(False, 0, {'error': 'too_short', 'length': len(raw.strip())}, solution)
+    marks, points, total = {}, 0, 0
+    for criterion in data['criteria']:
+        found = sum(1 for k in criterion['keywords'] if _keyword_found(text, k))
+        marks[criterion['id']] = found >= criterion['min_matches']
+        total += criterion['points']
+        points += criterion['points'] if marks[criterion['id']] else 0
+    # correzione automatica indicativa (parole chiave); l'autovalutazione resta nell'app
+    return _result(all(marks.values()), points / total if total else 0,
+                   {'criteria': marks, 'length': len(raw.strip()), 'automatic': True}, solution)
+
+
 # --------------------------------------------------------------------- registro
 Handlers = tuple[Callable[[dict], dict], Callable[[dict, random.Random], dict], Callable[..., dict]]
 HANDLERS: dict[str, Handlers] = {
@@ -848,6 +1172,11 @@ HANDLERS: dict[str, Handlers] = {
     'traccia': (_clean_traccia, _public_traccia, _grade_traccia),
     'numerica': (_clean_numerica, _public_numerica, _grade_numerica),
     'codice': (_clean_codice, _public_codice, _grade_codice),
+    'caso': (_clean_caso, _public_caso, _grade_caso),
+    'vero_falso': (_clean_vero_falso, _public_vero_falso, _grade_vero_falso),
+    'categorizza': (_clean_categorizza, _public_categorizza, _grade_categorizza),
+    'linea_tempo': (_clean_linea_tempo, _public_linea_tempo, _grade_linea_tempo),
+    'risposta_breve': (_clean_risposta_breve, _public_risposta_breve, _grade_risposta_breve),
 }
 
 
@@ -918,4 +1247,31 @@ def solution_summary(kind: str, data: dict) -> str:
         return '\n'.join(f'{s["label"]}: {_fmt(s["answer"])}{(" " + s["unit"]) if s["unit"] else ""}' for s in data['steps'])
     if kind == 'codice':
         return 'Esercizio di programmazione: soluzione verificata dai test.'
+    if kind == 'caso':
+        parts = []
+        for n, step in enumerate(data['steps'], 1):
+            if step['kind'] == 'scelta':
+                texts = {o['id']: o['text'] or '(immagine)' for o in step['options']}
+                value = ' · '.join(texts[c] for c in step['correct'])
+            else:
+                value = _fmt(step['answer']) + (f' {step["unit"]}' if step['unit'] else '')
+            parts.append(f'{n}. {step["prompt"]} → {value}')
+        return '\n'.join(parts)
+    if kind == 'vero_falso':
+        parts = []
+        for claim in data['claims']:
+            reason = next((r['text'] for r in claim['reasons'] if r['id'] == claim['correct_reason']), '')
+            parts.append(f'{"VERO" if claim["value"] else "FALSO"} · {claim["text"]}' + (f' — {reason}' if reason else ''))
+        return '\n'.join(parts)
+    if kind == 'categorizza':
+        names = {c['id']: c['text'] for c in data['categories']}
+        groups: dict[str, list[str]] = {}
+        for item in data['items']:
+            groups.setdefault(data['placement'][item['id']], []).append(item['text'])
+        return '\n'.join(f'{names[k]}: {", ".join(v)}' for k, v in groups.items())
+    if kind == 'linea_tempo':
+        return '\n'.join(f'{n}. ' + (f'{e["date"]} · ' if e['date'] else '') + e['text']
+                         for n, e in enumerate(data['events'], 1))
+    if kind == 'risposta_breve':
+        return data['model_answer']
     return ''

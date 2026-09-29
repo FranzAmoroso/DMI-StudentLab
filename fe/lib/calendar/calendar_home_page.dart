@@ -316,11 +316,15 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
       else if (_lessons.isEmpty)
         const SlEmptyState(icon: Icons.schedule_outlined, title: 'Nessuna lezione questa settimana',
           message: 'Verifica il periodo didattico oppure passa a un’altra settimana.')
-      else SingleChildScrollView(
+      else LayoutBuilder(builder: (context, constraints) {
+        final viewport = constraints.maxWidth;
+        final columns = viewport >= 1120 ? 7 : viewport >= 700 ? 3 : 2;
+        final dayWidth = (viewport / columns).clamp(148.0, 220.0);
+        return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (final day in days) SizedBox(
-            width: 172,
+            width: dayWidth,
             child: Padding(padding: const EdgeInsets.only(right: 8), child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Container(
@@ -358,7 +362,8 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
               ],
             ))),
         ]),
-      ),
+      );
+      }),
     ]);
   }
 
@@ -558,7 +563,7 @@ class _CalendarHomePageState extends State<CalendarHomePage> {
           onRefresh: _load,
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 820),
+              constraints: BoxConstraints(maxWidth: _section == 'lessons' ? 1450 : 820),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),

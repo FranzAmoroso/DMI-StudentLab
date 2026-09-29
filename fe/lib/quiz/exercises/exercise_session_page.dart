@@ -29,6 +29,13 @@ class ExerciseSessionPage extends StatefulWidget {
   final List<String> arguments;
   final int count;
   final List<String> itemIds;
+  /// Filtri scelti nella pagina degli esercizi (argomenti, difficoltà, durata, nuovi/da rivedere).
+  final ExerciseChoice? choice;
+
+  /// "Crea un quiz": correzione solo alla consegna, un tentativo per esercizio,
+  /// niente suggerimenti; con [timeLimitSeconds] c'è anche il tempo.
+  final bool quizMode;
+  final int? timeLimitSeconds;
   final Map<String, dynamic>? attempt;
   final String executionMode;
   final String externalActivityPolicy;
@@ -44,6 +51,9 @@ class ExerciseSessionPage extends StatefulWidget {
     this.arguments = const <String>[],
     this.count = 10,
     this.itemIds = const <String>[],
+    this.choice,
+    this.quizMode = false,
+    this.timeLimitSeconds,
   })  : attempt = null,
         executionMode = 'practice',
         externalActivityPolicy = 'disabled',
@@ -62,6 +72,9 @@ class ExerciseSessionPage extends StatefulWidget {
         arguments = const <String>[],
         count = 0,
         itemIds = const <String>[],
+        choice = null,
+        quizMode = false,
+        timeLimitSeconds = null,
         executionMode = attempt['execution_mode']?.toString() ?? 'practice',
         externalActivityPolicy = attempt['external_activity_policy']?.toString() ?? 'disabled';
 
@@ -97,7 +110,9 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
   Timer? _timer;
   int? _remaining;
 
-  int get _maxTries => widget.isSimulation ? 1 : (widget.attemptsPerItem ?? 2);
+  /// Correzione rimandata alla consegna: simulazione assegnata o quiz creato dallo studente.
+  bool get _deferred => widget.isSimulation || widget.quizMode;
+  int get _maxTries => _deferred ? 1 : (widget.attemptsPerItem ?? 2);
   int _maxFor(String id) => _serverMax[id] ?? _maxTries;
   ExerciseItem? get _current => _index >= 0 && _index < _items.length ? _items[_index] : null;
 
@@ -130,11 +145,15 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
             types: widget.types,
             arguments: widget.arguments,
             count: widget.count,
+            choice: widget.choice,
+            timeLimitSeconds: widget.timeLimitSeconds,
+            quiz: widget.quizMode,
           );
         } catch (_) {
           attempt = null;
         }
       }
+      if (!mounted) return;
       if (attempt != null) {
         _attemptId = int.tryParse('${attempt['attempt_id'] ?? ''}');
         _assigned = attempt['assignment_id'] != null;
@@ -149,6 +168,14 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
         }
       } else {
         _guest = !_api.isLoggedIn;
+        // Da ospite "solo nuovi" e "solo da rivedere" si basano sullo storico del telefono.
+        final ExerciseChoice? choice = widget.choice;
+        final List<Map<String, dynamic>> history =
+            _guest && choice != null && (choice.onlyNew || choice.onlyMistakes)
+                ? await _local
+                    .guestHistory(widget.department, widget.course, widget.subject)
+                    .catchError((Object _) => <Map<String, dynamic>>[])
+                : const <Map<String, dynamic>>[];
         _items = await _api.practice(
           department: widget.department,
           course: widget.course,
@@ -157,7 +184,15 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
           arguments: widget.arguments,
           count: widget.count,
           itemIds: widget.itemIds,
+          choice: choice,
+          history: history,
         );
+        // Quiz senza tentativo sul server (ospite): il tempo lo tiene il telefono.
+        final int? limit = widget.timeLimitSeconds;
+        if (mounted && limit != null && limit > 0 && _items.isNotEmpty) {
+          _remaining = limit;
+          _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+        }
       }
       if (_items.isEmpty) _error = 'Nessun esercizio disponibile con questi filtri.';
       _clock.start();
@@ -196,6 +231,10 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
   }
 
   void _tick() {
+    if (!mounted) {
+      _timer?.cancel();
+      return;
+    }
     final int? value = _remaining;
     if (value == null || _finished) return;
     if (value <= 1) {
@@ -212,7 +251,7 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
         course: widget.course,
         subject: widget.subject,
         // Nei compiti assegnati la tabella di "Traccia" si controlla tutta insieme.
-        checkPart: widget.isSimulation || _assigned
+        checkPart: _deferred || _assigned
             ? null
             : _attemptId != null
                 ? (Map<String, dynamic> answer, Map<String, dynamic> scope) =>
@@ -225,7 +264,7 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
                   answer: answer,
                   scope: scope,
                 ),
-        runCode: _api.isLoggedIn && !widget.isSimulation
+        runCode: _api.isLoggedIn && !_deferred
             ? (String code) => _api.runCode(
                   department: widget.department,
                   course: widget.course,
@@ -239,7 +278,7 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
   Future<void> _check() async {
     final ExerciseItem? item = _current;
     if (item == null) return;
-    if (widget.isSimulation) {
+    if (_deferred) {
       _next();
       return;
     }
@@ -309,6 +348,37 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
     }
   }
 
+  /// Quiz senza tentativo sul server: alla consegna si correggono una per una
+  /// le risposte date (le stesse chiamate di "Verifica"). Le risposte vuote restano non svolte.
+  Future<void> _gradeAll() async {
+    for (final ExerciseItem item in _items) {
+      if (_results.containsKey(item.id) || item.type == 'flashcard') continue;
+      final Map<String, dynamic>? answer = _answers[item.id];
+      // come sul server: si corregge qualunque risposta data, anche incompleta
+      if (answer == null || answer.isEmpty) continue;
+      try {
+        _results[item.id] = item.isMultipleChoice
+            ? await _api.checkMultipleChoice(
+                department: widget.department,
+                course: widget.course,
+                subject: widget.subject,
+                questionId: item.id,
+                optionId: asStringList(answer['selected']).firstOrNull ?? '',
+              )
+            : await _api.check(
+                department: widget.department,
+                course: widget.course,
+                subject: widget.subject,
+                itemId: item.id,
+                answer: answer,
+              );
+        _tries[item.id] = 1;
+      } catch (_) {
+        // Un esercizio non corretto (rete) resta "non svolto": gli altri si correggono lo stesso.
+      }
+    }
+  }
+
   Future<void> _finish({String reason = 'completed'}) async {
     if (_finishing || _finished) return;
     setState(() => _finishing = true);
@@ -353,7 +423,10 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
         try {
           await StudyPlanSyncService().refreshAfterQuizCompletion();
         } catch (_) {}
-      } else if (_guest) {
+      } else {
+        if (_deferred) await _gradeAll();
+      }
+      if (_attemptId == null && _guest) {
         try {
           await _local.saveGuestSession(
             department: widget.department,
@@ -519,25 +592,25 @@ class _ExerciseSessionPageState extends State<ExerciseSessionPage> {
     if (result == null) {
       final bool ready = _complete[item.id] == true;
       return Row(children: <Widget>[
-        if (!widget.isSimulation && item.hint.isNotEmpty)
+        if (!_deferred && item.hint.isNotEmpty)
           IconButton(
             tooltip: 'Suggerimento',
             onPressed: () => setState(() => _showHint.contains(item.id) ? _showHint.remove(item.id) : _showHint.add(item.id)),
             icon: Icon(Icons.lightbulb_outline_rounded, color: p.adminAmber),
           ),
-        if (widget.isSimulation && _index > 0)
+        if (_deferred && _index > 0)
           OutlinedButton(onPressed: () => setState(() => _index--), child: const Text('Indietro')),
         const SizedBox(width: 8),
         Expanded(
           child: FilledButton(
             onPressed: _checking || _finishing
                 ? null
-                : widget.isSimulation
+                : _deferred
                     ? (last ? () => _finish() : _next)
                     : (ready ? _check : null),
             child: Text(_checking
                 ? 'Controllo…'
-                : widget.isSimulation
+                : _deferred
                     ? (last ? 'Consegna' : 'Avanti')
                     : 'Verifica'),
           ),

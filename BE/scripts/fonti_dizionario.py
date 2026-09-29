@@ -6,11 +6,12 @@ Il tipo di ogni fonte si riconosce da solo:
   - JSON con "schema": "studentlab.dictionary/1"  -> dizionario (solo controllato)
   - JSON con domande (lista con "text"/"option")  -> banca domande (termini da
     "term", "metadata.term" o dal testo, come genera_dizionario_da_domande.py)
-  - PDF con testo selezionabile                   -> righe "Termine: definizione"
-    (PDF scansionati: segnalati, serve prima un OCR, es. ocrmypdf)
+  - PDF con testo selezionabile (anche OCR)       -> definizioni riconosciute nei paragrafi
+    (blocchi "Definizione", verbi definitori, glossari, indice analitico: vedi
+    estrazione_termini.py). PDF solo immagine: segnalati, serve prima un OCR.
   - pagina web (http/https) o file .html          -> <dl>, tabelle a 2 colonne,
     righe "Termine: definizione"
-  - .txt / .md                                    -> righe "Termine: definizione"
+  - .txt / .md                                    -> come i PDF (paragrafi, non righe)
 
 Ogni fonte viene registrata (percorso o indirizzo, impronta sha256, ETag, esito,
 bozza prodotta). Una fonte invariata non si rilegge; una cambiata produce una
@@ -61,6 +62,7 @@ DEFAULT_REGISTRY = BE_DIR / 'data' / '_fonti' / 'registro.sqlite'
 DEFAULT_DRAFTS = BE_DIR / 'data' / '_bozze_dizionario'
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import estrazione_termini as et  # noqa: E402
 try:  # stesso riconoscimento dei termini dello script delle domande
     from genera_dizionario_da_domande import find_term as question_term
 except ImportError:  # pragma: no cover
@@ -123,13 +125,28 @@ class Candidate:
     quiz_ids: list = field(default_factory=list)
     topic: str | None = None
     excerpt: str = ''               # riga o paragrafo originale, per chi modera
+    aliases: list = field(default_factory=list)
+    confidence: float | None = None  # 0-1, solo per PDF e testi
+    flags: list = field(default_factory=list)
+    method: str = ''
 
 
 # ---------------------------------------------------------------------------
 # Lettori
 # ---------------------------------------------------------------------------
 
+def _candidates(terms: list) -> list[Candidate]:
+    return [Candidate(t.term, formal=t.definition, where=t.where, topic=t.topic, excerpt=t.excerpt,
+                      aliases=list(t.aliases), confidence=t.confidence, flags=list(t.flags), method=t.method)
+            for t in terms]
+
+
+def read_text(text: str, diagnostics: list | None = None) -> list[Candidate]:
+    return _candidates(et.extract_terms(et.text_pages(text), diagnostics=diagnostics))
+
+
 def read_text_lines(lines: list[str], where_prefix: str) -> list[Candidate]:
+    """Compatibilità: righe singole "Termine: definizione" (usato solo dal lettore HTML)."""
     found = []
     for number, line in enumerate(lines, start=1):
         pair = definition_from_line(line)
@@ -138,41 +155,12 @@ def read_text_lines(lines: list[str], where_prefix: str) -> list[Candidate]:
     return found
 
 
-def pdf_pages(data: bytes, path: Path | None) -> list[str]:
-    """Testo delle pagine: pdftotext se c'è, altrimenti pypdf/pdfplumber."""
-    if path is not None:
-        try:
-            result = subprocess.run(['pdftotext', '-enc', 'UTF-8', '-layout', str(path), '-'],
-                                    capture_output=True, text=True, check=True, timeout=180)
-            return result.stdout.split('\f')
-        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            pass
-    import io
-    try:
-        import pdfplumber
-        with pdfplumber.open(io.BytesIO(data)) as pdf:
-            return [(page.extract_text() or '') for page in pdf.pages]
-    except ImportError:
-        pass
-    try:
-        from pypdf import PdfReader
-        return [(page.extract_text() or '') for page in PdfReader(io.BytesIO(data)).pages]
-    except ImportError as exc:
-        raise RuntimeError('Per leggere i PDF installa poppler-utils (pdftotext) oppure "pip install pypdf".') from exc
-
-
-def read_pdf(data: bytes, path: Path | None) -> tuple[list[Candidate], list[str]]:
-    pages = pdf_pages(data, path)
-    if len(''.join(pages).strip()) < 80:
+def read_pdf(data: bytes, path: Path | None, diagnostics: list | None = None) -> tuple[list[Candidate], list[str]]:
+    pages = et.pdf_pages(data, path)
+    texts = ['\n'.join(p.lines) for p in pages]
+    if len(''.join(texts).strip()) < 80:
         raise RuntimeError('Testo non estraibile: il PDF sembra una scansione, serve OCR (es. ocrmypdf).')
-    found = []
-    for number, page in enumerate(pages, start=1):
-        for line in page.splitlines():
-            pair = definition_from_line(line)
-            if pair:
-                found.append(Candidate(pair[0], formal=pair[1], where=f'pagina {number}',
-                                       excerpt=re.sub(r'\s+', ' ', line).strip()[:600]))
-    return found, pages
+    return _candidates(et.extract_terms(pages, diagnostics=diagnostics)), texts
 
 
 class _HtmlDefinitions(HTMLParser):
@@ -364,7 +352,7 @@ def fetch(url: str, etag: str | None, modified: str | None) -> tuple[int, bytes,
 # ---------------------------------------------------------------------------
 
 REGISTRY_COLUMNS = ['source', 'kind', 'detected', 'subject', 'academic_year', 'sha256', 'etag', 'last_modified',
-                    'status', 'entries', 'draft', 'processed_at', 'error', 'recheck']
+                    'status', 'entries', 'draft', 'processed_at', 'error', 'recheck', 'extractor']
 
 
 def open_registry(path: Path) -> sqlite3.Connection:
@@ -375,7 +363,10 @@ def open_registry(path: Path) -> sqlite3.Connection:
         sha256 TEXT, etag TEXT, last_modified TEXT, status TEXT NOT NULL, entries INTEGER NOT NULL DEFAULT 0,
         draft TEXT, processed_at TEXT NOT NULL, error TEXT, recheck TEXT,
         PRIMARY KEY (source, subject, academic_year))''')
-    # Import del vecchio registro dello script PDF, se presente nella stessa cartella.
+    columns = {row[1] for row in db.execute('PRAGMA table_info(sources)')}
+    if 'extractor' not in columns:
+        db.execute('ALTER TABLE sources ADD COLUMN extractor TEXT')     # registri creati prima della v19
+        db.commit()
     return db
 
 
@@ -397,12 +388,16 @@ def registry_put(db: sqlite3.Connection, record: dict) -> None:
 # Bozze
 # ---------------------------------------------------------------------------
 
+FLAG_LABELS = {'incompleto': 'definizione forse incompleta', 'ocr_rumoroso': 'testo OCR rovinato',
+               'termine_da_verificare': 'termine da verificare', 'da_verificare_indice': 'trovato dall’indice analitico'}
+
+
 def draft_document(candidates: list[Candidate], meta: dict, source_label: str, kind: str) -> dict:
     topics: dict[str, dict] = {}
     entries: dict[str, dict] = {}
     default_topic = slug(meta.get('topic') or 'Da classificare')
-    for c in candidates:
-        topic_title = c.topic or meta.get('topic') or 'Da classificare'
+    for c in sorted(candidates, key=lambda c: -(c.confidence if c.confidence is not None else 1)):
+        topic_title = meta.get('topic') or c.topic or 'Da classificare'
         topic_id = slug(topic_title)
         topics.setdefault(topic_id, {'id': topic_id, 'title': topic_title, 'order': len(topics) + 1})
         key = slug(c.term)
@@ -413,13 +408,19 @@ def draft_document(candidates: list[Candidate], meta: dict, source_label: str, k
                 entry['resources'].append(resource)
             entry['quiz_question_ids'] += [q for q in c.quiz_ids if q not in entry['quiz_question_ids']]
             continue
+        where = c.where
+        if c.confidence is not None:
+            # il server mostra "where" a chi modera: affidabilità e segnalazioni si vedono lì
+            notes = [f'affidabilità {round(c.confidence * 100)}%'] + [FLAG_LABELS.get(f, f) for f in c.flags]
+            where = f'{c.where} · ' + ' · '.join(notes)
         entries[key] = {
-            'id': key, 'term': c.term, 'aliases': [], 'topic': topic_id or default_topic,
+            'id': key, 'term': c.term, 'aliases': list(c.aliases)[:10], 'topic': topic_id or default_topic,
             'formal_definition': c.formal, 'informal_definition': c.informal,
             'examples': [], 'exercises': [], 'exam_questions': [], 'related': [],
             'resources': [resource], 'quiz_question_ids': list(c.quiz_ids),
-            '_review': {'source': source_label, 'where': c.where, 'kind': kind, 'needs_review': True,
-                        'excerpt': c.excerpt},
+            '_review': {'source': source_label, 'where': where[:200], 'kind': kind, 'needs_review': True,
+                        'excerpt': c.excerpt, 'affidabilita': c.confidence, 'segnalazioni': list(c.flags),
+                        'metodo': c.method},
         }
     return {
         'schema': SCHEMA,
@@ -443,10 +444,9 @@ def write_draft(doc: dict, drafts: Path, source: str, checksum: str) -> Path:
     name = f'{slug(doc["metadata"]["subject"])}--{slug(Path(urllib.parse.urlsplit(source).path).stem or source)[:40]}' \
            f'--{checksum[:10]}.json'
     target = drafts / name
-    if not target.exists():
-        tmp = target.with_suffix('.tmp')
-        tmp.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-        tmp.replace(target)
+    tmp = target.with_suffix('.tmp')
+    tmp.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    tmp.replace(target)
     return target
 
 
@@ -540,15 +540,18 @@ def _pdf_info(data: bytes) -> dict:
         return {}
 
 
-def process(source: str, meta: dict, db: sqlite3.Connection, drafts: Path, force: bool, dry: bool) -> dict:
+def process(source: str, meta: dict, db: sqlite3.Connection, drafts: Path, force: bool, dry: bool,
+            threshold: float = 0.5, diagnostics: Path | None = None) -> dict:
     subject, year = meta['subject'], meta['academic_year']
+    notes: list[str] = []
     old = registry_get(db, source, subject, year)
     is_url = source.startswith(('http://', 'https://'))
     record = {'source': source, 'kind': 'web' if is_url else 'file', 'subject': subject, 'academic_year': year,
               'processed_at': now(), 'recheck': meta.get('recheck') or (old or {}).get('recheck'),
               'entries': 0, 'error': None, 'draft': None, 'detected': None, 'sha256': None,
               'etag': meta.get('etag') if not force else None, 'last_modified': None,
-              'label': None, 'text_excerpt': None, 'metadata': {'script': 'fonti_dizionario.py'}}
+              'label': None, 'text_excerpt': None, 'metadata': {'script': 'fonti_dizionario.py', 'extractor': et.VERSION},
+              'extractor': et.VERSION}
     try:
         if is_url:
             status, data, headers = fetch(source, None if force else ((old or {}).get('etag') or meta.get('etag')),
@@ -575,7 +578,7 @@ def process(source: str, meta: dict, db: sqlite3.Connection, drafts: Path, force
         checksum = sha256(data)
         record['sha256'] = checksum
         if old and not force and old.get('sha256') == checksum and old.get('status') in ('read', 'no_terms', 'unchanged') \
-                and (not old.get('draft') or Path(old['draft']).exists()):
+                and old.get('extractor') == et.VERSION and (not old.get('draft') or Path(old['draft']).exists()):
             record.update({k: old[k] for k in ('detected', 'entries', 'draft')})
             record['status'] = 'unchanged'
             if not dry:
@@ -585,7 +588,7 @@ def process(source: str, meta: dict, db: sqlite3.Connection, drafts: Path, force
         suffix = Path(urllib.parse.urlsplit(source).path).suffix.lower()
         if data[:5] == b'%PDF-' or 'pdf' in content_type or suffix == '.pdf':
             record['detected'] = 'pdf'
-            candidates, pages = read_pdf(data, local_path)
+            candidates, pages = read_pdf(data, local_path, notes)
             record['text_excerpt'] = '\n\n'.join(f'[pagina {i}]\n{p.strip()}' for i, p in enumerate(pages, 1) if p.strip())
             record['metadata'].update({'pages': len(pages), **_pdf_info(data)})
         elif suffix == '.json' or 'json' in content_type or data.lstrip()[:1] in (b'{', b'['):
@@ -623,9 +626,14 @@ def process(source: str, meta: dict, db: sqlite3.Connection, drafts: Path, force
         else:
             record['detected'] = 'text'
             text = data.decode('utf-8', errors='replace')
-            candidates = read_text_lines(text.splitlines(), 'riga')
+            candidates = read_text(text, notes)
             record['text_excerpt'] = text
         record['label'] = label
+        found = len(candidates)
+        candidates = [c for c in candidates if c.confidence is None or c.confidence >= threshold]
+        record['metadata']['below_threshold'] = found - len(candidates)
+        if diagnostics is not None:
+            _write_diagnostics(diagnostics, source, notes, candidates, threshold)
         record['entries'] = len({slug(c.term) for c in candidates})
         if not candidates:
             record['status'] = 'no_terms'
@@ -642,6 +650,17 @@ def process(source: str, meta: dict, db: sqlite3.Connection, drafts: Path, force
     if not dry:
         registry_put(db, record)
     return record
+
+
+def _write_diagnostics(folder: Path, source: str, notes: list[str], candidates: list[Candidate], threshold: float) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    name = slug(Path(urllib.parse.urlsplit(source).path).stem or source)[:60]
+    lines = [f'# {source}', f'# soglia di affidabilità: {threshold}', '',
+             '## Voci tenute (affidabilità, metodo, termine, segnalazioni)']
+    lines += [f'{c.confidence if c.confidence is not None else "-"}\t{c.method}\t{c.term}\t{",".join(c.flags)}\t{c.where}'
+              for c in candidates]
+    lines += ['', '## Motivazioni (+ trovato, - scartato)'] + notes
+    (folder / f'{name}.txt').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
 def _charset(content_type: str) -> str:
@@ -706,6 +725,10 @@ def main() -> int:
     parser.add_argument('--invia', action='store_true',
                         help='invia risultati, metadati ed estratti al server (servono STUDENTLAB_API e STUDENTLAB_TOKEN)')
     parser.add_argument('--esempio-elenco', action='store_true', help='stampa un elenco di esempio')
+    parser.add_argument('--soglia', type=float, default=0.5,
+                        help='affidabilità minima (0-1) delle voci da PDF/testo; 0 = tutte (default 0.5)')
+    parser.add_argument('--diagnosi', type=Path,
+                        help='cartella dove scrivere, per ogni fonte, voci trovate e motivi degli scarti')
     args = parser.parse_args()
 
     if args.esempio_elenco:
@@ -783,11 +806,13 @@ def main() -> int:
                 failed = True
                 continue
         for source in sources:
-            record = process(source, meta, db, args.bozze, args.forza, args.prova)
+            record = process(source, meta, db, args.bozze, args.forza, args.prova, args.soglia, args.diagnosi)
             status = record['status']
             summary[status] = summary.get(status, 0) + 1
             mark = {'read': '✓', 'unchanged': '=', 'no_terms': '·', 'error': '✗'}.get(status, '?')
-            detail = record['error'] if status == 'error' else f'{record["entries"]} termini'
+            below = (record.get('metadata') or {}).get('below_threshold')
+            detail = record['error'] if status == 'error' else f'{record["entries"]} termini' + (
+                f' ({below} sotto la soglia {args.soglia}, non inclusi)' if below else '')
             print(f'{mark} [{record.get("detected") or "?"}] {source}\n    {detail}'
                   + (f' → {record["draft"]}' if record.get('draft') and status == 'read' else ''))
             if status == 'error':

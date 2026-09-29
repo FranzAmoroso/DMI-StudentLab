@@ -70,16 +70,36 @@ class ExerciseApiService {
     List<String> arguments = const <String>[],
     int count = 10,
     List<String> itemIds = const <String>[],
+    ExerciseChoice? choice,
+    List<Map<String, dynamic>> history = const <Map<String, dynamic>>[],
   }) async {
     final Map<String, dynamic> data = asMap(await _post('/exercises/practice', <String, dynamic>{
       ..._subject(department, course, subject),
+      ...?choice?.toJson(),
       'types': types,
-      'arguments': arguments,
+      if (choice == null) 'arguments': arguments,
       'count': count,
       if (itemIds.isNotEmpty) 'item_ids': itemIds,
+      if (history.isNotEmpty) 'history': history,
     }, 'Esercizi non disponibili.'));
     return asMapList(data['items']).map(ExerciseItem.fromJson).toList();
   }
+
+  /// Passo 2 della scelta: per ogni tipo di esercizio quanti ce ne sono con i filtri scelti,
+  /// per quali argomenti, durata media, difficoltà e i risultati dello studente.
+  /// Senza account lo storico arriva dal telefono (history).
+  Future<Map<String, dynamic>> overview({
+    required String department,
+    required String course,
+    required String subject,
+    ExerciseChoice choice = const ExerciseChoice(),
+    List<Map<String, dynamic>> history = const <Map<String, dynamic>>[],
+  }) async =>
+      asMap(await _post('/exercises/overview', <String, dynamic>{
+        ..._subject(department, course, subject),
+        ...choice.toJson(),
+        if (history.isNotEmpty) 'history': history,
+      }, 'Esercizi non disponibili.'));
 
   Future<ExerciseResult> check({
     required String department,
@@ -158,12 +178,18 @@ class ExerciseApiService {
     List<String> types = const <String>[],
     List<String> arguments = const <String>[],
     int count = 10,
+    ExerciseChoice? choice,
+    int? timeLimitSeconds,
+    bool quiz = false,
   }) async =>
       asMap(await _post('/exercises/start', <String, dynamic>{
         ..._subject(department, course, subject),
+        ...?choice?.toJson(),
         'types': types,
-        'arguments': arguments,
+        if (choice == null) 'arguments': arguments,
         'count': count,
+        if (timeLimitSeconds != null && timeLimitSeconds > 0) 'time_limit_seconds': timeLimitSeconds,
+        if (quiz) 'quiz': true,
       }, 'Non è stato possibile avviare gli esercizi.'));
 
   /// Consegna di un tentativo (anche di un'assegnazione mista domande + esercizi).
@@ -307,6 +333,30 @@ class ExerciseApiService {
 
   Future<List<Map<String, dynamic>>> generators() async =>
       asMapList(_decode(await http.get(uri('/exercises/generators'), headers: _headers), 'Generatori non disponibili.'));
+
+  // --------------------------------------------------------------- aree didattiche (v24)
+  /// Dipartimenti → area → tipi di esercizio consigliati (configurazione dell'admin).
+  Future<Map<String, dynamic>> areas() async =>
+      asMap(_decode(await http.get(uri('/exercises/areas'), headers: _headers), 'Aree non disponibili.'));
+
+  /// Area di un corso: {id, label, types, examples, matched, department}.
+  Future<Map<String, dynamic>> areaFor(String department, String course, {String? subject}) async =>
+      asMap(_decode(
+          await http.get(
+              uri('/exercises/areas/resolve', <String, String>{
+                'department': department,
+                'course': course,
+                if (subject != null && subject.trim().isNotEmpty) 'subject': subject.trim(),
+              }),
+              headers: _headers),
+          'Area non disponibile.'));
+
+  Future<Map<String, dynamic>> saveAreas(Map<String, dynamic> config) async =>
+      asMap(_decode(await http.put(uri('/exercises/areas'), headers: _headers, body: jsonEncode(config)),
+          'Aree non salvate.'));
+
+  Future<Map<String, dynamic>> resetAreas() async =>
+      asMap(_decode(await http.delete(uri('/exercises/areas'), headers: _headers), 'Aree non ripristinate.'));
 }
 
 String cleanError(Object error, [String fallback = 'Qualcosa non ha funzionato.']) {

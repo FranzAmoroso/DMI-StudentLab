@@ -277,25 +277,219 @@ def catalog(db: Session | None, department: str, course: str, subject: str, *, c
             'code_runner': code_runner}
 
 
+MULTIPLE_CHOICE = 'multiple_choice'
+MC_INFO = {'label': 'Risposta multipla', 'category': 'pratica'}
+
+
+def base_id(item_id: str) -> str:
+    """ex:5:123 (variante generata) -> ex:5; gli altri id restano uguali."""
+    value = str(item_id or '')
+    return value.rsplit(':', 1)[0] if value.startswith('ex:') and value.count(':') == 2 else value
+
+
+def _seconds(record: dict, default: int = 60) -> int:
+    try:
+        return max(5, int(float(record.get('estimed_time') or default)))
+    except (TypeError, ValueError):
+        return default
+
+
+class Filters:
+    """Filtri scelti dallo studente prima di vedere le schede dei tipi.
+    Niente filtro per difficoltà: le domande non hanno una categoria facile/media/difficile."""
+
+    def __init__(self, arguments=None, max_seconds=None, include=None, exclude=None):
+        self.arguments = {a.casefold() for a in arguments or [] if a}
+        self.max_seconds = int(max_seconds) if max_seconds else None
+        self.include = set(include) if include is not None else None      # solo questi (es. da rivedere)
+        self.exclude = set(exclude or ())                                 # mai questi (es. già fatti)
+
+    def argument_ok(self, value: str | None) -> bool:
+        return not self.arguments or (value or '').casefold() in self.arguments
+
+    def ok(self, item_id: str, argument: str | None, seconds: int,
+           check_argument: bool = True, check_seconds: bool = True) -> bool:
+        key = base_id(item_id)
+        if key in self.exclude or (self.include is not None and key not in self.include):
+            return False
+        if check_argument and not self.argument_ok(argument):
+            return False
+        return not (check_seconds and self.max_seconds and seconds > self.max_seconds)
+
+
+def history_from_rows(rows) -> dict:
+    """rows: (item_id, tipo, punteggio 0-1 o None, corretto, quando) in ordine di tempo.
+    Restituisce id già fatti, id da rivedere (ultima risposta non piena) e statistiche per tipo."""
+    last: dict[str, tuple] = {}
+    stats: dict[str, dict] = {}
+    for item_id, kind, score, correct, when in rows:
+        key = base_id(item_id)
+        kind = kind or MULTIPLE_CHOICE
+        value = float(score) if score is not None else (1.0 if correct else 0.0)
+        last[key] = (kind, value, when)
+        entry = stats.setdefault(kind, {'answers': 0, 'score_sum': 0.0, 'last_at': None, 'items': set()})
+        entry['answers'] += 1
+        entry['score_sum'] += value
+        entry['items'].add(key)
+        if when is not None and (entry['last_at'] is None or str(when) > str(entry['last_at'])):
+            entry['last_at'] = when
+    wrong = {k for k, (_, value, _) in last.items() if value < 0.999}
+    out_stats = {}
+    for kind, entry in stats.items():
+        out_stats[kind] = {'done': len(entry['items']), 'answers': entry['answers'],
+                           'avg_score': round(entry['score_sum'] / entry['answers'], 3) if entry['answers'] else None,
+                           'last_at': str(entry['last_at']) if entry['last_at'] is not None else None,
+                           'to_review': sum(1 for k in entry['items'] if k in wrong)}
+    return {'seen': set(last), 'wrong': wrong, 'stats': out_stats}
+
+
+def user_history(db: Session, user_id: int, department: str, course: str, subject: str) -> dict:
+    from models.quiz_attempt import QuizAttempt, QuizAttemptAnswer
+    rows = (db.query(QuizAttemptAnswer.question_id, QuizAttemptAnswer.question_type, QuizAttemptAnswer.score,
+                     QuizAttemptAnswer.is_correct, QuizAttempt.completed_at)
+            .join(QuizAttempt, QuizAttempt.id == QuizAttemptAnswer.attempt_id)
+            .filter(QuizAttempt.user_id == user_id, QuizAttempt.status == 'completed',
+                    QuizAttempt.is_deleted.is_(False),
+                    func.lower(QuizAttempt.department) == department.strip().lower(),
+                    func.lower(QuizAttempt.course) == course.strip().lower(),
+                    func.lower(QuizAttempt.subject) == subject.strip().lower())
+            .order_by(QuizAttempt.completed_at.asc())
+            .limit(20000).all())
+    return history_from_rows(rows)
+
+
+def _mc_meta(question: dict) -> tuple[str, str | None, int]:
+    return str(question.get('id_question')), (question.get('metadata') or {}).get('argoment'), _seconds(question, 30)
+
+
+def public_multiple_choice(question: dict) -> dict:
+    """Domanda a risposta multipla dentro un'esercitazione: senza risposta giusta né percorsi."""
+    return {'id': str(question.get('id_question')), 'id_question': str(question.get('id_question')),
+            'type': MULTIPLE_CHOICE, 'category': MC_INFO['category'], 'type_label': MC_INFO['label'],
+            'text': question.get('text') or '', 'metadata': question.get('metadata') or {},
+            'argument': (question.get('metadata') or {}).get('argoment'),
+            'estimed_time': question.get('estimed_time'),
+            'attachments': public_attachments(question),
+            'option': [{k: v for k, v in o.items() if k in ('id', 'text', 'attachment_id')}
+                       for o in question.get('option') or [] if isinstance(o, dict)]}
+
+
+def overview(db: Session | None, department: str, course: str, subject: str, *, filters: Filters,
+             code_runner: bool, history: dict | None = None, only_new: bool = False,
+             only_mistakes: bool = False) -> dict:
+    """Schede dei tipi di esercizio per i filtri scelti: quanti ce ne sono, per quali argomenti,
+    quanto durano e come sono andati i tentativi dello studente."""
+    history = history or {'seen': set(), 'wrong': set(), 'stats': {}}
+    if only_mistakes:
+        filters.include = set(history['wrong']) if filters.include is None else filters.include & history['wrong']
+    if only_new:
+        filters.exclude = filters.exclude | set(history['seen'])
+    cards: dict[str, dict] = {}
+    for kind, info in [(MULTIPLE_CHOICE, MC_INFO)] + list(types_.TYPES.items()):
+        cards[kind] = {'type': kind, **info, 'count': 0, 'templates': 0, 'by_argument': {},
+                       'seconds_sum': 0, 'new': 0, 'to_review': 0, 'stats': history['stats'].get(kind)}
+    arg_counts: dict[str, int] = {}
+    durations = {'short': 0, 'medium': 0, 'long': 0}
+
+    def count(kind, item_id, argument, seconds, template=False):
+        card = cards[kind]
+        tally = kind != 'flashcard'          # le flashcard si ripassano a parte: non contano nei filtri
+        # Ogni filtro si conta ignorando se stesso: accanto a ogni voce si vede quanti esercizi
+        # si otterrebbero sceglierla (si può aggiungere un argomento o allungare la durata).
+        if tally and argument and filters.ok(item_id, argument, seconds, check_argument=False):
+            arg_counts[argument] = arg_counts.get(argument, 0) + 1
+        if tally and filters.ok(item_id, argument, seconds, check_seconds=False):
+            durations['short' if seconds <= 60 else 'medium' if seconds <= 180 else 'long'] += 1
+        # Le flashcard seguono solo gli argomenti (la pagina delle flashcard non ha altri filtri).
+        if not filters.ok(item_id, argument, seconds, check_seconds=tally):
+            return
+        card['count'] += 1
+        card['templates'] += 1 if template else 0
+        if argument:
+            card['by_argument'][argument] = card['by_argument'].get(argument, 0) + 1
+        card['seconds_sum'] += seconds
+        key = base_id(item_id)
+        card['new'] += 0 if key in history['seen'] and not template else 1
+        card['to_review'] += 1 if key in history['wrong'] else 0
+
+    for record in read_exercises(department, course, subject):
+        if not _available(record) or record.get('type') not in cards:
+            continue
+        count(record['type'], f"ex:{record['id_exercise']}", _argument(record),
+              _seconds(record), template=bool(record.get('generator')))
+    dictionary = []
+    if db is not None:
+        subject_row = subject_record(db, department, course, subject)
+        dictionary = _dictionary_rows(db, subject_row.id) if subject_row is not None else []
+    for row in dictionary:
+        count('flashcard', f"dz:{row['entry_id']}", row['topic'], 20)
+    for group in _abbina_groups(dictionary, random.Random(0)):
+        item = _abbina_from_entries(group)
+        count('abbina', item['id'], item['argument'], 60)
+    for question in get_available_questions(department=department, course=course, subject=subject,
+                                            selected_arguments=None):
+        qid, argument, seconds = _mc_meta(question)
+        count(MULTIPLE_CHOICE, qid, argument, seconds)
+        if not dictionary and not question.get('attachments'):
+            count('flashcard', f'qf:{qid}', argument, 25)
+    result = []
+    for card in cards.values():
+        n = card.pop('seconds_sum')
+        card['avg_seconds'] = round(n / card['count']) if card['count'] else None
+        card['arguments'] = sorted(card['by_argument'])
+        card['variants'] = card['templates'] > 0          # modelli generati: varianti sempre nuove
+        card['available'] = card['count'] > 0 and (card['type'] != 'codice' or code_runner)
+        if card['type'] == 'codice' and not code_runner:
+            card['unavailable_reason'] = 'Il servizio che esegue il codice non è attivo.'
+        elif card['count'] == 0:
+            card['unavailable_reason'] = 'Nessun esercizio di questo tipo con i filtri scelti.'
+        result.append(card)
+    result.sort(key=lambda c: (not c['available'], -c['count']))
+    return {
+        'types': result,
+        'total': sum(c['count'] for c in result if c['available'] and c['type'] != 'flashcard'),
+        'filters': {
+            'arguments': [{'name': a, 'count': n} for a, n in sorted(arg_counts.items(), key=lambda x: x[0].casefold())],
+            'durations': durations,
+            'seen': len(history['seen']), 'to_review': len(history['wrong']),
+        },
+        'code_runner': code_runner,
+    }
+
+
 def pick(db: Session | None, department: str, course: str, subject: str, *, types: list[str],
          arguments: list[str] | None, count: int, rng: random.Random | None = None,
-         code_runner: bool = False, exclude: set[str] | None = None, graded: bool = False) -> list[dict]:
+         code_runner: bool = False, exclude: set[str] | None = None, graded: bool = False,
+         filters: Filters | None = None) -> list[dict]:
     """Sceglie `count` esercizi alternando i tipi richiesti (varietà prima di tutto).
     graded=True (tentativi con voto): niente flashcard e niente esercizi dal Dizionario o dalle
-    domande, che sono consultabili liberamente nell'app."""
+    domande, che sono consultabili liberamente nell'app. filters: difficoltà, durata, solo da
+    rivedere / solo nuovi (vedi Filters). "multiple_choice" tra i tipi aggiunge le domande del quiz."""
     rng = rng or random.Random()
-    wanted = [t for t in types if t in types_.TYPES and (t != 'codice' or code_runner)
-              and not (graded and t == 'flashcard')]
-    selected_args = {a.casefold() for a in arguments or [] if a}
-    exclude = exclude or set()
+    filters = filters or Filters(arguments=arguments)
+    if arguments and not filters.arguments:
+        filters.arguments = {a.casefold() for a in arguments if a}
+    wanted = [t for t in types if (t in types_.TYPES or (t == MULTIPLE_CHOICE and not graded))
+              and (t != 'codice' or code_runner) and not (graded and t == 'flashcard')]
+    selected_args = filters.arguments
+    exclude = set(exclude or set()) | filters.exclude
 
     def argument_ok(value: str | None) -> bool:
         return not selected_args or (value or '').casefold() in selected_args
 
     pools: dict[str, list] = {t: [] for t in wanted}
+    if MULTIPLE_CHOICE in pools:
+        for question in get_available_questions(department=department, course=course, subject=subject,
+                                                selected_arguments=None):
+            qid, argument, seconds = _mc_meta(question)
+            if qid not in exclude and filters.ok(qid, argument, seconds):
+                pools[MULTIPLE_CHOICE].append(('item', {'id': qid, 'type': MULTIPLE_CHOICE, 'question': question,
+                                                        'argument': argument}))
     for record in read_exercises(department, course, subject):
-        if _available(record) and record['type'] in pools and argument_ok(_argument(record)):
+        if _available(record) and record.get('type') in pools and argument_ok(_argument(record)):
             if f"ex:{record['id_exercise']}" in exclude:
+                continue
+            if not filters.ok(f"ex:{record['id_exercise']}", _argument(record), _seconds(record)):
                 continue
             if record.get('generator'):
                 pools[record['type']].extend([('gen', record)] * 3)     # fino a 3 varianti per modello
@@ -308,7 +502,8 @@ def pick(db: Session | None, department: str, course: str, subject: str, *, type
             dictionary = _dictionary_rows(db, subject_row.id) if subject_row is not None else []
         dictionary = [r for r in dictionary if argument_ok(r['topic'])]
         if 'flashcard' in pools:
-            pools['flashcard'].extend(('item', _flashcard_from_entry(r)) for r in dictionary)
+            pools['flashcard'].extend(('item', _flashcard_from_entry(r)) for r in dictionary
+                                      if filters.ok(f"dz:{r['entry_id']}", r['topic'], 20))
             if not dictionary:
                 for question in get_available_questions(department=department, course=course, subject=subject,
                                                         selected_arguments=list(arguments or []) or None):
@@ -316,7 +511,10 @@ def pick(db: Session | None, department: str, course: str, subject: str, *, type
                     if card:
                         pools['flashcard'].append(('item', card))
         if 'abbina' in pools:
-            pools['abbina'].extend(('item', _abbina_from_entries(g)) for g in _abbina_groups(dictionary, rng))
+            for group in _abbina_groups(dictionary, rng):
+                item = _abbina_from_entries(group)
+                if filters.ok(item['id'], item['argument'], 60):
+                    pools['abbina'].append(('item', item))
     for pool in pools.values():
         rng.shuffle(pool)
     result, used = [], set(exclude)

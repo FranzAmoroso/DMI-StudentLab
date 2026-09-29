@@ -125,6 +125,19 @@ class FreeQuizApiService {
   bool get _isGuest =>
       AuthSession.instance.isGuest;
 
+  /// Percorsi dei quiz realmente presenti nella banca question/ del server.
+  Future<List<Map<String, String>>> getAvailablePaths() async {
+    final response = await http.get(_uri('/quiz/available-paths'), headers: _headers);
+    final decoded = _decode(response, 'Percorsi quiz non disponibili.');
+    if (decoded is! List) throw Exception('Percorsi quiz non validi.');
+    return decoded.whereType<Map>().map((row) => <String, String>{
+      'department': '${row['department'] ?? ''}'.trim().toUpperCase(),
+      'course': '${row['course'] ?? ''}'.trim().toUpperCase(),
+      'subject': '${row['subject'] ?? ''}'.trim(),
+    }).where((row) => row['department']!.isNotEmpty && row['course']!.isNotEmpty &&
+        row['subject']!.isNotEmpty).toList();
+  }
+
   dynamic _decode(
     http.Response response,
     String fallback,

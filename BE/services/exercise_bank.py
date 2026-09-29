@@ -1,7 +1,7 @@
 """Banca degli esercizi: data/<dipartimento>/<corso>/exercise/<materia>.json
 
 Stesso meccanismo delle domande (data/**/question/*.json): un file per
-materia, scrittura atomica. Le domande a risposta multipla restano nei loro
+materia, scrittura atomica in locale e Blob privato su Vercel. Le domande a risposta multipla restano nei loro
 file e non vengono toccate.
 """
 from __future__ import annotations
@@ -18,6 +18,7 @@ from typing import Any
 from services.exercise_generators import GENERATORS
 from services.exercise_types import TYPES, clean_data
 from services.quiz_service import DATA_ROOT, _normalize_directory, _normalize_subject
+from core.config import settings
 
 SCHEMA = 'studentlab.exercise/1'
 MAX_EXERCISES_PER_FILE = 3000
@@ -61,6 +62,25 @@ def _safe_path(path: Path) -> Path:
 
 def read_exercises(department: str, course: str, subject: str) -> list[dict[str, Any]]:
     path = _safe_path(exercise_file(department, course, subject))
+    if settings.is_vercel and settings.blob_read_write_token:
+        from vercel.blob import BlobClient, BlobNotFoundError
+        try:
+            with BlobClient(token=settings.blob_read_write_token) as client:
+                response = client.get(_blob_path(path), access='private', use_cache=False)
+        except BlobNotFoundError:
+            response = None
+        except Exception as exc:
+            raise ValueError('Non riesco a leggere la banca esercizi.') from exc
+        if response is not None and response.status_code == 200:
+            try:
+                data = json.loads(response.content)
+            except (TypeError, ValueError) as exc:
+                raise ValueError('L’archivio degli esercizi non è valido.') from exc
+            if isinstance(data, dict):
+                data = data.get('exercises')
+            if not isinstance(data, list):
+                raise ValueError('L’archivio degli esercizi non è valido.')
+            return [e for e in data if isinstance(e, dict)]
     if not path.is_file():
         return []
     try:
@@ -72,8 +92,17 @@ def read_exercises(department: str, course: str, subject: str) -> list[dict[str,
     return [e for e in data if isinstance(e, dict)] if isinstance(data, list) else []
 
 
+def _blob_path(path: Path) -> str:
+    relative = _safe_path(path).relative_to(DATA_ROOT)
+    return 'quiz-exercise-banks/v1/' + relative.as_posix()
+
+
 @contextlib.contextmanager
 def _locked(path: Path):
+    if settings.is_vercel:
+        # Vercel non permette lock file sul progetto: lo storage è su Blob.
+        yield
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = path.with_suffix('.lock')
     handle = open(lock_path, 'a+')
@@ -94,6 +123,21 @@ def _locked(path: Path):
 
 
 def _write(path: Path, exercises: list[dict]) -> None:
+    if settings.is_vercel:
+        if not settings.blob_read_write_token:
+            raise ValueError('Lo storage degli esercizi non è configurato.')
+        from vercel.blob import BlobClient
+        content = json.dumps(exercises, ensure_ascii=False, indent=2).encode('utf-8')
+        if len(content) > 8 * 1024 * 1024:
+            raise ValueError('Archivio esercizi troppo grande.')
+        try:
+            with BlobClient(token=settings.blob_read_write_token) as client:
+                client.put(_blob_path(path), content, access='private',
+                           content_type='application/json', add_random_suffix=False,
+                           overwrite=True, cache_control_max_age=60)
+        except Exception as exc:
+            raise ValueError('Impossibile salvare gli esercizi in questo momento.') from exc
+        return
     temporary = None
     try:
         with tempfile.NamedTemporaryFile('w', encoding='utf-8', dir=path.parent, prefix=f'.{path.stem}_',

@@ -663,13 +663,21 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
 
     await _run(() async {
       final file = result.files.single;
-      final path = await _fileBridge.materialize(file);
-      final share = await _api.shareMaterialWithUser(
-        filePath: path,
-        recipientUserId: requesterId,
-        subjectId: _toInt(data['subject_id']),
-        message: 'Materiale condiviso in risposta alla tua richiesta.',
-      );
+      final bytes = file.bytes;
+      final share = bytes != null && bytes.isNotEmpty
+          ? await _api.shareMaterialBytesWithUser(
+              bytes: bytes,
+              originalName: file.name,
+              recipientUserId: requesterId,
+              subjectId: _toInt(data['subject_id']),
+              message: 'Materiale condiviso in risposta alla tua richiesta.',
+            )
+          : await _api.shareMaterialWithUser(
+              filePath: await _fileBridge.materialize(file),
+              recipientUserId: requesterId,
+              subjectId: _toInt(data['subject_id']),
+              message: 'Materiale condiviso in risposta alla tua richiesta.',
+            );
       final shareId = _toInt(share['id']);
       if (shareId == null) {
         throw StateError(
@@ -738,7 +746,10 @@ class _MaterialRequestsPageState extends State<MaterialRequestsPage>
     if (text.contains('sessione') || text.contains('401') || text.contains('token')) {
       return 'La sessione è scaduta. Accedi di nuovo per continuare.';
     }
-    return 'Non è stato possibile completare l’operazione. Riprova.';
+    final detail = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
+    return detail.length > 8 && detail.length < 240
+        ? detail
+        : 'Non è stato possibile completare l’operazione. Riprova.';
   }
 
   void _message(String text) {

@@ -17,6 +17,12 @@ const List<String> kExerciseTypes = <String>[
   'traccia',
   'numerica',
   'codice',
+  // tipi generici (v24): vanno bene per ogni corso
+  'caso',
+  'vero_falso',
+  'categorizza',
+  'linea_tempo',
+  'risposta_breve',
 ];
 
 const String kMultipleChoice = 'multiple_choice';
@@ -56,6 +62,16 @@ const Map<String, ExerciseTypeInfo> kExerciseTypeInfo = <String, ExerciseTypeInf
       'Subnetting, conversioni, calcoli'),
   'codice': ExerciseTypeInfo('codice', 'Scrivi il codice', 'pratica', Icons.code_rounded,
       'Programmazione con test automatici'),
+  'caso': ExerciseTypeInfo('caso', 'Caso pratico a passi', 'ragionamento', Icons.work_outline_rounded,
+      'Casi clinici, giuridici, aziendali, didattici: un passo alla volta'),
+  'vero_falso': ExerciseTypeInfo('vero_falso', 'Vero o falso motivato', 'logico', Icons.rule_rounded,
+      'Norme, teoremi, principi: il verdetto e il perché'),
+  'categorizza': ExerciseTypeInfo('categorizza', 'Categorizza', 'logico', Icons.category_outlined,
+      'Classificazioni: organismi, istituti, farmaci, stili'),
+  'linea_tempo': ExerciseTypeInfo('linea_tempo', 'Linea del tempo', 'logico', Icons.timeline_rounded,
+      'Storia, fasi di un processo, ere, correnti'),
+  'risposta_breve': ExerciseTypeInfo('risposta_breve', 'Risposta breve con griglia', 'ragionamento',
+      Icons.edit_note_rounded, 'Spiegare in poche righe, con la griglia del docente'),
 };
 
 ExerciseTypeInfo exerciseInfo(String type) =>
@@ -69,6 +85,7 @@ Color categoryColor(BuildContext context, String category) {
     'visivo' => p.adminAmber,
     'strategia' => const Color(0xFFA9A8FF),
     'memoria' => const Color(0xFFF08CFF),
+    'ragionamento' => p.adminCyan,
     _ => p.adminGreen,
   };
 }
@@ -78,6 +95,7 @@ String categoryLabel(String category) => switch (category) {
       'visivo' => 'VISIVO',
       'strategia' => 'STRATEGIA',
       'memoria' => 'MEMORIA',
+      'ragionamento' => 'RAGIONAMENTO',
       _ => 'PRATICA',
     };
 
@@ -89,6 +107,56 @@ List<Map<String, dynamic>> asMapList(dynamic value) =>
 
 List<String> asStringList(dynamic value) =>
     (value is List ? value : const <dynamic>[]).map((dynamic e) => e.toString()).toList();
+
+/// Filtri della scelta degli esercizi (passo 1). Viaggiano uguali verso
+/// /exercises/overview, /exercises/practice e /exercises/start.
+class ExerciseChoice {
+  final List<String> arguments;
+  final int? maxSeconds;                 // durata massima di un esercizio
+  final bool onlyNew;
+  final bool onlyMistakes;
+
+  const ExerciseChoice({
+    this.arguments = const <String>[],
+    this.maxSeconds,
+    this.onlyNew = false,
+    this.onlyMistakes = false,
+  });
+
+  ExerciseChoice copyWith({
+    List<String>? arguments,
+    int? maxSeconds,
+    bool clearMaxSeconds = false,
+    bool? onlyNew,
+    bool? onlyMistakes,
+  }) =>
+      ExerciseChoice(
+        arguments: arguments ?? this.arguments,
+        maxSeconds: clearMaxSeconds ? null : (maxSeconds ?? this.maxSeconds),
+        onlyNew: onlyNew ?? this.onlyNew,
+        onlyMistakes: onlyMistakes ?? this.onlyMistakes,
+      );
+
+  bool get isEmpty => arguments.isEmpty && maxSeconds == null && !onlyNew && !onlyMistakes;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'arguments': arguments,
+        if (maxSeconds != null) 'max_seconds': maxSeconds,
+        'only_new': onlyNew,
+        'only_mistakes': onlyMistakes,
+      };
+
+  /// Riassunto breve per l'intestazione del passo 2 ("3 argomenti · ≤ 1 min").
+  List<String> get summary => <String>[
+        if (arguments.isNotEmpty) arguments.length == 1 ? arguments.first : '${arguments.length} argomenti',
+        if (maxSeconds != null) '≤ ${formatSeconds(maxSeconds!)}',
+        if (onlyNew) 'solo nuovi',
+        if (onlyMistakes) 'solo da rivedere',
+      ];
+}
+
+String formatSeconds(int seconds) =>
+    seconds < 60 ? '$seconds s' : (seconds % 60 == 0 ? '${seconds ~/ 60} min' : '${(seconds / 60).toStringAsFixed(1)} min');
 
 /// Un esercizio come lo manda il server (senza soluzione). Vale anche per le
 /// domande a risposta multipla di un'assegnazione mista (type = multiple_choice).

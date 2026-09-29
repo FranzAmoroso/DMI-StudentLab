@@ -5,15 +5,17 @@ import '../../theme/nightTheme.dart';
 
 class StudentLabGuestAccountButton extends StatelessWidget {
   final VoidCallback onPressed;
+  final bool? compact;
 
   const StudentLabGuestAccountButton({
     super.key,
     required this.onPressed,
+    this.compact,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool compact = MediaQuery.sizeOf(context).width < 390;
+    final bool compact = this.compact ?? MediaQuery.sizeOf(context).width < 390;
 
     return Tooltip(
       message: 'Guest · Accedi o registrati',

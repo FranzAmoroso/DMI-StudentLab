@@ -5,6 +5,7 @@ import 'package:fe/widgets/studentlab_ui/studentlab_ui.dart';
 import 'package:fe/quiz/teacher/services/teacher_quiz_assignments_page.dart';
 import 'package:fe/quiz/exercises/exercise_api_service.dart';
 import 'package:fe/quiz/exercises/exercise_catalog_page.dart';
+import 'package:fe/quiz/exercises/teacher/exercise_areas_page.dart';
 import 'package:fe/quiz/exercises/teacher/exercise_bank_page.dart';
 
 /// Esercizi per materia. Admin: tutte le materie (anche quelle senza docente
@@ -161,6 +162,12 @@ class _ExerciseSubjectsPageState extends State<ExerciseSubjectsPage> {
       backgroundColor: p.darkElegance,
       appBar: widget.adminMode
           ? slAdminAppBar(context, title: 'Esercizi e assegnazioni', actions: <Widget>[
+              IconButton(
+                tooltip: 'Tipi di esercizio per dipartimento',
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => const ExerciseAreasPage())),
+                icon: const Icon(Icons.account_tree_outlined),
+              ),
               IconButton(tooltip: 'Aggiorna', onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh_rounded)),
             ])
           : AppBar(backgroundColor: p.eleganceMidnight, foregroundColor: p.pureWhite, title: const Text('Esercizi')),

@@ -28,6 +28,12 @@ Widget typeEditor({
     'traccia' => TracciaEditor(key: key, initial: initial, onChanged: onChanged),
     'numerica' => NumericaEditor(key: key, initial: initial, onChanged: onChanged),
     'codice' => CodiceEditor(key: key, initial: initial, onChanged: onChanged),
+    // tipi generici (v24)
+    'caso' => CasoEditor(key: key, initial: initial, onChanged: onChanged),
+    'vero_falso' => VeroFalsoEditor(key: key, initial: initial, onChanged: onChanged),
+    'categorizza' => CategorizzaEditor(key: key, initial: initial, onChanged: onChanged),
+    'linea_tempo' => LineaTempoEditor(key: key, initial: initial, onChanged: onChanged),
+    'risposta_breve' => RispostaBreveEditor(key: key, initial: initial, onChanged: onChanged),
     _ => const SizedBox.shrink(),
   };
 }
@@ -1272,6 +1278,941 @@ class _DiagrammaEditorState extends State<DiagrammaEditor> {
       ],
       const SizedBox(height: 8),
       TextField(controller: _correct, decoration: _dec('Elementi o zone giusti (id separati da virgola)')),
+    ]);
+  }
+}
+
+
+// =================================================================== tipi generici (v24)
+String _num(dynamic v) {
+  if (v == null) return '';
+  if (v is double && v == v.roundToDouble()) return v.toInt().toString();
+  return '$v';
+}
+
+Widget _removeButton({required bool enabled, required VoidCallback onPressed, String tooltip = 'Togli'}) => IconButton(
+      tooltip: tooltip,
+      onPressed: enabled ? onPressed : null,
+      icon: const Icon(Icons.remove_circle_outline_rounded, size: 18),
+    );
+
+// ------------------------------------------------------------------- caso pratico a passi
+class _CasoStep {
+  String kind;
+  int weight;
+  final TextEditingController prompt;
+  final TextEditingController note;
+  final TextEditingController answer;
+  final TextEditingController tolerance;
+  final TextEditingController unit;
+  final List<_Row> options;
+  bool multiple;
+  double tolerancePct;
+
+  _CasoStep({this.tolerancePct = 0, this.kind = 'scelta', this.weight = 1, String prompt = '', String note = '', String answer = '',
+      String tolerance = '', String unit = '', List<_Row>? options, this.multiple = false})
+      : prompt = TextEditingController(text: prompt),
+        note = TextEditingController(text: note),
+        answer = TextEditingController(text: answer),
+        tolerance = TextEditingController(text: tolerance),
+        unit = TextEditingController(text: unit),
+        options = options ?? <_Row>[];
+
+  void listen(VoidCallback f) {
+    for (final TextEditingController c in <TextEditingController>[prompt, note, answer, tolerance, unit]) {
+      c.addListener(f);
+    }
+    for (final _Row r in options) {
+      r.a.addListener(f);
+    }
+  }
+
+  void dispose() {
+    for (final TextEditingController c in <TextEditingController>[prompt, note, answer, tolerance, unit]) {
+      c.dispose();
+    }
+    for (final _Row r in options) {
+      r.dispose();
+    }
+  }
+}
+
+/// Caso pratico: il testo del caso e da 1 a 8 passi (domanda a scelta o numerica).
+/// Modelli pronti: caso clinico, caso giuridico, caso aziendale, caso didattico.
+class CasoEditor extends StatefulWidget {
+  final Map<String, dynamic> initial;
+  final DataChanged onChanged;
+  const CasoEditor({super.key, required this.initial, required this.onChanged});
+  @override
+  State<CasoEditor> createState() => _CasoEditorState();
+}
+
+class _CasoEditorState extends State<CasoEditor> {
+  late final TextEditingController _scenario =
+      TextEditingController(text: widget.initial['scenario']?.toString() ?? '')..addListener(_emit);
+  final List<_CasoStep> _steps = <_CasoStep>[];
+
+  static const Map<String, List<String>> _templates = <String, List<String>>{
+    'Caso clinico': <String>['Valutazione iniziale: cosa rilevi per primo?', 'Qual è la priorità assistenziale?',
+        'Calcolo (dosaggio, velocità d’infusione…)', 'Come rivaluti il paziente?'],
+    'Caso giuridico': <String>['Qual è la questione giuridica?', 'Quale norma o istituto si applica?',
+        'Come si risolve il caso?'],
+    'Caso aziendale': <String>['Qual è il problema dell’impresa?', 'Calcola l’indice richiesto',
+        'Quale decisione consigli?'],
+    'Caso didattico': <String>['Che cosa sta succedendo in classe?', 'Quale strategia adotti?',
+        'Come verifichi che abbia funzionato?'],
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    for (final Map<String, dynamic> raw in asMapList(widget.initial['steps'])) {
+      final Set<String> correct = asStringList(raw['correct']).toSet();
+      final _CasoStep step = _CasoStep(
+        kind: raw['kind']?.toString() == 'numerica' ? 'numerica' : 'scelta',
+        weight: (int.tryParse('${raw['weight']}') ?? 1).clamp(1, 5),
+        prompt: raw['prompt']?.toString() ?? '',
+        note: raw['note']?.toString() ?? '',
+        answer: _num(raw['answer']),
+        tolerance: raw['tolerance'] == null || '${raw['tolerance']}' == '0.0' || '${raw['tolerance']}' == '0' ? '' : _num(raw['tolerance']),
+        unit: raw['unit']?.toString() ?? '',
+        multiple: raw['multiple'] == true,
+        tolerancePct: double.tryParse('${raw['tolerance_pct'] ?? 0}') ?? 0,
+        options: <_Row>[
+          for (final Map<String, dynamic> o in asMapList(raw['options']))
+            _Row(o['id']?.toString() ?? _newKey(), a: o['text']?.toString() ?? '', flag: correct.contains(o['id']?.toString())),
+        ],
+      );
+      _steps.add(step);
+    }
+    if (_steps.isEmpty) _steps.add(_blankStep());
+    for (final _CasoStep step in _steps) {
+      _fillOptions(step);
+      step.listen(_emit);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _emit());
+  }
+
+  _CasoStep _blankStep([String prompt = '']) => _fillOptions(_CasoStep(prompt: prompt));
+
+  _CasoStep _fillOptions(_CasoStep step) {
+    while (step.options.length < 3) {
+      step.options.add(_Row(_newKey()));
+    }
+    return step;
+  }
+
+  @override
+  void dispose() {
+    _scenario.dispose();
+    for (final _CasoStep s in _steps) {
+      s.dispose();
+    }
+    super.dispose();
+  }
+
+  void _emit() {
+    widget.onChanged(<String, dynamic>{
+      'scenario': _scenario.text.trim(),
+      'steps': <Map<String, dynamic>>[
+        for (int i = 0; i < _steps.length; i++)
+          _casoStepData(_steps[i], i),
+      ],
+    });
+  }
+
+  void _addStep([String prompt = '']) {
+    final _CasoStep step = _blankStep(prompt)..listen(_emit);
+    setState(() => _steps.add(step));
+    _emit();
+  }
+
+  void _applyTemplate(String name) {
+    final List<String> prompts = _templates[name] ?? const <String>[];
+    setState(() {
+      for (final _CasoStep s in _steps) {
+        s.dispose();
+      }
+      _steps
+        ..clear()
+        ..addAll(prompts.map((String p) => _blankStep(p)..listen(_emit)));
+      final int calc = prompts.indexWhere((String p) => p.startsWith('Calcol'));
+      if (calc >= 0) _steps[calc].kind = 'numerica';
+    });
+    _emit();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+      _section(context, 'IL CASO', help: 'Descrivi la situazione come la vedrebbe lo studente: dati, parametri, contesto. '
+          'Puoi aggiungere documenti o immagini negli allegati.', <Widget>[
+        TextField(controller: _scenario, minLines: 3, maxLines: 10, maxLength: 3000,
+            decoration: _dec('Testo del caso', hint: 'Sig.ra R., 78 anni, diabetica, confusa da un’ora…', dense: false)),
+        Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+          for (final String name in _templates.keys)
+            ActionChip(
+              avatar: const Icon(Icons.auto_awesome_outlined, size: 16),
+              label: Text(name),
+              onPressed: () async {
+                final bool empty = _steps.every((_CasoStep s) => s.prompt.text.trim().isEmpty);
+                final bool ok = empty ||
+                    await showDialog<bool>(
+                          context: context,
+                          builder: (BuildContext c) => AlertDialog(
+                            title: Text('Usare il modello “$name”?'),
+                            content: const Text('I passi scritti finora verranno sostituiti.'),
+                            actions: <Widget>[
+                              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Annulla')),
+                              FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Sostituisci')),
+                            ],
+                          ),
+                        ) ==
+                        true;
+                if (ok && mounted) _applyTemplate(name);
+              },
+            ),
+        ]),
+      ]),
+      for (int i = 0; i < _steps.length; i++)
+        _section(context, 'PASSO ${i + 1}', <Widget>[
+          Row(children: <Widget>[
+            Expanded(
+              child: SegmentedButton<String>(
+                segments: const <ButtonSegment<String>>[
+                  ButtonSegment<String>(value: 'scelta', label: Text('A scelta'), icon: Icon(Icons.checklist_rounded)),
+                  ButtonSegment<String>(value: 'numerica', label: Text('Numerica'), icon: Icon(Icons.calculate_outlined)),
+                ],
+                selected: <String>{_steps[i].kind},
+                onSelectionChanged: (Set<String> v) {
+                  setState(() => _steps[i].kind = v.first);
+                  _emit();
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            DropdownButton<int>(
+              value: _steps[i].weight,
+              items: <DropdownMenuItem<int>>[
+                for (int w = 1; w <= 5; w++) DropdownMenuItem<int>(value: w, child: Text('peso $w')),
+              ],
+              onChanged: (int? w) {
+                setState(() => _steps[i].weight = w ?? 1);
+                _emit();
+              },
+            ),
+            IconButton(
+              tooltip: 'Sposta su',
+              onPressed: i == 0
+                  ? null
+                  : () {
+                      setState(() => _steps.insert(i - 1, _steps.removeAt(i)));
+                      _emit();
+                    },
+              icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+            ),
+            _removeButton(
+              enabled: _steps.length > 1,
+              tooltip: 'Togli il passo',
+              onPressed: () {
+                setState(() => _steps.removeAt(i).dispose());
+                _emit();
+              },
+            ),
+          ]),
+          const SizedBox(height: 10),
+          TextField(controller: _steps[i].prompt, decoration: _dec('Domanda del passo')),
+          const SizedBox(height: 10),
+          if (_steps[i].kind == 'numerica')
+            Row(children: <Widget>[
+              Expanded(child: TextField(controller: _steps[i].answer, decoration: _dec('Risultato'))),
+              const SizedBox(width: 8),
+              Expanded(child: TextField(controller: _steps[i].tolerance, decoration: _dec('± tolleranza'))),
+              const SizedBox(width: 8),
+              Expanded(child: TextField(controller: _steps[i].unit, decoration: _dec('Unità (ml, €, N…)'))),
+            ])
+          else ...<Widget>[
+            for (final _Row r in _steps[i].options)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: <Widget>[
+                  Checkbox(
+                    value: r.flag,
+                    onChanged: (bool? v) {
+                      setState(() => r.flag = v == true);
+                      _emit();
+                    },
+                  ),
+                  Expanded(child: TextField(controller: r.a, decoration: _dec(r.flag ? 'Risposta giusta' : 'Risposta'))),
+                  _removeButton(
+                    enabled: _steps[i].options.length > 2,
+                    onPressed: () {
+                      setState(() {
+                        _steps[i].options.remove(r);
+                        r.dispose();
+                      });
+                      _emit();
+                    },
+                  ),
+                ]),
+              ),
+            if (_steps[i].options.length < 8)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _steps[i].options.add(_Row(_newKey())..a.addListener(_emit))),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Aggiungi risposta'),
+                ),
+              ),
+          ],
+          const SizedBox(height: 4),
+          TextField(
+            controller: _steps[i].note,
+            minLines: 1,
+            maxLines: 4,
+            decoration: _dec('Spiegazione mostrata dopo la verifica (facoltativa)'),
+          ),
+        ]),
+      if (_steps.length < 8)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => _addStep(),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Aggiungi passo'),
+          ),
+        ),
+      Text('In esercitazione ogni passo si verifica e sblocca il successivo; nei quiz e nei compiti si corregge tutto alla consegna. '
+          'Il punteggio è la media pesata dei passi.', style: SlText.muted(p).copyWith(fontSize: 11.5)),
+    ]);
+  }
+}
+
+/// Forma di scrittura di un passo (vedi _clean_caso_step nel backend).
+Map<String, dynamic> _casoStepData(_CasoStep s, int i) {
+  final Map<String, dynamic> base = <String, dynamic>{
+    'id': 's${i + 1}',
+    'kind': s.kind,
+    'prompt': s.prompt.text.trim(),
+    'weight': s.weight,
+    'note': s.note.text.trim(),
+  };
+  if (s.kind == 'numerica') {
+    return <String, dynamic>{
+      ...base,
+      'answer': s.answer.text.trim(),
+      'tolerance': double.tryParse(s.tolerance.text.replaceAll(',', '.')) ?? 0,
+      'tolerance_pct': s.tolerancePct,
+      'unit': s.unit.text.trim(),
+    };
+  }
+  final List<_Row> used = s.options.where((_Row r) => r.a.text.trim().isNotEmpty).toList();
+  return <String, dynamic>{
+    ...base,
+    'options': <Map<String, dynamic>>[
+      for (final _Row r in used) <String, dynamic>{'id': r.key, 'text': r.a.text.trim()},
+    ],
+    'correct': used.where((_Row r) => r.flag).map((_Row r) => r.key).toList(),
+  };
+}
+
+// ------------------------------------------------------------------- vero o falso motivato
+class _Claim {
+  final TextEditingController text;
+  final TextEditingController explanation;
+  final List<TextEditingController> reasons;
+  bool value;
+  int correct;
+
+  _Claim({String text = '', String explanation = '', List<String>? reasons, this.value = true, this.correct = 0})
+      : text = TextEditingController(text: text),
+        explanation = TextEditingController(text: explanation),
+        reasons = <TextEditingController>[for (final String r in reasons ?? const <String>[]) TextEditingController(text: r)];
+
+  void listen(VoidCallback f) {
+    text.addListener(f);
+    explanation.addListener(f);
+    for (final TextEditingController r in reasons) {
+      r.addListener(f);
+    }
+  }
+
+  void dispose() {
+    text.dispose();
+    explanation.dispose();
+    for (final TextEditingController r in reasons) {
+      r.dispose();
+    }
+  }
+}
+
+class VeroFalsoEditor extends StatefulWidget {
+  final Map<String, dynamic> initial;
+  final DataChanged onChanged;
+  const VeroFalsoEditor({super.key, required this.initial, required this.onChanged});
+  @override
+  State<VeroFalsoEditor> createState() => _VeroFalsoEditorState();
+}
+
+class _VeroFalsoEditorState extends State<VeroFalsoEditor> {
+  final List<_Claim> _claims = <_Claim>[];
+
+  @override
+  void initState() {
+    super.initState();
+    for (final Map<String, dynamic> c in asMapList(widget.initial['claims'])) {
+      final List<Map<String, dynamic>> reasons = asMapList(c['reasons']);
+      final List<String> texts = reasons.isNotEmpty
+          ? reasons.map((Map<String, dynamic> r) => r['text']?.toString() ?? '').toList()
+          : asStringList(c['reasons']);
+      int correct = reasons.indexWhere((Map<String, dynamic> r) => r['id']?.toString() == c['correct_reason']?.toString());
+      if (correct < 0) correct = int.tryParse('${c['correct_reason']}') ?? 0;
+      final dynamic value = c['value'];
+      _claims.add(_Claim(
+        text: c['text']?.toString() ?? '',
+        explanation: c['explanation']?.toString() ?? '',
+        reasons: texts,
+        value: value is bool ? value : !'$value'.toLowerCase().startsWith('f'),
+        correct: correct,
+      ));
+    }
+    if (_claims.isEmpty) _claims.add(_Claim(reasons: <String>['', '', '']));
+    for (final _Claim c in _claims) {
+      c.listen(_emit);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _emit());
+  }
+
+  @override
+  void dispose() {
+    for (final _Claim c in _claims) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _emit() {
+    widget.onChanged(<String, dynamic>{
+      'claims': <Map<String, dynamic>>[
+        for (final _Claim c in _claims)
+          () {
+            final List<int> filled = <int>[
+              for (int i = 0; i < c.reasons.length; i++)
+                if (c.reasons[i].text.trim().isNotEmpty) i,
+            ];
+            return <String, dynamic>{
+              'text': c.text.text.trim(),
+              'value': c.value,
+              'explanation': c.explanation.text.trim(),
+              'reasons': <String>[for (final int i in filled) c.reasons[i].text.trim()],
+              // motivo giusto lasciato vuoto: niente correct_reason, così il server lo segnala
+              if (filled.isNotEmpty && filled.contains(c.correct)) 'correct_reason': filled.indexOf(c.correct),
+            };
+          }(),
+      ],
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+      for (int i = 0; i < _claims.length; i++)
+        _section(context, 'AFFERMAZIONE ${i + 1}',
+            help: i == 0
+                ? 'Scrivi 3–4 motivi, alcuni a favore di VERO e alcuni di FALSO: così il motivo non suggerisce il verdetto. '
+                    'Senza motivi vale solo vero/falso.'
+                : null,
+            <Widget>[
+              Row(children: <Widget>[
+                Expanded(child: TextField(controller: _claims[i].text, minLines: 1, maxLines: 4, decoration: _dec('Affermazione'))),
+                _removeButton(
+                  enabled: _claims.length > 1,
+                  onPressed: () {
+                    setState(() => _claims.removeAt(i).dispose());
+                    _emit();
+                  },
+                ),
+              ]),
+              const SizedBox(height: 8),
+              SegmentedButton<bool>(
+                segments: const <ButtonSegment<bool>>[
+                  ButtonSegment<bool>(value: true, label: Text('È vera'), icon: Icon(Icons.check_rounded)),
+                  ButtonSegment<bool>(value: false, label: Text('È falsa'), icon: Icon(Icons.close_rounded)),
+                ],
+                selected: <bool>{_claims[i].value},
+                onSelectionChanged: (Set<bool> v) {
+                  setState(() => _claims[i].value = v.first);
+                  _emit();
+                },
+              ),
+              const SizedBox(height: 10),
+              Text('Motivi (tocca il pallino di quello giusto)', style: SlText.muted(p).copyWith(fontSize: 12)),
+              const SizedBox(height: 6),
+              for (int r = 0; r < _claims[i].reasons.length; r++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(children: <Widget>[
+                    IconButton(
+                      tooltip: 'Motivo giusto',
+                      onPressed: () {
+                        setState(() => _claims[i].correct = r);
+                        _emit();
+                      },
+                      icon: Icon(_claims[i].correct == r ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                          color: _claims[i].correct == r ? p.adminGreen : null),
+                    ),
+                    Expanded(child: TextField(controller: _claims[i].reasons[r], decoration: _dec('Motivo ${r + 1}'))),
+                    _removeButton(
+                      enabled: true,
+                      onPressed: () {
+                        setState(() {
+                          _claims[i].reasons.removeAt(r).dispose();
+                          // il motivo giusto resta lo stesso anche se se ne toglie uno prima
+                          if (r < _claims[i].correct) {
+                            _claims[i].correct--;
+                          } else if (r == _claims[i].correct) {
+                            _claims[i].correct = 0;
+                          }
+                        });
+                        _emit();
+                      },
+                    ),
+                  ]),
+                ),
+              if (_claims[i].reasons.length < 5)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _claims[i].reasons.add(TextEditingController()..addListener(_emit))),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Aggiungi motivo'),
+                  ),
+                ),
+              TextField(controller: _claims[i].explanation, maxLines: 3, minLines: 1,
+                  decoration: _dec('Spiegazione dopo la verifica (es. art. 1478 c.c.)')),
+            ]),
+      if (_claims.length < 10)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () {
+              final _Claim c = _Claim(reasons: <String>['', '', ''])..listen(_emit);
+              setState(() => _claims.add(c));
+              _emit();
+            },
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Aggiungi affermazione'),
+          ),
+        ),
+    ]);
+  }
+}
+
+// ------------------------------------------------------------------- categorizza
+class CategorizzaEditor extends StatefulWidget {
+  final Map<String, dynamic> initial;
+  final DataChanged onChanged;
+  const CategorizzaEditor({super.key, required this.initial, required this.onChanged});
+  @override
+  State<CategorizzaEditor> createState() => _CategorizzaEditorState();
+}
+
+class _CategorizzaEditorState extends State<CategorizzaEditor> {
+  final List<TextEditingController> _categories = <TextEditingController>[];
+  final List<_Row> _items = <_Row>[];
+  final Map<String, int> _itemCategory = <String, int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    final List<Map<String, dynamic>> cats = asMapList(widget.initial['categories']);
+    final List<String> catTexts = cats.isNotEmpty
+        ? cats.map((Map<String, dynamic> c) => c['text']?.toString() ?? '').toList()
+        : asStringList(widget.initial['categories']);
+    final Map<String, int> catIndex = <String, int>{
+      for (int i = 0; i < cats.length; i++) cats[i]['id'].toString(): i,
+    };
+    final Map<String, dynamic> placement = asMap(widget.initial['placement']);
+    for (final String t in catTexts) {
+      _categories.add(TextEditingController(text: t));
+    }
+    while (_categories.length < 2) {
+      _categories.add(TextEditingController());
+    }
+    for (final Map<String, dynamic> item in asMapList(widget.initial['items'])) {
+      final _Row row = _Row(_newKey(), a: item['text']?.toString() ?? '');
+      int index = 0;
+      if (placement.isNotEmpty) {
+        index = catIndex[placement[item['id']?.toString()]?.toString()] ?? 0;
+      } else {
+        final dynamic c = item['category'];
+        index = c is int ? c : (int.tryParse('$c') ?? catTexts.indexWhere((String t) => t.toLowerCase() == '$c'.toLowerCase()));
+      }
+      _itemCategory[row.key] = index < 0 ? 0 : index;
+      _items.add(row);
+    }
+    while (_items.length < 4) {
+      final _Row row = _Row(_newKey());
+      _itemCategory[row.key] = _items.length % 2;
+      _items.add(row);
+    }
+    for (final TextEditingController c in _categories) {
+      c.addListener(_emit);
+    }
+    for (final _Row r in _items) {
+      r.a.addListener(_emit);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _emit());
+  }
+
+  @override
+  void dispose() {
+    for (final TextEditingController c in _categories) {
+      c.dispose();
+    }
+    for (final _Row r in _items) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  void _emit() => widget.onChanged(<String, dynamic>{
+        'categories': _categories.map((TextEditingController c) => c.text.trim()).toList(),
+        'items': <Map<String, dynamic>>[
+          for (final _Row r in _items)
+            if (r.a.text.trim().isNotEmpty)
+              <String, dynamic>{'text': r.a.text.trim(), 'category': (_itemCategory[r.key] ?? 0).clamp(0, _categories.length - 1)},
+        ],
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+      _section(context, 'CATEGORIE', help: 'Da 2 a 6 (es. Procarioti / Eucarioti / Entrambi).', <Widget>[
+        for (int i = 0; i < _categories.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: <Widget>[
+              Expanded(child: TextField(controller: _categories[i], decoration: _dec('Categoria ${i + 1}'))),
+              _removeButton(
+                enabled: _categories.length > 2,
+                onPressed: () {
+                  setState(() {
+                    _categories.removeAt(i).dispose();
+                    // gli elementi della categoria tolta passano alla prima; gli altri scalano
+                    _itemCategory.updateAll((String k, int v) => v == i ? 0 : (v > i ? v - 1 : v));
+                  });
+                  _emit();
+                },
+              ),
+            ]),
+          ),
+        if (_categories.length < 6)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _categories.add(TextEditingController()..addListener(_emit))),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Aggiungi categoria'),
+            ),
+          ),
+      ]),
+      _section(context, 'ELEMENTI DA SISTEMARE', help: 'Da 2 a 24. Lo studente li vedrà mescolati.', <Widget>[
+        for (final _Row r in _items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: <Widget>[
+              Expanded(flex: 3, child: TextField(controller: r.a, decoration: _dec('Elemento'))),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<int>(
+                  value: (_itemCategory[r.key] ?? 0).clamp(0, _categories.length - 1),
+                  isExpanded: true,
+                  decoration: _dec('Va in'),
+                  items: <DropdownMenuItem<int>>[
+                    for (int i = 0; i < _categories.length; i++)
+                      DropdownMenuItem<int>(
+                        value: i,
+                        child: Text(_categories[i].text.trim().isEmpty ? 'Categoria ${i + 1}' : _categories[i].text.trim(),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (int? v) {
+                    setState(() => _itemCategory[r.key] = v ?? 0);
+                    _emit();
+                  },
+                ),
+              ),
+              _removeButton(
+                enabled: _items.length > 2,
+                onPressed: () {
+                  setState(() {
+                    _items.remove(r);
+                    _itemCategory.remove(r.key);
+                    r.dispose();
+                  });
+                  _emit();
+                },
+              ),
+            ]),
+          ),
+        if (_items.length < 24)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () {
+                final _Row row = _Row(_newKey())..a.addListener(_emit);
+                setState(() {
+                  _itemCategory[row.key] = 0;
+                  _items.add(row);
+                });
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Aggiungi elemento'),
+            ),
+          ),
+      ]),
+    ]);
+  }
+}
+
+// ------------------------------------------------------------------- linea del tempo
+class LineaTempoEditor extends StatefulWidget {
+  final Map<String, dynamic> initial;
+  final DataChanged onChanged;
+  const LineaTempoEditor({super.key, required this.initial, required this.onChanged});
+  @override
+  State<LineaTempoEditor> createState() => _LineaTempoEditorState();
+}
+
+class _LineaTempoEditorState extends State<LineaTempoEditor> {
+  final List<_Row> _events = <_Row>[];
+
+  @override
+  void initState() {
+    super.initState();
+    for (final dynamic raw in (widget.initial['events'] is List ? widget.initial['events'] as List : const <dynamic>[])) {
+      if (raw is Map) {
+        _events.add(_Row(_newKey(), a: raw['text']?.toString() ?? '', b: raw['date']?.toString() ?? ''));
+      } else if (raw != null) {
+        _events.add(_Row(_newKey(), a: raw.toString()));
+      }
+    }
+    while (_events.length < 3) {
+      _events.add(_Row(_newKey()));
+    }
+    for (final _Row r in _events) {
+      r.a.addListener(_emit);
+      r.b.addListener(_emit);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _emit());
+  }
+
+  @override
+  void dispose() {
+    for (final _Row r in _events) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  void _emit() => widget.onChanged(<String, dynamic>{
+        'events': <Map<String, dynamic>>[
+          for (final _Row r in _events)
+            if (r.a.text.trim().isNotEmpty) <String, dynamic>{'text': r.a.text.trim(), 'date': r.b.text.trim()},
+        ],
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return _section(context, 'EVENTI DAL PIÙ ANTICO AL PIÙ RECENTE',
+        help: 'Almeno 3 eventi. La data (o la fase) si mostra solo dopo la verifica: non suggerisce l’ordine.', <Widget>[
+      for (int i = 0; i < _events.length; i++)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(children: <Widget>[
+            SizedBox(width: 26, child: Text('${i + 1}.')),
+            SizedBox(width: 110, child: TextField(controller: _events[i].b, decoration: _dec('Data', hint: '1948'))),
+            const SizedBox(width: 8),
+            Expanded(child: TextField(controller: _events[i].a, decoration: _dec('Evento'))),
+            IconButton(
+              tooltip: 'Su',
+              onPressed: i == 0
+                  ? null
+                  : () {
+                      setState(() => _events.insert(i - 1, _events.removeAt(i)));
+                      _emit();
+                    },
+              icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+            ),
+            _removeButton(
+              enabled: _events.length > 3,
+              onPressed: () {
+                setState(() => _events.removeAt(i).dispose());
+                _emit();
+              },
+            ),
+          ]),
+        ),
+      if (_events.length < 12)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _events.add(_Row(_newKey())
+              ..a.addListener(_emit)
+              ..b.addListener(_emit))),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Aggiungi evento'),
+          ),
+        ),
+    ]);
+  }
+}
+
+// ------------------------------------------------------------------- risposta breve con griglia
+class RispostaBreveEditor extends StatefulWidget {
+  final Map<String, dynamic> initial;
+  final DataChanged onChanged;
+  const RispostaBreveEditor({super.key, required this.initial, required this.onChanged});
+  @override
+  State<RispostaBreveEditor> createState() => _RispostaBreveEditorState();
+}
+
+class _RispostaBreveEditorState extends State<RispostaBreveEditor> {
+  late final TextEditingController _model =
+      TextEditingController(text: widget.initial['model_answer']?.toString() ?? '')..addListener(_emit);
+  late final TextEditingController _min =
+      TextEditingController(text: '${widget.initial['min_chars'] ?? 40}')..addListener(_emit);
+  late final TextEditingController _max =
+      TextEditingController(text: '${widget.initial['max_chars'] ?? 600}')..addListener(_emit);
+  final List<_Row> _criteria = <_Row>[];
+  final Map<String, int> _points = <String, int>{};
+  final Map<String, int> _minMatches = <String, int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    for (final Map<String, dynamic> c in asMapList(widget.initial['criteria'])) {
+      final dynamic k = c['keywords'];
+      final _Row row = _Row(_newKey(), a: c['text']?.toString() ?? '', b: k is List ? k.join(', ') : (k?.toString() ?? ''));
+      _points[row.key] = (int.tryParse('${c['points']}') ?? 1).clamp(1, 5);
+      _minMatches[row.key] = int.tryParse('${c['min_matches'] ?? 1}') ?? 1;
+      _criteria.add(row);
+    }
+    while (_criteria.length < 2) {
+      final _Row row = _Row(_newKey());
+      _points[row.key] = 1;
+      _criteria.add(row);
+    }
+    for (final _Row r in _criteria) {
+      r.a.addListener(_emit);
+      r.b.addListener(_emit);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _emit());
+  }
+
+  @override
+  void dispose() {
+    _model.dispose();
+    _min.dispose();
+    _max.dispose();
+    for (final _Row r in _criteria) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  void _emit() => widget.onChanged(<String, dynamic>{
+        'model_answer': _model.text.trim(),
+        'min_chars': int.tryParse(_min.text.trim()) ?? 40,
+        'max_chars': int.tryParse(_max.text.trim()) ?? 600,
+        'criteria': <Map<String, dynamic>>[
+          for (final _Row r in _criteria)
+            if (r.a.text.trim().isNotEmpty)
+              <String, dynamic>{
+                'text': r.a.text.trim(),
+                'points': _points[r.key] ?? 1,
+                'keywords': r.b.text.trim(),
+                'min_matches': _minMatches[r.key] ?? 1,
+              },
+        ],
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
+      _section(context, 'RISPOSTA MODELLO', help: 'Lo studente la vede dopo la verifica, accanto alla sua.', <Widget>[
+        TextField(controller: _model, minLines: 3, maxLines: 8, decoration: _dec('Risposta modello', dense: false)),
+        const SizedBox(height: 8),
+        Row(children: <Widget>[
+          Expanded(child: TextField(controller: _min, keyboardType: TextInputType.number, decoration: _dec('Minimo caratteri'))),
+          const SizedBox(width: 8),
+          Expanded(child: TextField(controller: _max, keyboardType: TextInputType.number, decoration: _dec('Massimo caratteri'))),
+        ]),
+      ]),
+      _section(context, 'GRIGLIA', help: 'Da 1 a 6 punti. Le parole chiave servono al controllo automatico indicativo: '
+          'scrivi l’inizio delle parole (“filtr” trova filtrazione e filtrare), separate da virgole.', <Widget>[
+        for (final _Row r in _criteria)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              border: Border.all(color: p.pureWhite.withValues(alpha: 0.08)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(children: <Widget>[
+              Row(children: <Widget>[
+                Expanded(child: TextField(controller: r.a, decoration: _dec('Cosa deve dire'))),
+                const SizedBox(width: 8),
+                DropdownButton<int>(
+                  value: _points[r.key] ?? 1,
+                  items: <DropdownMenuItem<int>>[
+                    for (int v = 1; v <= 5; v++) DropdownMenuItem<int>(value: v, child: Text('$v pt')),
+                  ],
+                  onChanged: (int? v) {
+                    setState(() => _points[r.key] = v ?? 1);
+                    _emit();
+                  },
+                ),
+                _removeButton(
+                  enabled: _criteria.length > 1,
+                  onPressed: () {
+                    setState(() {
+                      _criteria.remove(r);
+                      _points.remove(r.key);
+                      r.dispose();
+                    });
+                    _emit();
+                  },
+                ),
+              ]),
+              const SizedBox(height: 8),
+              TextField(controller: r.b, decoration: _dec('Parole chiave', hint: 'filtr, ritenzione, trattien')),
+            ]),
+          ),
+        if (_criteria.length < 6)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () {
+                final _Row row = _Row(_newKey())
+                  ..a.addListener(_emit)
+                  ..b.addListener(_emit);
+                setState(() {
+                  _points[row.key] = 1;
+                  _criteria.add(row);
+                });
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Aggiungi punto'),
+            ),
+          ),
+      ]),
     ]);
   }
 }

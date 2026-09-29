@@ -257,6 +257,7 @@ from services.registration import (
 )
 
 from services.quiz_service import (
+    available_quiz_paths,
     arguments,
     question_count,
     quiz_availability,
@@ -826,6 +827,12 @@ def api_subjects(
     )
 
 
+@app.get('/quiz/available-paths')
+def api_quiz_available_paths():
+    """Catalogo dei soli percorsi che hanno quiz in question/*.json."""
+    return available_quiz_paths()
+
+
 
 @app.get(
     "/universities",
@@ -976,6 +983,25 @@ def api_courses(
                 not any(c['code'] == option['course_code'] for c in courses)):
             courses.append({'code': option['course_code'], 'name': option['course'],
                             'degree_type': option['degree_type']})
+    # Il catalogo conserva i nomi storici delle materie. Mostra una sola voce
+    # quando due nomi indicano il medesimo corso, senza cambiare il codice usato
+    # per caricare le materie dal database.
+    if university_code.strip().upper() == 'UNICT' and department_code.strip().upper() == 'DMI':
+        from services.news_filter_scope import code as known_academic_code
+
+        unique_courses = {}
+        for item in courses:
+            academic_code = (known_academic_code(str(item['code']), 'course') or
+                             known_academic_code(str(item['name']), 'course'))
+            key = academic_code or str(item['code']).strip().casefold()
+            existing = unique_courses.get(key)
+            if existing is None or (academic_code and
+                                    str(item['code']).strip().upper() == academic_code and
+                                    str(existing['code']).strip().upper() != academic_code):
+                unique_courses[key] = item
+        if 'L-31' in unique_courses:
+            unique_courses['L-31'] = {**unique_courses['L-31'], 'name': 'Informatica (L-31)'}
+        courses = list(unique_courses.values())
     return courses
 
 

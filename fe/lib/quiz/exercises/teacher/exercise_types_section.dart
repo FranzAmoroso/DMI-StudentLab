@@ -26,7 +26,10 @@ class ExerciseTypesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    const List<String> all = <String>[kMultipleChoice, ...kExerciseTypes];
+    final List<String> all = <String>[
+      kMultipleChoice,
+      ...kExerciseTypes.where((String type) => type != 'flashcard'),
+    ];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
       Text('Scegli cosa assegnare. Il server sceglie gli esercizi tra quelli della materia; '
           '“Grafo”, “Traccia” e “Risposta numerica” generati sono diversi per ogni studente.',

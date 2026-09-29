@@ -558,13 +558,35 @@ class ApiService {
       'Errore caricamento corsi',
     );
 
-    return data
-        .map(AcademicCourse.fromJson)
-        .where(
-          (AcademicCourse course) =>
-              course.code.isNotEmpty && course.name.isNotEmpty,
-        )
-        .toList();
+    final Map<String, AcademicCourse> courses = <String, AcademicCourse>{};
+    for (final AcademicCourse course in data.map(AcademicCourse.fromJson)) {
+      if (course.code.isEmpty || course.name.isEmpty) continue;
+      final String label = course.name.trim().toLowerCase();
+      final String rawCode = course.code.trim().toUpperCase();
+      // Alcuni cataloghi contengono sia il nome attuale sia quello storico.
+      // Si mantiene il codice del record reale per poter caricare le materie.
+      final bool isL31 = departmentCode.toUpperCase() == 'DMI' &&
+          (rawCode == 'L-31' ||
+              label == 'informatica' ||
+              label == 'informatica l-31' ||
+              label == 'l-31 informatica' ||
+              label == 'informatica (l-31)' ||
+              label == 'scienze e tecnologie informatiche');
+      final String key = isL31 ? 'L-31' : rawCode;
+      final AcademicCourse? existing = courses[key];
+      if (existing == null ||
+          (isL31 && rawCode == 'L-31' &&
+              existing.code.trim().toUpperCase() != 'L-31')) {
+        courses[key] = isL31
+            ? AcademicCourse(
+                code: course.code,
+                name: 'Informatica (L-31)',
+                degreeType: course.degreeType,
+              )
+            : course;
+      }
+    }
+    return courses.values.toList();
   }
 
   Future<List<SocialSubject>> getCatalogSubjects({
@@ -4432,6 +4454,23 @@ class ApiService {
     _requireCurrentUserId();
     return StudentLabUploadService().shareMaterial(
       filePath: filePath,
+      recipientUserId: recipientUserId,
+      subjectId: subjectId,
+      message: message,
+    );
+  }
+
+  Future<Map<String, dynamic>> shareMaterialBytesWithUser({
+    required Uint8List bytes,
+    required String originalName,
+    required int recipientUserId,
+    int? subjectId,
+    String? message,
+  }) {
+    _requireCurrentUserId();
+    return StudentLabUploadService().shareMaterialBytes(
+      bytes: bytes,
+      originalName: originalName,
       recipientUserId: recipientUserId,
       subjectId: subjectId,
       message: message,

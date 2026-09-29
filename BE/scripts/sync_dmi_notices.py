@@ -17,36 +17,46 @@ def main() -> int:
         print("Imposta STUDENTLAB_NOTICE_API_URL (HTTPS) e STUDENTLAB_NOTICE_SYNC_TOKEN.", file=sys.stderr)
         return 2
 
-    notices = []
+    totals = {"received": 0, "inserted": 0, "updated": 0}
     failed = []
+    empty = []
     for source, url in URLS.items():
         try:
-            notices.extend(scrape_source(source, url))
+            notices = [item for item in remove_duplicates(scrape_source(source, url))
+                       if item.get("titolo", "").strip() and item.get("testo", "").strip()]
         except Exception as exc:
             failed.append(source)
             print(f"Fonte {source} non disponibile: {exc}", file=sys.stderr)
-    notices = [item for item in remove_duplicates(notices)
-               if item.get("titolo", "").strip() and item.get("testo", "").strip()]
-    if not notices:
-        print("Nessun avviso estratto: sincronizzazione annullata.", file=sys.stderr)
-        return 1
-
-    totals = {"received": 0, "inserted": 0, "updated": 0}
-    for index in range(0, len(notices), 100):
-        response = requests.post(
-            endpoint,
-            json={"notices": notices[index:index + 100]},
-            headers={"X-StudentLab-Sync-Token": token},
-            timeout=45,
-        )
-        response.raise_for_status()
-        result = response.json()
-        for key in totals:
-            totals[key] += int(result.get(key, 0))
+            continue
+        print(f"Fonte {source}: {len(notices)} avvisi validi; elenco {url}.")
+        if not notices:
+            empty.append(source)
+            continue
+        # Una fonte difettosa non deve bloccare l'importazione delle altre.
+        for index in range(0, len(notices), 50):
+            try:
+                response = requests.post(
+                    endpoint,
+                    json={"notices": notices[index:index + 50]},
+                    headers={"X-StudentLab-Sync-Token": token},
+                    timeout=45,
+                )
+                response.raise_for_status()
+                result = response.json()
+            except requests.RequestException as exc:
+                failed.append(source)
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                print(f"Fonte {source}: sincronizzazione fallita "
+                      f"(HTTP {status or 'rete'}, blocco {index // 50 + 1}).", file=sys.stderr)
+                break
+            for key in totals:
+                totals[key] += int(result.get(key, 0))
     print(f"Sincronizzati {totals['received']} avvisi; nuovi {totals['inserted']}; aggiornati {totals['updated']}.")
     if failed:
-        print(f"Fonti temporaneamente non disponibili: {', '.join(failed)}", file=sys.stderr)
-    return 0
+        print(f"Fonti non sincronizzate: {', '.join(dict.fromkeys(failed))}", file=sys.stderr)
+    if empty:
+        print(f"Fonti senza avvisi validi: {', '.join(empty)}", file=sys.stderr)
+    return 1 if failed or totals['received'] == 0 else 0
 
 
 if __name__ == "__main__":

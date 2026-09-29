@@ -26,14 +26,23 @@ Future<void> showDriveFilePreview(BuildContext context, {
       content = Center(child: Text('Anteprima non disponibile per questo formato.',
         style: TextStyle(color: AppColors.white70)));
     }
-    await showDialog<void>(context: context, builder: (ctx) => Dialog(
-      backgroundColor: AppColors.eleganceMidnight,
-      child: SizedBox(width: 900, height: 650, child: Column(children: [
-        ListTile(title: Text(name, style: TextStyle(color: AppColors.white)),
-          trailing: IconButton(onPressed: () => Navigator.pop(ctx),
+    await showDialog<void>(context: context, builder: (ctx) {
+      final Widget body = Column(children: [
+        ListTile(title: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: AppColors.white)),
+          trailing: IconButton(tooltip: 'Chiudi', onPressed: () => Navigator.pop(ctx),
             icon: Icon(Icons.close, color: AppColors.white))),
         Expanded(child: content),
-      ]))));
+      ]);
+      final Size screen = MediaQuery.sizeOf(ctx);
+      if (screen.width < 700) {
+        return Dialog.fullscreen(backgroundColor: AppColors.eleganceMidnight,
+          child: SafeArea(child: body));
+      }
+      return Dialog(backgroundColor: AppColors.eleganceMidnight,
+        child: SizedBox(width: screen.width < 948 ? screen.width - 48 : 900,
+          height: screen.height < 698 ? screen.height - 48 : 650, child: body));
+    });
   } catch (_) {
     if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Impossibile aprire l’anteprima del file.')));

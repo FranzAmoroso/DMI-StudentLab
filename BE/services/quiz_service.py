@@ -456,18 +456,6 @@ def subjects(
         if not file_path.is_file():
             continue
 
-        try:
-            with file_path.open(
-                "r",
-                encoding="utf-8",
-            ) as file:
-                data = json.load(file)
-        except (OSError, json.JSONDecodeError):
-            continue
-
-        if not isinstance(data, list):
-            continue
-
         subject = (
             file_path
             .stem
@@ -475,10 +463,25 @@ def subjects(
             .strip()
         )
 
-        if subject:
+        # Un JSON vuoto o con sole domande nascoste non è un quiz disponibile.
+        # La lettura passa dallo storage usato anche dagli altri endpoint quiz.
+        if subject and get_available_questions(department, course, subject):
             result.append(subject)
 
     return sorted(
         set(result),
         key=str.casefold,
     )
+
+
+def available_quiz_paths() -> list[dict[str, str]]:
+    """Solo corsi e materie con una banca question/*.json realmente utilizzabile."""
+    paths = []
+    for folder in DATA_ROOT.glob('*/*/question'):
+        if not folder.is_dir():
+            continue
+        course, department = folder.parent.name, folder.parent.parent.name
+        for subject in subjects(department, course):
+            paths.append({'department': department.upper(), 'course': course.upper(),
+                          'subject': subject})
+    return sorted(paths, key=lambda p: (p['department'], p['course'], p['subject'].casefold()))

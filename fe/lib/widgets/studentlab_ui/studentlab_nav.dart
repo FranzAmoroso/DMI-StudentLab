@@ -401,3 +401,119 @@ class SlAccountButton extends StatelessWidget {
     );
   }
 }
+
+/// Nome breve per la barra: nome proprio, altrimenti il nome completo.
+String slDisplayName(SocialUser? user) {
+  if (user == null) return 'Utente';
+  if (user.firstName.trim().isNotEmpty) return user.firstName.trim();
+  if (user.name.trim().isNotEmpty) return user.name.trim();
+  return 'Utente';
+}
+
+/// Pulsante account dell'ospite: stessa forma di [SlAccountButton], con l'avatar
+/// ospite di StudentLab. Su schermi stretti resta solo l'avatar (44 px).
+class SlGuestAccountButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final bool compact;
+
+  const SlGuestAccountButton({super.key, required this.onPressed, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final Color ring = SlTone.neutral.resolve(p);
+    final Widget avatar = Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ring, width: 2)),
+      child: StudentLabUserAvatar(radius: compact ? 17 : 15),
+    );
+    if (compact) {
+      return Semantics(
+        button: true,
+        label: 'Ospite: accedi o registrati',
+        excludeSemantics: true,
+        child: Tooltip(
+          message: 'Ospite · Accedi o registrati',
+          child: InkWell(
+            onTap: onPressed,
+            customBorder: const CircleBorder(),
+            child: SizedBox(width: 44, height: 44, child: Center(child: avatar)),
+          ),
+        ),
+      );
+    }
+    return Semantics(
+      button: true,
+      label: 'Ospite: accedi o registrati',
+      excludeSemantics: true,
+      child: Material(
+        color: p.brandNightBlue,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: ring.withValues(alpha: 0.30)),
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(14),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48, maxWidth: 240),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(5, 4, 10, 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  avatar,
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text('Ospite',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: p.pureWhite, fontSize: 13, fontWeight: FontWeight.w600)),
+                        Text('Accedi o registrati',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: p.skyBlue, fontSize: 11, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: p.pureWhite.withValues(alpha: 0.6)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pulsante account per qualsiasi barra: con la sessione mostra avatar, nome e ruolo
+/// ([SlAccountButton]); senza, l'avatar ospite ([SlGuestAccountButton]).
+/// `compact` = null decide da solo in base alla larghezza (sotto 720 px solo l'avatar).
+class StudentLabNavAccount extends StatelessWidget {
+  final SocialUser? user;
+  final VoidCallback onAccount;
+  final VoidCallback onGuest;
+  final bool? compact;
+
+  const StudentLabNavAccount({
+    super.key,
+    required this.user,
+    required this.onAccount,
+    required this.onGuest,
+    this.compact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool narrow = compact ?? MediaQuery.sizeOf(context).width < 720;
+    final SocialUser? current = user;
+    if (current == null) return SlGuestAccountButton(onPressed: onGuest, compact: narrow);
+    return SlAccountButton(user: current, name: slDisplayName(current), compact: narrow, onPressed: onAccount);
+  }
+}

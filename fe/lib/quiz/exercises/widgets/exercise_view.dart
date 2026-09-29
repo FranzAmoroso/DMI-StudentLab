@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fe/quiz/exercises/exercise_models.dart';
 import 'package:fe/quiz/exercises/widgets/flashcard_view.dart';
+import 'package:fe/quiz/exercises/widgets/views_generic.dart';
 import 'package:fe/quiz/exercises/widgets/views_logic.dart';
 import 'package:fe/quiz/exercises/widgets/views_practice.dart';
 import 'package:fe/quiz/exercises/widgets/views_visual.dart';
@@ -68,6 +69,17 @@ class ExerciseView extends StatelessWidget {
       'diagramma' => DiagrammaView(key: key, item: item, scope: scope, result: result, locked: locked, initial: initialAnswer,
           onChanged: onChanged),
       'grafo' => GrafoView(key: key, item: item, result: result, locked: locked, initial: initialAnswer, onChanged: onChanged),
+      // tipi generici (v24)
+      'caso' => CasoView(key: key, item: item, result: result, locked: locked, initial: initialAnswer, onChanged: onChanged,
+          checkPart: scope.checkPart),
+      'vero_falso' => VeroFalsoView(key: key, item: item, result: result, locked: locked, initial: initialAnswer,
+          onChanged: onChanged),
+      'categorizza' => CategorizzaView(key: key, item: item, result: result, locked: locked, initial: initialAnswer,
+          onChanged: onChanged),
+      'linea_tempo' => LineaTempoView(key: key, item: item, result: result, locked: locked, initial: initialAnswer,
+          onChanged: onChanged),
+      'risposta_breve' => RispostaBreveView(key: key, item: item, result: result, locked: locked, initial: initialAnswer,
+          onChanged: onChanged),
       'flashcard' => FlashcardView(key: key, item: item, locked: locked, onGrade: onGrade, state: flashcardState,
           onChanged: onChanged),
       _ => SceltaView(key: key, item: item, scope: scope, result: result, locked: locked, initial: initialAnswer,

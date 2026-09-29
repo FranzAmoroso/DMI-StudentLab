@@ -33,6 +33,7 @@ class _ExerciseBankPageState extends State<ExerciseBankPage> {
   List<Map<String, dynamic>> _items = <Map<String, dynamic>>[];
   List<String> _arguments = <String>[];
   bool _codeRunner = false;
+  Map<String, dynamic> _area = <String, dynamic>{};
   String? _type;
   String? _argument;
 
@@ -59,6 +60,7 @@ class _ExerciseBankPageState extends State<ExerciseBankPage> {
       _items = asMapList(data['items']);
       _arguments = asStringList(data['arguments']);
       _codeRunner = data['code_runner'] == true;
+      _area = asMap(data['area']);
     } catch (error) {
       _error = cleanError(error, 'Banca esercizi non disponibile.');
     }
@@ -67,6 +69,23 @@ class _ExerciseBankPageState extends State<ExerciseBankPage> {
 
   Future<void> _new() async {
     final p = context.palette;
+    final Set<String> areaTypes = asStringList(_area['types']).toSet();
+    // Le flashcard si gestiscono nel Ripasso, non nella creazione degli esercizi.
+    final List<String> exerciseTypes = kExerciseTypes.where((t) => t != 'flashcard').toList();
+    final List<String> recommended = exerciseTypes.where(areaTypes.contains).toList();
+    final List<String> others = exerciseTypes.where((String t) => !areaTypes.contains(t)).toList();
+    Widget tile(String t) => Builder(
+          builder: (BuildContext tileContext) => ListTile(
+            leading: Icon(exerciseInfo(t).icon, color: categoryColor(tileContext, exerciseInfo(t).category)),
+            title: Text(exerciseInfo(t).label),
+            subtitle: Text(
+              t == 'codice' && !_codeRunner
+                  ? 'Serve il servizio di esecuzione (CODE_RUNNER_URL): puoi prepararlo, sarà visibile quando è attivo.'
+                  : exerciseInfo(t).purpose,
+            ),
+            onTap: () => Navigator.pop(tileContext, t),
+          ),
+        );
     final String? type = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: p.eleganceDeepNavy,
@@ -79,17 +98,24 @@ class _ExerciseBankPageState extends State<ExerciseBankPage> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Text('Che tipo di esercizio?', style: TextStyle(color: p.pureWhite, fontSize: 17, fontWeight: FontWeight.w700)),
             ),
-            for (final String t in kExerciseTypes)
-              ListTile(
-                leading: Icon(exerciseInfo(t).icon, color: categoryColor(sheetContext, exerciseInfo(t).category)),
-                title: Text(exerciseInfo(t).label),
-                subtitle: Text(
-                  t == 'codice' && !_codeRunner
-                      ? 'Serve il servizio di esecuzione (CODE_RUNNER_URL): puoi prepararlo, sarà visibile quando è attivo.'
-                      : exerciseInfo(t).purpose,
-                ),
-                onTap: () => Navigator.pop(sheetContext, t),
+            // prima i tipi consigliati per l'area del corso (v24), poi tutti gli altri
+            if (recommended.isNotEmpty) ...<Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+                child: SlOverline('CONSIGLIATI · ${(_area['label'] ?? '').toString().toUpperCase()}'),
               ),
+              for (final String t in recommended) tile(t),
+              if (others.isNotEmpty)
+                Theme(
+                  data: Theme.of(sheetContext).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    title: Text('Altri tipi (${others.length})', style: TextStyle(color: p.pureWhite, fontSize: 14)),
+                    subtitle: const Text('Poco usati in questo corso, ma puoi crearli'),
+                    children: <Widget>[for (final String t in others) tile(t)],
+                  ),
+                ),
+            ] else
+              for (final String t in exerciseTypes) tile(t),
           ]),
         ),
       ),
@@ -342,7 +368,7 @@ class _ExerciseBankPageState extends State<ExerciseBankPage> {
                       _load();
                     },
                   ),
-                  for (final String t in kExerciseTypes)
+                  for (final String t in kExerciseTypes.where((String type) => type != 'flashcard'))
                     Padding(
                       padding: const EdgeInsets.only(left: 6),
                       child: ChoiceChip(

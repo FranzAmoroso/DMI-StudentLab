@@ -35,7 +35,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
   Map<String, dynamic>? _preview;
   int? _subjectId;
   int? _selectedId;
-  int _compactPane = 1;
+  int _compactPane = 0;
 
   /// Cartelle Drive aperte nell'albero: id -> figli (caricati quando si aprono).
   final Map<String, List<Map<String, dynamic>>> _driveChildren = {};
@@ -64,6 +64,10 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
   int get _draftCount => _draft.length + _imports.length +
     _folders.where((folder) => folder['draft'] == true).length;
   String _string(Object? value) => value?.toString() ?? '';
+  double _dialogWidth(BuildContext context, double preferred) {
+    final available = MediaQuery.sizeOf(context).width - 80;
+    return available < preferred ? available.clamp(160.0, preferred) : preferred;
+  }
   List<String> _path(Object? value) => value is List ? value.map((e) => '$e').toList() : [];
 
   Map<String, dynamic> _effective(Map<String, dynamic> item) {
@@ -203,7 +207,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     final choice = await showDialog<(int, List<String>, String, String, int?)>(context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(
         title: Text('Gestisci: ${_string(item['title'])}'),
-        content: SizedBox(width: 460, child: SingleChildScrollView(child: Column(
+        content: SizedBox(width: _dialogWidth(ctx, 460), child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Le modifiche resteranno in bozza fino a «Pubblica struttura».'),
@@ -265,7 +269,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     final choice = await showDialog<(String, String)>(context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(
         title: Text('Cartella ${parts.last}'),
-        content: SizedBox(width: 400, child: Column(mainAxisSize: MainAxisSize.min,
+        content: SizedBox(width: _dialogWidth(ctx, 400), child: Column(mainAxisSize: MainAxisSize.min,
           children: [
             const Text('L’operazione interessa tutti i file di questa cartella. La bozza si pubblica dalla barra in alto.'),
             DropdownButtonFormField<String>(value: action,
@@ -324,7 +328,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     final selected = await showDialog<(int, String, int?, List<String>)>(context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(
         title: const Text('Aggiungi dal Drive'),
-        content: SizedBox(width: 420, child: SingleChildScrollView(child:
+        content: SizedBox(width: _dialogWidth(ctx, 420), child: SingleChildScrollView(child:
           Column(mainAxisSize: MainAxisSize.min, children: [
           Text(_string(file['name']), maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 12),
@@ -375,7 +379,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         final candidate = TextEditingController(text: path.join(' / '));
         final decision = await showDialog<(List<String>, bool)>(context: context,
           builder: (ctx) => AlertDialog(title: const Text('Possibile duplicato'),
-            content: SizedBox(width: 460, child: SingleChildScrollView(child: Column(
+            content: SizedBox(width: _dialogWidth(ctx, 460), child: SingleChildScrollView(child: Column(
               mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Da aggiungere: ${_string(file['name'])}\nPercorso: ${path.join(' / ')}\nDimensione: ${_string(file['size'])} byte'),
@@ -797,20 +801,24 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
   Widget _columnHeader({required IconData icon, required SlTone tone, required String title,
       required String subtitle, List<Widget> trailing = const []}) {
     final p = context.palette;
-    return Padding(
+    return LayoutBuilder(builder: (context, bounds) => Padding(
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-      child: Row(children: [
-        SlIconTile(icon: icon, tone: tone, size: 34),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          SlIconTile(icon: icon, tone: tone, size: 34),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: TextStyle(color: p.pureWhite, fontSize: 14, fontWeight: FontWeight.w700)),
             Text(subtitle, style: SlText.muted(p).copyWith(fontSize: 11)),
-          ]),
-        ),
-        ...trailing,
+          ])),
+          if (bounds.maxWidth >= 620) ...trailing,
+        ]),
+        if (bounds.maxWidth < 620 && trailing.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: trailing),
+        ],
       ]),
-    );
+    ));
   }
 
   Future<void> _toggleDriveFolder(String id) async {
@@ -862,7 +870,9 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         rows.addAll(childRows);
         if (open && children.isEmpty && !_driveLoading.contains(id)) {
           rows.add(Padding(
-            padding: EdgeInsets.only(left: 30.0 + 16 * (depth + 1), bottom: 6),
+            padding: EdgeInsets.only(
+                left: (30.0 + 16 * (depth + 1)).clamp(30.0, MediaQuery.sizeOf(context).width * 0.25).toDouble(),
+                bottom: 6),
             child: Text('Cartella vuota', style: SlText.muted(p).copyWith(fontSize: 11)),
           ));
         }
@@ -1030,7 +1040,9 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 40),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(6.0 + 16 * depth, 5, 6, 5),
+          padding: EdgeInsets.fromLTRB(
+              (6.0 + 16 * depth).clamp(6.0, MediaQuery.sizeOf(context).width * 0.25).toDouble(),
+              5, 6, 5),
           child: Row(children: [
             SizedBox(
               width: 18,
@@ -1188,17 +1200,17 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-          child: Row(children: [
-            Expanded(
-              child: Text('Trascina un file su una cartella per spostarlo, o un file di Drive per aggiungerlo.',
-                  style: SlText.muted(p).copyWith(fontSize: 11)),
-            ),
-            Text('Mostra nascosti', style: SlText.muted(p)),
-            Switch(
-              value: _showHidden,
-              onChanged: (value) => setState(() => _showHidden = value),
-            ),
-          ]),
+          child: LayoutBuilder(builder: (context, bounds) {
+            final hint = Text('Trascina un file su una cartella per spostarlo, o usa + per aggiungerlo da Drive.',
+                style: SlText.muted(p).copyWith(fontSize: 11));
+            final toggle = Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('Mostra nascosti', style: SlText.muted(p)),
+              Switch(value: _showHidden, onChanged: (value) => setState(() => _showHidden = value)),
+            ]);
+            return bounds.maxWidth < 450
+                ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [hint, toggle])
+                : Row(children: [Expanded(child: hint), toggle]);
+          }),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
@@ -1746,33 +1758,38 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       ]),
       footer: Padding(
         padding: const EdgeInsets.all(12),
-        child: Row(children: [
-          Expanded(
-            child: SlActionButton(
+        child: LayoutBuilder(builder: (context, bounds) {
+          final actions = <Widget>[
+            SlActionButton(
               icon: Icons.drive_file_move_outline,
               label: 'Sposta in…',
               onPressed: _busy ? null : () => _moveFile(original),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SlActionButton(
+            SlActionButton(
               icon: Icons.edit_outlined,
               label: 'Rinomina',
               onPressed: _busy ? null : () => _renameFile(original),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SlActionButton(
+            SlActionButton(
               icon: state == 'visible' ? Icons.visibility_off_outlined : Icons.visibility_outlined,
               label: state == 'visible' ? 'Nascondi' : 'Mostra',
               onPressed: _busy
                   ? null
                   : () => _stageChange(original, visibility: state == 'visible' ? 'hidden' : 'visible'),
             ),
-          ),
-        ]),
+          ];
+          return bounds.maxWidth < 570
+              ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  for (var i = 0; i < actions.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 8), actions[i],
+                  ],
+                ])
+              : Row(children: [
+                  for (var i = 0; i < actions.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8), Expanded(child: actions[i]),
+                  ],
+                ]);
+        }),
       ),
     );
   }
@@ -2108,7 +2125,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
                   SlFilterOption(value: true, label: 'Anteprima studente'),
                 ],
                 onSelected: (value) {
-                  setState(() => _previewMode = value);
+                  setState(() { _previewMode = value; _compactPane = 0; });
                   if (value) _loadPreview();
                 },
               );

@@ -955,7 +955,7 @@ super.dispose();
                   ),
                 ],
               ] else ...[
-                StudentLabGuestAccountButton(onPressed: _showGuestMenu),
+                StudentLabGuestAccountButton(onPressed: _showGuestMenu, compact: compactAccount),
               ],
             ],
           ),

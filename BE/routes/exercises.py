@@ -28,7 +28,7 @@ from models.quiz_attempt import QuizAttempt
 from models.subject import Subject
 from models.teacher_assignment import TeacherAssignment
 from models.user import User
-from services import code_runner, exercise_bank, exercise_items, flashcards
+from services import code_runner, exercise_areas, exercise_bank, exercise_items, flashcards
 from services.exercise_generators import available as available_generators
 from services.exercise_types import TYPES
 from services.quiz_attempt_service import _create_quiz_attempt, _is_exercise
@@ -46,15 +46,34 @@ class SubjectRef(BaseModel):
     subject: str = Field(min_length=1, max_length=255)
 
 
-class PracticeRequest(SubjectRef):
-    types: list[str] = Field(default_factory=list, max_length=12)
+class HistoryEntry(BaseModel):
+    """Senza account lo storico è sul telefono: l'app manda solo id, tipo ed esito."""
+    id: str = Field(min_length=1, max_length=160)
+    type: str | None = Field(default=None, max_length=30)
+    score: float | None = Field(default=None, ge=0, le=1)
+    correct: bool | None = None
+    at: str | None = Field(default=None, max_length=40)
+
+
+class ChoiceFilters(SubjectRef):
     arguments: list[str] = Field(default_factory=list, max_length=50)
+    max_seconds: int | None = Field(default=None, ge=10, le=3600)
+    only_new: bool = False
+    only_mistakes: bool = False
+    history: list[HistoryEntry] = Field(default_factory=list, max_length=3000)
+
+
+class PracticeRequest(ChoiceFilters):
+    types: list[str] = Field(default_factory=list, max_length=13)
     count: int = Field(default=10, ge=1, le=30)
     item_ids: list[str] = Field(default_factory=list, max_length=30)
 
 
 class StartRequest(PracticeRequest):
     time_limit_seconds: int | None = Field(default=None, gt=0, le=4 * 3600)
+    # "Crea un quiz": correzione solo alla consegna (execution_mode = simulation).
+    # Resta un quiz personale: non blocca gli esercizi per gli altri studenti.
+    quiz: bool = False
 
 
 def _limit_json(value: Any, limit: int) -> Any:
@@ -146,6 +165,25 @@ def _subject(db: Session, department: str, course: str, subject: str) -> Subject
             .first())
 
 
+def _area(db: Session, department: str, course: str, subject: str | None = None) -> dict:
+    """Area didattica del corso (tipi di esercizio consigliati). Usa anche i nomi completi
+    di dipartimento e corso salvati nella materia, perché i codici da soli dicono poco."""
+    record = _subject(db, department, course, subject) if subject else None
+    if record is None:
+        record = (db.query(Subject)
+                  .filter(func.lower(Subject.department_code) == department.lower(),
+                          func.lower(Subject.course_code) == course.lower(), Subject.is_active.is_(True))
+                  .first())
+    return exercise_areas.resolve(department, course,
+                                  department_name=getattr(record, 'department', '') or '',
+                                  course_name=getattr(record, 'course', '') or '')
+
+
+def _require_admin(user: User) -> None:
+    if (user.role or '').strip().lower() not in {'admin', 'creator'}:
+        raise HTTPException(403, 'Solo l’admin può cambiare le aree degli esercizi.')
+
+
 def _require_manager(db: Session, user: User, department: str, course: str, subject: str) -> Subject:
     """Admin/creator: tutte le materie. Docente: profilo verificato + assegnazione
     corrente e verificata per QUESTA materia (codici dipartimento/corso)."""
@@ -178,6 +216,28 @@ _lock_guard = threading.Lock()
 LOCK_CACHE_SECONDS = 15
 
 
+def _history(db: Session, user: User | None, request: ChoiceFilters, department: str, course: str,
+             subject: str) -> dict:
+    if user is not None:
+        return exercise_items.user_history(db, user.id, department, course, subject)
+    return exercise_items.history_from_rows((h.id, h.type, h.score, h.correct, h.at) for h in request.history)
+
+
+def _filters(request: ChoiceFilters, history: dict) -> exercise_items.Filters:
+    filters = exercise_items.Filters(arguments=request.arguments, max_seconds=request.max_seconds)
+    if request.only_mistakes:
+        filters.include = set(history['wrong'])
+    if request.only_new:
+        filters.exclude = set(history['seen'])
+    return filters
+
+
+def _public(item: dict, rng: random.Random) -> dict:
+    if item.get('type') == exercise_items.MULTIPLE_CHOICE:
+        return exercise_items.public_multiple_choice(item['question'])
+    return exercise_items.public_item(item, rng)
+
+
 def _locked_item_ids(db: Session) -> set[str]:
     """Esercizi della banca che sono in una prova con voto in corso (simulazione o compito
     assegnato): la correzione libera non li rivela e l'esercitazione libera non li propone.
@@ -190,7 +250,9 @@ def _locked_item_ids(db: Session) -> set[str]:
     rows = (db.query(QuizAttempt.question_ids)
             .filter(QuizAttempt.status == 'in_progress', QuizAttempt.is_deleted.is_(False),
                     QuizAttempt.started_at >= since,
-                    (QuizAttempt.execution_mode == 'simulation') | (QuizAttempt.assignment_id.isnot(None)))
+                    # solo le prove assegnate: un quiz creato dallo studente non deve poter
+                    # bloccare gli esercizi a tutti gli altri
+                    QuizAttempt.assignment_id.isnot(None))
             .all())
     locked: set[str] = set()
     for (ids,) in rows:
@@ -216,6 +278,38 @@ def exercise_types():
             'code_runner': code_runner.configured()}
 
 
+@router.get('/areas')
+def exercise_areas_config():
+    """Aree didattiche: dipartimenti UniCT → area → tipi di esercizio consigliati."""
+    return exercise_areas.public_config()
+
+
+@router.get('/areas/resolve')
+def exercise_area_resolve(department: str = Query(min_length=1, max_length=100), course: str = Query(min_length=1, max_length=100),
+                          subject: str | None = Query(default=None, max_length=255), db: Session = Depends(get_db)):
+    department, course, _ = _clean_ref(SubjectRef(department=department, course=course, subject=subject or 'x'))
+    return _area(db, department, course, subject.strip() if subject else None)
+
+
+@router.put('/areas')
+def exercise_areas_save(body: dict[str, Any], user: User = Depends(get_current_user)):
+    _require_admin(user)
+    if len(json.dumps(body, ensure_ascii=False)) > 200_000:
+        raise HTTPException(413, 'Configurazione troppo grande.')
+    try:
+        exercise_areas.save(body)
+    except ValueError as exc:
+        _bad(exc)
+    return exercise_areas.public_config()
+
+
+@router.delete('/areas')
+def exercise_areas_reset(user: User = Depends(get_current_user)):
+    _require_admin(user)
+    exercise_areas.reset()
+    return exercise_areas.public_config()
+
+
 @router.post('/catalog')
 def exercise_catalog(request: SubjectRef, db: Session = Depends(get_db)):
     department, course, subject = _clean_ref(request)
@@ -226,7 +320,8 @@ def exercise_catalog(request: SubjectRef, db: Session = Depends(get_db)):
 
 
 @router.post('/practice')
-def exercise_practice(request: PracticeRequest, db: Session = Depends(get_db)):
+def exercise_practice(request: PracticeRequest, db: Session = Depends(get_db),
+                      user: User | None = Depends(get_optional_current_user)):
     """Esercitazione libera (anche senza account): esercizi senza soluzione.
     Si correggono uno alla volta con /exercises/check."""
     department, course, subject = _clean_ref(request)
@@ -245,14 +340,41 @@ def exercise_practice(request: PracticeRequest, db: Session = Depends(get_db)):
                 if item is not None:
                     items.append(item)
         else:
+            history = _history(db, user, request, department, course, subject)
             items = exercise_items.pick(db, department, course, subject, types=request.types or list(TYPES),
                                         arguments=request.arguments, count=request.count, rng=rng,
-                                        code_runner=code_runner.configured(), exclude=locked)
+                                        code_runner=code_runner.configured(), exclude=locked,
+                                        filters=_filters(request, history))
     except ValueError as exc:
         _bad(exc)
     if not items:
         raise HTTPException(404, 'Nessun esercizio disponibile con questi filtri.')
-    return {'items': [exercise_items.public_item(i, rng) for i in items]}
+    return {'items': [_public(i, rng) for i in items]}
+
+
+@router.post('/overview')
+def exercise_overview(request: ChoiceFilters, db: Session = Depends(get_db),
+                      user: User | None = Depends(get_optional_current_user)):
+    """Scelta degli esercizi in due passi: l'app manda i filtri e riceve, per ogni tipo di
+    esercizio (e per le domande a risposta multipla), quanti ce ne sono, per quali argomenti,
+    durata media, difficoltà e com'è andata finora. I conteggi dei filtri servono a mostrare
+    accanto a ogni argomento/difficoltà quanti esercizi si otterrebbero."""
+    department, course, subject = _clean_ref(request)
+    history = _history(db, user, request, department, course, subject)
+    filters = exercise_items.Filters(arguments=request.arguments, max_seconds=request.max_seconds,
+                                     exclude=_locked_item_ids(db))
+    try:
+        data = exercise_items.overview(db, department, course, subject, filters=filters,
+                                       code_runner=code_runner.configured(), history=history,
+                                       only_new=request.only_new, only_mistakes=request.only_mistakes)
+    except ValueError as exc:
+        _bad(exc)
+    data['history_source'] = 'account' if user is not None else ('telefono' if request.history else None)
+    area = _area(db, department, course, subject)
+    for card in data.get('types') or []:
+        card['in_area'] = card.get('type') in area['types']
+    data['area'] = area
+    return data
 
 
 @router.post('/check')
@@ -272,7 +394,16 @@ def exercise_check(request: CheckRequest, db: Session = Depends(get_db),
         if code_runner.rate_limited(user.id):
             raise HTTPException(429, 'Hai eseguito molto codice di recente: riprova tra qualche minuto.')
         run = code_runner.run_tests(item['data'], str(request.answer.get('code') or ''), include_hidden=True)
-    return exercise_items.grade_item(item, request.answer, request.scope, run=run)
+    return _part_only(exercise_items.grade_item(item, request.answer, request.scope, run=run), request.scope)
+
+
+def _part_only(result: dict, scope: Any) -> dict:
+    """Controllo di una parte (riga di Traccia, passo di un Caso): niente spiegazione né soluzione."""
+    if scope:
+        result['explanation'] = ''
+        result['solution_text'] = ''
+        result['correct_payload'] = None
+    return result
 
 
 @router.post('/run')
@@ -296,14 +427,19 @@ def exercise_start(request: StartRequest, db: Session = Depends(get_db), user: U
     # Le flashcard sono autovalutazione: si ripassano da /flashcards, non entrano nello storico.
     types = [t for t in (request.types or list(TYPES)) if t != 'flashcard']
     try:
+        history = _history(db, user, request, department, course, subject)
         items = exercise_items.pick(db, department, course, subject, types=types,
                                     arguments=request.arguments, count=request.count, rng=rng,
-                                    code_runner=code_runner.configured(), exclude=_locked_item_ids(db))
+                                    code_runner=code_runner.configured(), exclude=_locked_item_ids(db),
+                                    filters=_filters(request, history))
         if not items:
             raise ValueError('Nessun esercizio disponibile con questi filtri.')
+        # le domande a risposta multipla entrano nello snapshot come nei quiz di sempre
+        questions = [i['question'] if i.get('type') == exercise_items.MULTIPLE_CHOICE else exercise_items.snapshot(i, rng)
+                     for i in items]
         return _create_quiz_attempt(db, user, department=department, course=course, subject=subject,
-                                    questions=[exercise_items.snapshot(i, rng) for i in items],
-                                    time_limit_seconds=request.time_limit_seconds)
+                                    questions=questions, time_limit_seconds=request.time_limit_seconds,
+                                    execution_mode='simulation' if request.quiz else 'practice')
     except ValueError as exc:
         _bad(exc)
 
@@ -322,6 +458,14 @@ def _without_solution(kind: str, result: dict) -> dict:
     elif kind == 'diagramma':
         chosen = set(feedback.get('chosen') or [])
         feedback['notes'] = {k: v for k, v in (feedback.get('notes') or {}).items() if k in chosen}
+    elif kind == 'caso':
+        feedback.pop('notes', None)          # le note dei passi spiegano la risposta giusta
+    elif kind in ('vero_falso', 'categorizza'):
+        # con due sole scelte (vero/falso, due categorie) dire cosa è sbagliato direbbe la risposta:
+        # nei tentativi intermedi resta solo il punteggio
+        feedback.pop('explanations', None)
+        feedback.pop('claims', None)
+        feedback.pop('items', None)
     result['feedback'] = feedback
     return result
 
@@ -359,7 +503,7 @@ def attempt_check(attempt_id: int, request: AttemptCheckRequest, db: Session = D
         # controllo di una riga (Traccia): nei compiti assegnati la tabella si consegna intera
         if limit is not None:
             raise HTTPException(409, 'In un compito assegnato la tabella si controlla tutta insieme.')
-        return exercise_items.grade_item(item, request.answer, request.scope)
+        return _part_only(exercise_items.grade_item(item, request.answer, request.scope), request.scope)
     run = None
     if item['type'] == 'codice':
         if code_runner.rate_limited(user.id):
@@ -494,7 +638,7 @@ def manage_list(department: str, course: str, subject: str, type: str | None = N
     except ValueError as exc:
         _bad(exc)
     return {'items': items, 'arguments': exercise_bank.arguments(department, course, subject),
-            'code_runner': code_runner.configured()}
+            'code_runner': code_runner.configured(), 'area': _area(db, department, course, subject)}
 
 
 @router.post('/manage/preview')

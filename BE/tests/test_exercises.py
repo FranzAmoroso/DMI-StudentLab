@@ -154,3 +154,82 @@ def test_saved_data_can_be_cleaned_again():
     for kind, raw in samples.items():
         once = T.clean_data(kind, raw)
         assert T.clean_data(kind, once) == once, kind
+
+
+# ------------------------------------------------------------------ scelta degli esercizi (v21)
+import contextlib
+
+
+@contextlib.contextmanager
+def _fake_bank(items, questions):
+    """Banca e domande finte, senza file: si rimettono a posto alla fine del test."""
+    from services import exercise_items as ei
+    saved = ei.read_exercises, ei.get_available_questions
+    ei.read_exercises = lambda d, c, s: items
+    ei.get_available_questions = lambda **kw: questions
+    try:
+        yield ei
+    finally:
+        ei.read_exercises, ei.get_available_questions = saved
+
+
+BANK = [
+    {'id_exercise': '1', 'type': 'ordina', 'metadata': {'argoment': 'Trasporto', 'difficulty': 1}, 'estimed_time': 60,
+     'text': 'Ordina.', 'data': {'items': ['SYN', 'SYN-ACK', 'ACK']}},
+    {'id_exercise': '2', 'type': 'ordina', 'metadata': {'argoment': 'Rete', 'difficulty': 3}, 'estimed_time': 300,
+     'text': 'Ordina.', 'data': {'items': ['a', 'b', 'c']}},
+    {'id_exercise': '3', 'type': 'grafo', 'metadata': {'argoment': 'Rete', 'difficulty': 2}, 'text': 'BFS',
+     'generator': {'name': 'bfs', 'difficulty': 2}},
+]
+QUESTIONS = [{'id_question': '7', 'text': 'Q?', 'estimed_time': '20', 'metadata': {'argoment': 'Trasporto'},
+              'option': [{'id': 'a', 'text': 'x'}, {'id': 'b', 'text': 'y'}], 'id_correct': 'a'}]
+
+
+def test_history_marks_latest_answer():
+    from services.exercise_items import history_from_rows
+    h = history_from_rows([('ex:1:55', 'ordina', 0.4, False, '1'), ('ex:1:99', 'ordina', 1.0, True, '2'),
+                           ('7', None, None, False, '3')])
+    assert h['seen'] == {'ex:1', '7'} and h['wrong'] == {'7'}          # l'ultima risposta a ex:1 è giusta
+    assert h['stats']['ordina']['done'] == 1 and h['stats']['multiple_choice']['to_review'] == 1
+
+
+def test_overview_counts_per_type_with_filters():
+    with _fake_bank(BANK, QUESTIONS) as ei:
+        _check_overview(ei)
+
+
+def _check_overview(ei):
+    data = ei.overview(None, 'd', 'c', 's', filters=ei.Filters(arguments=['Trasporto']), code_runner=False)
+    cards = {c['type']: c for c in data['types']}
+    assert cards['ordina']['count'] == 1 and cards['multiple_choice']['count'] == 1
+    assert cards['grafo']['count'] == 0 and not cards['grafo']['available']
+    # il conteggio degli argomenti ignora il filtro sugli argomenti: "Rete" mostra quanti se ne aggiungerebbero
+    assert {a['name']: a['count'] for a in data['filters']['arguments']}['Rete'] == 2
+    short = ei.overview(None, 'd', 'c', 's', filters=ei.Filters(max_seconds=120), code_runner=False)
+    cards = {c['type']: c for c in short['types']}
+    assert cards['ordina']['count'] == 1 and cards['grafo']['variants']
+    assert 'difficulties' not in short['filters'] and 'difficulty' not in cards['ordina']
+    # ogni filtro si conta ignorando se stesso: con "fino a 1 min" si vede quanti se ne aggiungono allungando
+    brief = ei.overview(None, 'd', 'c', 's', filters=ei.Filters(max_seconds=60), code_runner=False)
+    assert brief['filters']['durations']['long'] == 1 and brief['filters']['durations']['short'] >= 2
+    rete = ei.overview(None, 'd', 'c', 's', filters=ei.Filters(arguments=['Rete'], max_seconds=60), code_runner=False)
+    assert {c['type']: c for c in rete['types']}['flashcard']['count'] == 0   # qf segue l'argomento (Trasporto)
+    trasporto = ei.overview(None, 'd', 'c', 's', filters=ei.Filters(arguments=['Trasporto'], max_seconds=10), code_runner=False)
+    assert {c['type']: c for c in trasporto['types']}['flashcard']['count'] == 1   # la durata non vale per le flashcard
+
+
+def test_overview_only_mistakes_and_pick_mixes_questions():
+    with _fake_bank(BANK, QUESTIONS) as ei:
+        _check_mistakes(ei)
+
+
+def _check_mistakes(ei):
+    import random
+    history = ei.history_from_rows([('ex:2', 'ordina', 0.0, False, '1'), ('ex:1', 'ordina', 1.0, True, '2')])
+    data = ei.overview(None, 'd', 'c', 's', filters=ei.Filters(), code_runner=False, history=history, only_mistakes=True)
+    assert data['total'] == 1
+    items = ei.pick(None, 'd', 'c', 's', types=['ordina', 'multiple_choice'], arguments=None, count=5,
+                    rng=random.Random(0), filters=ei.Filters(exclude=history['seen']))
+    assert {i['id'] for i in items} == {'7'}                             # solo nuovi: resta la domanda
+    public = ei.public_multiple_choice(QUESTIONS[0])
+    assert 'id_correct' not in public and public['type'] == 'multiple_choice'
