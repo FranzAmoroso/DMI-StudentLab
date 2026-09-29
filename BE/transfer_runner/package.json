@@ -1,0 +1,1 @@
+{"name":"studentlab-blob-transfer-runner","private":true,"type":"module","scripts":{"test":"node test.mjs"},"dependencies":{"@vercel/blob":"2.4.0","megajs":"1.3.10"},"devDependencies":{"@types/node":"^26.6.3","@vercel/node":"^16.0.2","typescript":"^7.0.2"}}

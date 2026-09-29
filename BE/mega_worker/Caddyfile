@@ -1,0 +1,3 @@
+{$MEGA_WORKER_DOMAIN} {
+  reverse_proxy worker:8080
+}

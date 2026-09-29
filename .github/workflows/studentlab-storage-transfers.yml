@@ -1,0 +1,31 @@
+name: Trasferimenti temporanei StudentLab
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: studentlab-storage-transfers
+  cancel-in-progress: false
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: BE/transfer_runner/package-lock.json
+      - run: npm ci --omit=dev
+        working-directory: BE/transfer_runner
+      - run: node BE/transfer_runner/runner.mjs
+        env:
+          STUDENTLAB_TRANSFER_API_URL: https://dmi-student-lab.vercel.app
+          STUDENTLAB_TRANSFER_RUNNER_TOKEN: ${{ secrets.STUDENTLAB_TRANSFER_RUNNER_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.STUDENTLAB_TRANSFER_BLOB_TOKEN }}
+          STUDENTLAB_TRANSFER_DRIVE_JSON: ${{ secrets.STUDENTLAB_TRANSFER_DRIVE_JSON }}
+          STUDENTLAB_MEGA_SESSION_JSON: ${{ secrets.STUDENTLAB_MEGA_SESSION_JSON }}
+          STUDENTLAB_MEGA_ROOT: /StudentLab

@@ -4963,3 +4963,10 @@ _ensure_router_registered(
     question_content_router,
     "/question-attachments/content",
 )
+
+# MEGA: sorgenti e copie persistenti verso Drive.
+from routes.mega_storage import router as mega_storage_router
+app.include_router(mega_storage_router)
+
+from routes.temporary_transfers import router as temporary_transfers_router
+app.include_router(temporary_transfers_router)

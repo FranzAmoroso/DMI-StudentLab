@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import { checkedPath,digest } from './runner.mjs';import { Readable } from 'node:stream';
+const j={id:'12345678-1234-1234-1234-123456789abc',pathname:'temporary-transfers/2/12345678-1234-1234-1234-123456789abc/file',size:3,sha256:'a'.repeat(64),filename:'test.pdf',path_segments:['Materia']};
+test('restrict cleanup and reads to assigned private path',()=>{assert.equal(checkedPath(j),j.pathname);for(const pathname of ['groups/2/file','https://evil.test/file',j.pathname.replace('/2/','/../'),j.pathname.replace('123456789abc','000000000000')])assert.throws(()=>checkedPath({...j,pathname}));});
+test('reject traversal names, oversized content and invalid hash',()=>{for(const c of [{filename:'../file'},{path_segments:['..']},{size:51*1024*1024},{sha256:'bad'}])assert.throws(()=>checkedPath({...j,...c}));});
+test('verify actual bytes',async()=>{const d=await digest(Readable.from([Buffer.from('abc')]));assert.equal(d.size,3);assert.equal(d.sha256,'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');});
