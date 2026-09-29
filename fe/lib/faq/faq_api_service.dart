@@ -8,6 +8,33 @@ import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 import '../services/auth_session.dart';
 
+/// Il catalogo storico può usare nomi diversi per lo stesso corso.
+String faqCourseLabel(String? value) {
+  final name = (value ?? '').trim();
+  final key = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+  const aliases = {
+    'informatica': 'Informatica L-31',
+    'informatica l 31': 'Informatica L-31',
+    'l 31 informatica': 'Informatica L-31',
+    'l 31': 'Informatica L-31',
+    'scienze e tecnologie informatiche': 'Informatica L-31',
+    'informatica magistrale': 'Informatica magistrale (LM-18)',
+    'informatica magistrale lm 18': 'Informatica magistrale (LM-18)',
+    'lm 18': 'Informatica magistrale (LM-18)',
+    'matematica': 'Matematica L-35',
+    'matematica l 35': 'Matematica L-35',
+    'l 35 matematica': 'Matematica L-35',
+    'l 35': 'Matematica L-35',
+    'matematica magistrale': 'Matematica magistrale (LM-40)',
+    'matematica magistrale lm 40': 'Matematica magistrale (LM-40)',
+    'lm 40': 'Matematica magistrale (LM-40)',
+    'scienze biologiche': 'Scienze Biologiche L-13',
+    'scienze biologiche l 13': 'Scienze Biologiche L-13',
+    'l 13': 'Scienze Biologiche L-13',
+  };
+  return aliases[key] ?? name;
+}
+
 /// Chiamate al backend per "Domande" (FAQ universitaria) e "Com'è l'esame".
 ///
 /// Tutto ciò che si scrive (domande, risposte, racconti) resta "in attesa"
@@ -88,8 +115,14 @@ class FaqApiService {
   // Filtri --------------------------------------------------------------------
 
   /// Materie attive con ateneo, dipartimento e corso (per i chip).
-  Future<List<Map<String, dynamic>>> filters() async =>
-      _list(_decode(await http.get(_uri('/faq/filters'), headers: _authHeader), 'Filtri non disponibili.'));
+  Future<List<Map<String, dynamic>>> filters() async {
+    final values = _list(_decode(
+        await http.get(_uri('/faq/filters'), headers: _authHeader), 'Filtri non disponibili.'));
+    for (final value in values) {
+      value['course'] = faqCourseLabel(value['course']?.toString());
+    }
+    return values;
+  }
 
   // Domande -------------------------------------------------------------------
 

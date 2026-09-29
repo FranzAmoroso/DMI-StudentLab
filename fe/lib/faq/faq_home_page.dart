@@ -89,7 +89,7 @@ class _FaqHomePageState extends State<FaqHomePage> {
         if (path != null) {
           _university = path.university;
           _department = path.department;
-          _course = path.course;
+          _course = faqCourseLabel(path.course);
         }
       } catch (_) {}
     }

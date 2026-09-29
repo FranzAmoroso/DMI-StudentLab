@@ -3,7 +3,7 @@ import json
 import re
 import time
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -140,17 +140,27 @@ def get_soup(url: str) -> BeautifulSoup:
 
 
 def is_notice_url(url: str, source: str) -> bool:
-    path = urlparse(url).path.lower()
-    host = urlparse(url).hostname
+    parts = urlparse(url)
+    path = parts.path.lower()
+    host = parts.hostname
     if source == "ateneo":
         return host == "www.unict.it" and bool(re.match(r"^/it/[^/]+/news/[^/]+", path))
     course, kind = source.split("_", 1)
     expected_host = "www.dsbga.unict.it" if course == "l13" else "web.dmi.unict.it"
     path = path.removeprefix("/it")
+    if host != expected_host:
+        return False
+    # Gli avvisi dei docenti hanno URL globali /avvisi-docente/<slug>?cdl=l-31.
+    # Il parametro del CdL deve essere quello dell'elenco da cui li leggiamo.
+    if kind == 'docente' and re.fullmatch(r'/avvisi-docente/[^/]+/?', path):
+        values = parse_qs(parts.query).get('cdl', [])
+        course_code = ('lm-' if course.startswith('lm') else 'l-') + (
+            course[2:] if course.startswith('lm') else course[1:])
+        return len(values) == 1 and values[0].strip().lower() == course_code
     allowed_courses = r'l-13' if course == 'l13' else r'(?:l-31|l-35|lm-18|lm-40)'
     # The listing page is authoritative: an article can be cross-posted
     # under another course URL, while remaining part of this listing.
-    return host == expected_host and bool(re.match(
+    return bool(re.match(
         rf'^/corsi/{allowed_courses}/avvisi(?:-docente)?/[^/]+', path))
 
 

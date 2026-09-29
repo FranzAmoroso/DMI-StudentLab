@@ -24,6 +24,7 @@ from services.faq import (author_role, check_file, display_name, guest_hash, is_
                           store_answer_file, student_label, teachers_of_subject)
 from services.private_blob import private_blob_response
 from services.public_material_access import can_read_public_material
+from services.news_filter_scope import COURSES, code as academic_code, matches as academic_matches
 
 router = APIRouter(prefix='/faq', tags=['faq'])
 
@@ -76,19 +77,33 @@ def faq_filters(db: Session = Depends(get_db)):
     subjects = db.query(Subject).filter(Subject.is_active.is_(True)).order_by(
         Subject.university, Subject.department, Subject.course, Subject.name).all()
     return [{'id': s.id, 'name': s.name, 'university': s.university, 'university_code': s.university_code,
-             'department': s.department, 'department_code': s.department_code, 'course': s.course}
+             'department': s.department, 'department_code': s.department_code,
+             'course': faq_course_label(s.course)}
             for s in subjects]
+
+
+def faq_course_label(value: str | None) -> str | None:
+    """Collapse only known equivalent programme names for filter display."""
+    known = academic_code(value, 'course') if value else None
+    return COURSES[known][1][0] if known else value
 
 
 def _apply_context(query, university, department, course, subject_id):
     if subject_id:
         return query.filter(FaqQuestion.subject_id == subject_id)
     if university:
-        query = query.filter(FaqQuestion.university == university)
+        query = query.filter(academic_matches(FaqQuestion.university, FaqQuestion.university,
+                                               university, 'university'))
     if department:
-        query = query.filter(FaqQuestion.department == department)
+        query = query.filter(academic_matches(FaqQuestion.department, FaqQuestion.department,
+                                               department, 'department'))
     if course:
-        query = query.filter(FaqQuestion.course == course)
+        known = academic_code(course, 'course')
+        if known:
+            aliases = (known, *COURSES[known][1])
+            query = query.filter(or_(*(FaqQuestion.course.ilike(alias) for alias in aliases)))
+        else:
+            query = query.filter(FaqQuestion.course == course)
     return query
 
 
