@@ -18,9 +18,9 @@ import 'services/free_quiz_api_service.dart';
 import 'student_question_proposal_page.dart';
 import 'package:fe/quiz/exercises/exercise_catalog_page.dart';
 
-/// Scheda "Esercizi" nella pagina Esercitazione: accesa dalla v24 (tipi generici per ogni corso).
+/// Scheda "Esercizi" temporaneamente nascosta; catalogo e area docente conservati.
 /// Per spegnerla di nuovo basta rimettere false.
-const bool kExerciseCatalogEnabled = true;
+const bool kExerciseCatalogEnabled = false;
 
 /// Pagina "Esercitazione" (v23): prima il percorso, poi cosa fare.
 ///
@@ -98,6 +98,11 @@ class _SubjectSelectionState extends State<SubjectSelection> {
 
   final GlobalKey _quizSectionKey = GlobalKey();
 
+  // StudentLab: flusso quiz progressivo v1.
+  bool _quizChosen = false;
+  bool get _showQuizConfiguration => _selectedSubject != null &&
+      (!_isAuthenticated || _quizChosen);
+
   bool get _isAuthenticated => _authSession.isAuthenticated;
 
   bool get _canSelectDepartment =>
@@ -145,7 +150,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
       return;
     }
 
-    setState(() {});
+    setState(() => _quizChosen = false);
 
     // Sessione ripristinata dopo il caricamento degli atenei: si propone il percorso del profilo.
     if (_selectedUniversity == null && _universities.isNotEmpty) {
@@ -216,6 +221,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
       _selectedCourse = null;
 
       _selectedSubject = null;
+      _quizChosen = false;
 
       _selectedArguments.clear();
 
@@ -274,6 +280,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
       _selectedCourse = null;
 
       _selectedSubject = null;
+      _quizChosen = false;
 
       _selectedArguments.clear();
 
@@ -327,6 +334,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
       _subjects = [];
       _availableArguments = [];
       _selectedSubject = null;
+      _quizChosen = false;
       _selectedArguments.clear();
       _resetQuestions();
       _loadingSubjects = true;
@@ -386,6 +394,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
 
     setState(() {
       _selectedSubject = subject;
+      _quizChosen = false;
 
       _availableArguments = [];
 
@@ -568,10 +577,16 @@ class _SubjectSelectionState extends State<SubjectSelection> {
   }
 
   void _scrollToQuiz() {
-    final BuildContext? target = _quizSectionKey.currentContext;
-    if (target != null) {
-      Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 300), alignment: 0.05);
-    }
+    if (_selectedSubject == null) return;
+    setState(() => _quizChosen = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final BuildContext? target = _quizSectionKey.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(target,
+            duration: const Duration(milliseconds: 300), alignment: 0.05);
+      }
+    });
   }
 
   Future<void> _selectArguments() async {
@@ -1120,6 +1135,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
 
                 const SizedBox(height: 20),
 
+                if (_isAuthenticated) ...[
                 const _StepTitle(number: 3, title: 'Cosa vuoi fare?'),
 
                 const SizedBox(height: 10),
@@ -1158,6 +1174,9 @@ class _SubjectSelectionState extends State<SubjectSelection> {
 
                 const SizedBox(height: 24),
 
+                ],
+
+                if (_showQuizConfiguration) ...[
                 Text(
                   'Configura il quiz',
                   key: _quizSectionKey,
@@ -1211,6 +1230,7 @@ class _SubjectSelectionState extends State<SubjectSelection> {
 
                 const SizedBox(height: 18),
 
+                if (_selectedArguments.isNotEmpty) ...[
                 _QuestionAvailabilityCard(
                   loading: _loadingQuestions,
 
@@ -1306,6 +1326,8 @@ class _SubjectSelectionState extends State<SubjectSelection> {
                 ),
 
                 const SizedBox(height: 10),
+                ], // Argomenti scelti: disponibilità, numero e avvio.
+                ], // Configurazione dopo la scelta Quiz.
 
               ],
             ),
