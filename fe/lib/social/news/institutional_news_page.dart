@@ -1169,9 +1169,14 @@ class _DmiNoticeDetailPage extends StatelessWidget {
     final String content = notice.content.replaceAll(RegExp(r'[ \t]+'), ' ')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
     final RegExp channel = RegExp(r'\bCanale\s+[A-Z]{1,3}(?:\s*[-/]\s*[A-Z]{1,3})?\b', caseSensitive: false);
+    final RegExp tableHeading = RegExp(r'\bMatricola\s+(?:Lab(?:oratorio)?|Esito|Voto|Risultato)\b', caseSensitive: false);
+    final RegExp tableRow = RegExp(
+      r'\b(\d{7,10})\s+(Non\s+ammess[oaie]|Ammess[oaie]|Non\s+idone[oaie]|Idone[oaie]|Assente|Ritirat[oaie]|Superato|Non\s+superato|\d{1,2}(?:[.,]\d{1,2})?(?:/30)?)\b',
+      caseSensitive: false,
+    );
     final matches = channel.allMatches(content).toList();
     final parts = <Widget>[];
-    void addBody(String value) {
+    void addParagraph(String value) {
       final String formatted = value.trim().replaceAllMapped(
         RegExp(r'(\b\d{7,10}\s*[:–-]\s*[^\s,;]+)(?=\s+\d{7,10}\b)'),
         (match) => '${match.group(1)}\n',
@@ -1179,6 +1184,43 @@ class _DmiNoticeDetailPage extends StatelessWidget {
       if (formatted.isEmpty) return;
       parts.add(Padding(padding: const EdgeInsets.only(bottom: 14),
         child: SelectableText(formatted, style: TextStyle(color: AppColors.pureWhite, height: 1.65))));
+    }
+    void addBody(String value) {
+      int cursor = 0;
+      int searchFrom = 0;
+      while (searchFrom < value.length) {
+        final heading = tableHeading.allMatches(value, searchFrom).firstOrNull;
+        if (heading == null) break;
+        final rows = <RegExpMatch>[];
+        int after = heading.end;
+        while (true) {
+          final match = tableRow.allMatches(value, after).firstOrNull;
+          if (match == null || value.substring(after, match.start).trim().isNotEmpty) break;
+          rows.add(match);
+          after = match.end;
+        }
+        if (rows.isEmpty) {
+          searchFrom = heading.end;
+          continue;
+        }
+        addParagraph(value.substring(cursor, heading.start));
+        parts.add(Padding(padding: const EdgeInsets.only(top: 8, bottom: 8),
+          child: Text(heading.group(0)!, style: TextStyle(color: AppColors.materialSky,
+            fontSize: 14, fontWeight: FontWeight.w700))));
+        parts.add(Padding(padding: const EdgeInsets.only(bottom: 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            for (final row in rows)
+              Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Row(children: [
+                SizedBox(width: 112, child: SelectableText(row.group(1)!,
+                  style: TextStyle(color: AppColors.pureWhite))),
+                Expanded(child: SelectableText(row.group(2)!,
+                  style: TextStyle(color: AppColors.pureWhite))),
+              ])),
+          ])));
+        cursor = after;
+        searchFrom = after;
+      }
+      addParagraph(value.substring(cursor));
     }
     if (matches.isEmpty) {
       addBody(content);
