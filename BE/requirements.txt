@@ -20,7 +20,7 @@ python-jose[cryptography]
 cryptography>=42
 pwdlib[argon2]
 email-validator>=2.0.0
-vercel>=0.5.0
+vercel==0.10.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 hostinger_mail_api==1.18.0

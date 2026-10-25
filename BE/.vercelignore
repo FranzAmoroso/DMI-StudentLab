@@ -1,0 +1,17 @@
+.env
+.env.*
+.venv
+.venv-drive
+venv
+**/__pycache__
+node_modules
+mega_worker
+transfer_runner
+diagnostic_logs
+tests
+data
+*.log
+*.orig
+*.prima_registrazione
+*.v26_nuovo
+*.v26_conflitto
