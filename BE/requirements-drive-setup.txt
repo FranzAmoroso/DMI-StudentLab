@@ -1,3 +1,0 @@
-# Install only on the developer machine when authorizing the owner account.
-google-auth-oauthlib>=1.2,<2
-python-dotenv>=1.0,<2
