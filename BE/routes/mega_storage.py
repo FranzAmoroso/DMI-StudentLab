@@ -27,6 +27,8 @@ class CopyRequest(BaseModel):
 
 class ImportRequest(CopyRequest):
     subject_id: int = Field(gt=0)
+    # Cartella Drive scelta dall'admin per la copia (prima era sempre «Importati da MEGA»).
+    drive_path_segments: list[str] = Field(default_factory=lambda: ['Importati da MEGA'], max_length=12)
     audience_type: str = 'course'
     audience_id: int | None = Field(default=None, gt=0)
     allow_duplicate: bool = False
@@ -100,10 +102,11 @@ async def mega_import(request: ImportRequest, actor: User = Depends(get_admin_us
             audience=request.audience_type, audience_id=request.audience_id)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    options = {key: value for key, value in request.model_dump().items() if key not in {'file_id', 'source_id'}}
+    options = {key: value for key, value in request.model_dump().items()
+               if key not in {'file_id', 'source_id', 'drive_path_segments'}}
     job = await gateway.worker('/jobs', method='POST', data={
         'file_id': request.file_id, 'source_id': request.source_id,
-        'path_segments': ['Importati da MEGA'], 'import_options': options,
+        'path_segments': request.drive_path_segments, 'import_options': options,
         'actor_id': actor.id, 'expected_drive_root': settings.drive_folder_id})
     return {'queued': True, 'job_id': job['id'], 'staged': False}
 
@@ -129,3 +132,29 @@ async def mega_stage_completed(job_id: str, actor: User = Depends(get_admin_user
     except (ValueError, RuntimeError) as exc:
         db.rollback()
         raise HTTPException(409 if isinstance(exc, RuntimeError) else 400, str(exc)) from exc
+
+
+class DeleteSourceRequest(BaseModel):
+    confirm: bool = False
+
+
+@router.post('/mega/jobs/{job_id}/delete-source')
+async def mega_delete_source(job_id: str, request: DeleteSourceRequest,
+        actor: User = Depends(get_admin_user)):
+    """Dopo una copia verificata su Drive, sposta gli originali nel cestino di MEGA.
+
+    L'app lo chiede ogni volta, dopo ogni copia completata. Il servizio
+    ricontrolla su Drive dimensione e impronta MD5 di ogni file prima di
+    toccare MEGA; i file restano nel cestino di MEGA, quindi recuperabili.
+    """
+    if not request.confirm:
+        raise HTTPException(400, 'Conferma l’eliminazione da MEGA.')
+    return await gateway.worker('/jobs/' + _job_id(job_id) + '/delete-source', method='POST',
+        params={'actor_id': actor.id})
+
+
+@router.post('/mega/jobs/{job_id}/keep-source')
+async def mega_keep_source(job_id: str, actor: User = Depends(get_admin_user)):
+    """L'admin ha scelto di conservare gli originali su MEGA per questa copia."""
+    return await gateway.worker('/jobs/' + _job_id(job_id) + '/keep-source', method='POST',
+        params={'actor_id': actor.id})

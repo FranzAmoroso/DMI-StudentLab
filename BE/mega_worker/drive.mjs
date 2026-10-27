@@ -17,13 +17,25 @@ export class Drive {
     const e=this.env;
     if(![e.StudentLab_DRIVE_CLIENT_ID,e.StudentLab_DRIVE_CLIENT_SECRET,e.StudentLab_DRIVE_REFRESH_TOKEN,this.root,e.StudentLab_DRIVE_ACCOUNT_EMAIL].every(Boolean)) throw new Fault(503,'Configura le variabili Drive anche sul servizio MEGA.');
     const r=await this.fetch('https://oauth2.googleapis.com/token',{method:'POST',signal:AbortSignal.timeout(30000),headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',client_id:e.StudentLab_DRIVE_CLIENT_ID,client_secret:e.StudentLab_DRIVE_CLIENT_SECRET,refresh_token:e.StudentLab_DRIVE_REFRESH_TOKEN})});
-    if(!r.ok) throw new Fault(503,'Autorizzazione Drive non disponibile.');
+    if(!r.ok) {
+      let code='';try{code=(await r.json()).error||'';}catch{}
+      console.error('drive_token_error',JSON.stringify({http_status:r.status,google_error:String(code).slice(0,40)}));
+      if(code==='invalid_grant')throw new Fault(503,'L’accesso a Google Drive è scaduto o è stato revocato. Ricollega l’account Google e aggiorna l’autorizzazione anche sul servizio MEGA. (codice DRV-02)');
+      if(code==='invalid_client'||code==='unauthorized_client')throw new Fault(503,'Le credenziali dell’app Google non sono valide. Controlla il client OAuth sul servizio MEGA. (codice DRV-03)');
+      throw new Fault(503,'Google Drive non risponde in questo momento. Riprova tra qualche minuto. (codice DRV-04)');
+    }
     const body=await r.json();this.token=body.access_token;this.expiry=Date.now()+(Number(body.expires_in || 3600)-60)*1000;return this.token;
   }
   async json(url,options={}) {
     const headers={'Authorization':`Bearer ${await this.access()}`, ...(options.body?{'Content-Type':'application/json'}:{}),...options.headers};
     const r=await this.fetch(url,{...options,headers,signal:AbortSignal.timeout(60000)});
-    if(!r.ok) throw new Fault(503,'Operazione Google Drive non riuscita.'); return r.json();
+    if(!r.ok) {
+      console.error('drive_api_error',JSON.stringify({http_status:r.status,path:new URL(url).pathname.slice(0,80)}));
+      if(r.status===404)throw new Fault(409,'Il file o la cartella non si trova più su Drive. Aggiorna e riprova. (codice DRV-07)');
+      if(r.status===403)throw new Fault(503,'StudentLab non ha il permesso per questa operazione su Drive, oppure lo spazio è esaurito. (codice DRV-06)');
+      throw new Fault(503,'Operazione Google Drive non riuscita. Riprova tra qualche minuto. (codice DRV-04)');
+    }
+    return r.json();
   }
   async verify() {
     const about=await this.json('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)');

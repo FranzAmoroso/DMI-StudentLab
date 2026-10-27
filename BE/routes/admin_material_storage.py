@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime, timezone
 import httpx
 from pydantic import BaseModel, Field
@@ -16,6 +17,7 @@ from models.group import StudyGroup
 from services.drive_material_storage import copy_public_material, drive_status, delete_public_drive_copy, preview_public_material, public_drive_response, _access_token, _session, mark_retry
 from services.drive_material_catalog import clean_path, verify_under_root, FOLDER_MIME
 from core.config import settings
+from services.diagnostics import drive_failure
 from services.admin_material_storage import record_storage_event, utc_now
 from services.public_drive_blob_retirement import retire_public_staging_blob_best_effort
 from schemas.admin_material_storage import (
@@ -182,8 +184,26 @@ def admin_drive_import_options(current_user: User = Depends(get_admin_user),
         Subject.study_year, Subject.name).all()
     return [{'id': subject.id, 'name': subject.name,
              'university': subject.university, 'department': subject.department,
-             'course': subject.course, 'year': subject.study_year}
+             'course': subject.course, 'year': subject.study_year,
+             'university_code': subject.university_code or '',
+             'department_code': subject.department_code or '',
+             'course_code': subject.course_code or '',
+             'degree_type': subject.degree_type or '',
+             'level': degree_level(subject.degree_type, subject.course)}
             for subject in subjects]
+
+
+def degree_level(degree_type, course=None):
+    """Livello leggibile dal codice della classe di laurea (L-31, LM-18, LMCU…)."""
+    code = (degree_type or '').strip().upper().replace(' ', '')
+    name = (course or '').lower()
+    if code.startswith('LMCU') or 'ciclo unico' in name:
+        return 'ciclo_unico'
+    if code.startswith('LM') or 'magistrale' in name:
+        return 'magistrale'
+    if code.startswith('L') or 'triennale' in name:
+        return 'triennale'
+    return ''
 
 
 @router.get('/drive/tree')
@@ -193,6 +213,8 @@ async def admin_drive_tree(folder_id: str | None = None,
     # Browsing the existing catalog needs read access; a writable root is
     # required only when creating a new Drive copy.
     folder_id = folder_id or settings.drive_folder_id
+    if not re.fullmatch(r'[A-Za-z0-9_-]{8,128}', folder_id or ''):
+        raise HTTPException(400, 'Cartella non valida. Aggiorna la pagina e riprova.')
     async with await _session() as client:
         headers = {'Authorization': f'Bearer {await _access_token(client)}'}
         if folder_id != settings.drive_folder_id:
@@ -209,7 +231,8 @@ async def admin_drive_tree(folder_id: str | None = None,
             payload = response.json()
             children = payload.get('files') or []
         except (httpx.HTTPError, ValueError) as exc:
-            raise HTTPException(503, 'Impossibile leggere questa cartella Drive.') from exc
+            raise drive_failure(exc, step='elenco cartella', actor_id=current_user.id,
+                extra={'folder_id': folder_id}) from exc
         ids = [e['id'] for e in children if e.get('mimeType') != FOLDER_MIME]
         indexed = set()
         if ids:

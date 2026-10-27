@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fe/material/material_requests_page.dart';
+import 'package:fe/material/student_mega_upload_page.dart';
 import 'package:fe/social/auth/login_page.dart';
 import 'package:fe/developer/theme/developer_ui_style.dart';
 import 'package:fe/theme/app_palette.dart';
@@ -691,6 +692,15 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
             tooltip: 'Le mie richieste',
             onPressed: _openRequests,
             icon: const Icon(Icons.mail_outline_rounded),
+          ),
+        // v26: invio di materiale allo staff (arriva nel raccoglitore temporaneo).
+        if (signedIn && !_hasSelection)
+          IconButton(
+            tooltip: 'Invia materiale a StudentLab',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const StudentMegaUploadPage()),
+            ),
+            icon: const Icon(Icons.cloud_upload_outlined),
           ),
         const SizedBox(width: 4),
       ],

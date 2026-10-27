@@ -49,6 +49,6 @@ export function mime(name) {
   return ({pdf:'application/pdf',txt:'text/plain',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',zip:'application/zip',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',csv:'text/csv'})[name.split('.').pop().toLowerCase()] || 'application/octet-stream';
 }
 export function viewJob(job) {
-  const { id, actor_id, source_id, file_id, name, destination, state, created_at, updated_at, total_files, completed_files, skipped_files, failed_files, bytes_done, total_bytes, error, results, import_options, current_file, phase, current_bytes } = job;
-  return { id, actor_id, source_id, file_id, name, destination, state, created_at, updated_at, total_files, completed_files, skipped_files, failed_files, bytes_done, total_bytes, error, results, import_options, current_file, phase, current_bytes };
+  const { id, actor_id, source_id, file_id, name, destination, state, created_at, updated_at, total_files, completed_files, skipped_files, failed_files, bytes_done, total_bytes, error, results, import_options, current_file, phase, current_bytes, source_deleted, source_kept } = job;
+  return { id, actor_id, source_id, file_id, name, destination, state, created_at, updated_at, total_files, completed_files, skipped_files, failed_files, bytes_done, total_bytes, error, results, import_options, current_file, phase, current_bytes, source_deleted: source_deleted || null, source_kept: source_kept || null };
 }

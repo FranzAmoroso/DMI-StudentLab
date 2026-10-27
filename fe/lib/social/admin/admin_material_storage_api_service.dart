@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../../services/auth_session.dart';
+import '../../services/user_facing_error.dart';
 
 class AdminMaterialStorageApiService {
   static const String _baseUrl =
@@ -165,7 +166,7 @@ class AdminMaterialStorageApiService {
       '/admin/material-storage/drive/file/${Uri.encodeComponent(fileId)}/preview'),
       headers: _headers);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Anteprima Drive non disponibile');
+      throw UserFacingError(friendlyHttpMessage(response, 'Anteprima Drive non disponibile'));
     }
     return response.bodyBytes;
   }
@@ -174,7 +175,7 @@ class AdminMaterialStorageApiService {
     final response = await http.get(_uri('/admin/public_materials/$materialId/file'),
       headers: _headers);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('File proposto non disponibile');
+      throw UserFacingError(friendlyHttpMessage(response, 'File non disponibile'));
     }
     return response.bodyBytes;
   }
@@ -375,31 +376,23 @@ class AdminMaterialStorageApiService {
     http.Response response,
     String fallback,
   ) {
-    final dynamic decoded =
-        response.body.trim().isEmpty
-            ? <String, dynamic>{}
-            : jsonDecode(response.body);
-
+    final dynamic decoded = _decode(response);
     if (response.statusCode >= 200 &&
         response.statusCode < 300 &&
         decoded is Map) {
       return Map<String, dynamic>.from(decoded);
     }
-
-    throw Exception(response.statusCode == 404
-        ? '$fallback: endpoint non disponibile (HTTP 404). Aggiorna il backend.'
-        : _errorMessage(decoded, fallback));
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      throw UserFacingError('$fallback. Risposta inattesa dal server: riprova tra poco.');
+    }
+    throw UserFacingError(friendlyHttpMessage(response, fallback), status: response.statusCode);
   }
 
   List<Map<String, dynamic>> _list(
     http.Response response,
     String fallback,
   ) {
-    final dynamic decoded =
-        response.body.trim().isEmpty
-            ? <dynamic>[]
-            : jsonDecode(response.body);
-
+    final dynamic decoded = _decode(response);
     if (response.statusCode >= 200 &&
         response.statusCode < 300 &&
         decoded is List) {
@@ -411,23 +404,120 @@ class AdminMaterialStorageApiService {
           )
           .toList();
     }
-
-    throw Exception(_errorMessage(decoded, fallback));
+    throw UserFacingError(friendlyHttpMessage(response, fallback), status: response.statusCode);
   }
 
-  String _errorMessage(
-    dynamic decoded,
-    String fallback,
-  ) {
-    if (decoded is Map) {
-      final String detail =
-          decoded['detail']?.toString().trim() ?? '';
-
-      if (detail.isNotEmpty) {
-        return detail;
-      }
+  dynamic _decode(http.Response response) {
+    if (response.bodyBytes.isEmpty) return <String, dynamic>{};
+    try {
+      return jsonDecode(utf8.decode(response.bodyBytes));
+    } catch (_) {
+      return null;
     }
-
-    return fallback;
   }
+
+  // ---------------------------------------------------------------------------
+  // v26: correzioni della struttura, verifica Drive e registro diagnostico
+  // ---------------------------------------------------------------------------
+
+  /// Annulla una sola voce della bozza: kind = material | import | folder.
+  Future<Map<String, dynamic>> discardCatalogDraftItem(String kind, int id) async => _map(
+      await http.delete(_uri('/admin/material-storage/catalog/draft/item/$kind/$id'), headers: _headers),
+      'Modifica non annullata');
+
+  /// «Togli dalla struttura»: i file restano su Drive e si possono ripristinare.
+  Future<Map<String, dynamic>> removeFromStructure({
+    List<int>? materialIds,
+    int? subjectId,
+    List<String>? pathSegments,
+    bool foldersOnly = false,
+  }) async =>
+      _map(
+          await http.post(_uri('/admin/material-storage/catalog/structure/remove'),
+              headers: _headers,
+              body: jsonEncode(<String, dynamic>{
+                if (materialIds != null) 'material_ids': materialIds,
+                if (subjectId != null) 'subject_id': subjectId,
+                if (pathSegments != null) 'path_segments': pathSegments,
+                'folders_only': foldersOnly,
+              })),
+          'Non è stato possibile togliere dalla struttura');
+
+  Future<Map<String, dynamic>> restoreToStructure(int materialId) async => _map(
+      await http.post(_uri('/admin/material-storage/catalog/structure/restore/$materialId'),
+          headers: _headers),
+      'Ripristino non riuscito');
+
+  /// «Elimina da Drive»: [confirmation] deve essere la parola scritta dall'admin.
+  Future<Map<String, dynamic>> deleteFromDrive(List<int> materialIds, String confirmation) async => _map(
+      await http.post(_uri('/admin/material-storage/catalog/structure/delete-drive'),
+          headers: _headers,
+          body: jsonEncode(<String, dynamic>{'material_ids': materialIds, 'confirmation': confirmation})),
+      'Eliminazione da Drive non riuscita');
+
+  /// Controlli del collegamento Drive: {ok, checks: [{label, ok, message, suggestion, code}]}.
+  Future<Map<String, dynamic>> diagnoseDrive() async => _map(
+      await http.get(_uri('/admin/material-storage/drive/diagnose'), headers: _headers)
+          .timeout(const Duration(seconds: 60)),
+      'Verifica di Drive non riuscita');
+
+  /// Registro diagnostico come testo (da salvare in un file).
+  Future<Uint8List> downloadDiagnosticLog({int days = 7}) async {
+    final response = await http.get(
+        _uri('/admin/material-storage/diagnostics/log', query: <String, String>{'days': '$days'}),
+        headers: _headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw UserFacingError(friendlyHttpMessage(response, 'Registro non disponibile'),
+          status: response.statusCode);
+    }
+    return response.bodyBytes;
+  }
+
+  Future<Map<String, dynamic>> diagnosticSummary({int days = 7}) async => _map(
+      await http.get(_uri('/admin/material-storage/diagnostics/summary', query: <String, String>{'days': '$days'}),
+          headers: _headers),
+      'Riepilogo non disponibile');
+
+  // ---------------------------------------------------------------------------
+  // v27: doppioni e aggiunte in attesa della copia su Drive
+  // ---------------------------------------------------------------------------
+
+  /// Gruppi di file identici ancora nella struttura: {groups: [{files: [...]}]}.
+  Future<Map<String, dynamic>> listCatalogDuplicates() async => _map(
+      await http.get(_uri('/admin/material-storage/catalog/duplicates'), headers: _headers),
+      'Elenco dei doppioni non disponibile');
+
+  /// Ricorda dove mettere nella struttura i file che stanno arrivando su Drive.
+  /// [kind] = 'transfer' (file dal PC: items = [{job_id, path_segments}])
+  /// oppure 'mega' (copia MEGA: megaJobId, basePath, skipFirst).
+  Future<Map<String, dynamic>> createCatalogIntent({
+    required String kind,
+    required int subjectId,
+    required String audienceType,
+    int? audienceId,
+    List<Map<String, dynamic>>? items,
+    String? megaJobId,
+    List<String>? basePath,
+    bool skipFirst = false,
+  }) async =>
+      _map(
+          await http.post(_uri('/admin/material-storage/catalog/intents'),
+              headers: _headers,
+              body: jsonEncode(<String, dynamic>{
+                'kind': kind,
+                'subject_id': subjectId,
+                'audience_type': audienceType,
+                if (audienceId != null) 'audience_id': audienceId,
+                if (items != null) 'items': items,
+                if (megaJobId != null) 'mega_job_id': megaJobId,
+                if (basePath != null) 'base_path': basePath,
+                'skip_first': skipFirst,
+              })),
+          'Non è stato possibile prenotare l’aggiunta alla struttura');
+
+  /// Aggiunge alla bozza i file arrivati su Drive: {staged, waiting, conflicts, skipped}.
+  Future<Map<String, dynamic>> processCatalogIntents() async => _map(
+      await http.post(_uri('/admin/material-storage/catalog/intents/process'), headers: _headers)
+          .timeout(const Duration(seconds: 90)),
+      'Controllo dei file in arrivo non riuscito');
 }

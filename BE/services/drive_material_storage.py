@@ -13,6 +13,7 @@ from vercel.blob import AsyncBlobClient
 from core.config import settings
 from services.drive_material_catalog import _children, clean_path, default_path, ensure_path, preview, existing_copy, verify_under_root
 from services.private_blob import safe_download_name
+from services.diagnostics import drive_failure, google_reason, user_error
 
 API = 'https://www.googleapis.com/drive/v3'
 UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files'
@@ -28,17 +29,32 @@ def _configured():
 
 async def _access_token(client):
     if not _configured():
-        raise HTTPException(503, 'Google Drive non è ancora configurato.')
+        missing = [name for name, value in (
+            ('StudentLab_DRIVE_FOLDER_ID', settings.drive_folder_id),
+            ('StudentLab_DRIVE_CLIENT_ID', settings.drive_client_id),
+            ('StudentLab_DRIVE_CLIENT_SECRET', settings.drive_client_secret),
+            ('StudentLab_DRIVE_REFRESH_TOKEN', settings.drive_refresh_token)) if not value]
+        raise user_error('DRV-01', technical={'step': 'configurazione', 'missing_env': missing})
     try:
         response = await client.post(TOKEN, data={
             'grant_type': 'refresh_token', 'client_id': settings.drive_client_id,
             'client_secret': settings.drive_client_secret,
             'refresh_token': settings.drive_refresh_token,
         })
-        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise user_error('DRV-04', technical={'step': 'token', 'error_type': type(exc).__name__}) from exc
+    if response.status_code != 200:
+        reason = google_reason(response)
+        error = reason.get('google_error')
+        # invalid_grant: token scaduto o revocato (anche: app OAuth in modalità
+        # "Test", dove i token durano 7 giorni). invalid_client: ID/segreto errati.
+        code = ('DRV-02' if error == 'invalid_grant' else
+                'DRV-03' if error in {'invalid_client', 'unauthorized_client'} else 'DRV-04')
+        raise user_error(code, technical={'step': 'token', **reason})
+    try:
         return response.json()['access_token']
-    except (httpx.HTTPError, KeyError, ValueError) as exc:
-        raise HTTPException(503, 'Autorizzazione Google Drive non disponibile.') from exc
+    except (KeyError, ValueError) as exc:
+        raise user_error('DRV-04', technical={'step': 'token', 'error_type': type(exc).__name__}) from exc
 
 
 async def _session():
@@ -51,29 +67,36 @@ async def drive_status():
         return {'configured': False, 'folder_id': settings.drive_folder_id}
     async with await _session() as client:
         token = await _access_token(client)
+        headers = {'Authorization': f'Bearer {token}'}
         try:
-            response = await client.get(f'{API}/about',
-                headers={'Authorization': f'Bearer {token}'},
+            response = await client.get(f'{API}/about', headers=headers,
                 params={'fields': 'user(emailAddress),storageQuota(limit,usage,usageInDrive)'})
             response.raise_for_status()
             data = response.json()
-            account = data.get('user', {}).get('emailAddress', '')
-            if account.lower() != settings.drive_account_email.lower():
-                raise HTTPException(503, 'L’account Google collegato non corrisponde a quello configurato.')
-            folder = await client.get(f'{API}/files/{settings.drive_folder_id}',
-                headers={'Authorization': f'Bearer {token}'},
-                params={'fields': 'id,mimeType,capabilities(canAddChildren)'})
+        except (httpx.HTTPError, ValueError) as exc:
+            raise drive_failure(exc, step='account') from exc
+        account = data.get('user', {}).get('emailAddress', '')
+        if account.lower() != settings.drive_account_email.lower():
+            raise user_error('DRV-05', technical={'step': 'account',
+                'expected': settings.drive_account_email, 'actual': account})
+        try:
+            folder = await client.get(f'{API}/files/{settings.drive_folder_id}', headers=headers,
+                params={'fields': 'id,mimeType,capabilities(canAddChildren)',
+                        'supportsAllDrives': 'true'})
             folder.raise_for_status()
             item = folder.json()
-            if item.get('mimeType') != 'application/vnd.google-apps.folder' or not item.get('capabilities', {}).get('canAddChildren'):
-                raise HTTPException(503, 'L’account collegato non può caricare nella cartella Drive.')
-            quota = data.get('storageQuota', {})
-            return {'configured': True, 'folder_id': settings.drive_folder_id,
-                    'account': account, 'limit_bytes': quota.get('limit'),
-                    'used_bytes': quota.get('usage'),
-                    'drive_used_bytes': quota.get('usageInDrive')}
-        except httpx.HTTPError as exc:
-            raise HTTPException(503, 'Cartella o quota Google Drive non disponibili.') from exc
+        except (httpx.HTTPError, ValueError) as exc:
+            raise drive_failure(exc, step='cartella principale',
+                extra={'folder_id': settings.drive_folder_id}) from exc
+        if item.get('mimeType') != 'application/vnd.google-apps.folder' or not item.get('capabilities', {}).get('canAddChildren'):
+            raise user_error('DRV-10', technical={'step': 'cartella principale',
+                'folder_id': settings.drive_folder_id, 'mime_type': item.get('mimeType'),
+                'can_add_children': item.get('capabilities', {}).get('canAddChildren')})
+        quota = data.get('storageQuota', {})
+        return {'configured': True, 'folder_id': settings.drive_folder_id,
+                'account': account, 'limit_bytes': quota.get('limit'),
+                'used_bytes': quota.get('usage'),
+                'drive_used_bytes': quota.get('usageInDrive')}
 
 
 async def _existing(client, headers, material, nodes=None):

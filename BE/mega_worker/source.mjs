@@ -77,8 +77,11 @@ export class MegaSource {
     return { configured: true, source_id: c.id, mode: c.kind, account: c.account, root_folder: c.root_label,
       used_bytes: q.spaceUsed ?? null, limit_bytes: q.spaceTotal ?? null,
       transfer_used_bytes: q.downloadBandwidthUsed ?? null, transfer_limit_bytes: q.downloadBandwidthTotal === 10 * 1024 ** 5 ? null : q.downloadBandwidthTotal ?? null,
-      permissions: {read: true, write: false, delete: false}, public_links: null, checked_at: c.checked_at,
-      checks: [{label:'Lettura', ok: !!root}, {label:'Sorgente in sola lettura: gli originali sono conservati', ok:true}] };
+      permissions: {read: true, write: c.kind === 'account', delete: c.kind === 'account'}, public_links: null, checked_at: c.checked_at,
+      checks: [{label:'Lettura', ok: !!root},
+        c.kind === 'account'
+          ? {label:'Gli originali si eliminano solo dopo una copia verificata su Drive e con la tua conferma', ok:true}
+          : {label:'Cartella condivisa: sola lettura, gli originali restano su MEGA', ok:true}] };
   }
   async find(id) {
     const {root} = await this.open(); if (!id || id === root.nodeId) return root;

@@ -7,6 +7,7 @@ import 'package:fe/services/api_service.dart';
 import '../../social/admin/admin_material_storage_api_service.dart';
 import 'catalog_source.dart';
 import 'package:fe/services/auth_session.dart';
+import 'package:fe/services/user_facing_error.dart';
 
 /// Servizio MEGA non disponibile o non configurato.
 class MegaNotAvailable implements Exception {
@@ -73,14 +74,16 @@ class MegaStorageApiService {
     if (response.statusCode == 404 && (decoded == null || (decoded is Map && decoded['detail'] == 'Not Found'))) {
       throw const MegaNotAvailable();
     }
-    if (decoded is Map && decoded['detail'] is String && (decoded['detail'] as String).trim().isNotEmpty) {
+    if (decoded is Map && decoded['detail'] is String && isReadable((decoded['detail'] as String).trim())) {
       final String detail = (decoded['detail'] as String).trim();
-      if (response.statusCode == 503) throw MegaNotAvailable(detail);
-      throw Exception(detail);
+      if (response.statusCode == 503 && _isUnavailable(detail)) throw MegaNotAvailable(detail);
+      throw UserFacingError(detail, status: response.statusCode);
     }
-    if (response.statusCode == 401 || response.statusCode == 403) throw Exception('Serve un account admin.');
-    throw Exception(fallback);
+    throw UserFacingError(friendlyStatusMessage(response.statusCode, fallback), status: response.statusCode);
   }
+
+  /// 503 del servizio MEGA (non configurato o non raggiungibile) e non un errore di Drive.
+  bool _isUnavailable(String detail) => !detail.contains('codice DRV-');
 
   Map<String, dynamic> _map(dynamic value) =>
       value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
@@ -105,7 +108,7 @@ class MegaStorageApiService {
     final http.Response response = await http.get(_fileUri(fileId, 'preview'), headers: _headers);
     if (response.statusCode == 501) throw const MegaNotAvailable();
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Anteprima MEGA non disponibile');
+      throw UserFacingError(friendlyHttpMessage(response, 'Anteprima MEGA non disponibile'));
     }
     return response.bodyBytes;
   }
@@ -155,6 +158,18 @@ class MegaStorageApiService {
   }
   Future<Map<String, dynamic>> stageCompleted(String id) async => _map(_decode(
       await http.post(_uri('/admin/material-storage/mega/jobs/${Uri.encodeComponent(id)}/stage'), headers: _headers), 'File non registrato'));
+  /// Dopo una copia verificata su Drive: sposta gli originali nel cestino di MEGA.
+  Future<Map<String, dynamic>> deleteSourceAfterCopy(String id) async => _map(_decode(
+      await http.post(_uri('/admin/material-storage/mega/jobs/${Uri.encodeComponent(id)}/delete-source'),
+          headers: _headers, body: jsonEncode(<String, dynamic>{'confirm': true})),
+      'Eliminazione da MEGA non riuscita'));
+
+  /// «Conserva su MEGA»: la scelta viene ricordata per questa copia.
+  Future<void> keepSourceAfterCopy(String id) async => _decode(
+      await http.post(_uri('/admin/material-storage/mega/jobs/${Uri.encodeComponent(id)}/keep-source'),
+          headers: _headers),
+      'Scelta non salvata');
+
   Future<void> retryJob(String id) async => _decode(
       await http.post(_uri('/admin/material-storage/mega/jobs/${Uri.encodeComponent(id)}/retry'), headers: _headers), 'Nuovo tentativo non avviato');
 
@@ -166,11 +181,13 @@ class MegaStorageApiService {
     required String audienceType,
     int? audienceId,
     bool allowDuplicate = false,
+    List<String>? drivePathSegments,
   }) async =>
       _map(_decode(
           await http.post(_uri('/admin/material-storage/catalog/mega-import'),
               headers: _headers,
               body: jsonEncode(<String, dynamic>{
+                if (drivePathSegments != null) 'drive_path_segments': drivePathSegments,
                 'file_id': fileId,
                 'subject_id': subjectId,
                 'path_segments': pathSegments,

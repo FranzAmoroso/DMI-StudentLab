@@ -4970,3 +4970,12 @@ app.include_router(mega_storage_router)
 
 from routes.temporary_transfers import router as temporary_transfers_router
 app.include_router(temporary_transfers_router)
+
+# v26: struttura del catalogo (togli/ripristina/elimina da Drive), verifica Drive,
+# registro diagnostico e caricamenti degli studenti verso MEGA.
+from routes.admin_catalog_structure import router as admin_catalog_structure_router  # noqa: E402
+from routes.admin_catalog_structure import diagnostics_router as admin_diagnostics_router  # noqa: E402
+from routes.student_temporary_transfers import router as student_temporary_transfers_router  # noqa: E402
+app.include_router(admin_catalog_structure_router)
+app.include_router(admin_diagnostics_router)
+app.include_router(student_temporary_transfers_router)

@@ -7,6 +7,7 @@ import httpx
 from fastapi import HTTPException
 
 from core.config import settings
+from services.diagnostics import drive_failure, user_error
 
 API = 'https://www.googleapis.com/drive/v3'
 FOLDER_MIME = 'application/vnd.google-apps.folder'
@@ -60,7 +61,7 @@ async def _children(client, headers, parent):
             response.raise_for_status()
             data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            raise HTTPException(503, 'Impossibile controllare tutte le cartelle Drive.') from exc
+            raise drive_failure(exc, step='elenco cartella', extra={'folder_id': parent}) from exc
         for entry in data.get('files', []):
             yield entry
         token = data.get('nextPageToken')
@@ -282,9 +283,9 @@ async def verify_under_root(client, headers, file_id):
             response.raise_for_status()
             item = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            raise HTTPException(404, 'File Drive non disponibile.') from exc
+            raise drive_failure(exc, step='verifica file', extra={'file_id': file_id}) from exc
         if item.get('trashed'):
-            raise HTTPException(404, 'File Drive non disponibile.')
+            raise user_error('DRV-07', 404, technical={'step': 'verifica file', 'file_id': file_id, 'trashed': True})
         if original is None:
             original = item
         parents = item.get('parents') or []
@@ -293,4 +294,4 @@ async def verify_under_root(client, headers, file_id):
         if len(parents) != 1:
             break
         file_id = _safe_id(parents[0])
-    raise HTTPException(404, 'File esterno alla cartella StudentLab.')
+    raise user_error('DRV-08', 404, technical={'step': 'verifica file', 'file_id': original.get('id') if original else file_id})

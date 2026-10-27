@@ -62,6 +62,21 @@ def _validate(db, *, material, subject_id, path, state, audience, audience_id):
     return subject, path
 
 
+def _conflict_view(db, m):
+    """Dati per confrontare un file già nel catalogo con quello nuovo (solo admin)."""
+    subject = db.query(Subject).filter(Subject.id == m.subject_id).first()
+    uploader = getattr(m, 'uploader', None)
+    return {'id': m.id, 'name': m.original_name, 'title': m.title,
+        'path_segments': json.loads(m.catalog_path_json or '[]'), 'size': m.size,
+        'subject_id': m.subject_id, 'subject_name': subject.name if subject else None,
+        'course': subject.course if subject else None, 'status': m.status,
+        'visibility_state': m.visibility_state, 'mime_type': m.mime_type,
+        'created_at': m.created_at.isoformat() if m.created_at else None,
+        'uploader_name': ' '.join(filter(None, [getattr(uploader, 'first_name', None),
+                                                getattr(uploader, 'last_name', None)])) or None,
+        'drive_file_id': m.drive_file_id}
+
+
 def _serialize(draft):
     return {'material_id': draft.material_id, 'base_version': draft.base_version,
         'subject_id': draft.subject_id, 'path_segments': json.loads(draft.path_json),
@@ -147,18 +162,22 @@ async def stage_drive_import(db, *, admin_id, file_id, subject_id, path,
         raise ValueError('Seleziona un file scaricabile da Drive.')
     if not 0 < size <= 20 * 1024 * 1024:
         raise ValueError('Importazione diretta disponibile per file fino a 20 MB.')
-    if db.query(PublicMaterial.id).filter(PublicMaterial.drive_file_id == file_id).first():
-        raise RuntimeError('Questo file Drive è già presente nello storico del catalogo.')
+    # v27: lo stesso file Drive è già nel catalogo (anche se tolto): lo si dice, con dove si trova.
+    known = db.query(PublicMaterial).filter(PublicMaterial.drive_file_id == file_id).first()
+    if known is not None:
+        return {'already_in_catalog': _conflict_view(db, known),
+                'restorable': known.status == 'removed'}
+    # Possibili doppioni: stesso nome e dimensione nella materia (o stesso nome in tutto il catalogo).
     matches = db.query(PublicMaterial).filter(
-        PublicMaterial.subject_id == subject_id,
         PublicMaterial.original_name == name,
         PublicMaterial.size == size,
-        PublicMaterial.status != 'removed').limit(5).all()
+        PublicMaterial.status != 'removed').limit(10).all()
     if matches and not allow_duplicate:
-        return {'conflicts': [{'id': m.id, 'name': m.original_name,
-            'path_segments': json.loads(m.catalog_path_json or '[]'),
-            'size': m.size} for m in matches],
-            'incoming': {'name': name, 'path_segments': path, 'size': size}}
+        return {'conflicts': [_conflict_view(db, m) for m in matches],
+            'incoming': {'name': name, 'path_segments': path, 'size': size,
+                         'subject_id': subject_id, 'subject_name': subject.name,
+                         'drive_file_id': file_id,
+                         'modified_at': entry.get('modifiedTime')}}
     draft = db.query(MaterialCatalogImportDraft).filter(
         MaterialCatalogImportDraft.admin_id == admin_id,
         MaterialCatalogImportDraft.drive_file_id == file_id).first()

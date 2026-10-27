@@ -37,6 +37,48 @@ export class Jobs {
     if(job.source_id!==this.vault.data.source?.id)throw new Fault(409,'Ricollega la stessa sorgente e avvia una nuova copia.');
     job.state='queued';job.error=null;await this.vault.save();this.kick();return viewJob(job);
   }
+  // Dopo una copia verificata: gli originali MEGA vanno nel cestino di MEGA (recuperabili).
+  // Si chiede ogni volta dall'app; qui si ricontrolla tutto prima di toccare MEGA.
+  async deleteSource(id,actor) {
+    const job=this.get(id,actor);
+    if(job.source_deleted)return viewJob(job);
+    if(job.state!=='completed'||job.failed_files)throw new Fault(409,'Si possono eliminare da MEGA solo le copie completate senza errori.');
+    if(job.source_id!==this.vault.data.source?.id)throw new Fault(409,'La sorgente MEGA è cambiata: gli originali non vengono toccati.');
+    if(this.vault.data.source?.kind!=='account')throw new Fault(409,'Con una cartella condivisa MEGA non si possono eliminare gli originali.');
+    const fileIds=new Set(job.results.map(r=>r.file_id));
+    if(this.vault.data.jobs.some(j=>j!==job&&['queued','running'].includes(j.state)&&j.files.some(f=>fileIds.has(f.file_id))))throw new Fault(409,'Un’altra copia sta usando questi file: riprova quando è finita.');
+    const rows=job.results.filter(r=>['completed','reused'].includes(r.state)&&r.drive_file_id);
+    if(rows.length!==job.total_files)throw new Fault(409,'Non tutti i file risultano copiati su Drive: gli originali restano su MEGA.');
+    // 1. Ogni copia deve esistere su Drive con la stessa dimensione.
+    for(const r of rows) {
+      const check=await this.drive.json(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(r.drive_file_id)}?fields=id,size,trashed,md5Checksum&supportsAllDrives=true`);
+      if(check.trashed||Number(check.size)!==Number(r.size)||!check.md5Checksum)throw new Fault(409,`La copia su Drive di ${r.name} non è più verificabile: gli originali restano su MEGA.`);
+    }
+    // 2. Cestino MEGA: solo i file copiati, con nome e dimensione invariati.
+    const deleted=[],skipped=[];
+    for(const r of rows) {
+      let node;
+      try{node=await this.source.find(r.file_id);}catch{skipped.push(r.name);continue;}
+      if(node.directory||node.name!==r.name||Number(node.size)!==Number(r.size)){skipped.push(r.name);continue;}
+      await node.delete(false);deleted.push(r.file_id);
+    }
+    // 3. Cartella selezionata: va nel cestino solo se non contiene più file.
+    let folderRemoved=false;
+    try {
+      const selected=await this.source.find(job.file_id);
+      const hasFiles=n=>(n.children||[]).some(c=>c.directory?hasFiles(c):true);
+      if(selected.directory&&!hasFiles(selected)){await selected.delete(false);folderRemoved=true;}
+    }catch{/* già rimossa o non più visibile */}
+    job.source_deleted={at:new Date().toISOString(),files:deleted.length,skipped,folder_removed:folderRemoved};
+    job.updated_at=new Date().toISOString();await this.vault.save();this.source.loaded=null;
+    return viewJob(job);
+  }
+  // «Conserva su MEGA»: la scelta resta salvata, così l'app non lo richiede per questa copia.
+  async keepSource(id,actor) {
+    const job=this.get(id,actor);
+    if(!job.source_deleted){job.source_kept=new Date().toISOString();job.updated_at=job.source_kept;await this.vault.save();}
+    return viewJob(job);
+  }
   kick(){if(!this.running){this.running=true;queueMicrotask(()=>this.work().catch(()=>console.error('Coda copie MEGA sospesa: controllare volume persistente.')).finally(()=>{this.running=false;}));}}
   async work(){let job;while((job=this.vault.data.jobs.find(j=>j.state==='queued')))await this.run(job);}
   async run(job) {

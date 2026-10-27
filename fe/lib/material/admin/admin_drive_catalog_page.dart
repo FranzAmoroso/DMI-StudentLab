@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../social/admin/admin_material_storage_api_service.dart';
@@ -12,6 +11,17 @@ import 'mega_storage_api_service.dart';
 import 'mega_transfer_jobs_page.dart';
 import 'package:file_picker/file_picker.dart';
 import 'admin_storage_sources_page.dart';
+import 'package:desktop_drop/desktop_drop.dart';
+import '../../services/user_facing_error.dart';
+import '../upload/upload_items.dart';
+import 'catalog_upload_page.dart';
+import 'drive_destination_dialog.dart';
+import 'drive_diagnostics.dart';
+import 'mega_batch_copy_dialog.dart';
+import 'subject_hierarchy_filter.dart';
+import 'duplicate_compare_dialog.dart';
+import 'folder_import_dialog.dart';
+import 'structure_upload_dialog.dart';
 
 /// La struttura StudentLab è indipendente dai percorsi fisici su Drive.
 class AdminDriveCatalogPage extends StatefulWidget {
@@ -61,6 +71,30 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
 
   /// Cartella della struttura sotto il cursore durante il trascinamento.
   String? _dropTarget;
+
+  /// v26: elementi MEGA selezionati per la copia su Drive (id -> elemento).
+  final Map<String, Map<String, dynamic>> _megaSelected = {};
+
+  /// v26: file o cartelle trascinati dal computer sopra il pannello della sorgente.
+  bool _osDragging = false;
+
+  /// v26: mostra la sezione «Tolti dalla struttura».
+  bool _showRemoved = false;
+
+  /// v26: filtro materie a cascata aperto.
+  bool _filtersOpen = false;
+
+  /// v27: cartelle chiuse nella struttura (chiave: percorso).
+  final Set<String> _collapsed = <String>{};
+
+  /// v27: file in arrivo su Drive che entreranno da soli nella bozza.
+  int _waitingFiles = 0;
+
+  /// v27: doppioni emersi dalle aggiunte automatiche, da decidere.
+  final List<Map<String, dynamic>> _pendingConflicts = [];
+
+  /// v27: file o cartelle del computer trascinati sopra la struttura.
+  bool _pcDragging = false;
 
   @override
   void initState() {
@@ -122,6 +156,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       _driveOpen.clear();
       _driveLoading.clear();
       _dropTarget = null;
+      _megaSelected.clear();
       _nextPage = null;
       _sourceError = null;
       _sourceMissing = false;
@@ -140,7 +175,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       'audience_id': d['audience_id'], 'draft': true};
   }
 
-  Future<void> _reload() async {
+  Future<void> _reload({bool intents = true}) async {
     setState(() { _loading = true; _error = null; });
     try {
       // La sorgente si carica a parte: se MEGA non risponde, il catalogo resta usabile.
@@ -178,12 +213,124 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         }
       }
       if (_previewMode) await _loadPreview();
-    } catch (_) {
+      if (intents) _processIntents();
+    } catch (error) {
       if (mounted) setState(() {
         _loading = false;
-        _error = 'Il catalogo non è disponibile. Verifica la connessione e riprova.';
+        _error = _reason(error, 'Il catalogo non è disponibile. Verifica la connessione e riprova.');
       });
     }
+  }
+
+  /// v27: aggiunge alla bozza i file arrivati su Drive (trascinati dal PC o copiati da MEGA).
+  Future<void> _processIntents() async {
+    Map<String, dynamic> result;
+    try {
+      result = await _api.processCatalogIntents();
+    } catch (_) {
+      return; // si riprova alla prossima apertura del catalogo
+    }
+    if (!mounted) return;
+    final staged = _integer(result['staged']);
+    final conflicts = (result['conflicts'] as List? ?? const [])
+        .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    final skipped = (result['skipped'] as List? ?? const []).whereType<Map>().toList();
+    setState(() {
+      _waitingFiles = _integer(result['waiting']);
+      _pendingConflicts.addAll(conflicts);
+    });
+    if (staged > 0) {
+      await _reload(intents: false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+            '$staged file arrivati su Drive e aggiunti alla bozza, con le loro cartelle.')));
+      }
+    }
+    if (skipped.isNotEmpty && mounted) {
+      _showError('${skipped.length} file non aggiunti alla struttura. '
+          'Per esempio «${skipped.first['name']}»: ${skipped.first['reason']}');
+    }
+  }
+
+  /// v27: decide i doppioni emersi dalle aggiunte automatiche, uno alla volta.
+  Future<void> _resolvePendingConflicts() async {
+    while (_pendingConflicts.isNotEmpty && mounted) {
+      final c = _pendingConflicts.first;
+      final first = (c['conflicts'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      final done = await _resolveConflictResult(
+        fileId: _string(c['file_id']),
+        name: _string(c['name']),
+        result: {'conflicts': first},
+        subjectId: _subjectId ?? _integer(first.isEmpty ? 0 : first.first['subject_id']),
+        path: _path(c['path_segments']),
+        audience: 'course',
+      );
+      if (done == null) break; // finestra chiusa: si riprende dopo
+      setState(() => _pendingConflicts.removeAt(0));
+    }
+    if (mounted) await _reload(intents: false);
+  }
+
+  /// v27: il file nuovo somiglia a uno già nel catalogo (o è già nel catalogo).
+  /// Ritorna null se l'admin chiude senza scegliere, altrimenti true.
+  Future<bool?> _resolveConflictResult({
+    required String fileId,
+    required String name,
+    required Map<String, dynamic> result,
+    required int subjectId,
+    required List<String> path,
+    required String audience,
+    int? audienceId,
+  }) async {
+    final already = result['already_in_catalog'];
+    if (already is Map) {
+      final known = Map<String, dynamic>.from(already);
+      final restorable = result['restorable'] == true || _string(known['status']) == 'removed';
+      final choice = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+        title: const Text('File già nel catalogo'),
+        content: Text('«$name» è già nel catalogo in «${catalogPlace(known)}»'
+            '${restorable ? ', ma è stato tolto dalla struttura.' : '.'}'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'close'), child: const Text('Va bene così')),
+          if (restorable)
+            FilledButton(onPressed: () => Navigator.pop(ctx, 'restore'), child: const Text('Ripristina'))
+          else
+            FilledButton(onPressed: () => Navigator.pop(ctx, 'show'), child: const Text('Mostralo')),
+        ],
+      ));
+      if (choice == null) return null;
+      if (choice == 'restore') {
+        await _api.restoreToStructure(_integer(known['id']));
+        if (_integer(known['subject_id']) != subjectId || _path(known['path_segments']).join('/') != path.join('/')) {
+          await _api.stageCatalogFile(materialId: _integer(known['id']), subjectId: subjectId,
+              pathSegments: path, visibilityState: 'visible', audienceType: audience, audienceId: audienceId);
+        }
+      }
+      if (choice == 'show') _revealMaterial(_integer(known['id']));
+      return true;
+    }
+    final existing = (result['conflicts'] as List? ?? const [])
+        .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    if (existing.isEmpty) return true;
+    final incoming = Map<String, dynamic>.from(result['incoming'] as Map? ?? {'name': name, 'size': existing.first['size']});
+    incoming['drive_file_id'] = fileId;
+    incoming['path_segments'] = path;
+    incoming['subject_name'] ??= _subjectName(subjectId);
+    final choice = await showDuplicateCompare(context, api: _api, incoming: incoming, existing: existing,
+        pickFolder: (current) => _pickFolder(title: 'Dove mettere il file nuovo?', current: current));
+    if (choice == null) return null;
+    if (choice.action == DuplicateAction.keepExisting) return true;
+    var target = path;
+    if (choice.action == DuplicateAction.replace) {
+      final old = choice.target!;
+      await _api.removeFromStructure(materialIds: [_integer(old['id'])]);
+      if (_integer(old['subject_id']) == subjectId) target = _path(old['path_segments']);
+    } else {
+      target = choice.path;
+    }
+    await _api.stageDriveImport(fileId: fileId, subjectId: subjectId, pathSegments: target,
+        audienceType: audience, audienceId: audienceId, allowDuplicate: true);
+    return true;
   }
 
   Future<void> _loadDrive() async {
@@ -209,9 +356,14 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       }
     } on MegaNotAvailable catch (error) {
       if (current()) setState(() { _drive = []; _nextPage = null; _sourceMissing = true; _sourceError = error.message; });
-    } catch (_) {
+    } catch (error) {
+      // v26: si mostra la frase del server (es. «L’accesso a Google Drive è scaduto…»), non un testo generico.
       if (current()) {
-        setState(() { _drive = []; _nextPage = null; _sourceError = 'Impossibile aprire questa cartella ${source.shortLabel}.'; });
+        setState(() {
+          _drive = [];
+          _nextPage = null;
+          _sourceError = _reason(error, 'Impossibile aprire questa cartella ${source.shortLabel}. Riprova tra poco.');
+        });
       }
     }
     if (current()) setState(() => _sourceLoading = false);
@@ -242,14 +394,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
 
   /// Motivo leggibile restituito dal server (es. "Completa prima il
   /// caricamento su Drive."); se manca o è tecnico, il testo di riserva.
-  String _reason(Object error, String fallback) {
-    final String text = error.toString().replaceFirst('Exception: ', '').trim();
-    if (text.isEmpty || text.length > 220 || text.contains('<') ||
-        RegExp(r'^\d{3}\b').hasMatch(text) || text.startsWith('Bad state')) {
-      return fallback;
-    }
-    return text;
-  }
+  String _reason(Object error, String fallback) => friendlyError(error, fallback);
 
   void _showError(String message) {
     if (!mounted) return;
@@ -298,11 +443,9 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           children: [
             const Text('Le modifiche resteranno in bozza fino a «Pubblica struttura».'),
             const SizedBox(height: 16),
-            DropdownButtonFormField<int>(value: _subjects.any((e) => _integer(e['id']) == subjectId)
-              ? subjectId : null, decoration: const InputDecoration(labelText: 'Materia'),
-              items: [for (final s in _subjects) DropdownMenuItem(value: _integer(s['id']),
-                child: Text('${s['name']} · ${s['course']}', overflow: TextOverflow.ellipsis))],
-              onChanged: (v) { if (v != null) update(() => subjectId = v); }),
+            SubjectPickerField(subjects: _subjects,
+              value: _subjects.any((e) => _integer(e['id']) == subjectId) ? subjectId : null,
+              onChanged: (v) => update(() => subjectId = v)),
             TextField(controller: path, decoration: const InputDecoration(
               labelText: 'Percorso nelle Dispense', hintText: 'Cartella / Sottocartella',
               helperText: 'Il percorso sulla sorgente non cambia')),
@@ -425,7 +568,11 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
   Future<void> _copyMegaToDrive(Map<String, dynamic> file) async {
     final sourceId = _megaStatus?['source_id']?.toString();
     final destination = await showDialog<List<String>>(context: context,
-      builder: (_) => _MegaDriveDestinationDialog(api: _api, name: _string(file['name']), folder: _isFolder(file)));
+      builder: (_) => DriveDestinationDialog(api: _api, title: 'Copia MEGA → Drive',
+        intro: _isFolder(file)
+          ? '${_string(file['name'])}: la cartella e le sottocartelle saranno copiate. Gli originali restano su MEGA finché non confermi.'
+          : '${_string(file['name'])}: l’originale resta su MEGA finché non confermi.',
+        confirmLabel: 'Avvia copia', initialPath: const ['Da MEGA']));
     if (!mounted || destination == null) return;
     setState(() => _busy = true);
     try {
@@ -436,6 +583,31 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       }
     } catch (e) { if (mounted) _showError(_reason(e, 'Copia non avviata.')); }
     if (mounted) setState(() => _busy = false);
+  }
+
+  /// v26: copia di più elementi MEGA, ognuno con la sua cartella su Drive.
+  Future<void> _copyMegaSelected() async {
+    if (_megaSelected.isEmpty || _busy) return;
+    final plan = await showDialog<List<(Map<String, dynamic>, List<String>)>>(context: context,
+      builder: (_) => MegaBatchCopyDialog(api: _api, items: _megaSelected.values.toList()));
+    if (plan == null || plan.isEmpty || !mounted) return;
+    final sourceId = _megaStatus?['source_id']?.toString();
+    setState(() => _busy = true);
+    var started = 0;
+    String? failure;
+    for (final (item, path) in plan) {
+      try {
+        await _mega.copyToDrive(_string(item['id']), path, sourceId: sourceId);
+        started++;
+        _megaSelected.remove(_string(item['id']));
+      } catch (e) {
+        failure = _reason(e, 'Una copia non è stata avviata.');
+      }
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (failure != null) _showError('$started copie avviate. $failure');
+    if (started > 0) await _openMegaJobs();
   }
 
   Future<void> _import(Map<String, dynamic> file, {List<String>? initialPath}) async {
@@ -453,10 +625,8 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           Text(_string(file['name']), maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 12),
           Text(source == CatalogSource.mega ? 'Il file verrà copiato su Drive. Completa la registrazione dalla pagina Copie; sarà visibile dopo «Pubblica struttura».' : 'Il file resta su Drive. Sarà visibile solo dopo «Pubblica struttura».'),
-          DropdownButtonFormField<int>(value: subjectId,
-            items: [for (final s in _subjects) DropdownMenuItem(value: _integer(s['id']),
-              child: Text('${s['name']} · ${s['course']}', overflow: TextOverflow.ellipsis))],
-            onChanged: (v) { if (v != null) update(() => subjectId = v); }),
+          SubjectPickerField(subjects: _subjects, value: subjectId,
+            onChanged: (v) => update(() => subjectId = v)),
           DropdownButtonFormField<String>(value: audience,
             items: const [DropdownMenuItem(value: 'public', child: Text('Tutti, anche guest')),
               DropdownMenuItem(value: 'course', child: Text('Studenti del corso')),
@@ -483,171 +653,399 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       )));
     recipient.dispose(); pathController.dispose();
     if (selected == null || !mounted) return;
+    List<String>? megaDrivePath;
+    if (source == CatalogSource.mega) {
+      final subjectName = _subjects.where((s) => _integer(s['id']) == selected.$1)
+          .map((s) => _string(s['name'])).firstWhere((s) => s.isNotEmpty, orElse: () => 'Da MEGA');
+      megaDrivePath = await showDialog<List<String>>(context: context,
+        builder: (_) => DriveDestinationDialog(api: _api, title: 'Dove copiarlo su Drive',
+          intro: 'Il file viene copiato su Drive; a copia finita lo aggiungi alla bozza dalla pagina Copie.',
+          confirmLabel: 'Avvia copia',
+          initialPath: [subjectName.replaceAll('/', '-'), ...selected.$4]));
+      if (megaDrivePath == null || !mounted) return;
+    }
     setState(() => _busy = true);
     try {
-      var path = selected.$4;
-      var allowDuplicate = false;
-      for (var attempt = 0; attempt < 3; attempt++) {
-        final result = source == CatalogSource.drive
-            ? await _api.stageDriveImport(fileId: _string(file['id']),
-                subjectId: selected.$1, pathSegments: path,
-                audienceType: selected.$2, audienceId: selected.$3,
-                allowDuplicate: allowDuplicate)
-            : await _mega.stageImport(fileId: _string(file['id']),
-                subjectId: selected.$1, pathSegments: path,
-                audienceType: selected.$2, audienceId: selected.$3,
-                allowDuplicate: allowDuplicate);
-        if (result['queued'] == true && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copia in coda. Apri Copie MEGA → Drive per completare l’aggiunta alla bozza.')));
-          break;
+      if (source == CatalogSource.mega) {
+        // v27: copia su Drive e aggiunta automatica alla bozza a copia verificata.
+        final job = await _mega.copyToDrive(_string(file['id']), megaDrivePath!,
+            sourceId: _megaStatus?['source_id']?.toString());
+        await _api.createCatalogIntent(kind: 'mega', subjectId: selected.$1, audienceType: selected.$2,
+            audienceId: selected.$3, megaJobId: _string(job['id']), basePath: selected.$4);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
+              'Copia su Drive avviata. Il file entra nella bozza da solo appena la copia è verificata.')));
         }
-        if (result['staged'] == true || !mounted) break;
-        final matches = (result['conflicts'] as List? ?? [])
-          .map((e) => Map<String, dynamic>.from(e as Map)).toList();
-        if (matches.isEmpty) break;
-        final candidate = TextEditingController(text: path.join(' / '));
-        final decision = await showDialog<(List<String>, bool)>(context: context,
-          builder: (ctx) => AlertDialog(title: const Text('Possibile duplicato'),
-            content: SizedBox(width: _dialogWidth(ctx, 460), child: SingleChildScrollView(child: Column(
-              mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Da aggiungere: ${_string(file['name'])}\nPercorso: ${path.join(' / ')}\nDimensione: ${_string(file['size'])} byte'),
-                const SizedBox(height: 12),
-                for (final match in matches) ListTile(
-                  title: Text(_string(match['name'])),
-                  subtitle: Text('Già in: ${_path(match['path_segments']).join(' / ')} · ${_string(match['size'])} byte'),
-                  trailing: IconButton(tooltip: 'Vedi file trovato',
-                    icon: const Icon(Icons.visibility_outlined),
-                    onPressed: () => showDriveFilePreview(context,
-                      load: () => _api.downloadPublicMaterialPreview(_integer(match['id'])),
-                      name: _string(match['name']), mimeType: _string(file['mime_type'])))),
-                TextField(controller: candidate, decoration: const InputDecoration(
-                  labelText: 'Nuovo percorso nelle Dispense')),
-              ]))),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
-              TextButton(onPressed: () => Navigator.pop(ctx, (path, true)),
-                child: const Text('Conserva anche questo file')),
-              FilledButton(onPressed: () {
-                final next = candidate.text.trim().isEmpty ? <String>[] :
-                  candidate.text.split('/').map((s) => s.trim()).toList();
-                if (next.any((s) => s.isEmpty)) return;
-                Navigator.pop(ctx, (next, true));
-              }, child: const Text('Cambia percorso'))],
-          ));
-        candidate.dispose();
-        if (decision == null) break;
-        path = decision.$1;
-        allowDuplicate = decision.$2;
+      } else {
+        final result = await _api.stageDriveImport(fileId: _string(file['id']),
+            subjectId: selected.$1, pathSegments: selected.$4,
+            audienceType: selected.$2, audienceId: selected.$3);
+        if (result['staged'] != true) {
+          await _resolveConflictResult(fileId: _string(file['id']), name: _string(file['name']),
+              result: result, subjectId: selected.$1, path: selected.$4,
+              audience: selected.$2, audienceId: selected.$3);
+        }
       }
       await _reload();
     } catch (e) { _showError(_reason(e, 'File non aggiunto alla bozza. Verifica permessi e dimensione (massimo 20 MB).')); }
     if (mounted) setState(() => _busy = false);
   }
 
-  /// Importa una cartella nella bozza conservando le sottocartelle.
-  /// La conferma "Pubblica struttura" resta l'unica operazione di pubblicazione.
+  /// v27: aggiunge una cartella con tutte le sottocartelle e i file (da Drive o da MEGA).
+  /// Prima mostra l'albero da spuntare; la cartella con il nome della materia non diventa un argomento.
   Future<void> _importFolder(Map<String, dynamic> folder, {List<String>? initialPath}) async {
-    if (_busy || _subjects.isEmpty) return;
+    if (_busy) return;
+    if (_subjects.isEmpty) { _showError('Nessuna materia disponibile per classificare i file.'); return; }
     final source = CatalogSourceInfo.fromApi(folder['storage_provider']) ?? _source;
-    if (source == CatalogSource.mega) { await _copyMegaToDrive(folder); return; }
+    final rootName = _string(folder['name']);
     final files = <(Map<String, dynamic>, List<String>)>[];
+    final folders = <List<String>>[[rootName]];
     final visited = <String>{};
-    int excluded = 0;
+    final alreadyIn = <String, int>{};
+    var excluded = 0;
     Future<void> collect(String id, List<String> path) async {
       if (path.length > 12 || !visited.add(id)) throw StateError('Struttura della cartella non valida.');
-      final children = await _folderChildren(source, id);
-      for (final item in children) {
+      for (final item in await _folderChildren(source, id)) {
         if (_isFolder(item)) {
-          await collect(_string(item['id']), [...path, _string(item['name'])]);
-        } else {
-          final mime = _string(item['mime_type']);
-          final size = _integer(item['size']);
-          if (item['indexed'] == true || (source == CatalogSource.drive &&
-              (mime.startsWith('application/vnd.google-apps.') || size <= 0 || size > 20 * 1024 * 1024))) {
-            excluded++;
-            continue;
-          }
-          files.add((item, path));
-          if (files.length > 2000) throw StateError('Seleziona una cartella con al massimo 2000 file.');
+          final sub = [...path, _string(item['name'])];
+          folders.add(sub);
+          await collect(_string(item['id']), sub);
+          continue;
         }
+        final mime = _string(item['mime_type']);
+        final size = _integer(item['size']);
+        if (item['indexed'] == true) {
+          excluded++;
+          final where = _materialForSource(_string(item['copied_drive_file_id']).isNotEmpty
+              ? _string(item['copied_drive_file_id']) : _string(item['id']));
+          final name = where == null ? 'un’altra materia' : _subjectName(_integer(_effective(where)['subject_id']));
+          alreadyIn[name] = (alreadyIn[name] ?? 0) + 1;
+          continue;
+        }
+        if (mime.startsWith('application/vnd.google-apps.') || size <= 0 || size > 20 * 1024 * 1024) {
+          excluded++;
+          continue;
+        }
+        files.add((item, path));
+        if (files.length > 2000) throw StateError('Seleziona una cartella con al massimo 2000 file.');
       }
     }
     setState(() => _busy = true);
     try {
-      await collect(_string(folder['id']), [_string(folder['name'])]);
+      await collect(_string(folder['id']), [rootName]);
     } catch (error) {
-      if (mounted) _showError(_reason(error, 'Impossibile leggere questa cartella.'));
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        _showError(_reason(error, 'Impossibile leggere questa cartella.'));
+        setState(() => _busy = false);
+      }
       return;
     }
     if (!mounted) return;
     setState(() => _busy = false);
-    if (files.isEmpty) { _showError('La cartella non contiene file da registrare: $excluded file già presenti o non compatibili.'); return; }
-    int subjectId = _subjectId ?? _integer(_subjects.first['id']);
-    String audience = 'course';
-    final recipient = TextEditingController();
-    final destination = TextEditingController(text: (initialPath ?? <String>[]).join(' / '));
-    final selected = await showDialog<(int, String, int?, List<String>)>(context: context,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(
-        title: Text('Aggiungi cartella da ${source.shortLabel}'),
-        content: SizedBox(width: _dialogWidth(ctx, 460), child: SingleChildScrollView(child: Column(
-          mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${_string(folder['name'])} · ${files.length} file da registrare; $excluded già presenti o non compatibili. Le sottocartelle saranno conservate nelle Dispense.'),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(initialValue: subjectId,
-              decoration: const InputDecoration(labelText: 'Materia'),
-              items: [for (final row in _subjects) DropdownMenuItem(value: _integer(row['id']), child: Text(_string(row['name'])))],
-              onChanged: (value) { if (value != null) update(() => subjectId = value); }),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(initialValue: audience,
-              decoration: const InputDecoration(labelText: 'Destinatari'),
-              items: const [DropdownMenuItem(value: 'public', child: Text('Tutti')),
-                DropdownMenuItem(value: 'course', child: Text('Studenti del corso')),
-                DropdownMenuItem(value: 'subject', child: Text('Studenti della materia')),
-                DropdownMenuItem(value: 'group', child: Text('Un gruppo')),
-                DropdownMenuItem(value: 'user', child: Text('Uno studente'))],
-              onChanged: (value) { if (value != null) update(() => audience = value); }),
-            TextField(controller: destination, decoration: const InputDecoration(
-              labelText: 'Cartella di destinazione nelle Dispense', hintText: 'Cartella / Sottocartella')),
-            if (audience == 'group' || audience == 'user')
-              TextField(controller: recipient, keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: audience == 'group' ? 'ID gruppo' : 'ID studente')),
-          ]))),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
-          FilledButton(onPressed: () {
-            final id = int.tryParse(recipient.text.trim());
-            if ((audience == 'group' || audience == 'user') && (id == null || id <= 0)) return;
-            final path = destination.text.trim().isEmpty ? <String>[] : destination.text.split('/').map((e) => e.trim()).toList();
-            if (path.any((e) => e.isEmpty || e == '.' || e == '..')) return;
-            if (files.any((file) => path.length + file.$2.length > 12)) return;
-            Navigator.pop(ctx, (subjectId, audience, id, path));
-          }, child: const Text('Aggiungi alla bozza'))],
-      )));
-    recipient.dispose(); destination.dispose();
-    if (!mounted || selected == null) return;
+    final present = alreadyIn.entries.map((e) => '${e.value} in «${e.key}»').join(', ');
+    if (files.isEmpty && folders.length == 1) {
+      _showError([
+        'Questa cartella non ha file nuovi da aggiungere.',
+        if (present.isNotEmpty) 'Sono già nel catalogo: $present. Tocca ⌖ accanto a un file per aprirlo nella struttura.',
+        if (excluded > alreadyIn.values.fold<int>(0, (a, b) => a + b)) 'Alcuni file non sono compatibili (documenti Google o oltre 20 MB).',
+      ].join(' '));
+      return;
+    }
+    final choice = await showFolderImportDialog(context,
+        title: 'Aggiungi «$rootName» da ${source.shortLabel}',
+        rootName: rootName,
+        files: files,
+        folders: folders,
+        excluded: excluded,
+        subjects: _subjects,
+        initialSubjectId: _subjectId,
+        initialDestination: initialPath ?? const <String>[],
+        note: [
+          if (present.isNotEmpty) 'Già nel catalogo: $present.',
+          if (source == CatalogSource.mega) 'I file vengono prima copiati su Drive ed entrano nella bozza da soli a copia verificata.',
+        ].join(' '));
+    if (choice == null || !mounted) return;
+    if (source == CatalogSource.mega) {
+      await _importMegaFolder(folder, choice, allFiles: files.length);
+      return;
+    }
     setState(() => _busy = true);
-    int staged = 0;
-    int skipped = 0;
+    var staged = 0;
+    var folderCount = 0;
+    final conflicts = <(String, String, Map<String, dynamic>, List<String>)>[];
     String? failure;
     try {
-      for (final entry in files) {
-        if (!mounted) break;
-        final path = [...selected.$4, ...entry.$2];
-        final result = source == CatalogSource.drive
-            ? await _api.stageDriveImport(fileId: _string(entry.$1['id']), subjectId: selected.$1,
-                pathSegments: path, audienceType: selected.$2, audienceId: selected.$3)
-            : await _mega.stageImport(fileId: _string(entry.$1['id']), subjectId: selected.$1,
-                pathSegments: path, audienceType: selected.$2, audienceId: selected.$3);
-        if (result['staged'] == true) { staged++; } else { skipped++; }
+      for (final f in _emptyFolders(choice)) {
+        await _api.stageCatalogFolder(subjectId: choice.subjectId, pathSegments: f);
+        folderCount++;
       }
-    } catch (error) { failure = _reason(error, 'Importazione interrotta.'); }
+      for (final entry in choice.files) {
+        final path = choice.catalogPath(entry.$2);
+        final result = await _api.stageDriveImport(fileId: _string(entry.$1['id']), subjectId: choice.subjectId,
+            pathSegments: path, audienceType: choice.audience, audienceId: choice.audienceId);
+        if (result['staged'] == true) {
+          staged++;
+        } else {
+          conflicts.add((_string(entry.$1['id']), _string(entry.$1['name']), result, path));
+        }
+      }
+    } catch (error) {
+      failure = _reason(error, 'Aggiunta interrotta.');
+    }
     if (!mounted) return;
+    setState(() { _busy = false; _subjectId = choice.subjectId; });
+    var decided = 0;
+    for (final (fileId, name, result, path) in conflicts) {
+      if (!mounted) break;
+      try {
+        final done = await _resolveConflictResult(fileId: fileId, name: name, result: result,
+            subjectId: choice.subjectId, path: path, audience: choice.audience, audienceId: choice.audienceId);
+        if (done == null) break;
+        decided++;
+      } catch (error) {
+        failure = _reason(error, 'Un doppione non è stato sistemato.');
+      }
+    }
     await _reload();
     if (!mounted) return;
+    final message = [
+      '$staged file aggiunti alla bozza',
+      if (folderCount > 0) '$folderCount cartelle vuote create',
+      if (conflicts.isNotEmpty) '${conflicts.length} possibili doppioni (${conflicts.length - decided} da decidere)',
+    ].join(' · ');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message.${failure == null ? '' : ' $failure'}')));
+  }
+
+  /// Cartelle scelte che restano senza file: vanno create a parte nella struttura.
+  List<List<String>> _emptyFolders(FolderImportChoice choice) {
+    final withFiles = <String>{};
+    for (final f in choice.files) {
+      final path = choice.catalogPath(f.$2);
+      for (var i = 1; i <= path.length; i++) {
+        withFiles.add(path.take(i).join('\u0000'));
+      }
+    }
+    final result = <List<String>>[];
+    for (final f in choice.folders) {
+      final path = choice.catalogPath(f);
+      if (path.isNotEmpty && !withFiles.contains(path.join('\u0000'))) result.add(path);
+    }
+    return result;
+  }
+
+  /// v27: cartella da MEGA. Si copia su Drive e i file entrano da soli nella bozza a copia verificata.
+  Future<void> _importMegaFolder(Map<String, dynamic> folder, FolderImportChoice choice, {required int allFiles}) async {
+    final subjectName = _subjectName(choice.subjectId).split(' · ').first;
+    final drivePath = await showDialog<List<String>>(context: context, builder: (_) => DriveDestinationDialog(
+        api: _api, title: 'Dove copiarla su Drive',
+        intro: 'Gli originali restano su MEGA finché non confermi. Su Drive vengono ricreate le stesse cartelle.',
+        confirmLabel: 'Avvia copia',
+        initialPath: [subjectName.replaceAll('/', '-'), ...choice.destination]));
+    if (drivePath == null || !mounted) return;
+    final sourceId = _megaStatus?['source_id']?.toString();
+    setState(() => _busy = true);
+    var jobs = 0;
+    String? failure;
+    try {
+      for (final f in _emptyFolders(choice)) {
+        await _api.stageCatalogFolder(subjectId: choice.subjectId, pathSegments: f);
+      }
+      if (choice.files.length == allFiles) {
+        // Tutta la cartella: una sola copia, le sottocartelle si ricostruiscono dai percorsi.
+        final job = await _mega.copyToDrive(_string(folder['id']), drivePath, sourceId: sourceId);
+        await _api.createCatalogIntent(kind: 'mega', subjectId: choice.subjectId, audienceType: choice.audience,
+            audienceId: choice.audienceId, megaJobId: _string(job['id']), basePath: choice.destination,
+            skipFirst: !choice.includeRoot);
+        jobs = 1;
+      } else {
+        if (choice.files.length > 20) {
+          throw StateError('Con una scelta parziale si possono copiare al massimo 20 file alla volta. '
+              'Scegli tutta la cartella oppure meno file.');
+        }
+        for (final entry in choice.files) {
+          final job = await _mega.copyToDrive(_string(entry.$1['id']), [...drivePath, ...entry.$2], sourceId: sourceId);
+          await _api.createCatalogIntent(kind: 'mega', subjectId: choice.subjectId, audienceType: choice.audience,
+              audienceId: choice.audienceId, megaJobId: _string(job['id']), basePath: choice.catalogPath(entry.$2));
+          jobs++;
+        }
+      }
+    } catch (error) {
+      failure = _reason(error, 'Copia non avviata.');
+    }
+    if (!mounted) return;
     setState(() => _busy = false);
-    final message = '$staged file aggiunti alla bozza; $skipped duplicati da controllare; $excluded file già presenti o non compatibili.'
-        '${failure == null ? '' : ' $failure I file già aggiunti restano in bozza.'}';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (failure != null) _showError(jobs == 0 ? failure : '$jobs copie avviate. $failure');
+    if (jobs > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
+          'Copia su Drive avviata. Cartelle e file entrano nella bozza da soli appena la copia è verificata: '
+          'riapri o aggiorna il catalogo tra qualche minuto.')));
+      await _openMegaJobs();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // v26: correzioni della struttura
+  // ---------------------------------------------------------------------------
+
+  /// Annulla una sola modifica della bozza (file spostato, file aggiunto, cartella nuova).
+  Future<void> _undoDraftItem(String kind, int id) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _api.discardCatalogDraftItem(kind, id);
+      await _reload();
+    } catch (e) {
+      _showError(_reason(e, 'Modifica non annullata. Aggiorna la pagina e riprova.'));
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// «Togli dalla struttura»: il materiale esce dal catalogo; il file resta su Drive.
+  Future<void> _removeFromStructure({List<int>? materialIds, List<String>? folder, required String label,
+      int count = 1}) async {
+    if (_busy) return;
+    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Togliere dalla struttura?'),
+      content: Text(folder == null
+          ? '«$label» non sarà più visibile agli studenti. Il file resta su Drive e puoi ripristinarlo da «Tolti dalla struttura».'
+          : 'La cartella «$label» e i suoi $count file escono dalla struttura. I file restano su Drive e puoi ripristinarli da «Tolti dalla struttura».'),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Togli dalla struttura'))]));
+    if (confirm != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      // v27: si mandano i file che si vedono nella cartella (anche spostati in bozza);
+      // il percorso serve solo per cartelle e file nuovi in bozza.
+      final result = await _api.removeFromStructure(materialIds: materialIds,
+          subjectId: folder == null ? null : _subjectId, pathSegments: folder, foldersOnly: folder != null);
+      if (materialIds != null && materialIds.contains(_selectedId)) _selectedId = null;
+      await _reload(intents: false);
+      final removed = _integer(result['removed']);
+      final folders = _integer(result['folders']);
+      final drafts = _integer(result['drafts_discarded']);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(removed + folders + drafts == 0
+          ? 'Non c’era nulla da togliere: la cartella era già vuota o già tolta. Ho aggiornato la struttura.'
+          : [
+              if (removed > 0) '$removed file tolti dalla struttura (restano su Drive)',
+              if (drafts > 0) '$drafts aggiunte in bozza annullate',
+              if (folders > 0) '$folders cartelle tolte',
+            ].join(' · '))));
+      }
+    } catch (e) {
+      _showError(_reason(e, 'Non è stato possibile togliere dalla struttura.'));
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _restore(Map<String, dynamic> material) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _api.restoreToStructure(_integer(material['id']));
+      await _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
+          'File ripristinato come «Nascosto». Rendilo visibile quando vuoi.')));
+      }
+    } catch (e) {
+      _showError(_reason(e, 'Ripristino non riuscito.'));
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// «Elimina da Drive»: conferma scritta (ELIMINA). Il file va nel cestino di Drive.
+  Future<void> _deleteFromDrive(List<Map<String, dynamic>> materials, {required String label}) async {
+    final onDrive = materials.where((m) => _providerId(m).isNotEmpty ||
+        _string(m['stored_name']).startsWith('drive-import/')).toList();
+    if (_busy) return;
+    if (onDrive.isEmpty) {
+      _showError('Nessuno di questi file è su Drive.');
+      return;
+    }
+    final typed = TextEditingController();
+    final confirm = await showDialog<bool>(context: context, builder: (ctx) => StatefulBuilder(
+      builder: (ctx, update) => AlertDialog(
+        title: const Text('Eliminare da Drive?'),
+        content: SizedBox(width: _dialogWidth(ctx, 440), child: Column(mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(onDrive.length == 1
+                ? '«$label» viene tolto dalla struttura e spostato nel cestino di Google Drive.'
+                : '${onDrive.length} file di «$label» vengono tolti dalla struttura e spostati nel cestino di Google Drive.'),
+            const SizedBox(height: 8),
+            const Text('Dal cestino di Drive si possono recuperare per 30 giorni. Gli studenti non li vedranno più, '
+                'anche offline alla prossima sincronizzazione.'),
+            const SizedBox(height: 12),
+            TextField(controller: typed, autofocus: true, onChanged: (_) => update(() {}),
+              decoration: const InputDecoration(labelText: 'Scrivi ELIMINA per confermare')),
+          ])),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: typed.text.trim() == 'ELIMINA' ? () => Navigator.pop(ctx, true) : null,
+            child: const Text('Elimina da Drive'))],
+      )));
+    final word = typed.text.trim();
+    typed.dispose();
+    if (confirm != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await _api.deleteFromDrive([for (final m in onDrive) _integer(m['id'])], word);
+      final deleted = (result['deleted'] as List? ?? const []).length;
+      final skipped = (result['skipped'] as List? ?? const []).whereType<Map>().toList();
+      if (onDrive.any((m) => _integer(m['id']) == _selectedId)) _selectedId = null;
+      await _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(skipped.isEmpty
+          ? '$deleted file spostati nel cestino di Drive.'
+          : '$deleted file spostati nel cestino di Drive; ${skipped.length} non eliminati: ${skipped.first['reason']}')));
+      }
+    } catch (e) {
+      _showError(_reason(e, 'Eliminazione da Drive non riuscita.'));
+      await _reload();
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// Caricamento di più file o cartelle (anche trascinati dal computer).
+  Future<void> _openUpload({UploadSelection? selection}) async {
+    final destination = _source == CatalogSource.mega ? 'mega' : 'drive';
+    final path = destination == 'drive' ? [for (final t in _trail.skip(1)) t.$2] : <String>[];
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CatalogUploadPage(
+      initialDestination: destination, initialPath: path, initialSelection: selection,
+      subjects: _subjects, initialSubjectId: _subjectId)));
+    if (mounted) await _reload();
+  }
+
+  Future<void> _chooseUpload() async {
+    final choice = await showModalBottomSheet<String>(context: context, showDragHandle: true,
+      builder: (ctx) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(leading: const Icon(Icons.upload_file_rounded), title: const Text('Un file, pubblicato subito'),
+          subtitle: const Text('Titolo, materia e destinatari in un solo passaggio'),
+          onTap: () => Navigator.pop(ctx, 'single')),
+        ListTile(leading: const Icon(Icons.drive_folder_upload_outlined), title: const Text('Più file o cartelle intere'),
+          subtitle: const Text('Anche trascinandoli dal computer; poi li aggiungi alla struttura'),
+          onTap: () => Navigator.pop(ctx, 'bulk')),
+        ListTile(leading: const Icon(Icons.account_tree_outlined), title: const Text('Dal computer direttamente nella struttura'),
+          subtitle: const Text('File o cartelle con sottocartelle: entrano nella bozza da soli dopo la copia su Drive'),
+          onTap: () => Navigator.pop(ctx, 'structureFiles')),
+        if (canPickFolder)
+          ListTile(leading: const Icon(Icons.create_new_folder_outlined), title: const Text('Una cartella del computer nella struttura'),
+            onTap: () => Navigator.pop(ctx, 'structureFolder')),
+      ])));
+    if (!mounted || choice == null) return;
+    if (choice == 'structureFiles' || choice == 'structureFolder') {
+      final selection = choice == 'structureFolder' ? await pickUploadFolder() : await pickUploadFiles();
+      if (selection != null && mounted) await _dropFromPc(selection);
+      return;
+    }
+    if (choice == 'bulk') {
+      await _openUpload();
+      return;
+    }
+    final done = await Navigator.of(context).push<bool>(MaterialPageRoute(
+        builder: (_) => AdminMaterialUploadPage(initialSubjectId: _subjectId)));
+    if (done == true && mounted) await _reload();
   }
 
   Future<void> _publish() async {
@@ -718,9 +1116,19 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
-  String _short(Object? value) {
-    final text = value?.toString() ?? '';
-    return text.length <= 12 ? text : '${text.substring(0, 4)}…${text.substring(text.length - 4)}';
+  String _fileKindLabel(String name) {
+    final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
+    return switch (ext) {
+      'pdf' => 'PDF',
+      'doc' || 'docx' => 'Documento Word',
+      'ppt' || 'pptx' => 'Presentazione',
+      'xls' || 'xlsx' || 'csv' => 'Foglio di calcolo',
+      'png' || 'jpg' || 'jpeg' || 'webp' => 'Immagine',
+      'zip' => 'Archivio ZIP',
+      'txt' || 'md' => 'Testo',
+      '' => 'File',
+      _ => ext.toUpperCase(),
+    };
   }
 
   Map<String, dynamic>? get _currentSubject {
@@ -1069,6 +1477,160 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     return items;
   }
 
+  /// Materiale del catalogo collegato a un file della sorgente (id Drive).
+  Map<String, dynamic>? _materialForSource(String sourceId) {
+    if (sourceId.isEmpty) return null;
+    for (final m in _materials) {
+      if (_string(m['status']) == 'removed') continue;
+      if (_providerId(m) == sourceId || _string(m['stored_name']) == 'drive-import/$sourceId') return m;
+    }
+    return null;
+  }
+
+  String _subjectName(int subjectId) {
+    for (final s in _subjects) {
+      if (_integer(s['id']) == subjectId) return subjectSummary(s);
+    }
+    return 'una materia non attiva';
+  }
+
+  /// Porta alla materia e al file nella struttura per gli studenti.
+  void _revealMaterial(int materialId) {
+    final found = _materials.where((m) => _integer(m['id']) == materialId);
+    if (found.isEmpty) {
+      _showError('Il file non è nell’elenco caricato. Premi Aggiorna e riprova.');
+      return;
+    }
+    final material = found.first;
+    final subjectId = _integer(_effective(material)['subject_id']);
+    if (!_subjects.any((s) => _integer(s['id']) == subjectId)) {
+      _showError('Il file è in una materia non più attiva. Riattiva la materia oppure spostalo da «Materia, destinatari e stato».');
+      return;
+    }
+    final path = _path(_effective(material)['path_segments']);
+    setState(() {
+      _subjectId = subjectId;
+      _selectedId = materialId;
+      _showHidden = true;
+      _filtersOpen = false;
+      _compactPane = 2;
+      for (var i = 1; i <= path.length; i++) {
+        _collapsed.remove(path.take(i).join('\u0000'));
+      }
+    });
+  }
+
+  void _revealInStructure(String sourceId) {
+    final material = _materialForSource(sourceId);
+    if (material == null) {
+      _showError('Il file risulta nel catalogo ma non è nell’elenco caricato. Premi Aggiorna e riprova.');
+      return;
+    }
+    _revealMaterial(_integer(material['id']));
+  }
+
+  /// v27: «Porta il contenuto su di un livello»: la cartella sparisce, il contenuto sale (in bozza).
+  Future<void> _flattenFolder(List<String> folder) async {
+    if (_busy || folder.isEmpty) return;
+    final parent = folder.take(folder.length - 1).toList();
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text('Togliere il livello «${folder.last}»?'),
+      content: Text('File e sottocartelle di «${folder.last}» passano in '
+          '«${[_string(_currentSubject?['name']), ...parent].join(' / ')}». Le modifiche restano in bozza.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Porta su'))]));
+    if (ok != true || !mounted) return;
+    bool inside(List<String> p) => p.length >= folder.length && p.take(folder.length).join('\u0000') == folder.join('\u0000');
+    List<String> lifted(List<String> p) => [...parent, ...p.skip(folder.length)];
+    setState(() => _busy = true);
+    try {
+      for (final m in _materials.where((m) => _string(m['status']) != 'removed')) {
+        final e = _effective(m);
+        if (_integer(e['subject_id']) != _subjectId || !inside(_path(e['path_segments']))) continue;
+        await _api.stageCatalogFile(materialId: _integer(m['id']), subjectId: _integer(e['subject_id']),
+            pathSegments: lifted(_path(e['path_segments'])), visibilityState: _string(e['visibility_state']).isEmpty ? 'visible' : _string(e['visibility_state']),
+            audienceType: _string(e['audience_type']).isEmpty ? 'public' : _string(e['audience_type']),
+            audienceId: e['audience_id'] == null ? null : _integer(e['audience_id']));
+      }
+      for (final i in _imports.where((i) => _integer(i['subject_id']) == _subjectId && inside(_path(i['path_segments'])))) {
+        await _api.stageDriveImport(fileId: _string(i['drive_file_id']), subjectId: _integer(i['subject_id']),
+            pathSegments: lifted(_path(i['path_segments'])), audienceType: _string(i['audience_type']),
+            audienceId: i['audience_id'] == null ? null : _integer(i['audience_id']), allowDuplicate: true);
+      }
+      for (final f in _folders.where((f) => _integer(f['subject_id']) == _subjectId && inside(_path(f['path_segments'])))) {
+        final target = lifted(_path(f['path_segments']));
+        if (target.isNotEmpty) await _api.stageCatalogFolder(subjectId: _subjectId!, pathSegments: target);
+      }
+      // Toglie le vecchie cartelle vuote (solo cartelle del catalogo, nessun file).
+      await _api.removeFromStructure(subjectId: _subjectId, pathSegments: folder, foldersOnly: true);
+      await _reload(intents: false);
+    } catch (e) {
+      _showError(_reason(e, 'Non tutto il contenuto è stato spostato. Controlla la bozza.'));
+      await _reload(intents: false);
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// v27: file e cartelle del computer rilasciati sulla struttura.
+  Future<void> _dropFromPc(UploadSelection selection) async {
+    if (selection.items.isEmpty) {
+      _showError(selection.note ?? 'Nessun file da caricare.');
+      return;
+    }
+    final subject = _currentSubject;
+    if (subject == null || _subjectId == null) {
+      _showError('Scegli prima la materia nel filtro, poi trascina di nuovo i file.');
+      return;
+    }
+    final ok = await showStructureUploadDialog(context,
+        api: _api, selection: selection, subjectId: _subjectId!, subjectName: _string(subject['name']),
+        initialFolder: const <String>[],
+        pickFolder: (current) => _pickFolder(title: 'Dove metterli nella struttura?', current: current));
+    if (ok == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
+          'File inviati. Entrano nella bozza con le loro cartelle appena la copia su Drive è verificata: '
+          'aggiorna il catalogo tra qualche minuto.')));
+      await _reload();
+    }
+  }
+
+  Widget _pcDropArea(Widget child) {
+    final p = context.palette;
+    return DropTarget(
+      enable: !_busy && !_previewMode,
+      onDragEntered: (_) => setState(() => _pcDragging = true),
+      onDragExited: (_) => setState(() => _pcDragging = false),
+      onDragDone: (details) async {
+        setState(() => _pcDragging = false);
+        final selection = await itemsFromDrop(details.files);
+        if (mounted) await _dropFromPc(selection);
+      },
+      child: Stack(children: [
+        Positioned.fill(child: child),
+        if (_pcDragging)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                margin: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: p.adminIndigo.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: p.adminIndigo.withValues(alpha: 0.7), width: 2),
+                ),
+                child: Center(child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('Rilascia per aggiungere alla struttura di «${_string(_currentSubject?['name'])}»\n'
+                      'cartelle e sottocartelle vengono conservate',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: p.adminIndigo, fontWeight: FontWeight.w700)),
+                )),
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
+
   Future<void> _toggleDriveFolder(String id) async {
     if (_driveOpen.contains(id)) {
       setState(() => _driveOpen.remove(id));
@@ -1115,6 +1677,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           subtitle: file['modified_at'] == null ? null : 'Modificata ${_date(file['modified_at'])}',
           onTap: () => _toggleDriveFolder(id),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (source == CatalogSource.mega) _megaCheck(file),
             if (source == CatalogSource.mega) IconButton(tooltip: 'Copia cartella su Drive', onPressed: _busy ? null : () => _copyMegaToDrive(file), icon: const Icon(Icons.drive_file_move_outline, size: 20)),
             if (_driveLoading.contains(id))
               SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: p.skyBlue)),
@@ -1158,7 +1721,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
             load: () => downloadSourcePreview(_api, _mega, source, id),
             name: _string(file['name']),
             mimeType: _string(file['mime_type'])),
-        trailing: source == CatalogSource.mega ? PopupMenuButton<String>(enabled: !_busy,
+        trailing: source == CatalogSource.mega ? Row(mainAxisSize: MainAxisSize.min, children: [_megaCheck(file), PopupMenuButton<String>(enabled: !_busy,
           tooltip: 'Azioni MEGA', onSelected: (action) {
             if (action == 'copy') _copyMegaToDrive(file);
             if (action == 'download') _downloadMega(file);
@@ -1167,13 +1730,19 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
             const PopupMenuItem(value: 'copy', child: Text('Copia su Drive')),
             const PopupMenuItem(value: 'download', child: Text('Scarica sul dispositivo (max 20 MB)')),
             if (!indexed && !drafted) const PopupMenuItem(value: 'import', child: Text('Prepara per le Dispense')),
-          ]) : !indexed && !drafted
+          ])]) : !indexed && !drafted
             ? IconButton(
                 tooltip: 'Aggiungi alla struttura per gli studenti',
                 onPressed: _busy ? null : () => _import(file),
                 icon: Icon(Icons.add_circle_outline_rounded, color: p.skyBlue, size: 20),
               )
-            : null,
+            : indexed
+                ? IconButton(
+                    tooltip: 'Mostra nella struttura',
+                    onPressed: () => _revealInStructure(id),
+                    icon: Icon(Icons.my_location_rounded, color: p.adminGreen, size: 19),
+                  )
+                : null,
       );
       // I file solo su Drive si possono trascinare in una cartella della struttura.
       rows.add(!indexed && !drafted
@@ -1197,7 +1766,25 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     return _column(
       header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (_sourceLoading) const LinearProgressIndicator(minHeight: 2),
-        Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: _openMegaJobs, icon: const Icon(Icons.sync, size: 18), label: const Text('Copie MEGA → Drive'))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+          child: Wrap(alignment: WrapAlignment.end, spacing: 4, runSpacing: 4, children: [
+            TextButton.icon(onPressed: _busy ? null : () => _openUpload(),
+              icon: const Icon(Icons.drive_folder_upload_outlined, size: 18),
+              label: Text('Carica qui su ${_source.shortLabel}')),
+            TextButton.icon(onPressed: _openMegaJobs, icon: const Icon(Icons.sync, size: 18), label: const Text('Copie MEGA → Drive')),
+          ]),
+        ),
+        if (_source == CatalogSource.mega && _megaSelected.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+            child: Row(children: [
+              Expanded(child: Text('${_megaSelected.length} selezionati', style: SlText.muted(p))),
+              TextButton(onPressed: _busy ? null : () => setState(_megaSelected.clear), child: const Text('Deseleziona')),
+              FilledButton.icon(onPressed: _busy ? null : _copyMegaSelected,
+                icon: const Icon(Icons.drive_file_move_outline, size: 18), label: const Text('Copia su Drive…')),
+            ]),
+          ),
         _columnHeader(
           icon: Icons.cloud_outlined,
           tone: SlTone.info,
@@ -1220,7 +1807,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           ),
         ),
       ]),
-      body: (_sourceMissing || (_sourceError != null && _drive.isEmpty))
+      body: _osDropArea((_sourceMissing || (_sourceError != null && _drive.isEmpty))
           ? _sourceUnavailable(_source)
           : ListView(padding: const EdgeInsets.all(8), children: [
         _driveRow(
@@ -1255,7 +1842,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
               onPressed: _busy ? null : _more,
             ),
           ),
-      ]),
+      ])),
       footer: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1272,6 +1859,59 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           ],
         ]),
       ),
+    );
+  }
+
+  /// v26: rilascio di file e cartelle dal computer sopra il pannello della sorgente.
+  Widget _osDropArea(Widget child) {
+    final p = context.palette;
+    return DropTarget(
+      enable: !_busy && !_previewMode,
+      onDragEntered: (_) => setState(() => _osDragging = true),
+      onDragExited: (_) => setState(() => _osDragging = false),
+      onDragDone: (details) async {
+        setState(() => _osDragging = false);
+        final selection = await itemsFromDrop(details.files);
+        if (!mounted) return;
+        if (selection.items.isEmpty) {
+          _showError(selection.note ?? 'Nessun file da caricare.');
+          return;
+        }
+        await _openUpload(selection: selection);
+      },
+      child: Stack(children: [
+        Positioned.fill(child: child),
+        if (_osDragging)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                margin: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: p.adminCyan.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: p.adminCyan.withValues(alpha: 0.7), width: 2),
+                ),
+                child: Center(child: Text('Rilascia per caricare su ${_source.shortLabel}',
+                  style: TextStyle(color: p.adminCyan, fontWeight: FontWeight.w700))),
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget _megaCheck(Map<String, dynamic> file) {
+    final id = _string(file['id']);
+    return Checkbox(
+      value: _megaSelected.containsKey(id),
+      visualDensity: VisualDensity.compact,
+      onChanged: _busy ? null : (value) => setState(() {
+        if (value == true) {
+          _megaSelected[id] = file;
+        } else {
+          _megaSelected.remove(id);
+        }
+      }),
     );
   }
 
@@ -1292,6 +1932,9 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
             icon: const Icon(Icons.refresh, size: 18), label: const Text('Riprova')),
           FilledButton.icon(onPressed: _openSources,
             icon: const Icon(Icons.settings_input_component_outlined, size: 18), label: const Text('Sorgenti')),
+          if (source == CatalogSource.drive)
+            TextButton.icon(onPressed: () => showDriveDiagnostics(context, _api),
+              icon: const Icon(Icons.health_and_safety_outlined, size: 18), label: const Text('Verifica collegamento')),
         ]),
       ])));
   }
@@ -1479,13 +2122,11 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         .where((m) => _integer(_effective(m)['subject_id']) == _subjectId && _string(m['status']) != 'removed')
         .map(_effective)
         .toList();
-    final groups = <String, List<Map<String, dynamic>>>{};
-    for (final m in subset.where((m) => _showHidden || _string(m['visibility_state']) == 'visible')) {
-      groups.putIfAbsent(_path(m['path_segments']).join(' / '), () => []).add(m);
-    }
-    final keys = groups.keys.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final folderRows = _folders.where((f) => _integer(f['subject_id']) == _subjectId).toList();
     final importRows = _imports.where((f) => _integer(f['subject_id']) == _subjectId).toList();
+    final removedRows = _materials
+        .where((m) => _integer(m['subject_id']) == _subjectId && _string(m['status']) == 'removed')
+        .toList();
     final subject = _currentSubject;
 
     return _column(
@@ -1500,13 +2141,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
               icon: Icons.upload_file_rounded,
               label: 'Carica file',
               primary: true,
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      final done = await Navigator.of(context).push<bool>(MaterialPageRoute(
-                          builder: (_) => AdminMaterialUploadPage(initialSubjectId: _subjectId)));
-                      if (done == true && mounted) await _reload();
-                    },
+              onPressed: _busy ? null : _chooseUpload,
             ),
             const SizedBox(width: 8),
             SlActionButton(
@@ -1532,51 +2167,57 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-          child: PopupMenuButton<int>(
-            tooltip: 'Materia',
-            color: p.eleganceDeepNavy,
-            onSelected: (value) => setState(() {
-              _subjectId = value;
-              _selectedId = null;
-            }),
-            itemBuilder: (_) => [
-              for (final s in _subjects)
-                PopupMenuItem<int>(
-                  value: _integer(s['id']),
-                  child: Text('${s['name']} · ${s['course']}', overflow: TextOverflow.ellipsis),
+          // v26: Ateneo → Dipartimento → Corso → Livello → Anno → Materia (si apre e si chiude).
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => setState(() => _filtersOpen = !_filtersOpen),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 40),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: p.darkElegance,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: p.pureWhite.withValues(alpha: 0.12)),
                 ),
-            ],
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: p.darkElegance,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: p.pureWhite.withValues(alpha: 0.12)),
+                child: Row(children: [
+                  Text('Materia', style: SlText.muted(p)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(subjectSummary(subject), maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: p.pureWhite, fontWeight: FontWeight.w600, fontSize: 13)),
+                  ),
+                  Text(_filtersOpen ? 'Chiudi filtri' : 'Filtra', style: SlText.muted(p)),
+                  Icon(_filtersOpen ? Icons.keyboard_arrow_up_rounded : Icons.filter_list_rounded, size: 18),
+                ]),
               ),
-              child: Row(children: [
-                Text('Materia', style: SlText.muted(p)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    subject == null ? 'Scegli una materia' : '${subject['name']} · ${subject['course']}',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: p.pureWhite, fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            if (_filtersOpen) ...[
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.4),
+                child: SingleChildScrollView(
+                  child: SubjectHierarchyFilter(
+                    subjects: _subjects,
+                    subjectId: _subjectId,
+                    onChanged: (value) => setState(() {
+                      _subjectId = value;
+                      _selectedId = null;
+                    }),
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-              ]),
-            ),
-          ),
+              ),
+            ],
+          ]),
         ),
       ]),
-      body: subset.isEmpty && folderRows.isEmpty && importRows.isEmpty
+      body: _pcDropArea(subset.isEmpty && folderRows.isEmpty && importRows.isEmpty && removedRows.isEmpty
           ? Padding(
               padding: const EdgeInsets.all(16),
               child: SlEmptyState(
                 icon: Icons.folder_open_outlined,
                 title: 'Nessun materiale in questa materia',
-                message: 'Aggiungi file dalla sorgente con il pulsante + oppure crea una cartella.',
+                message: 'Aggiungi file dalla sorgente con il pulsante +, trascina qui file e cartelle dal computer oppure crea una cartella.',
                 actions: [
                   SlActionButton(
                     icon: Icons.create_new_folder_outlined,
@@ -1601,53 +2242,144 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
                         style: SlText.mono(p, size: 11, color: p.pureWhite.withValues(alpha: 0.56))),
                   ]),
                 )),
-              for (final key in keys) ...[
-                if (key.isNotEmpty) _folderRow(key, groups[key]!, subset),
-                for (final material in groups[key]!) _fileRow(material, indent: key.isEmpty ? 1 : 2),
-              ],
-              for (final folder in folderRows.where(
-                  (f) => !groups.containsKey(_path(f['path_segments']).join(' / '))))
-                _dropZone(
-                  path: _path(folder['path_segments']),
-                  child: _simpleRow(
-                    icon: Icons.folder_outlined,
-                    title: _path(folder['path_segments']).join(' / '),
-                    badge: SlStatusBadge(
-                      label: folder['draft'] == true ? 'Solo catalogo · in bozza' : 'Solo catalogo · vuota',
-                      tone: folder['draft'] == true ? SlTone.warning : SlTone.violet,
-                    ),
+              ..._structureTree(subset, folderRows, importRows),
+              if (removedRows.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => setState(() => _showRemoved = !_showRemoved),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+                    child: Row(children: [
+                      Icon(_showRemoved ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                          size: 18, color: p.pureWhite.withValues(alpha: 0.6)),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text('Tolti dalla struttura (${removedRows.length})',
+                          style: SlText.muted(p).copyWith(fontWeight: FontWeight.w600))),
+                    ]),
                   ),
                 ),
-              for (final file in importRows)
-                _simpleRow(
-                  icon: Icons.insert_drive_file_outlined,
-                  title: _string(file['name']),
-                  subtitle: '${_path(file['path_segments']).join(' / ')} · ${_bytes(file['size'])} · da ${(sourceOfMaterial(file) ?? CatalogSource.drive).shortLabel}',
-                  badge: const SlStatusBadge(label: 'Nuovo', tone: SlTone.warning),
-                  onTap: () => showDriveFilePreview(context,
-                      load: () => downloadSourcePreview(_api, _mega, sourceOfMaterial(file) ?? CatalogSource.drive, _providerId(file)),
-                      name: _string(file['name']),
-                      mimeType: _string(file['mime_type'])),
-                ),
-            ]),
+                if (_showRemoved)
+                  for (final m in removedRows)
+                    _simpleRow(
+                      icon: Icons.remove_circle_outline_rounded,
+                      title: _string(m['title']),
+                      subtitle: [
+                        _path(m['path_segments']).join(' / '),
+                        _providerId(m).isNotEmpty || _string(m['stored_name']).startsWith('drive-import/')
+                            ? 'ancora su ${(sourceOfMaterial(m) ?? CatalogSource.drive).shortLabel}'
+                            : 'non è su Drive',
+                      ].where((x) => x.isNotEmpty).join(' · '),
+                      badge: const SlStatusBadge(label: 'Tolto'),
+                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                        IconButton(tooltip: 'Ripristina nella struttura',
+                          onPressed: _busy ? null : () => _restore(m),
+                          icon: const Icon(Icons.restore_rounded, size: 18)),
+                        if (_providerId(m).isNotEmpty)
+                          IconButton(tooltip: 'Elimina da Drive',
+                            onPressed: _busy ? null : () => _deleteFromDrive([m], label: _string(m['title'])),
+                            icon: Icon(Icons.delete_forever_outlined, size: 18, color: p.adminCoral)),
+                      ]),
+                    ),
+              ],
+            ])),
       footer: _draftCount == 0 ? null : _changeLog(),
     );
   }
 
-  Widget _folderRow(String key, List<Map<String, dynamic>> files, List<Map<String, dynamic>> subset) {
+  /// v27: albero completo della materia. Cartelle (anche intermedie e vuote), file pubblicati
+  /// e file nuovi in bozza stanno al loro posto, con le sottocartelle una dentro l'altra.
+  List<Widget> _structureTree(List<Map<String, dynamic>> subset, List<Map<String, dynamic>> folderRows,
+      List<Map<String, dynamic>> importRows) {
+    const sep = '\u0000';
+    final shown = subset.where((m) => _showHidden || _string(m['visibility_state']) == 'visible').toList();
+    final folders = <String>{};
+    void addPath(List<String> path) {
+      for (var i = 1; i <= path.length; i++) {
+        folders.add(path.take(i).join(sep));
+      }
+    }
+    for (final m in shown) {
+      addPath(_path(m['path_segments']));
+    }
+    for (final f in folderRows) {
+      addPath(_path(f['path_segments']));
+    }
+    for (final i in importRows) {
+      addPath(_path(i['path_segments']));
+    }
+    bool inside(List<String> path, List<String> folder) =>
+        path.length >= folder.length && path.take(folder.length).join(sep) == folder.join(sep);
+    final rows = <Widget>[];
+    void visit(List<String> folder) {
+      final depth = folder.length;
+      final key = folder.join(sep);
+      final children = folders
+          .map((k) => k.split(sep))
+          .where((parts) => parts.length == depth + 1 && inside(parts, folder))
+          .toList()
+        ..sort((a, b) => a.last.toLowerCase().compareTo(b.last.toLowerCase()));
+      for (final child in children) {
+        final childKey = child.join(sep);
+        rows.add(_folderRow(
+          child,
+          files: subset.where((m) => inside(_path(m['path_segments']), child)).toList(),
+          imports: importRows.where((i) => inside(_path(i['path_segments']), child)).toList(),
+          catalogFolder: folderRows.where((f) => _path(f['path_segments']).join(sep) == childKey)
+              .fold<Map<String, dynamic>?>(null, (found, f) => found ?? f),
+          subset: subset,
+        ));
+        if (!_collapsed.contains(childKey)) visit(child);
+      }
+      for (final m in shown.where((m) => _path(m['path_segments']).join(sep) == key)) {
+        rows.add(_fileRow(m, indent: depth + 1));
+      }
+      for (final i in importRows.where((i) => _path(i['path_segments']).join(sep) == key)) {
+        rows.add(_importRow(i, depth + 1));
+      }
+    }
+    visit(const <String>[]);
+    return rows;
+  }
+
+  /// File aggiunto in bozza (non ancora pubblicato), al suo posto nell'albero.
+  Widget _importRow(Map<String, dynamic> file, int indent) => _simpleRow(
+        indent: indent,
+        icon: Icons.insert_drive_file_outlined,
+        title: _string(file['name']),
+        subtitle: '${_bytes(file['size'])} · da ${(sourceOfMaterial(file) ?? CatalogSource.drive).shortLabel}',
+        badge: const SlStatusBadge(label: 'Nuovo', tone: SlTone.warning),
+        trailing: IconButton(tooltip: 'Togli dalla bozza (il file resta sulla sorgente)',
+          onPressed: _busy ? null : () => _undoDraftItem('import', _integer(file['id'])),
+          icon: const Icon(Icons.undo_rounded, size: 18)),
+        onTap: () => showDriveFilePreview(context,
+            load: () => downloadSourcePreview(_api, _mega, sourceOfMaterial(file) ?? CatalogSource.drive, _providerId(file)),
+            name: _string(file['name']),
+            mimeType: _string(file['mime_type'])),
+      );
+
+  Widget _folderRow(List<String> parts, {
+    required List<Map<String, dynamic>> files,
+    required List<Map<String, dynamic>> imports,
+    required Map<String, dynamic>? catalogFolder,
+    required List<Map<String, dynamic>> subset,
+  }) {
     final p = context.palette;
-    final parts = key.split(' / ');
+    final key = parts.join(' / ');
+    final collapseKey = parts.join('\u0000');
+    final collapsed = _collapsed.contains(collapseKey);
     final hidden = files.where((f) => _string(f['visibility_state']) != 'visible').length;
-    final allHidden = hidden == files.length;
-    final drafted = files.any((f) => f['draft'] == true);
-    final bool renamedOrMoved = files.any((f) {
-      if (f['draft'] != true) return false;
-      final original = _materials.where((m) => _integer(m['id']) == _integer(f['id']));
-      return original.isNotEmpty &&
-          _path(original.first['path_segments']).join('/') != _path(f['path_segments']).join('/');
-    });
+    final allHidden = files.isNotEmpty && hidden == files.length;
+    final drafted = files.any((f) => f['draft'] == true) || imports.isNotEmpty || catalogFolder?['draft'] == true;
+    final onDrive = files.where((f) => _materials.any((m) => _integer(m['id']) == _integer(f['id']) &&
+        (_providerId(m).isNotEmpty || _string(m['stored_name']).startsWith('drive-import/')))).toList();
+    final String count = [
+      if (files.isNotEmpty) '${files.length} file',
+      if (imports.isNotEmpty) '${imports.length} nuovi',
+      if (files.isEmpty && imports.isEmpty) 'vuota',
+    ].join(' · ');
     return Padding(
-      padding: EdgeInsets.only(left: 14.0 * (parts.length - 1), top: 4, bottom: 2),
+      padding: EdgeInsets.only(left: 14.0 * (parts.length - 1), top: 2, bottom: 2),
       child: _dropZone(
         path: parts,
         child: Opacity(
@@ -1655,7 +2387,13 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           child: SizedBox(
             height: 44,
             child: Row(children: [
-              const SizedBox(width: 8),
+              IconButton(
+                tooltip: collapsed ? 'Apri la cartella' : 'Chiudi la cartella',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => setState(() => collapsed ? _collapsed.remove(collapseKey) : _collapsed.add(collapseKey)),
+                icon: Icon(collapsed ? Icons.keyboard_arrow_right_rounded : Icons.keyboard_arrow_down_rounded,
+                    size: 18, color: p.pureWhite.withValues(alpha: 0.6)),
+              ),
               Icon(allHidden ? Icons.folder_off_outlined : Icons.folder_outlined,
                   size: 18, color: allHidden ? p.pureWhite.withValues(alpha: 0.7) : p.skyBlue),
               const SizedBox(width: 8),
@@ -1671,28 +2409,47 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
                     )),
               ),
               const SizedBox(width: 8),
-              if (allHidden)
-                SlStatusBadge(label: 'Nascosta · ${files.length} file')
-              else if (hidden > 0)
-                SlStatusBadge(label: '$hidden nascosti'),
-              if (renamedOrMoved) ...[
-                const SizedBox(width: 6),
-                const SlStatusBadge(label: 'Modificata', tone: SlTone.warning),
-              ] else if (drafted) ...[
-                const SizedBox(width: 6),
-                const SlStatusBadge(label: 'In bozza', tone: SlTone.warning),
-              ],
+              Text(count, style: SlText.mono(p, size: 10, color: p.pureWhite.withValues(alpha: 0.5))),
+              if (hidden > 0 && !allHidden) ...[const SizedBox(width: 6), SlStatusBadge(label: '$hidden nascosti')],
+              if (drafted) ...[const SizedBox(width: 6), const SlStatusBadge(label: 'In bozza', tone: SlTone.warning)],
               const Spacer(),
-              IconButton(
-                tooltip: allHidden ? 'Mostra la cartella agli studenti' : 'Nascondi la cartella agli studenti',
-                onPressed: _busy ? null : () => _setFolderVisibility(key, subset, allHidden),
-                icon: Icon(allHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    size: 18, color: p.pureWhite.withValues(alpha: 0.72)),
-              ),
-              IconButton(
-                tooltip: 'Rinomina o sposta la cartella',
-                onPressed: _busy ? null : () => _editFolder(key, subset),
+              if (files.isNotEmpty)
+                IconButton(
+                  tooltip: allHidden ? 'Mostra la cartella agli studenti' : 'Nascondi la cartella agli studenti',
+                  onPressed: _busy ? null : () => _setFolderVisibility(key, subset, allHidden),
+                  icon: Icon(allHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 18, color: p.pureWhite.withValues(alpha: 0.72)),
+                ),
+              PopupMenuButton<String>(
+                tooltip: 'Azioni sulla cartella',
+                enabled: !_busy,
                 icon: Icon(Icons.more_horiz_rounded, color: p.pureWhite.withValues(alpha: 0.66)),
+                onSelected: (action) {
+                  if (action == 'edit') _editFolder(key, subset);
+                  if (action == 'flatten') _flattenFolder(parts);
+                  if (action == 'undoFolder') _undoDraftItem('folder', _integer(catalogFolder!['id']));
+                  if (action == 'remove') {
+                    _removeFromStructure(
+                        materialIds: [for (final f in files) _integer(f['id'])],
+                        folder: parts, label: parts.last, count: files.length + imports.length);
+                  }
+                  if (action == 'delete') {
+                    _deleteFromDrive([
+                      for (final f in onDrive) ..._materials.where((m) => _integer(m['id']) == _integer(f['id'])),
+                    ], label: parts.last);
+                  }
+                },
+                itemBuilder: (_) => [
+                  if (files.isNotEmpty)
+                    const PopupMenuItem(value: 'edit', child: Text('Rinomina, sposta, mostra o nascondi')),
+                  if (files.isNotEmpty || imports.isNotEmpty)
+                    const PopupMenuItem(value: 'flatten', child: Text('Porta il contenuto su di un livello')),
+                  if (catalogFolder?['draft'] == true)
+                    const PopupMenuItem(value: 'undoFolder', child: Text('Annulla questa cartella (in bozza)')),
+                  const PopupMenuItem(value: 'remove', child: Text('Togli dalla struttura (resta su Drive)')),
+                  if (onDrive.isNotEmpty)
+                    const PopupMenuItem(value: 'delete', child: Text('Elimina i file da Drive…')),
+                ],
               ),
             ]),
           ),
@@ -1823,6 +2580,26 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
                 icon: Icon(hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                     size: 18, color: p.pureWhite.withValues(alpha: 0.72)),
               ),
+              if (original.isNotEmpty)
+                PopupMenuButton<String>(
+                  tooltip: 'Altre azioni',
+                  enabled: !_busy,
+                  icon: Icon(Icons.more_vert_rounded, size: 18, color: p.pureWhite.withValues(alpha: 0.66)),
+                  onSelected: (action) {
+                    if (action == 'undo') _undoDraftItem('material', id);
+                    if (action == 'remove') {
+                      _removeFromStructure(materialIds: [id], label: _string(material['title']));
+                    }
+                    if (action == 'delete') _deleteFromDrive([original.first], label: _string(material['title']));
+                  },
+                  itemBuilder: (_) => [
+                    if (material['draft'] == true)
+                      const PopupMenuItem(value: 'undo', child: Text('Annulla le modifiche in bozza')),
+                    const PopupMenuItem(value: 'remove', child: Text('Togli dalla struttura (resta su Drive)')),
+                    if (_providerId(original.first).isNotEmpty)
+                      const PopupMenuItem(value: 'delete', child: Text('Elimina da Drive…')),
+                  ],
+                ),
             ]),
           ),
         ),
@@ -1838,13 +2615,13 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
   }
 
   Widget _simpleRow({required IconData icon, required String title, String? subtitle,
-      required Widget badge, VoidCallback? onTap}) {
+      required Widget badge, VoidCallback? onTap, Widget? trailing, int indent = 0}) {
     final p = context.palette;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 8, 8, 8),
+        padding: EdgeInsets.fromLTRB(indent > 0 ? 14.0 * indent + 8 : 22, 8, 8, 8),
         child: Row(children: [
           Icon(icon, size: 17, color: p.adminAmber),
           const SizedBox(width: 8),
@@ -1855,59 +2632,75 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
             ]),
           ),
           badge,
+          if (trailing != null) trailing,
         ]),
       ),
     );
   }
 
   /// Registro della bozza: cosa cambierà alla pubblicazione.
+  /// v26: ogni riga si annulla da sola con ↺ (kind, id della voce di bozza).
   Widget _changeLog() {
     final p = context.palette;
-    final lines = <(String, String)>[];
+    final lines = <(String, String, String, int)>[];
     for (final d in _draft) {
-      final matches = _materials.where((m) => _integer(m['id']) == _integer(d['material_id']));
+      final id = _integer(d['material_id']);
+      final matches = _materials.where((m) => _integer(m['id']) == id);
       final before = matches.isEmpty ? null : matches.first;
-      final name = before == null ? 'File ${d['material_id']}' : _string(before['title']);
+      final name = before == null ? 'File in bozza' : _string(before['title']);
       final pathBefore = before == null ? '' : _path(before['path_segments']).join(' / ');
       final pathAfter = _path(d['path_segments']).join(' / ');
+      final changes = <(String, String)>[];
       if (before != null && pathBefore != pathAfter) {
-        lines.add(('SPOSTA', '“$name” → ${pathAfter.isEmpty ? 'materia' : pathAfter}'));
+        changes.add(('SPOSTA', '“$name” → ${pathAfter.isEmpty ? 'materia' : pathAfter}'));
       }
       if (before != null && _string(before['visibility_state']) != _string(d['visibility_state'])) {
-        lines.add((_string(d['visibility_state']) == 'visible' ? 'MOSTRA' : 'NASCONDI', '“$name”'));
+        changes.add((_string(d['visibility_state']) == 'visible' ? 'MOSTRA' : 'NASCONDI', '“$name”'));
       }
       if (before != null && _string(before['audience_type']) != _string(d['audience_type'])) {
-        lines.add(('DESTINATARI', '“$name”: ${_audienceLabel(_string(d['audience_type']))}'));
+        changes.add(('DESTINATARI', '“$name”: ${_audienceLabel(_string(d['audience_type']))}'));
       }
       if (before != null && _integer(before['subject_id']) != _integer(d['subject_id'])) {
-        lines.add(('MATERIA', '“$name” cambia materia'));
+        changes.add(('MATERIA', '“$name” cambia materia'));
+      }
+      if (changes.isEmpty) changes.add(('MODIFICA', '“$name”'));
+      for (final (kind, text) in changes) {
+        lines.add((kind, text, 'material', id));
       }
     }
     for (final i in _imports) {
-      lines.add(('AGGIUNGI', '“${_string(i['name'])}” in ${_path(i['path_segments']).join(' / ').isEmpty ? 'materia' : _path(i['path_segments']).join(' / ')}'));
+      lines.add(('AGGIUNGI', '“${_string(i['name'])}” in ${_path(i['path_segments']).join(' / ').isEmpty ? 'materia' : _path(i['path_segments']).join(' / ')}',
+          'import', _integer(i['id'])));
     }
     for (final f in _folders.where((f) => f['draft'] == true)) {
-      lines.add(('CARTELLA', _path(f['path_segments']).join(' / ')));
+      lines.add(('CARTELLA', _path(f['path_segments']).join(' / '), 'folder', _integer(f['id'])));
     }
     return Container(
-      constraints: const BoxConstraints(maxHeight: 190),
+      constraints: const BoxConstraints(maxHeight: 220),
       color: p.eleganceSoftNight,
       child: ListView(
         shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
         children: [
           Text('BOZZA · $_draftCount MODIFICHE',
               style: SlText.mono(p, size: 11, color: p.pureWhite.withValues(alpha: 0.56))),
           const SizedBox(height: 6),
-          for (final (kind, text) in lines)
+          for (final (kind, text, draftKind, id) in lines)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                 SizedBox(width: 92, child: Text(kind, style: SlText.mono(p, size: 11, color: p.adminAmber))),
                 Expanded(child: Text(text, style: SlText.body(p).copyWith(fontSize: 12))),
+                IconButton(
+                  tooltip: 'Annulla questa modifica',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _busy || id <= 0 ? null : () => _undoDraftItem(draftKind, id),
+                  icon: Icon(Icons.undo_rounded, size: 16, color: p.pureWhite.withValues(alpha: 0.7)),
+                ),
               ]),
             ),
-          Text('Per annullare usa “Scarta bozza”.', style: SlText.muted(p).copyWith(fontSize: 11)),
+          Text('↺ annulla una sola modifica; «Scarta bozza» le annulla tutte.',
+              style: SlText.muted(p).copyWith(fontSize: 11)),
         ],
       ),
     );
@@ -2022,19 +2815,10 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           SlKeyValue(label: 'Ultima modifica', value: _date(row['updated_at'])),
         ]),
         section('File', [
-          SlKeyValue(label: 'Tipo', value: _string(row['mime_type']).isEmpty ? '—' : _string(row['mime_type']), mono: true),
+          // v26: niente ID o impronte nell'interfaccia (restano nel registro diagnostico).
+          SlKeyValue(label: 'Tipo', value: _fileKindLabel(_string(row['original_name']))),
           SlKeyValue(label: 'Dimensione', value: _bytes(row['size']), mono: true),
-          if (driveId.isNotEmpty)
-            Row(children: [
-              Expanded(child: SlKeyValue(label: 'ID ${provider?.shortLabel ?? 'sorgente'}', value: _short(driveId), mono: true)),
-              IconButton(
-                tooltip: 'Copia ID sorgente',
-                onPressed: () => Clipboard.setData(ClipboardData(text: driveId)),
-                icon: Icon(Icons.copy_rounded, size: 16, color: p.skyBlue),
-              ),
-            ]),
-          if (_string(row['file_hash']).isNotEmpty)
-            SlKeyValue(label: 'SHA-256', value: _short(row['file_hash']), mono: true),
+          SlKeyValue(label: 'Si trova', value: driveId.isNotEmpty ? 'Su ${provider?.label ?? 'Drive'}' : 'Su StudentLab'),
         ]),
         section('Posizione', [
           Container(
@@ -2102,17 +2886,40 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
                   : () => _stageChange(original, visibility: state == 'visible' ? 'hidden' : 'visible'),
             ),
           ];
-          return bounds.maxWidth < 570
-              ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  for (var i = 0; i < actions.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 8), actions[i],
-                  ],
-                ])
-              : Row(children: [
-                  for (var i = 0; i < actions.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 8), Expanded(child: actions[i]),
-                  ],
-                ]);
+          final corrections = Wrap(spacing: 8, runSpacing: 4, children: [
+            if (row['draft'] == true)
+              TextButton.icon(
+                onPressed: _busy ? null : () => _undoDraftItem('material', id),
+                icon: const Icon(Icons.undo_rounded, size: 18),
+                label: const Text('Annulla modifiche'),
+              ),
+            TextButton.icon(
+              onPressed: _busy ? null : () => _removeFromStructure(materialIds: [id], label: _string(row['title'])),
+              icon: const Icon(Icons.playlist_remove_rounded, size: 18),
+              label: const Text('Togli dalla struttura'),
+            ),
+            if (driveId.isNotEmpty)
+              TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: p.adminCoral),
+                onPressed: _busy ? null : () => _deleteFromDrive([original], label: _string(row['title'])),
+                icon: const Icon(Icons.delete_forever_outlined, size: 18),
+                label: const Text('Elimina da Drive…'),
+              ),
+          ]);
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            if (bounds.maxWidth < 570)
+              for (var i = 0; i < actions.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8), actions[i],
+              ]
+            else
+              Row(children: [
+                for (var i = 0; i < actions.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8), Expanded(child: actions[i]),
+                ],
+              ]),
+            const SizedBox(height: 8),
+            corrections,
+          ]);
         }),
       ),
     );
@@ -2388,6 +3195,17 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
     ]);
     final actions = Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
       if (_draftCount > 0) SlStatusBadge(label: '$_draftCount modifiche in bozza', tone: SlTone.warning),
+      if (_waitingFiles > 0)
+        Tooltip(
+          message: 'File in copia su Drive: entrano nella bozza da soli. Aggiorna tra qualche minuto.',
+          child: SlStatusBadge(label: '$_waitingFiles file in arrivo', tone: SlTone.info),
+        ),
+      if (_pendingConflicts.isNotEmpty)
+        TextButton.icon(
+          onPressed: _busy ? null : _resolvePendingConflicts,
+          icon: const Icon(Icons.difference_outlined, size: 18),
+          label: Text('${_pendingConflicts.length} doppioni da decidere'),
+        ),
       OutlinedButton(
         onPressed: _draftCount == 0 || _busy ? null : _discard,
         style: OutlinedButton.styleFrom(
@@ -2436,6 +3254,24 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           CatalogSourceSwitch(value: _source, onChanged: _busy ? (_) {} : _switchSource, counts: _sourceCounts),
         IconButton(onPressed: _busy ? null : _openSources,
           tooltip: 'Sorgenti', icon: const Icon(Icons.storage_rounded)),
+        PopupMenuButton<String>(
+          tooltip: 'Diagnostica',
+          icon: const Icon(Icons.health_and_safety_outlined),
+          onSelected: (action) {
+            if (action == 'check') showDriveDiagnostics(context, _api);
+            if (action == 'log') downloadDiagnosticLog(context, _api);
+            if (action == 'duplicates') {
+              showCatalogDuplicates(context, _api).then((changed) {
+                if (changed == true && mounted) _reload();
+              });
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'duplicates', child: Text('File identici nella struttura')),
+            PopupMenuItem(value: 'check', child: Text('Verifica collegamento Drive')),
+            PopupMenuItem(value: 'log', child: Text('Scarica registro diagnostico')),
+          ],
+        ),
         IconButton(
           onPressed: _busy ? null : _reload,
           tooltip: 'Aggiorna catalogo',
@@ -2548,66 +3384,4 @@ class _DragPayload {
   const _DragPayload.drive(Map<String, dynamic> value)
       : material = null,
         driveFile = value;
-}
-
-
-class _MegaDriveDestinationDialog extends StatefulWidget {
-  final AdminMaterialStorageApiService api;
-  final String name;
-  final bool folder;
-  const _MegaDriveDestinationDialog({required this.api, required this.name, required this.folder});
-  @override
-  State<_MegaDriveDestinationDialog> createState() => _MegaDriveDestinationDialogState();
-}
-class _MegaDriveDestinationDialogState extends State<_MegaDriveDestinationDialog> {
-  final List<(String, String)> _path = [];
-  final _newFolder = TextEditingController();
-  List<Map<String, dynamic>> _folders = [];
-  bool _loading = true;
-  String? _error;
-  @override
-  void initState() { super.initState(); _load(); }
-  @override
-  void dispose() { _newFolder.dispose(); super.dispose(); }
-  Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      final rows = <Map<String, dynamic>>[];
-      String? token;
-      do {
-        final page = await widget.api.getDriveTree(_path.isEmpty ? null : _path.last.$1, token);
-        rows.addAll((page['items'] as List? ?? []).whereType<Map>().map((x) => Map<String, dynamic>.from(x)));
-        token = page['next_page_token']?.toString();
-      } while (token != null && token.isNotEmpty);
-      if (mounted) setState(() => _folders = rows.where((x) => x['mime_type'] == 'application/vnd.google-apps.folder').toList());
-    } catch (e) { if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', '')); }
-    if (mounted) setState(() => _loading = false);
-  }
-  void _choose() {
-    final extra = _newFolder.text.trim();
-    if (extra.isNotEmpty && (extra.contains('/') || extra.contains('\\') || extra == '.' || extra == '..' || extra.length > 80)) {
-      setState(() => _error = 'Indica un solo nome di cartella valido.'); return;
-    }
-    final parts = [for (final item in _path) item.$2, if (extra.isNotEmpty) extra];
-    if (parts.length > 12) { setState(() => _error = 'Massimo 12 cartelle.'); return; }
-    Navigator.pop(context, parts);
-  }
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Copia MEGA → Drive'),
-    content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(widget.folder ? '${widget.name}: la cartella e le sottocartelle saranno copiate. Gli originali restano su MEGA.' : '${widget.name}: l’originale resta su MEGA.'),
-      const SizedBox(height: 12),
-      Text('Destinazione: StudentLab / ${_path.map((x) => x.$2).join(' / ')}'),
-      if (_path.isNotEmpty) TextButton.icon(onPressed: _loading ? null : () { _path.removeLast(); _load(); }, icon: const Icon(Icons.arrow_upward), label: const Text('Cartella superiore')),
-      if (_loading) const LinearProgressIndicator(),
-      if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-      for (final folder in _folders) ListTile(dense: true, leading: const Icon(Icons.folder_outlined), title: Text('${folder['name']}'),
-        onTap: _loading ? null : () { _path.add(('${folder['id']}', '${folder['name']}')); _load(); }),
-      TextField(controller: _newFolder, onChanged: (_) { if (_error != null) setState(() => _error = null); }, decoration: const InputDecoration(labelText: 'Nuova sottocartella (facoltativa)')),
-      const Text('I file copiati non vengono pubblicati automaticamente agli studenti.'),
-    ]))),
-    actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
-      FilledButton(onPressed: _loading || _error != null ? null : _choose, child: const Text('Avvia copia'))],
-  );
 }

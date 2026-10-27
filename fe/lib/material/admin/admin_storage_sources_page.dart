@@ -1,4 +1,5 @@
-import 'temporary_transfer_page.dart';
+import 'catalog_upload_page.dart';
+import 'drive_diagnostics.dart';
 import 'package:flutter/material.dart';
 
 import 'package:fe/theme/app_palette.dart';
@@ -219,7 +220,9 @@ class _AdminStorageSourcesPageState extends State<AdminStorageSourcesPage> {
       permissions: <(String, bool?)>[
         if (configured) ...<(String, bool?)>[
           ('Lettura', flag('read')),
-          ('Sorgente in sola lettura: originali conservati', true),
+          flag('delete') == true
+              ? ('Raccoglitore temporaneo: dopo ogni copia verificata su Drive ti chiediamo se eliminare gli originali', true)
+              : ('Sola lettura: gli originali restano su MEGA', true),
           if (publicLinks != null) (publicLinks == 0 ? 'Nessun link pubblico attivo' : '$publicLinks link pubblici attivi', publicLinks == 0),
         ],
       ],
@@ -256,7 +259,8 @@ class _AdminStorageSourcesPageState extends State<AdminStorageSourcesPage> {
         line(Icons.layers_outlined, 'La struttura per gli studenti è una sola. I materiali provenienti da MEGA vengono prima copiati su Drive.'),
         line(Icons.lock_outline_rounded, 'Solo admin e creator collegano le sorgenti e pubblicano la struttura.'),
         line(Icons.download_outlined, 'Gli studenti scaricano sempre tramite StudentLab e non vedono da quale sorgente arriva il file.'),
-        line(Icons.link_off_rounded, 'La sorgente MEGA è visibile agli admin; gli originali sono conservati e i link non vengono mostrati agli studenti.'),
+        line(Icons.link_off_rounded, 'La sorgente MEGA è visibile solo agli admin e i link non vengono mostrati agli studenti.'),
+        line(Icons.inventory_2_outlined, 'MEGA è il raccoglitore temporaneo: anche gli studenti possono inviare file, che arrivano in «Caricamenti studenti».'),
       ]),
     );
   }
@@ -273,7 +277,8 @@ class _AdminStorageSourcesPageState extends State<AdminStorageSourcesPage> {
           Text('Sorgenti del catalogo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
         ]),
         actions: <Widget>[
-          IconButton(tooltip: 'Carica su Drive o MEGA', icon: const Icon(Icons.upload_file), onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TemporaryTransferPage()))),
+          IconButton(tooltip: 'Carica su Drive o MEGA', icon: const Icon(Icons.upload_file), onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CatalogUploadPage()))),
+          IconButton(tooltip: 'Verifica collegamento Drive', icon: const Icon(Icons.health_and_safety_outlined), onPressed: () => showDriveDiagnostics(context, _drive)),
           IconButton(tooltip: 'Aggiorna', onPressed: _loading || _busy ? null : _load, icon: const Icon(Icons.refresh)),
         ],
       ),

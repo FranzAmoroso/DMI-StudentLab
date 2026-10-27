@@ -9,12 +9,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if(req.method!=='POST') return res.status(405).json({detail:'Metodo non disponibile.'});
   const authorization=req.headers.authorization;
   const id=req.body?.job_id;
+  // v26: anche gli studenti caricano verso MEGA (scope 'student'); stessa firma, altro controllo.
+  const scope=req.body?.scope==='student'?'student':'admin';
   if(!authorization?.startsWith('Bearer ') || !/^[a-f0-9-]{36}$/.test(id||'')) return res.status(403).json({detail:'Caricamento non autorizzato.'});
   const base=(process.env.STUDENTLAB_API_URL || process.env.FASTAPI_BASE_URL || process.env.API_BASE_URL || 'https://dmi-student-lab.vercel.app').replace(/\/+$/,'');
   const token=process.env.StudentLab_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
   if(!token) return res.status(503).json({detail:'Archivio temporaneo non configurato.'});
   try {
-    const check=await fetch(`${base}/admin/temporary-transfers/${id}/authorize`, {method:'POST',headers:{Authorization:authorization},signal:AbortSignal.timeout(15000)});
+    const check=await fetch(`${base}/${scope}/temporary-transfers/${id}/authorize`, {method:'POST',headers:{Authorization:authorization},signal:AbortSignal.timeout(15000)});
     if(!check.ok) return res.status(check.status).json({detail:'Caricamento non autorizzato o scaduto.'});
     const job=await check.json();
     if(job.allowed!==true || !/^temporary-transfers\/\d+\/[a-f0-9-]{36}\/file$/.test(job.pathname) || !Number.isSafeInteger(job.size) || job.size<=0 || job.size>50*1024*1024) throw Error();

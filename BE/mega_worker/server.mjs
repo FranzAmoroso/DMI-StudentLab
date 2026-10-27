@@ -54,11 +54,19 @@ export async function createService(env=process.env) {
       if(method==='POST'&&route==='/jobs') {if(mutation)throw new Fault(409,'Collegamento in corso.');json(res,202,await jobs.enqueue(await body(req)));return;}
       if(!Number.isInteger(actor)||actor<=0)throw new Fault(400,'Amministratore non valido.');
       if(method==='GET'&&route==='/jobs'){json(res,200,{items:jobs.list(actor)});return;}
-      const match=route.match(/^\/jobs\/([\w-]+)(\/retry)?$/);
+      const match=route.match(/^\/jobs\/([\w-]+)(\/retry|\/delete-source|\/keep-source)?$/);
       if(match&&method==='GET'&&!match[2]){json(res,200,viewJob(jobs.get(match[1],actor)));return;}
-      if(match&&method==='POST'&&match[2]){json(res,202,await jobs.retry(match[1],actor));return;}
+      if(match&&method==='POST'&&match[2]==='/retry'){json(res,202,await jobs.retry(match[1],actor));return;}
+      if(match&&method==='POST'&&match[2]==='/keep-source'){json(res,200,await jobs.keepSource(match[1],actor));return;}
+      if(match&&method==='POST'&&match[2]==='/delete-source'){
+        if(mutation)throw new Fault(409,'Collegamento MEGA in corso: riprova tra poco.');
+        mutation=true;try{json(res,200,await jobs.deleteSource(match[1],actor));}finally{mutation=false;}return;
+      }
       throw new Fault(404,'Operazione non disponibile.');
-    }catch(error){if(res.headersSent){res.destroy();return;}json(res,error instanceof Fault?error.status:503,{detail:error instanceof Fault?error.message:'Servizio MEGA temporaneamente non disponibile.'});}
+    }catch(error){
+      // Dettagli tecnici solo nel log del servizio (mai token o sessioni); all'app una frase semplice.
+      if(!(error instanceof Fault))console.error('mega_worker_error',JSON.stringify({route:String(req.url||'').split('?')[0].slice(0,80),type:error?.name||'Error',message:String(error?.message||'').replace(/[A-Za-z0-9+/_-]{40,}/g,'[nascosto]').slice(0,200)}));
+      if(res.headersSent){res.destroy();return;}json(res,error instanceof Fault?error.status:503,{detail:error instanceof Fault?error.message:'Servizio MEGA temporaneamente non disponibile. Riprova tra poco.'});}
   });
   server.requestTimeout=180000;server.headersTimeout=15000;
   return {server,vault,source,jobs};

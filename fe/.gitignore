@@ -48,4 +48,15 @@ app.*.map.json
 .env
 
 # Analysing
-An.md\
+An.md\# file locali da non versionare
+**/.env
+**/.env.*
+**/.venv*/
+**/venv/
+.studentlab_backup/
+studentlab_update_v*/
+*.zip
+*.v2[0-9]_nuovo
+*.v2[0-9]_conflitto
+annulla_v*.sh
+fe/build/

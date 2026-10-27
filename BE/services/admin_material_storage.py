@@ -113,6 +113,8 @@ def _public_item(record):
         "status": record.status,
         "visibility_state": record.visibility_state,
         "drive_copied": bool(record.drive_file_id),
+        # v27: serve all'app per «Elimina da Drive» e «Mostra nella struttura»; non viene mostrato.
+        "drive_file_id": record.drive_file_id,
         "drive_copied_at": record.drive_copied_at,
         "drive_activation_pending": bool(record.drive_activation_pending),
         "drive_retry_after": record.drive_retry_after,
