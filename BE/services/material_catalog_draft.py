@@ -244,6 +244,7 @@ async def publish(db, actor):
         return {'published': 0}
     prepared = []
     prepared_hashes = set()
+    prepared_names = {}
     if imports:
         async with await _session() as client:
             headers = {'Authorization': f'Bearer {await _access_token(client)}'}
@@ -290,11 +291,15 @@ async def publish(db, actor):
                     PublicMaterial.file_hash == file_sha,
                     PublicMaterial.status != 'removed').first()
                 if duplicate and not entry.allow_duplicate:
-                    raise RuntimeError('File identico già pubblicato: controlla i duplicati prima di pubblicare.')
+                    raise RuntimeError(f'«{entry.original_name}» è identico a un file già pubblicato. '
+                                       'Premi di nuovo «Pubblica struttura» per scegliere quale tenere.')
                 fingerprint = (entry.subject_id, file_sha)
                 if fingerprint in prepared_hashes and not entry.allow_duplicate:
-                    raise RuntimeError('La bozza contiene due file identici per la stessa materia.')
+                    other = prepared_names.get(fingerprint, 'un altro file')
+                    raise RuntimeError(f'«{entry.original_name}» e «{other}» sono identici. '
+                                       'Premi di nuovo «Pubblica struttura» per scegliere quale tenere.')
                 prepared_hashes.add(fingerprint)
+                prepared_names.setdefault(fingerprint, entry.original_name)
                 subject = db.query(Subject).filter(Subject.id == entry.subject_id,
                     Subject.is_active.is_(True)).first()
                 if subject is None:

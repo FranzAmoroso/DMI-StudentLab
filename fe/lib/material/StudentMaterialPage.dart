@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -62,6 +64,9 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
   SocialAcademicPath? _currentPath;
   String? _rootUniversityFilter;
   String? _rootDepartmentFilter;
+
+  /// v30: partenza delle Dispense per gli ospiti (scelta dall'admin), applicata una volta.
+  bool _guestEntryApplied = false;
 
   String? _selectedUniversity;
 
@@ -224,6 +229,7 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
       });
 
       _validateSelection();
+      if (!_authSession.isAuthenticated && !_guestEntryApplied) _applyGuestEntry();
     } catch (error) {
       if (!mounted) {
         return;
@@ -233,6 +239,48 @@ class _StudentMaterialPageState extends State<StudentMaterialPage> {
         _loading = false;
         _error = _friendlyError(error);
       });
+    }
+  }
+
+  /// v30: l'admin sceglie da dove partono le Dispense per gli ospiti (ateneo, dipartimento,
+  /// corso o materie). Si applica una volta all'apertura: l'ospite può sempre cambiare i filtri.
+  Future<void> _applyGuestEntry() async {
+    _guestEntryApplied = true;
+    Map<String, dynamic> entry;
+    try {
+      final response = await http
+          .get(Uri.parse('${_apiService.baseUrl.replaceAll(RegExp(r'/+$'), '')}/catalog/guest-entry'))
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map) return;
+      entry = Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      return; // senza impostazione si parte dall'intero percorso, come prima
+    }
+    if (!mounted || _authSession.isAuthenticated) return;
+    final level = '${entry['level'] ?? 'university'}';
+    if (level == 'university') return;
+    bool same(String a, Object? b) => b != null && a.trim().toLowerCase() == '$b'.trim().toLowerCase();
+    final remote = _materials.where((m) => m.source != MaterialSourceLocal.local).toList();
+    String? pick(String Function(MaterialLocal) read, Object? wanted) {
+      for (final m in remote) {
+        if (same(read(m), wanted)) return read(m);
+      }
+      return null;
+    }
+    final university = pick((m) => m.displayUniversity, entry['university']);
+    final department = level == 'department' ? null : pick((m) => m.displayDepartment, entry['department']);
+    setState(() {
+      if (university != null) _rootUniversityFilter = university;
+      if (department != null) _rootDepartmentFilter = department;
+    });
+    if (level == 'subject' && _selectedCourse == null) {
+      final items = remote.where((m) =>
+          same(m.displayCourse, entry['course']) &&
+          (university == null || m.displayUniversity == university) &&
+          (department == null || m.displayDepartment == department)).toList();
+      if (items.isNotEmpty) _openCourseFromRoot(items);
     }
   }
 

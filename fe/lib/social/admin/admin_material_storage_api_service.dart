@@ -355,6 +355,7 @@ class AdminMaterialStorageApiService {
     bool rejectedPublications = true,
     bool removedMaterials = true,
     bool orphanBlobs = false,
+    bool temporaryTransfers = false,
   }) async {
     final http.Response response = await http.post(
       _uri('/admin/material-storage/cleanup/execute'),
@@ -365,6 +366,7 @@ class AdminMaterialStorageApiService {
           'rejected_publications': rejectedPublications,
           'removed_materials': removedMaterials,
           'orphan_blobs': orphanBlobs,
+          'temporary_transfers': temporaryTransfers,
         },
       ),
     );
@@ -520,4 +522,48 @@ class AdminMaterialStorageApiService {
       await http.post(_uri('/admin/material-storage/catalog/intents/process'), headers: _headers)
           .timeout(const Duration(seconds: 90)),
       'Controllo dei file in arrivo non riuscito');
+
+  /// v29: file identici nella bozza prima di pubblicare: {groups: [{files: [...]}]}.
+  Future<Map<String, dynamic>> checkCatalogDraft() async => _map(
+      await http.get(_uri('/admin/material-storage/catalog/draft/check'), headers: _headers)
+          .timeout(const Duration(seconds: 90)),
+      'Controllo della bozza non riuscito');
+
+  // ---------------------------------------------------------------------------
+  // v30: partenza delle Dispense per gli ospiti e materie doppie
+  // ---------------------------------------------------------------------------
+
+  Future<Map<String, dynamic>> getGuestEntry() async => _map(
+      await http.get(_uri('/admin/material-storage/catalog/settings/guest-entry'), headers: _headers),
+      'Impostazione non disponibile');
+
+  Future<Map<String, dynamic>> setGuestEntry({
+    required String level,
+    String? university,
+    String? department,
+    String? course,
+  }) async =>
+      _map(
+          await http.put(_uri('/admin/material-storage/catalog/settings/guest-entry'),
+              headers: _headers,
+              body: jsonEncode(<String, dynamic>{
+                'level': level,
+                'university': university,
+                'department': department,
+                'course': course,
+              })),
+          'Impostazione non salvata');
+
+  /// {items: [{duplicate, suggested, options, main_course, other_course, course_code, score}]}
+  Future<Map<String, dynamic>> subjectDuplicates() async => _map(
+      await http.get(_uri('/admin/material-storage/subjects/duplicates'), headers: _headers)
+          .timeout(const Duration(seconds: 90)),
+      'Elenco delle materie doppie non disponibile');
+
+  /// [pairs]: [{from_id, into_id}] (into_id null = solo disattiva). Conferma scritta: UNISCI.
+  Future<Map<String, dynamic>> mergeSubjects(List<Map<String, dynamic>> pairs, String confirmation) async => _map(
+      await http.post(_uri('/admin/material-storage/subjects/merge'),
+          headers: _headers, body: jsonEncode(<String, dynamic>{'pairs': pairs, 'confirmation': confirmation}))
+          .timeout(const Duration(seconds: 120)),
+      'Unione delle materie non riuscita');
 }

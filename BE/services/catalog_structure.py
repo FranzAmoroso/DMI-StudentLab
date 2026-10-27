@@ -6,6 +6,7 @@
 - «Elimina da Drive»: dopo conferma scritta, il file va nel cestino di Drive
   (recuperabile per 30 giorni da Drive) e il materiale esce dal catalogo.
 """
+import hashlib
 import json
 from datetime import datetime, timezone
 
@@ -270,4 +271,68 @@ def list_duplicates(db: Session, limit=200):
         rows = db.query(PublicMaterial).filter(PublicMaterial.file_hash == digest,
             PublicMaterial.status != 'removed').order_by(PublicMaterial.created_at).all()
         groups.append({'files': [_conflict_view(db, m) for m in rows]})
+    return {'groups': groups}
+
+
+# ---------------------------------------------------------------------------
+# v29: controllo della bozza prima di pubblicare (file identici)
+# ---------------------------------------------------------------------------
+
+async def _stream_sha256(client, headers, file_id):
+    sha = hashlib.sha256()
+    try:
+        async with client.stream('GET', f'{API}/files/{file_id}', headers=headers,
+                                 params={'alt': 'media', 'supportsAllDrives': 'true'}) as response:
+            response.raise_for_status()
+            async for chunk in response.aiter_bytes():
+                sha.update(chunk)
+    except httpx.HTTPError:
+        return ''
+    return sha.hexdigest()
+
+
+async def check_draft(db: Session, admin_id: int):
+    """File identici tra le aggiunte in bozza, o tra una aggiunta e un file già pubblicato.
+
+    L'impronta (SHA-256) la fornisce Drive: nessun file viene scaricato.
+    """
+    from models.subject import Subject
+    from services.material_catalog_draft import _conflict_view
+    imports = db.query(MaterialCatalogImportDraft).filter(
+        MaterialCatalogImportDraft.admin_id == admin_id).all()
+    if not imports:
+        return {'groups': []}
+    by_hash = {}
+    async with await _session() as client:
+        headers = {'Authorization': f'Bearer {await _access_token(client)}'}
+        for entry in imports:
+            if entry.allow_duplicate:
+                continue
+            try:
+                response = await client.get(f'{API}/files/{entry.drive_file_id}', headers=headers,
+                    params={'fields': 'sha256Checksum,md5Checksum', 'supportsAllDrives': 'true'})
+                response.raise_for_status()
+                data = response.json()
+            except (httpx.HTTPError, ValueError):
+                continue
+            digest = (data.get('sha256Checksum') or '').lower()
+            if not digest:
+                # v31: Drive non ha l'impronta. La si calcola leggendo il file, come fa la
+                # pubblicazione: così controllo e pubblicazione trovano gli stessi doppioni.
+                digest = await _stream_sha256(client, headers, entry.drive_file_id)
+                if not digest:
+                    continue
+            subject = db.query(Subject).filter(Subject.id == entry.subject_id).first()
+            by_hash.setdefault((entry.subject_id, digest), []).append({
+                'kind': 'import', 'id': entry.id, 'name': entry.original_name, 'title': entry.original_name,
+                'path_segments': json.loads(entry.path_json), 'size': entry.size,
+                'subject_id': entry.subject_id, 'subject_name': subject.name if subject else None,
+                'drive_file_id': entry.drive_file_id, 'mime_type': entry.mime_type})
+    groups = []
+    for (subject_id, digest), drafts in by_hash.items():
+        published = db.query(PublicMaterial).filter(PublicMaterial.subject_id == subject_id,
+            PublicMaterial.file_hash == digest, PublicMaterial.status != 'removed').all()
+        files = [{**_conflict_view(db, m), 'kind': 'published'} for m in published] + drafts
+        if len(files) > 1:
+            groups.append({'files': files})
     return {'groups': groups}

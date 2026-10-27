@@ -17,6 +17,7 @@ import 'admin_material_upload_page.dart';
 import 'admin_teacher_request_dialog.dart';
 import 'drive_file_preview.dart';
 import 'drive_placement_dialog.dart';
+import 'storage_cleanup_dialogs.dart';
 
 class AdminMaterialStoragePage extends StatefulWidget {
   const AdminMaterialStoragePage({super.key});
@@ -376,6 +377,17 @@ class _AdminMaterialStoragePageState extends State<AdminMaterialStoragePage> {
       }),
       action(Icons.account_tree_outlined, SlTone.cyan, 'Catalogo Drive', 'Struttura per gli studenti',
           () => _open(const AdminDriveCatalogPage())),
+      // v31
+      action(Icons.cleaning_services_outlined, SlTone.warning, 'Pulizia storage', 'Libera spazio sul Blob',
+          () async {
+        final done = await showStorageCleanupDialog(context, api: _api);
+        if (done == true && mounted) await _load();
+      }),
+      action(Icons.cloud_sync_outlined, SlTone.info, 'Caricamenti interrotti', 'Riprendi o elimina gli invii a metà',
+          () async {
+        final done = await showInterruptedUploadsDialog(context);
+        if (done == true && mounted) await _load();
+      }),
     ]);
   }
 

@@ -25,7 +25,7 @@ class UploadSelection {
 
   String? get note {
     final parts = <String>[
-      if (tooLarge > 0) '$tooLarge oltre 50 MB',
+      if (tooLarge > 0) '$tooLarge troppo grandi',
       if (skipped > 0) '$skipped non leggibili o oltre il limite di 500 file',
     ];
     return parts.isEmpty ? null : 'Esclusi: ${parts.join(', ')}.';
@@ -33,12 +33,16 @@ class UploadSelection {
 }
 
 const int uploadMaxBytes = 50 * 1024 * 1024;
+
+/// v31: verso Drive gli admin caricano direttamente, senza Blob. Il file va comunque
+/// letto in memoria dal browser: oltre 2 GB il browser rischia di bloccarsi.
+const int adminDriveMaxBytes = 2 * 1024 * 1024 * 1024;
 const int uploadMaxFiles = 500;
 
 bool _hidden(String name) => name.startsWith('.') || name == 'Thumbs.db' || name == 'desktop.ini';
 
 /// Scelta di uno o più file dal dispositivo.
-Future<UploadSelection?> pickUploadFiles({List<String>? extensions}) async {
+Future<UploadSelection?> pickUploadFiles({List<String>? extensions, int maxBytes = uploadMaxBytes}) async {
   final result = await FilePicker.pickFiles(
     allowMultiple: true,
     withData: true,
@@ -49,7 +53,7 @@ Future<UploadSelection?> pickUploadFiles({List<String>? extensions}) async {
   final items = <UploadItem>[];
   var tooLarge = 0, skipped = 0;
   for (final f in result.files) {
-    if (f.size > uploadMaxBytes) {
+    if (f.size > maxBytes) {
       tooLarge++;
     } else if (f.bytes == null || f.bytes!.isEmpty || items.length >= uploadMaxFiles) {
       skipped++;
@@ -63,10 +67,11 @@ Future<UploadSelection?> pickUploadFiles({List<String>? extensions}) async {
 /// Scelta di una cartella con le sue sottocartelle (PC e tablet; sul web si trascina).
 bool get canPickFolder => folder_reader.canPickFolder;
 
-Future<UploadSelection?> pickUploadFolder() => folder_reader.pickFolder();
+Future<UploadSelection?> pickUploadFolder({int maxBytes = uploadMaxBytes}) =>
+    folder_reader.pickFolder(maxBytes: maxBytes);
 
 /// File e cartelle trascinati dal computer nella pagina.
-Future<UploadSelection> itemsFromDrop(List<DropItem> dropped) async {
+Future<UploadSelection> itemsFromDrop(List<DropItem> dropped, {int maxBytes = uploadMaxBytes}) async {
   final items = <UploadItem>[];
   var tooLarge = 0, skipped = 0;
   Future<void> visit(DropItem item, List<String> folders) async {
@@ -87,7 +92,7 @@ Future<UploadSelection> itemsFromDrop(List<DropItem> dropped) async {
     if (_hidden(item.name)) return;
     try {
       final length = await item.length();
-      if (length > uploadMaxBytes) {
+      if (length > maxBytes) {
         tooLarge++;
         return;
       }

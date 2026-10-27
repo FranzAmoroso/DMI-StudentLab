@@ -22,6 +22,7 @@ import 'subject_hierarchy_filter.dart';
 import 'duplicate_compare_dialog.dart';
 import 'folder_import_dialog.dart';
 import 'structure_upload_dialog.dart';
+import 'catalog_settings_dialogs.dart';
 
 /// La struttura StudentLab è indipendente dai percorsi fisici su Drive.
 class AdminDriveCatalogPage extends StatefulWidget {
@@ -1035,7 +1036,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       ])));
     if (!mounted || choice == null) return;
     if (choice == 'structureFiles' || choice == 'structureFolder') {
-      final selection = choice == 'structureFolder' ? await pickUploadFolder() : await pickUploadFiles();
+      final selection = choice == 'structureFolder' ? await pickUploadFolder(maxBytes: adminDriveMaxBytes) : await pickUploadFiles(maxBytes: adminDriveMaxBytes);
       if (selection != null && mounted) await _dropFromPc(selection);
       return;
     }
@@ -1051,9 +1052,107 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
   Future<void> _publish() async {
     if (_draftCount == 0 || _busy) return;
     setState(() => _busy = true);
-    try { await _api.publishCatalogDraft(); await _reload(); }
-    catch (e) { _showError(_reason(e, 'La pubblicazione non è riuscita. Aggiorna il catalogo e controlla la bozza.')); }
+    try {
+      // v29: prima si controllano i file identici e si sceglie quale tenere.
+      final check = await _api.checkCatalogDraft();
+      final groups = [
+        for (final g in (check['groups'] as List? ?? const []).whereType<Map>())
+          (g['files'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList(),
+      ];
+      if (groups.isNotEmpty) {
+        if (mounted) setState(() => _busy = false);
+        final solved = await _chooseIdentical(groups);
+        if (!solved || !mounted) return;
+        setState(() => _busy = true);
+      }
+      try {
+        await _api.publishCatalogDraft();
+      } catch (e) {
+        // v31: se la pubblicazione trova comunque file identici, si riapre la scelta
+        // e si riprova una volta, invece di fermarsi con un messaggio.
+        final again = await _api.checkCatalogDraft();
+        final more = [
+          for (final g in (again['groups'] as List? ?? const []).whereType<Map>())
+            (g['files'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList(),
+        ];
+        if (more.isEmpty) rethrow;
+        if (mounted) setState(() => _busy = false);
+        final solved = await _chooseIdentical(more);
+        if (!solved || !mounted) return;
+        setState(() => _busy = true);
+        await _api.publishCatalogDraft();
+      }
+      await _reload();
+    } catch (e) {
+      _showError(_reason(e, 'La pubblicazione non è riuscita. Aggiorna il catalogo e controlla la bozza.'));
+    }
     if (mounted) setState(() => _busy = false);
+  }
+
+  /// v29: per ogni gruppo di file identici, l'admin sceglie quale tenere (o li tiene tutti).
+  Future<bool> _chooseIdentical(List<List<Map<String, dynamic>>> groups) async {
+    for (var g = 0; g < groups.length; g++) {
+      final files = groups[g];
+      String place(Map<String, dynamic> f) => [
+            if (_string(f['subject_name']).isNotEmpty) _string(f['subject_name']),
+            ..._path(f['path_segments']),
+          ].join(' / ');
+      final choice = await showDialog<Object>(context: context, builder: (ctx) => AlertDialog(
+        title: Text('File identici (${g + 1} di ${groups.length})'),
+        content: SizedBox(width: _dialogWidth(ctx, 560), child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Text('Questi file hanno lo stesso contenuto. Scegli quale tenere: gli altri vengono tolti dalla bozza '
+                '(se già pubblicati, escono dalla struttura ma restano su Drive).'),
+            const SizedBox(height: 10),
+            for (final f in files)
+              Card(child: ListTile(
+                title: Text(_string(f['title']).isEmpty ? _string(f['name']) : _string(f['title'])),
+                subtitle: Text('${place(f)}\n${_bytes(f['size'])} · '
+                    '${f['kind'] == 'published' ? 'già pubblicato' : 'nuovo, in bozza'}'),
+                isThreeLine: true,
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(tooltip: 'Anteprima', icon: const Icon(Icons.visibility_outlined),
+                    onPressed: () => showDriveFilePreview(ctx,
+                      load: () => f['kind'] == 'published'
+                          ? _api.downloadPublicMaterialPreview(_integer(f['id']))
+                          : _api.downloadDriveFilePreview(_string(f['drive_file_id'])),
+                      name: _string(f['name']), mimeType: _string(f['mime_type']))),
+                  FilledButton(onPressed: () => Navigator.pop(ctx, f), child: const Text('Tieni questo')),
+                ]),
+              )),
+          ]))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla pubblicazione')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'all'), child: const Text('Tienili tutti')),
+        ],
+      ));
+      if (choice == null || !mounted) return false;
+      setState(() => _busy = true);
+      try {
+        if (choice == 'all') {
+          for (final f in files.where((f) => f['kind'] == 'import')) {
+            await _api.stageDriveImport(fileId: _string(f['drive_file_id']), subjectId: _integer(f['subject_id']),
+                pathSegments: _path(f['path_segments']), audienceType: _string(_imports.firstWhere(
+                    (i) => _integer(i['id']) == _integer(f['id']), orElse: () => const {'audience_type': 'course'})['audience_type']),
+                allowDuplicate: true);
+          }
+        } else if (choice is Map) {
+          for (final f in files.where((f) => !identical(f, choice))) {
+            if (f['kind'] == 'import') {
+              await _api.discardCatalogDraftItem('import', _integer(f['id']));
+            } else {
+              await _api.removeFromStructure(materialIds: [_integer(f['id'])]);
+            }
+          }
+        }
+      } catch (e) {
+        _showError(_reason(e, 'Non è stato possibile sistemare i file identici.'));
+        if (mounted) setState(() => _busy = false);
+        return false;
+      }
+      if (mounted) setState(() => _busy = false);
+    }
+    return true;
   }
 
   Future<void> _discard() async {
@@ -1588,8 +1687,8 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         pickFolder: (current) => _pickFolder(title: 'Dove metterli nella struttura?', current: current));
     if (ok == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
-          'File inviati. Entrano nella bozza con le loro cartelle appena la copia su Drive è verificata: '
-          'aggiorna il catalogo tra qualche minuto.')));
+          'File caricati su Drive e aggiunti alla bozza con le loro cartelle. '
+          'Se qualcuno è passato dal trasferimento classico, arriva tra qualche minuto.')));
       await _reload();
     }
   }
@@ -1602,7 +1701,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       onDragExited: (_) => setState(() => _pcDragging = false),
       onDragDone: (details) async {
         setState(() => _pcDragging = false);
-        final selection = await itemsFromDrop(details.files);
+        final selection = await itemsFromDrop(details.files, maxBytes: adminDriveMaxBytes);
         if (mounted) await _dropFromPc(selection);
       },
       child: Stack(children: [
@@ -1871,7 +1970,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       onDragExited: (_) => setState(() => _osDragging = false),
       onDragDone: (details) async {
         setState(() => _osDragging = false);
-        final selection = await itemsFromDrop(details.files);
+        final selection = await itemsFromDrop(details.files, maxBytes: adminDriveMaxBytes);
         if (!mounted) return;
         if (selection.items.isEmpty) {
           _showError(selection.note ?? 'Nessun file da caricare.');
@@ -3255,7 +3354,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         IconButton(onPressed: _busy ? null : _openSources,
           tooltip: 'Sorgenti', icon: const Icon(Icons.storage_rounded)),
         PopupMenuButton<String>(
-          tooltip: 'Diagnostica',
+          tooltip: 'Strumenti del catalogo',
           icon: const Icon(Icons.health_and_safety_outlined),
           onSelected: (action) {
             if (action == 'check') showDriveDiagnostics(context, _api);
@@ -3265,8 +3364,16 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
                 if (changed == true && mounted) _reload();
               });
             }
+            if (action == 'guest') showGuestEntryDialog(context, api: _api, subjects: _subjects);
+            if (action == 'subjects') {
+              showSubjectMergeDialog(context, api: _api).then((changed) {
+                if (changed == true && mounted) _reload();
+              });
+            }
           },
           itemBuilder: (_) => const [
+            PopupMenuItem(value: 'guest', child: Text('Cosa vedono gli ospiti')),
+            PopupMenuItem(value: 'subjects', child: Text('Materie doppie')),
             PopupMenuItem(value: 'duplicates', child: Text('File identici nella struttura')),
             PopupMenuItem(value: 'check', child: Text('Verifica collegamento Drive')),
             PopupMenuItem(value: 'log', child: Text('Scarica registro diagnostico')),

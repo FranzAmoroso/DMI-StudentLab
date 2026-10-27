@@ -65,7 +65,11 @@ def prepare(body: Prepare, actor=Depends(get_admin_user), db: Session=Depends(ge
     if not token(): raise HTTPException(503, 'Configura prima il servizio di trasferimento.')
     if body.destination=='mega' and os.getenv('STUDENTLAB_TRANSFER_MEGA_ENABLED')!='1':
         raise HTTPException(409, 'Collega prima l’account MEGA per i caricamenti.')
-    count=db.query(Job).filter(Job.actor_id==actor.id, Job.state.in_(['uploading','pending','running'])).count()
+    # v31: gli invii interrotti (pagina chiusa) non bloccano i nuovi caricamenti.
+    now=datetime.utcnow()
+    count=db.query(Job).filter(Job.actor_id==actor.id, or_(Job.state.in_(['pending','running']),
+        (Job.state=='uploading') & or_(Job.upload_until>=now,
+            (Job.upload_until.is_(None)) & (Job.created_at>=now-timedelta(minutes=30))))).count()
     if count>=20: raise HTTPException(429, 'Completa i trasferimenti in attesa prima di aggiungerne altri.')
     jid=str(uuid4())
     j=Job(id=jid, actor_id=actor.id, blob_path=f'temporary-transfers/{actor.id}/{jid}/file', **body.model_dump())
@@ -144,3 +148,77 @@ def cleaned(job_id: str, db: Session=Depends(get_db)):
     j=db.query(Job).filter(Job.id==job_id).first()
     if not j or j.state not in ('completed','expired','cancelled'): raise HTTPException(409,'Pulizia non autorizzata.')
     j.cleaned=True; db.commit(); return {'ok':True}
+
+
+# ---------------------------------------------------------------------------
+# v31: caricamenti interrotti (pagina chiusa durante l'invio).
+# Il file può essere già tutto sul Blob ma senza conferma: si può riprendere la
+# copia verso Drive/MEGA. Se è incompleto o assente, si elimina e si libera il posto.
+# ---------------------------------------------------------------------------
+INTERRUPTED_AFTER = timedelta(minutes=30)
+
+
+def _interrupted_query(db, now):
+    return db.query(Job).filter(Job.state == 'uploading', or_(
+        Job.upload_until < now,
+        Job.expires_at <= now,
+        (Job.upload_until.is_(None)) & (Job.created_at < now - INTERRUPTED_AFTER)))
+
+
+@router.get('/interrupted')
+async def interrupted(actor=Depends(get_admin_user), db: Session = Depends(get_db)):
+    from services.private_blob import find_private_blob
+    now = datetime.utcnow()
+    rows = _interrupted_query(db, now).order_by(Job.created_at).limit(200).all()
+    items = []
+    for j in rows:
+        try:
+            blob = await find_private_blob(j.blob_path)
+        except HTTPException:
+            blob = None
+        complete = blob is not None and int(getattr(blob, 'size', 0) or 0) == int(j.size)
+        segments = j.path_segments or []
+        items.append({**view(j), 'blob_present': blob is not None, 'blob_complete': complete,
+                      'student': bool(segments) and segments[0] == 'Caricamenti studenti'})
+    return {'items': items}
+
+
+class Resolve(BaseModel):
+    job_ids: list[str] = Field(min_length=1, max_length=200)
+    action: str = Field(pattern=r'^(resume|delete)$')
+
+
+@router.post('/interrupted/resolve')
+async def resolve_interrupted(body: Resolve, actor=Depends(get_admin_user), db: Session = Depends(get_db)):
+    from services.private_blob import delete_private_blob, find_private_blob
+    now = datetime.utcnow()
+    jobs = _interrupted_query(db, now).filter(Job.id.in_(body.job_ids)).all()
+    resumed, deleted, incomplete, failed = 0, 0, 0, 0
+    for j in jobs:
+        try:
+            blob = await find_private_blob(j.blob_path)
+            if body.action == 'resume':
+                if blob is None or int(getattr(blob, 'size', 0) or 0) != int(j.size):
+                    incomplete += 1
+                    continue
+                # Il runner verifica comunque l'impronta SHA-256 prima di copiare.
+                j.state = 'pending'
+                j.error = None
+                j.expires_at = max(j.expires_at, now + timedelta(days=2))
+                resumed += 1
+            else:
+                if blob is not None:
+                    await delete_private_blob(j.blob_path)
+                j.state = 'cancelled'
+                j.cleaned = True
+                deleted += 1
+            db.commit()
+        except Exception as exc:  # dettagli solo nel registro
+            db.rollback()
+            failed += 1
+            from services.diagnostics import record
+            record('BLOB-01', area='trasferimenti', actor_id=actor.id,
+                   technical={'step': f'caricamento interrotto: {body.action}', 'job_id': j.id,
+                              'error': str(exc)[:300]})
+    return {'resumed': resumed, 'deleted': deleted, 'incomplete': incomplete, 'failed': failed,
+            'not_found': len(body.job_ids) - len(jobs)}

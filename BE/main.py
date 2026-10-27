@@ -4979,3 +4979,7 @@ from routes.student_temporary_transfers import router as student_temporary_trans
 app.include_router(admin_catalog_structure_router)
 app.include_router(admin_diagnostics_router)
 app.include_router(student_temporary_transfers_router)
+
+# v30: impostazioni pubbliche del catalogo (partenza delle Dispense per gli ospiti).
+from routes.admin_catalog_structure import public_catalog_router  # noqa: E402
+app.include_router(public_catalog_router)

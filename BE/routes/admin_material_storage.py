@@ -195,13 +195,15 @@ def admin_drive_import_options(current_user: User = Depends(get_admin_user),
 
 def degree_level(degree_type, course=None):
     """Livello leggibile dal codice della classe di laurea (L-31, LM-18, LMCU…)."""
-    code = (degree_type or '').strip().upper().replace(' ', '')
-    name = (course or '').lower()
-    if code.startswith('LMCU') or 'ciclo unico' in name:
+    raw = (degree_type or '').strip().lower()
+    code = raw.upper().replace(' ', '')
+    name = f'{raw} {(course or "").lower()}'
+    # v30: prima le parole («Laurea magistrale» inizia con L ma non è triennale), poi il codice.
+    if 'ciclo unico' in name or code.startswith('LMCU'):
         return 'ciclo_unico'
-    if code.startswith('LM') or 'magistrale' in name:
+    if 'magistrale' in name or re.match(r'^LM-?\d', code):
         return 'magistrale'
-    if code.startswith('L') or 'triennale' in name:
+    if 'triennale' in name or re.match(r'^L-?\d', code):
         return 'triennale'
     return ''
 
@@ -657,6 +659,7 @@ async def admin_material_storage_cleanup_execute(
         rejected_publications=request.rejected_publications,
         removed_materials=request.removed_materials,
         orphan_blobs=request.orphan_blobs,
+        temporary_transfers=request.temporary_transfers,
     )
 
 

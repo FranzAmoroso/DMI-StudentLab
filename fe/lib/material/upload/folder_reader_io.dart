@@ -7,7 +7,7 @@ import 'upload_items.dart';
 bool get canPickFolder => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
 /// Legge una cartella e le sottocartelle (al massimo 10 livelli e 500 file).
-Future<UploadSelection?> pickFolder() async {
+Future<UploadSelection?> pickFolder({int maxBytes = uploadMaxBytes}) async {
   final path = await FilePicker.getDirectoryPath(dialogTitle: 'Scegli la cartella da caricare');
   if (path == null) return null;
   final root = Directory(path);
@@ -28,7 +28,7 @@ Future<UploadSelection?> pickFolder() async {
     }
     try {
       final length = await entity.length();
-      if (length > uploadMaxBytes) {
+      if (length > maxBytes) {
         tooLarge++;
         continue;
       }

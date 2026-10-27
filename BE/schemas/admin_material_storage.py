@@ -37,6 +37,7 @@ class AdminMaterialStorageCleanupRequest(BaseModel):
     rejected_publications: bool = True
     removed_materials: bool = True
     orphan_blobs: bool = False
+    temporary_transfers: bool = False
 
 
 class AdminMaterialStorageEventResponse(BaseModel):

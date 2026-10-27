@@ -29,6 +29,15 @@ SOURCES = {
 
 ORPHAN_MIN_AGE = timedelta(hours=2)
 
+# v31: un Blob «senza riferimenti» si può cancellare solo se sta sotto un prefisso dei
+# materiali. Tutto il resto (banche quiz ed esercizi, configurazioni, FAQ, allegati
+# delle domande, …) è dato dell'app: si conta ma non si tocca mai.
+MATERIAL_BLOB_PREFIXES = (
+    'material-publication/', 'teacher-materials/', 'groups/',
+    'personal-sync/', 'material-shares/',
+)
+TRANSFER_BLOB_PREFIX = 'temporary-transfers/'
+
 
 def utc_now():
     return datetime.now(timezone.utc)
@@ -406,9 +415,21 @@ async def build_storage_snapshot(db: Session):
     )
 
     orphan_blobs = []
+    transfer_blobs = []
+    protected = {"count": 0, "bytes": 0}
     now = utc_now()
+    transfer_jobs = _transfer_jobs(db)
     for path, blob in blob_by_path.items():
         if path in references:
+            continue
+        if path.startswith(TRANSFER_BLOB_PREFIX):
+            leftover = _transfer_leftover(path, blob, transfer_jobs, now)
+            if leftover is not None:
+                transfer_blobs.append(leftover)
+            continue
+        if not path.startswith(MATERIAL_BLOB_PREFIXES):
+            protected["count"] += 1
+            protected["bytes"] += int(getattr(blob, "size", 0) or 0)
             continue
 
         uploaded_at = getattr(blob, "uploaded_at", None)
@@ -435,6 +456,7 @@ async def build_storage_snapshot(db: Session):
     reclaimable += sum(
         blob["size"] for blob in orphan_blobs if blob["safe_to_cleanup"]
     )
+    reclaimable += sum(blob["size"] for blob in transfer_blobs)
 
     return {
         "summary": {
@@ -454,7 +476,45 @@ async def build_storage_snapshot(db: Session):
         },
         "items": items,
         "orphan_blobs": orphan_blobs,
+        "transfer_blobs": transfer_blobs,
+        "protected_blobs": protected,
     }
+
+
+def _transfer_jobs(db: Session):
+    from models.temporary_transfer import TemporaryTransfer
+    rows = db.query(TemporaryTransfer.blob_path, TemporaryTransfer.state, TemporaryTransfer.cleaned,
+                    TemporaryTransfer.upload_until, TemporaryTransfer.expires_at).all()
+    return {row[0]: row for row in rows}
+
+
+def _transfer_leftover(path, blob, jobs, now):
+    """Copia temporanea di un trasferimento che non serve più (v31).
+
+    Si cancella solo se il trasferimento è concluso, annullato o scaduto, oppure se
+    non esiste più ed è più vecchia di ORPHAN_MIN_AGE. Mai durante caricamento o copia.
+    """
+    naive_now = now.replace(tzinfo=None)
+    size = int(getattr(blob, "size", 0) or 0)
+    uploaded_at = getattr(blob, "uploaded_at", None)
+    job = jobs.get(path)
+    if job is None:
+        if uploaded_at is not None:
+            if uploaded_at.tzinfo is None:
+                uploaded_at = uploaded_at.replace(tzinfo=timezone.utc)
+            if now - uploaded_at < ORPHAN_MIN_AGE:
+                return None
+        reason = "trasferimento non più presente"
+    else:
+        _, state, cleaned, upload_until, expires_at = job
+        upload_open = upload_until is not None and upload_until >= naive_now
+        if cleaned or (state in {"completed", "cancelled", "expired"} and not upload_open):
+            reason = "trasferimento concluso"
+        elif state == "failed" and expires_at is not None and expires_at < naive_now:
+            reason = "trasferimento non riuscito e scaduto"
+        else:
+            return None
+    return {"pathname": path, "size": size, "uploaded_at": uploaded_at, "reason": reason}
 
 
 async def delete_record_blob(
@@ -617,6 +677,8 @@ async def cleanup_dry_run(db: Session):
             for item in snapshot["orphan_blobs"]
             if item["safe_to_cleanup"]
         ],
+        "transfer_candidates": snapshot["transfer_blobs"],
+        "protected_blobs": snapshot["protected_blobs"],
         "reclaimable_bytes": snapshot["summary"]["reclaimable_bytes"],
     }
 
@@ -628,10 +690,13 @@ async def execute_cleanup(
     rejected_publications: bool,
     removed_materials: bool,
     orphan_blobs: bool,
+    temporary_transfers: bool = False,
 ):
     dry_run = await cleanup_dry_run(db)
     deleted = []
     failed = []
+    freed = 0
+    sizes = {i["stored_name"]: int(i.get("blob_size") or 0) for i in dry_run["record_candidates"]}
 
     for item in dry_run["record_candidates"]:
         should_delete = (
@@ -657,6 +722,7 @@ async def execute_cleanup(
             )
             if result["blob_deleted"]:
                 deleted.append(item["stored_name"])
+                freed += sizes.get(item["stored_name"], 0)
         except Exception as exception:
             failed.append(
                 {
@@ -672,6 +738,7 @@ async def execute_cleanup(
                 did_delete = await delete_private_blob(path)
                 if did_delete:
                     deleted.append(path)
+                    freed += item["size"]
                 record_storage_event(
                     db,
                     source="orphan",
@@ -685,11 +752,42 @@ async def execute_cleanup(
             except Exception as exception:
                 failed.append({"pathname": path, "error": str(exception)})
 
+    if temporary_transfers:
+        from models.temporary_transfer import TemporaryTransfer
+        for item in dry_run["transfer_candidates"]:
+            path = item["pathname"]
+            try:
+                did_delete = await delete_private_blob(path)
+                if did_delete:
+                    deleted.append(path)
+                    freed += item["size"]
+                db.query(TemporaryTransfer).filter(TemporaryTransfer.blob_path == path,
+                    TemporaryTransfer.state.in_(["completed", "cancelled", "expired", "failed"])
+                ).update({"cleaned": True}, synchronize_session=False)
+                record_storage_event(
+                    db,
+                    source="orphan",
+                    material_id=None,
+                    action="transfer_blob_deleted" if did_delete else "transfer_blob_missing",
+                    actor_id=actor.id,
+                    blob_path=path,
+                    size=item["size"],
+                    reason="Pulizia copia temporanea di trasferimento.",
+                )
+            except Exception as exception:
+                db.rollback()
+                failed.append({"pathname": path, "error": str(exception)})
+
+    if failed:
+        # I dettagli tecnici vanno solo nel registro diagnostico, mai nell'app.
+        from services.diagnostics import record
+        record("BLOB-01", area="storage", actor_id=actor.id,
+               technical={"step": "pulizia Blob", "failed": failed[:50]})
+
     return {
         "deleted_count": len(deleted),
-        "deleted": deleted,
+        "freed_bytes": freed,
         "failed_count": len(failed),
-        "failed": failed,
     }
 
 

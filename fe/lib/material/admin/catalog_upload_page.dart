@@ -7,6 +7,7 @@ import '../../services/user_facing_error.dart';
 import '../../social/admin/admin_material_storage_api_service.dart';
 import '../transfer_upload_api.dart';
 import '../upload/upload_items.dart';
+import '../drive_direct_upload.dart';
 import 'drive_destination_dialog.dart';
 import 'subject_hierarchy_filter.dart';
 
@@ -195,16 +196,24 @@ class _CatalogUploadPageState extends State<CatalogUploadPage> with SingleTicker
       _itemErrors.clear();
     });
     final failed = <UploadItem>[];
+    var direct = 0;
     for (final item in List<UploadItem>.of(_queue)) {
       if (!mounted) return;
       setState(() => _current = item.relativePath);
       try {
-        await _transfers.upload(
-          filename: item.name,
-          bytes: item.bytes,
-          destination: _destination,
-          pathSegments: [..._path, ...item.folders],
-        );
+        if (_destination == 'drive') {
+          // v31: su Drive si carica direttamente, senza Blob e senza limite di 50 MB.
+          final r = await DriveDirectUpload().upload(
+            filename: item.name, bytes: item.bytes, pathSegments: [..._path, ...item.folders]);
+          if (r['mode'] == 'direct') direct++;
+        } else {
+          await _transfers.upload(
+            filename: item.name,
+            bytes: item.bytes,
+            destination: _destination,
+            pathSegments: [..._path, ...item.folders],
+          );
+        }
       } catch (e) {
         failed.add(item);
         _itemErrors[item.relativePath] = friendlyError(e, 'Caricamento non riuscito.');
@@ -226,11 +235,13 @@ class _CatalogUploadPageState extends State<CatalogUploadPage> with SingleTicker
       _busy = false;
       _current = null;
       _note = failed.isEmpty
-          ? '$sent file inviati. La copia parte al prossimo avvio del servizio di trasferimento.'
+          ? (direct == sent
+              ? '$sent file caricati su Drive.'
+              : '$sent file inviati${direct > 0 ? ' ($direct già su Drive)' : ''}. Gli altri vengono copiati al prossimo avvio del servizio di trasferimento.')
           : '$sent file inviati, ${failed.length} da riprovare (sono rimasti nell’elenco).';
     });
     await _loadJobs();
-    if (failed.isEmpty && mounted) _tabs.animateTo(1);
+    if (failed.isEmpty && direct < sent && mounted) _tabs.animateTo(1);
   }
 
   Future<void> _stageSelected() async {
@@ -378,7 +389,7 @@ class _CatalogUploadPageState extends State<CatalogUploadPage> with SingleTicker
         onDragExited: (_) => setState(() => _dragging = false),
         onDragDone: (details) async {
           setState(() => _dragging = false);
-          _add(await itemsFromDrop(details.files));
+          _add(await itemsFromDrop(details.files, maxBytes: adminDriveMaxBytes));
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
@@ -399,13 +410,13 @@ class _CatalogUploadPageState extends State<CatalogUploadPage> with SingleTicker
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
               OutlinedButton.icon(
-                onPressed: _busy ? null : () async => _add(await pickUploadFiles()),
+                onPressed: _busy ? null : () async => _add(await pickUploadFiles(maxBytes: adminDriveMaxBytes)),
                 icon: const Icon(Icons.insert_drive_file_outlined),
                 label: const Text('Scegli file'),
               ),
               if (canPickFolder)
                 OutlinedButton.icon(
-                  onPressed: _busy ? null : () async => _add(await pickUploadFolder()),
+                  onPressed: _busy ? null : () async => _add(await pickUploadFolder(maxBytes: adminDriveMaxBytes)),
                   icon: const Icon(Icons.folder_open_outlined),
                   label: const Text('Scegli cartella'),
                 ),

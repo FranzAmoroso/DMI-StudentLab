@@ -67,6 +67,19 @@ class TransferUploadApi {
   Future<List<Map<String, dynamic>>> studentUploads() async =>
       _rows(await _call('/admin/temporary-transfers/students', fallback: 'Caricamenti degli studenti non disponibili'));
 
+  /// v31: caricamenti interrotti (solo admin).
+  Future<List<Map<String, dynamic>>> interrupted() async {
+    final value = await _call('/admin/temporary-transfers/interrupted', fallback: 'Elenco non disponibile');
+    return _rows(value is Map ? value['items'] : null);
+  }
+
+  /// v31: [action] 'resume' (riprende la copia) o 'delete' (elimina dal Blob).
+  Future<Map<String, dynamic>> resolveInterrupted(List<String> ids, String action) async {
+    final value = await _call('/admin/temporary-transfers/interrupted/resolve',
+        body: {'job_ids': ids, 'action': action}, fallback: 'Operazione non riuscita');
+    return value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
+  }
+
   Future<void> cancel(String id) async => _call('$_prefix/$id/cancel', body: {}, fallback: 'Annullamento non riuscito');
   Future<void> retry(String id) async => _call('$_prefix/$id/retry', body: {}, fallback: 'Nuovo tentativo non riuscito');
   Future<void> confirm(String id) async => _call('$_prefix/$id/ready', body: {}, fallback: 'Verifica non riuscita');
