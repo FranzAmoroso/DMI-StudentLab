@@ -160,8 +160,8 @@ async def stage_drive_import(db, *, admin_id, file_id, subject_id, path,
     size = int(entry.get('size') or 0)
     if not name or mime == FOLDER_MIME or mime.startswith('application/vnd.google-apps.'):
         raise ValueError('Seleziona un file scaricabile da Drive.')
-    if not 0 < size <= 20 * 1024 * 1024:
-        raise ValueError('Importazione diretta disponibile per file fino a 20 MB.')
+    if size <= 0:
+        raise ValueError('Il file su Drive è vuoto.')
     # v27: lo stesso file Drive è già nel catalogo (anche se tolto): lo si dice, con dove si trova.
     known = db.query(PublicMaterial).filter(PublicMaterial.drive_file_id == file_id).first()
     if known is not None:
@@ -256,30 +256,42 @@ async def publish(db, actor):
                 if db.query(PublicMaterial.id).filter(
                     PublicMaterial.drive_file_id == entry.drive_file_id).first():
                     raise RuntimeError('Un file Drive della bozza è già presente nello storico.')
-                digest = hashlib.sha256()
-                count = 0
+                # Impronta calcolata da Drive: nessun download, nessun limite di dimensione.
                 try:
-                    async with client.stream('GET',
-                            f'https://www.googleapis.com/drive/v3/files/{entry.drive_file_id}',
-                            headers=headers, params={'alt': 'media',
-                                'supportsAllDrives': 'true'}) as response:
-                        response.raise_for_status()
-                        async for chunk in response.aiter_bytes():
-                            count += len(chunk)
-                            if count > 20 * 1024 * 1024:
-                                raise RuntimeError('Il file Drive supera il limite di 20 MB.')
-                            digest.update(chunk)
-                except httpx.HTTPError as exc:
-                    raise RuntimeError('Impossibile verificare il file su Drive.') from exc
+                    meta = await client.get(
+                        f'https://www.googleapis.com/drive/v3/files/{entry.drive_file_id}',
+                        headers=headers, params={'fields': 'sha256Checksum,size',
+                                                 'supportsAllDrives': 'true'})
+                    meta.raise_for_status()
+                    drive_sha = (meta.json().get('sha256Checksum') or '').lower()
+                except (httpx.HTTPError, ValueError):
+                    drive_sha = ''
+                digest = hashlib.sha256()
+                count = entry.size
+                if not drive_sha:
+                    # Drive non ha l'impronta (raro): la si calcola leggendo il file a flusso, senza limiti.
+                    count = 0
+                    try:
+                        async with client.stream('GET',
+                                f'https://www.googleapis.com/drive/v3/files/{entry.drive_file_id}',
+                                headers=headers, params={'alt': 'media',
+                                    'supportsAllDrives': 'true'}) as response:
+                            response.raise_for_status()
+                            async for chunk in response.aiter_bytes():
+                                count += len(chunk)
+                                digest.update(chunk)
+                    except httpx.HTTPError as exc:
+                        raise RuntimeError('Impossibile verificare il file su Drive.') from exc
                 if count != entry.size:
                     raise RuntimeError('La dimensione del file Drive è cambiata.')
+                file_sha = drive_sha or digest.hexdigest()
                 duplicate = db.query(PublicMaterial.id).filter(
                     PublicMaterial.subject_id == entry.subject_id,
-                    PublicMaterial.file_hash == digest.hexdigest(),
+                    PublicMaterial.file_hash == file_sha,
                     PublicMaterial.status != 'removed').first()
                 if duplicate and not entry.allow_duplicate:
                     raise RuntimeError('File identico già pubblicato: controlla i duplicati prima di pubblicare.')
-                fingerprint = (entry.subject_id, digest.hexdigest())
+                fingerprint = (entry.subject_id, file_sha)
                 if fingerprint in prepared_hashes and not entry.allow_duplicate:
                     raise RuntimeError('La bozza contiene due file identici per la stessa materia.')
                 prepared_hashes.add(fingerprint)
@@ -287,7 +299,7 @@ async def publish(db, actor):
                     Subject.is_active.is_(True)).first()
                 if subject is None:
                     raise RuntimeError('Una materia della bozza non è più disponibile.')
-                prepared.append((entry, subject, digest.hexdigest()))
+                prepared.append((entry, subject, file_sha))
     materials = {}
     subjects = {}
     for draft in drafts:

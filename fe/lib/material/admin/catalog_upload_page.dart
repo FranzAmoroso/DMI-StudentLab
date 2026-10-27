@@ -309,14 +309,10 @@ class _CatalogUploadPageState extends State<CatalogUploadPage> with SingleTicker
     folder.dispose();
     if (chosen == null || !mounted) return;
     setState(() => _busy = true);
-    var staged = 0, duplicates = 0, tooBig = 0, failed = 0;
+    var staged = 0, duplicates = 0, failed = 0;
     String? lastError;
     for (final job in jobs) {
       final driveId = '${job['result_id']}';
-      if ((int.tryParse('${job['size']}') ?? 0) > 20 * 1024 * 1024) {
-        tooBig++;
-        continue;
-      }
       final path = chosen.$3
           ? (job['path_segments'] as List? ?? const []).map((e) => '$e').toList()
           : chosen.$4;
@@ -345,7 +341,6 @@ class _CatalogUploadPageState extends State<CatalogUploadPage> with SingleTicker
       _note = [
         '$staged file aggiunti alla bozza.',
         if (duplicates > 0) '$duplicates possibili duplicati: controllali dal Catalogo.',
-        if (tooBig > 0) '$tooBig oltre 20 MB: restano su Drive ma non entrano nelle Dispense.',
         if (failed > 0) '$failed non aggiunti. ${lastError ?? ''}',
       ].join(' ');
     });

@@ -687,7 +687,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
         }
       }
       await _reload();
-    } catch (e) { _showError(_reason(e, 'File non aggiunto alla bozza. Verifica permessi e dimensione (massimo 20 MB).')); }
+    } catch (e) { _showError(_reason(e, 'File non aggiunto alla bozza. Verifica i permessi su Drive e riprova.')); }
     if (mounted) setState(() => _busy = false);
   }
 
@@ -722,7 +722,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
           alreadyIn[name] = (alreadyIn[name] ?? 0) + 1;
           continue;
         }
-        if (mime.startsWith('application/vnd.google-apps.') || size <= 0 || size > 20 * 1024 * 1024) {
+        if (mime.startsWith('application/vnd.google-apps.') || size <= 0) {
           excluded++;
           continue;
         }
@@ -747,7 +747,7 @@ class _AdminDriveCatalogPageState extends State<AdminDriveCatalogPage> {
       _showError([
         'Questa cartella non ha file nuovi da aggiungere.',
         if (present.isNotEmpty) 'Sono già nel catalogo: $present. Tocca ⌖ accanto a un file per aprirlo nella struttura.',
-        if (excluded > alreadyIn.values.fold<int>(0, (a, b) => a + b)) 'Alcuni file non sono compatibili (documenti Google o oltre 20 MB).',
+        if (excluded > alreadyIn.values.fold<int>(0, (a, b) => a + b)) 'Alcuni file non sono compatibili (documenti Google o file vuoti).',
       ].join(' '));
       return;
     }

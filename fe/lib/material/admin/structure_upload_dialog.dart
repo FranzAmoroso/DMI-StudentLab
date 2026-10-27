@@ -167,8 +167,7 @@ class _StructureUploadDialogState extends State<_StructureUploadDialog> {
               const SizedBox(height: 10),
               Text('Su Drive andranno in: StudentLab / ${_drivePath(items.first).take(1 + _folder.length).join(' / ')} / …',
                   style: Theme.of(context).textTheme.bodySmall),
-              const Text('Entrano nella bozza da soli appena la copia su Drive è verificata (di solito pochi minuti). '
-                  'File oltre 20 MB restano su Drive ma non entrano nelle Dispense.'),
+              const Text('Entrano nella bozza da soli appena la copia su Drive è verificata (di solito pochi minuti).'),
               if (_busy) ...[
                 const SizedBox(height: 12),
                 LinearProgressIndicator(value: items.isEmpty ? null : _done / items.length),
